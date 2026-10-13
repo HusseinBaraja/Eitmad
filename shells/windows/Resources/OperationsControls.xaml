@@ -7,6 +7,23 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Margin" Value="0,0,0,7" />
     </Style>
+    <Style x:Key="FormCheckBox" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="Noto Kufi Arabic, Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="6,4,0,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" Style="{x:Null}" TextWrapping="Wrap" />
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style x:Key="TextInput" TargetType="TextBox">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
         <Setter Property="MinHeight" Value="48" />

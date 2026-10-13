@@ -1,0 +1,224 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="168adcf7-e53f-4731-a0e5-485a211d5a23" name="Hussein@DESKTOP-EIG6O0F 2026-10-13 17:51:13" runUser="DESKTOP-EIG6O0F\CodexSandboxOffline" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-13T17:51:13.8030232+03:00" queuing="2026-10-13T17:51:13.8030241+03:00" start="2026-10-13T17:51:10.4529965+03:00" finish="2026-10-13T17:51:30.3406059+03:00" />
+  <TestSettings name="default" id="9bad9ef4-8f04-46bb-898b-e0dc0f8b6d36">
+    <Deployment runDeploymentRoot="Hussein_DESKTOP-EIG6O0F_2026-10-13_17_51_13" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="c51f4e9a-ea20-4883-9556-a8a28cd5e2cf" testId="14bef60f-10c5-8640-a8f5-da0645e7dd98" testName="CustomizationAndCompatibilityRoundTripWithoutShellCostFormula" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0016010" startTime="2026-10-13T17:51:30.1657481+03:00" endTime="2026-10-13T17:51:30.1675052+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c51f4e9a-ea20-4883-9556-a8a28cd5e2cf" />
+    <UnitTestResult executionId="699fa9c4-2644-446d-b68e-210edbc17490" testId="19349e72-fc10-89b5-871b-cc730815e84e" testName="SwitchingEqualPricesClearsOldReviewAndBelowCostConfirmation" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0005200" startTime="2026-10-13T17:51:30.1332751+03:00" endTime="2026-10-13T17:51:30.1338364+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="699fa9c4-2644-446d-b68e-210edbc17490" />
+    <UnitTestResult executionId="bb1799fb-c852-4651-b1f4-7464aeb574a7" testId="1a2ff466-c593-819b-9caa-421c12c0d61e" testName="VariantChangesRejectDelayedReviewMargins (&quot;duplicate&quot;)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.5995925" startTime="2026-10-13T17:51:13.6673906+03:00" endTime="2026-10-13T17:51:14.2673191+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bb1799fb-c852-4651-b1f4-7464aeb574a7" />
+    <UnitTestResult executionId="c1f417d7-f8e9-4f13-a4d0-92074efdf4e9" testId="15216c01-e882-805b-ad09-0cbf4a2ebd23" testName="UnsavedCategoryCannotContinueOrSaveAndWhitespaceResolvesSavedCategory" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0017064" startTime="2026-10-13T17:51:30.1606904+03:00" endTime="2026-10-13T17:51:30.1624667+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c1f417d7-f8e9-4f13-a4d0-92074efdf4e9" />
+    <UnitTestResult executionId="b5ef6bb7-9e82-450f-a037-7f8b2bfa7c0c" testId="1a3d1278-c164-87ce-9e4b-138d09d26104" testName="MissingPartRevisionKeepsEditAndDuplicateClosed" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0012911" startTime="2026-10-13T17:51:30.1343798+03:00" endTime="2026-10-13T17:51:30.1357655+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b5ef6bb7-9e82-450f-a037-7f8b2bfa7c0c" />
+    <UnitTestResult executionId="4ceb8604-a12b-486f-adeb-1510a1f94440" testId="1b596f80-449c-8f6f-a057-1321814e8d86" testName="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.9488489" startTime="2026-10-13T17:51:26.8895084+03:00" endTime="2026-10-13T17:51:27.8385706+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4ceb8604-a12b-486f-adeb-1510a1f94440">
+      <Output>
+        <StdOut>Pricing render: 1553.6 x 881.6 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="af573a8c-bd5e-4de2-b89d-4e29424f7345" testId="1552dc4a-9acc-8b36-a36a-cf6f2308b887" testName="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.9416445" startTime="2026-10-13T17:51:27.8386422+03:00" endTime="2026-10-13T17:51:28.7804433+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="af573a8c-bd5e-4de2-b89d-4e29424f7345">
+      <Output>
+        <StdOut>Pricing render: 1338.4 x 752.8 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="880890a7-8166-4b91-8b3a-80a3f374312e" testId="1408f429-397c-8a55-b66c-f3f01ec6e922" testName="VariantChangesRejectDelayedReviewMargins (&quot;add&quot;)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.9248324" startTime="2026-10-13T17:51:10.9692574+03:00" endTime="2026-10-13T17:51:12.9191229+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="880890a7-8166-4b91-8b3a-80a3f374312e" />
+    <UnitTestResult executionId="4099bda7-e6e8-4fb0-ba27-bfae6291dde0" testId="110e00fc-2294-8596-9051-fe00dcdd9edf" testName="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession (False)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.6166347" startTime="2026-10-13T17:51:24.6545384+03:00" endTime="2026-10-13T17:51:25.2713679+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4099bda7-e6e8-4fb0-ba27-bfae6291dde0" />
+    <UnitTestResult executionId="70f65a8b-7819-489a-932c-a7ae3735e3ff" testId="10abc793-8ded-8571-81d6-cc070ad66963" testName="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.8749539" startTime="2026-10-13T17:51:28.7804996+03:00" endTime="2026-10-13T17:51:29.6556124+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70f65a8b-7819-489a-932c-a7ae3735e3ff">
+      <Output>
+        <StdOut>Pricing render: 720 x 560 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4aaa74e2-8ded-4a75-a42e-110c321e52e6" testId="140b8656-a3da-8fb3-b640-3755f73655b8" testName="ClientMapsConflictDenialAndTypedSubscriptions" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0019272" startTime="2026-10-13T17:51:30.1697090+03:00" endTime="2026-10-13T17:51:30.1733676+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4aaa74e2-8ded-4a75-a42e-110c321e52e6" />
+    <UnitTestResult executionId="65eb6a50-81d1-47dd-86f0-bdf03105e588" testId="15b78296-9a2f-82e0-b202-a8e5b62bd322" testName="SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0240335" startTime="2026-10-13T17:51:30.1357815+03:00" endTime="2026-10-13T17:51:30.1598567+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="65eb6a50-81d1-47dd-86f0-bdf03105e588" />
+    <UnitTestResult executionId="95fb976c-696b-4d29-8d15-f0439b737187" testId="1e835b76-4a72-88a6-9391-e91bab72fcf7" testName="ReopenRetainsExactPartReferencesAndEditRevisionAcrossRefresh" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0007111" startTime="2026-10-13T17:51:30.1625035+03:00" endTime="2026-10-13T17:51:30.1632716+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="95fb976c-696b-4d29-8d15-f0439b737187" />
+    <UnitTestResult executionId="202f6dd0-3b3b-4bc7-aba5-61bf7e84b15b" testId="1c587dc3-b1a8-8999-a0bb-29533f4a02ed" testName="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.9938365" startTime="2026-10-13T17:51:14.8808490+03:00" endTime="2026-10-13T17:51:16.8748375+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="202f6dd0-3b3b-4bc7-aba5-61bf7e84b15b" />
+    <UnitTestResult executionId="af252d6c-1fe6-495a-8d7a-745529485a40" testId="13bb933a-6744-8de5-9760-d27c09ad12ff" testName="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.0371253" startTime="2026-10-13T17:51:23.6159635+03:00" endTime="2026-10-13T17:51:24.6544899+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="af252d6c-1fe6-495a-8d7a-745529485a40">
+      <Output>
+        <StdOut>Variant render: 720 x 560 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ef559c71-b926-416c-8b47-1da843a717c2" testId="1bae5859-2712-8746-bee9-da7474148a6e" testName="InputsPreserveExactMillimetresAndRejectFractionalMoneyAndPartCounts" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0008909" startTime="2026-10-13T17:51:30.1646542+03:00" endTime="2026-10-13T17:51:30.1656464+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ef559c71-b926-416c-8b47-1da843a717c2" />
+    <UnitTestResult executionId="2a7ea38a-1829-4680-8ee0-8d736d66d5c6" testId="165b6cf1-ca39-84d1-89f1-3fb788a00370" testName="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession (True)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.6674108" startTime="2026-10-13T17:51:25.2714220+03:00" endTime="2026-10-13T17:51:25.9389522+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2a7ea38a-1829-4680-8ee0-8d736d66d5c6" />
+    <UnitTestResult executionId="d255755b-ab0d-45b4-ba77-3a5fe71117e2" testId="10c04bc5-e869-84d2-b834-b5c462233fa6" testName="ReceptionistProjectionAndSessionClearRemoveInternalFieldsAndEditing" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0004419" startTime="2026-10-13T17:51:30.1338628+03:00" endTime="2026-10-13T17:51:30.1343656+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d255755b-ab0d-45b4-ba77-3a5fe71117e2" />
+    <UnitTestResult executionId="870f126e-15f4-42cc-b834-879882ad5caf" testId="11f3bead-243c-8d1b-9e47-6c59c9edb011" testName="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:02.0647404" startTime="2026-10-13T17:51:16.8755157+03:00" endTime="2026-10-13T17:51:18.9404590+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="870f126e-15f4-42cc-b834-879882ad5caf" />
+    <UnitTestResult executionId="b89f201e-6e80-48dc-bc78-e9958122646d" testId="19c4f7ed-fed2-8769-8605-be66dcd76782" testName="PriceEditorUsesOnlyReturnedMarginAndRejectsFractionalRials" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0009171" startTime="2026-10-13T17:51:30.1322775+03:00" endTime="2026-10-13T17:51:30.1332480+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b89f201e-6e80-48dc-bc78-e9958122646d" />
+    <UnitTestResult executionId="a78b2a87-40de-45cc-bcce-d3e6fde9efaa" testId="14270317-6e8c-8f7c-bb5f-a5d7c0a7eb7c" testName="ReceptionistPricingColumnsAndEditorAreWithheld" computerName="DESKTOP-EIG6O0F" duration="00:00:00.4753854" startTime="2026-10-13T17:51:29.6556611+03:00" endTime="2026-10-13T17:51:30.1311679+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a78b2a87-40de-45cc-bcce-d3e6fde9efaa" />
+    <UnitTestResult executionId="f6494131-2b78-472c-86b0-a701435eab75" testId="1268cdd9-a6ce-8a2d-9c14-fa0865e2eaec" testName="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (720,560)" computerName="DESKTOP-EIG6O0F" duration="00:00:02.2467495" startTime="2026-10-13T17:51:18.9416690+03:00" endTime="2026-10-13T17:51:21.1889535+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f6494131-2b78-472c-86b0-a701435eab75" />
+    <UnitTestResult executionId="38e30a25-c08c-4029-9b08-357f713fde7c" testId="1d910b90-7eb5-8875-9cb8-647cd7d3b759" testName="SyncRepairNoticeIsManagerOnlyAndClearsWhenSessionEnds" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0007985" startTime="2026-10-13T17:51:30.1312394+03:00" endTime="2026-10-13T17:51:30.1322347+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="38e30a25-c08c-4029-9b08-357f713fde7c" />
+    <UnitTestResult executionId="b54d1cb0-10a5-46be-96e0-28fed54221d9" testId="14561536-d9a2-88ce-b9ae-461c258206c9" testName="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (1920,1080)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.1812004" startTime="2026-10-13T17:51:21.1896962+03:00" endTime="2026-10-13T17:51:22.3713202+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b54d1cb0-10a5-46be-96e0-28fed54221d9">
+      <Output>
+        <StdOut>Variant render: 1553.6 x 881.6 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6971d930-ec17-4e2c-bdee-69c9caf39c04" testId="1a27a5e7-cb7a-8b4d-ae00-085b3be210e3" testName="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (1338,753)" computerName="DESKTOP-EIG6O0F" duration="00:00:01.2439286" startTime="2026-10-13T17:51:22.3717321+03:00" endTime="2026-10-13T17:51:23.6159143+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6971d930-ec17-4e2c-bdee-69c9caf39c04">
+      <Output>
+        <StdOut>Variant render: 1338.4 x 752.8 DIP; display scaling 125%</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="dda78382-d204-4b0a-9a72-fb533a3e47e9" testId="1f4bee88-08fa-8161-a6b9-d0834288bdd6" testName="DuplicateStaysUnsavedWithNewOptionAndVariantIdentities" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0012777" startTime="2026-10-13T17:51:30.1632934+03:00" endTime="2026-10-13T17:51:30.1646152+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dda78382-d204-4b0a-9a72-fb533a3e47e9" />
+    <UnitTestResult executionId="992f9b82-e7e1-466f-b9b9-d28cef5ed95f" testId="1ad62e66-59f4-806c-97cf-105986c1f9c9" testName="ConfirmedPublicationWithFailedReloadDoesNotBecomeAnUnconfirmedRetry" computerName="DESKTOP-EIG6O0F" duration="00:00:00.9499843" startTime="2026-10-13T17:51:25.9390000+03:00" endTime="2026-10-13T17:51:26.8894316+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="992f9b82-e7e1-466f-b9b9-d28cef5ed95f" />
+    <UnitTestResult executionId="9e7e4b2a-47e5-4af6-adfe-4bc2ef63c73f" testId="19987339-a22c-8ead-b979-e4f2ac8df582" testName="VariantChangesRejectDelayedReviewMargins (&quot;edit&quot;)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.7432544" startTime="2026-10-13T17:51:12.9224135+03:00" endTime="2026-10-13T17:51:13.6661179+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9e7e4b2a-47e5-4af6-adfe-4bc2ef63c73f" />
+    <UnitTestResult executionId="1364dc67-bfe3-4313-9f41-0d54501c6b38" testId="12e7ca0a-f04a-802f-86c0-b1105de2d26b" testName="UnknownSaveRetriesExactKeyAndRefusesDifferentPayload" computerName="DESKTOP-EIG6O0F" duration="00:00:00.0021003" startTime="2026-10-13T17:51:30.1675315+03:00" endTime="2026-10-13T17:51:30.1696801+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1364dc67-bfe3-4313-9f41-0d54501c6b38" />
+    <UnitTestResult executionId="52d4306b-dc99-415c-b8fa-4b91824d36ef" testId="107af048-2f5b-8ff4-8149-b2c0892ea9f5" testName="VariantChangesRejectDelayedReviewMargins (&quot;remove&quot;)" computerName="DESKTOP-EIG6O0F" duration="00:00:00.6132687" startTime="2026-10-13T17:51:14.2673628+03:00" endTime="2026-10-13T17:51:14.8807865+03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="52d4306b-dc99-415c-b8fa-4b91824d36ef" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="VariantChangesRejectDelayedReviewMargins (&quot;add&quot;)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1408f429-397c-8a55-b66c-f3f01ec6e922">
+      <Execution id="880890a7-8166-4b91-8b3a-80a3f374312e" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantChangesRejectDelayedReviewMargins" />
+    </UnitTest>
+    <UnitTest name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="10abc793-8ded-8571-81d6-cc070ad66963">
+      <Execution id="70f65a8b-7819-489a-932c-a7ae3735e3ff" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes" />
+    </UnitTest>
+    <UnitTest name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1b596f80-449c-8f6f-a057-1321814e8d86">
+      <Execution id="4ceb8604-a12b-486f-adeb-1510a1f94440" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes" />
+    </UnitTest>
+    <UnitTest name="SyncRepairNoticeIsManagerOnlyAndClearsWhenSessionEnds" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1d910b90-7eb5-8875-9cb8-647cd7d3b759">
+      <Execution id="38e30a25-c08c-4029-9b08-357f713fde7c" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Pricing.PricingPresentationTests" name="SyncRepairNoticeIsManagerOnlyAndClearsWhenSessionEnds" />
+    </UnitTest>
+    <UnitTest name="PriceEditorUsesOnlyReturnedMarginAndRejectsFractionalRials" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="19c4f7ed-fed2-8769-8605-be66dcd76782">
+      <Execution id="b89f201e-6e80-48dc-bc78-e9958122646d" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Pricing.PricingPresentationTests" name="PriceEditorUsesOnlyReturnedMarginAndRejectsFractionalRials" />
+    </UnitTest>
+    <UnitTest name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1c587dc3-b1a8-8999-a0bb-29533f4a02ed">
+      <Execution id="202f6dd0-3b3b-4bc7-aba5-61bf7e84b15b" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields" />
+    </UnitTest>
+    <UnitTest name="CustomizationAndCompatibilityRoundTripWithoutShellCostFormula" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="14bef60f-10c5-8640-a8f5-da0645e7dd98">
+      <Execution id="c51f4e9a-ea20-4883-9556-a8a28cd5e2cf" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="CustomizationAndCompatibilityRoundTripWithoutShellCostFormula" />
+    </UnitTest>
+    <UnitTest name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (1920,1080)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="14561536-d9a2-88ce-b9ae-461c258206c9">
+      <Execution id="b54d1cb0-10a5-46be-96e0-28fed54221d9" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices" />
+    </UnitTest>
+    <UnitTest name="UnsavedCategoryCannotContinueOrSaveAndWhitespaceResolvesSavedCategory" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="15216c01-e882-805b-ad09-0cbf4a2ebd23">
+      <Execution id="c1f417d7-f8e9-4f13-a4d0-92074efdf4e9" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="UnsavedCategoryCannotContinueOrSaveAndWhitespaceResolvesSavedCategory" />
+    </UnitTest>
+    <UnitTest name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1268cdd9-a6ce-8a2d-9c14-fa0865e2eaec">
+      <Execution id="f6494131-2b78-472c-86b0-a701435eab75" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields" />
+    </UnitTest>
+    <UnitTest name="SwitchingEqualPricesClearsOldReviewAndBelowCostConfirmation" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="19349e72-fc10-89b5-871b-cc730815e84e">
+      <Execution id="699fa9c4-2644-446d-b68e-210edbc17490" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Pricing.PricingPresentationTests" name="SwitchingEqualPricesClearsOldReviewAndBelowCostConfirmation" />
+    </UnitTest>
+    <UnitTest name="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession (False)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="110e00fc-2294-8596-9051-fe00dcdd9edf">
+      <Execution id="4099bda7-e6e8-4fb0-ba27-bfae6291dde0" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession" />
+    </UnitTest>
+    <UnitTest name="SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="15b78296-9a2f-82e0-b202-a8e5b62bd322">
+      <Execution id="65eb6a50-81d1-47dd-86f0-bdf03105e588" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="SearchLoadsOnlyRowsAndEditorsReuseImmutableReferences" />
+    </UnitTest>
+    <UnitTest name="ReopenRetainsExactPartReferencesAndEditRevisionAcrossRefresh" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1e835b76-4a72-88a6-9391-e91bab72fcf7">
+      <Execution id="95fb976c-696b-4d29-8d15-f0439b737187" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="ReopenRetainsExactPartReferencesAndEditRevisionAcrossRefresh" />
+    </UnitTest>
+    <UnitTest name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="11f3bead-243c-8d1b-9e47-6c59c9edb011">
+      <Execution id="870f126e-15f4-42cc-b834-879882ad5caf" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="CompleteEditorSavesReopensAndKeepsConflictAndRetryFields" />
+    </UnitTest>
+    <UnitTest name="VariantChangesRejectDelayedReviewMargins (&quot;duplicate&quot;)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1a2ff466-c593-819b-9caa-421c12c0d61e">
+      <Execution id="bb1799fb-c852-4651-b1f4-7464aeb574a7" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantChangesRejectDelayedReviewMargins" />
+    </UnitTest>
+    <UnitTest name="InputsPreserveExactMillimetresAndRejectFractionalMoneyAndPartCounts" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1bae5859-2712-8746-bee9-da7474148a6e">
+      <Execution id="ef559c71-b926-416c-8b47-1da843a717c2" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="InputsPreserveExactMillimetresAndRejectFractionalMoneyAndPartCounts" />
+    </UnitTest>
+    <UnitTest name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (720,560)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="13bb933a-6744-8de5-9760-d27c09ad12ff">
+      <Execution id="af252d6c-1fe6-495a-8d7a-745529485a40" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices" />
+    </UnitTest>
+    <UnitTest name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1a27a5e7-cb7a-8b4d-ae00-085b3be210e3">
+      <Execution id="6971d930-ec17-4e2c-bdee-69c9caf39c04" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices" />
+    </UnitTest>
+    <UnitTest name="MissingPartRevisionKeepsEditAndDuplicateClosed" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1a3d1278-c164-87ce-9e4b-138d09d26104">
+      <Execution id="b5ef6bb7-9e82-450f-a037-7f8b2bfa7c0c" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="MissingPartRevisionKeepsEditAndDuplicateClosed" />
+    </UnitTest>
+    <UnitTest name="ClientMapsConflictDenialAndTypedSubscriptions" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="140b8656-a3da-8fb3-b640-3755f73655b8">
+      <Execution id="4aaa74e2-8ded-4a75-a42e-110c321e52e6" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="ClientMapsConflictDenialAndTypedSubscriptions" />
+    </UnitTest>
+    <UnitTest name="UnknownSaveRetriesExactKeyAndRefusesDifferentPayload" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="12e7ca0a-f04a-802f-86c0-b1105de2d26b">
+      <Execution id="1364dc67-bfe3-4313-9f41-0d54501c6b38" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="UnknownSaveRetriesExactKeyAndRefusesDifferentPayload" />
+    </UnitTest>
+    <UnitTest name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes (1338,753)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1552dc4a-9acc-8b36-a36a-cf6f2308b887">
+      <Execution id="af573a8c-bd5e-4de2-b89d-4e29424f7345" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="PricingListEditorAndBelowCostWarningRenderAtBaselineSizes" />
+    </UnitTest>
+    <UnitTest name="VariantChangesRejectDelayedReviewMargins (&quot;edit&quot;)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="19987339-a22c-8ead-b979-e4f2ac8df582">
+      <Execution id="9e7e4b2a-47e5-4af6-adfe-4bc2ef63c73f" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantChangesRejectDelayedReviewMargins" />
+    </UnitTest>
+    <UnitTest name="DuplicateStaysUnsavedWithNewOptionAndVariantIdentities" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1f4bee88-08fa-8161-a6b9-d0834288bdd6">
+      <Execution id="dda78382-d204-4b0a-9a72-fb533a3e47e9" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Furniture.FurniturePresentationTests" name="DuplicateStaysUnsavedWithNewOptionAndVariantIdentities" />
+    </UnitTest>
+    <UnitTest name="VariantChangesRejectDelayedReviewMargins (&quot;remove&quot;)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="107af048-2f5b-8ff4-8149-b2c0892ea9f5">
+      <Execution id="52d4306b-dc99-415c-b8fa-4b91824d36ef" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.FurnitureRenderedTests" name="VariantChangesRejectDelayedReviewMargins" />
+    </UnitTest>
+    <UnitTest name="ReceptionistProjectionAndSessionClearRemoveInternalFieldsAndEditing" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="10c04bc5-e869-84d2-b834-b5c462233fa6">
+      <Execution id="d255755b-ab0d-45b4-ba77-3a5fe71117e2" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Pricing.PricingPresentationTests" name="ReceptionistProjectionAndSessionClearRemoveInternalFieldsAndEditing" />
+    </UnitTest>
+    <UnitTest name="ConfirmedPublicationWithFailedReloadDoesNotBecomeAnUnconfirmedRetry" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="1ad62e66-59f4-806c-97cf-105986c1f9c9">
+      <Execution id="992f9b82-e7e1-466f-b9b9-d28cef5ed95f" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="ConfirmedPublicationWithFailedReloadDoesNotBecomeAnUnconfirmedRetry" />
+    </UnitTest>
+    <UnitTest name="ReceptionistPricingColumnsAndEditorAreWithheld" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="14270317-6e8c-8f7c-bb5f-a5d7c0a7eb7c">
+      <Execution id="a78b2a87-40de-45cc-bcce-d3e6fde9efaa" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="ReceptionistPricingColumnsAndEditorAreWithheld" />
+    </UnitTest>
+    <UnitTest name="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession (True)" storage="c:\users\hussein\desktop\swprojects\eitmad\shells\windows\tests\bin\release\net8.0-windows\eitmad.windowsshell.tests.dll" id="165b6cf1-ca39-84d1-89f1-3fb788a00370">
+      <Execution id="2a7ea38a-1829-4680-8ee0-8d736d66d5c6" />
+      <TestMethod codeBase="C:\Users\Hussein\Desktop\SWProjects\Eitmad\shells\windows\tests\bin\Release\net8.0-windows\Eitmad.WindowsShell.Tests.dll" adapterTypeName="executor://mstestadapter/v4" className="Eitmad.WindowsShell.Tests.Rendered.PricingRenderedTests" name="UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="14bef60f-10c5-8640-a8f5-da0645e7dd98" executionId="c51f4e9a-ea20-4883-9556-a8a28cd5e2cf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19349e72-fc10-89b5-871b-cc730815e84e" executionId="699fa9c4-2644-446d-b68e-210edbc17490" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a2ff466-c593-819b-9caa-421c12c0d61e" executionId="bb1799fb-c852-4651-b1f4-7464aeb574a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="15216c01-e882-805b-ad09-0cbf4a2ebd23" executionId="c1f417d7-f8e9-4f13-a4d0-92074efdf4e9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a3d1278-c164-87ce-9e4b-138d09d26104" executionId="b5ef6bb7-9e82-450f-a037-7f8b2bfa7c0c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1b596f80-449c-8f6f-a057-1321814e8d86" executionId="4ceb8604-a12b-486f-adeb-1510a1f94440" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1552dc4a-9acc-8b36-a36a-cf6f2308b887" executionId="af573a8c-bd5e-4de2-b89d-4e29424f7345" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1408f429-397c-8a55-b66c-f3f01ec6e922" executionId="880890a7-8166-4b91-8b3a-80a3f374312e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="110e00fc-2294-8596-9051-fe00dcdd9edf" executionId="4099bda7-e6e8-4fb0-ba27-bfae6291dde0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="10abc793-8ded-8571-81d6-cc070ad66963" executionId="70f65a8b-7819-489a-932c-a7ae3735e3ff" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="140b8656-a3da-8fb3-b640-3755f73655b8" executionId="4aaa74e2-8ded-4a75-a42e-110c321e52e6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="15b78296-9a2f-82e0-b202-a8e5b62bd322" executionId="65eb6a50-81d1-47dd-86f0-bdf03105e588" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1e835b76-4a72-88a6-9391-e91bab72fcf7" executionId="95fb976c-696b-4d29-8d15-f0439b737187" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c587dc3-b1a8-8999-a0bb-29533f4a02ed" executionId="202f6dd0-3b3b-4bc7-aba5-61bf7e84b15b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13bb933a-6744-8de5-9760-d27c09ad12ff" executionId="af252d6c-1fe6-495a-8d7a-745529485a40" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1bae5859-2712-8746-bee9-da7474148a6e" executionId="ef559c71-b926-416c-8b47-1da843a717c2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="165b6cf1-ca39-84d1-89f1-3fb788a00370" executionId="2a7ea38a-1829-4680-8ee0-8d736d66d5c6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="10c04bc5-e869-84d2-b834-b5c462233fa6" executionId="d255755b-ab0d-45b4-ba77-3a5fe71117e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="11f3bead-243c-8d1b-9e47-6c59c9edb011" executionId="870f126e-15f4-42cc-b834-879882ad5caf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19c4f7ed-fed2-8769-8605-be66dcd76782" executionId="b89f201e-6e80-48dc-bc78-e9958122646d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="14270317-6e8c-8f7c-bb5f-a5d7c0a7eb7c" executionId="a78b2a87-40de-45cc-bcce-d3e6fde9efaa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1268cdd9-a6ce-8a2d-9c14-fa0865e2eaec" executionId="f6494131-2b78-472c-86b0-a701435eab75" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1d910b90-7eb5-8875-9cb8-647cd7d3b759" executionId="38e30a25-c08c-4029-9b08-357f713fde7c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="14561536-d9a2-88ce-b9ae-461c258206c9" executionId="b54d1cb0-10a5-46be-96e0-28fed54221d9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1a27a5e7-cb7a-8b4d-ae00-085b3be210e3" executionId="6971d930-ec17-4e2c-bdee-69c9caf39c04" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1f4bee88-08fa-8161-a6b9-d0834288bdd6" executionId="dda78382-d204-4b0a-9a72-fb533a3e47e9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ad62e66-59f4-806c-97cf-105986c1f9c9" executionId="992f9b82-e7e1-466f-b9b9-d28cef5ed95f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19987339-a22c-8ead-b979-e4f2ac8df582" executionId="9e7e4b2a-47e5-4af6-adfe-4bc2ef63c73f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="12e7ca0a-f04a-802f-86c0-b1105de2d26b" executionId="1364dc67-bfe3-4313-9f41-0d54501c6b38" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="107af048-2f5b-8ff4-8149-b2c0892ea9f5" executionId="52d4306b-dc99-415c-b8fa-4b91824d36ef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="30" executed="30" passed="30" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

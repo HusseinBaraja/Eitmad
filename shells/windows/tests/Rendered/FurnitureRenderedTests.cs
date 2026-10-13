@@ -139,19 +139,51 @@ public sealed class FurnitureRenderedTests
         }, engine: engine);
     }
     [TestMethod]
-    public void VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices()
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices(int width, int height)
     {
-        var f = new FurnitureFixtures(); f.Seed(); var engine = f.Engine();
-        WpfTestHost.Run(1338, 753, window =>
+        var f = new FurnitureFixtures(); var furniture = f.Seed();
+        furniture.Colors[0].Name = "أبيض عاجي بتشطيب مطفي مناسب لغرف النوم والخزائن الكبيرة والأبواب الداخلية المتناسقة";
+        var engine = f.Engine();
+        WpfTestHost.Run(width, height, window =>
         {
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
             var prepared = view.PrepareEditorAsync(view.ViewModel.VisibleFurniture.Single()); WpfTestHost.CompleteLayout(window); Assert.IsTrue(prepared.GetAwaiter().GetResult());
             view.ViewModel.BeginEdit(view.ViewModel.VisibleFurniture.Single()); view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
-            var checkbox = WpfTestHost.FindByAutomationName<CheckBox>(view, "السماح بتخصيص المقاس"); checkbox.IsChecked = true; WpfTestHost.CompleteLayout(window);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Variant render: {window.ActualWidth} x {window.ActualHeight} DIP; display scaling {dpi.DpiScaleX * 100}%");
+            WpfTestHost.Capture(window, $"furniture-variant-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
+            var color = WpfTestHost.FindByAutomationName<CheckBox>(view, furniture.Colors[0].Name);
+            color.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            var label = WpfTestHost.Descendants<TextBlock>(color).Single();
+            Assert.IsTrue(label.ActualWidth <= color.ActualWidth, "Long option labels must stay inside the checkbox hit area.");
+            var checkbox = WpfTestHost.FindByAutomationName<CheckBox>(view, "السماح بتخصيص المقاس");
+            Assert.IsTrue(label.ActualHeight > WpfTestHost.Descendants<TextBlock>(checkbox).Single().ActualHeight, "Long option labels must wrap.");
+            var hit = (DependencyObject)color.InputHitTest(new Point(1, color.ActualHeight / 2));
+            Assert.IsTrue(ReferenceEquals(color, hit) || ReferenceEquals(color, WpfTestHost.Ancestor<CheckBox>(hit)), "The full choice row must remain clickable.");
+            var peer = new System.Windows.Automation.Peers.CheckBoxAutomationPeer(color);
+            ((System.Windows.Automation.Provider.IToggleProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)).Toggle();
+            Assert.IsTrue(view.ViewModel.VariantColorChoices.Single().Selected);
+            WpfTestHost.Capture(window, $"furniture-variant-choices-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
+            if (width == 720)
+            {
+                var choicesScroll = WpfTestHost.Ancestor<ScrollViewer>(color);
+                choicesScroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "furniture-variant-choices-bottom-720x560");
+                var choices = WpfTestHost.Descendants<CheckBox>(WpfTestHost.FindByName<Controls.DialogHost>(view, "VariantDialog")).ToArray();
+                foreach (var choice in choices) choice.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "furniture-variant-enlarged-text-bottom-720x560");
+                foreach (var choice in choices) choice.ClearValue(Control.FontSizeProperty);
+            }
+            checkbox.IsChecked = true; WpfTestHost.CompleteLayout(window);
             var minimum = WpfTestHost.FindByAutomationName<TextBox>(view, "أقل عرض"); Assert.IsTrue(minimum.IsVisible); Assert.IsTrue(minimum.Focus()); minimum.Text = "100";
             WpfTestHost.FindByAutomationName<TextBox>(view, "أكبر عرض").Text = "160"; Click(view, "حفظ المقاس");
             var input = view.ViewModel.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.AreEqual(1600L, input.Variants[0].Customization.Maximum.WidthMm);
+            CollectionAssert.AreEqual(new[] { furniture.Colors[0].Id }, input.Variants[0].ColorIds);
         }, engine: engine);
     }
     private static void Click(FurnitureView view, string name) { WpfTestHost.FindByAutomationName<Button>(view, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }

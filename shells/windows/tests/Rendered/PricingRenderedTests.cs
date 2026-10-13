@@ -145,6 +145,13 @@ public sealed class PricingRenderedTests
             input.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
             Assert.IsTrue(warning.IsKeyboardFocusWithin);
             WpfTestHost.Capture(window, $"pricing-warning-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
+            if (width == 720)
+            {
+                warning.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "pricing-warning-enlarged-text-720x560");
+                warning.ClearValue(Control.FontSizeProperty);
+            }
             input.Text = "220000";
             WpfTestHost.FindByAutomationName<Button>(view, "حفظ سعر البيع").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
