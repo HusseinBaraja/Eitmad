@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Eitmad.WindowsShell.Controls;
@@ -18,6 +19,53 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class HomeRenderedTests
 {
+    [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void ReceptionDailyWorkIsVisibleWithoutScrolling(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window => {
+            using var state = new HomeScope();
+            state.Load();
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            window.ResponsiveRoot.Visibility = Visibility.Collapsed;
+            var reception = window.ReceptionistSurface;
+            reception.Visibility = Visibility.Visible;
+            reception.AttachHome(state.Model);
+            WpfTestHost.CompleteLayout(window);
+            var scroll = WpfTestHost.FindByName<ScrollViewer>(reception, "HomeContent");
+            scroll.ScrollToTop(); WpfTestHost.CompleteLayout(window);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"UI-14: requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
+            WpfTestHost.Capture(window, $"ui14-reception-top-{width}");
+            var home = WpfTestHost.FindByName<HomeView>(reception, "ReceptionHome");
+            var metrics = WpfTestHost.FindByName<UniformGrid>(home, "MetricsGrid");
+            var ready = WpfTestHost.Descendants<Button>(WpfTestHost.FindByName<Border>(home, "ReadyOrdersPanel"))
+                .Single(b => b.DataContext is HomeRow);
+            foreach (var element in new FrameworkElement[] { reception.NewQuotationAction, reception.ReceptionistActionsGrid, metrics, ready })
+            {
+                var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
+                Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= scroll.ViewportHeight,
+                    $"{element.Name}: {bounds}; viewport height {scroll.ViewportHeight}. Daily work must be visible before scrolling.");
+            }
+            if (width == 1338)
+            {
+                foreach (var control in WpfTestHost.Descendants<Control>(scroll)) ControlOptions.SetHighContrast(control, true);
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui14-reception-system-colors");
+            }
+            if (width == 720)
+            {
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(scroll)) text.FontSize *= 1.25;
+                WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui14-reception-enlarged-text-top-720");
+                ready.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui14-reception-enlarged-text-ready-720");
+            }
+        });
+    }
+
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]

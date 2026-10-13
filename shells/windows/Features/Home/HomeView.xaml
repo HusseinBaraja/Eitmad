@@ -9,8 +9,19 @@
    <Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
   </Style>
   <Style x:Key="ReceptionOnly" TargetType="Border" BasedOn="{StaticResource Card}">
-   <Setter Property="Margin" Value="6"/><Setter Property="Padding" Value="16"/>
+   <Setter Property="Margin" Value="6"/><Setter Property="Padding" Value="10"/>
    <Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+  </Style>
+  <Style x:Key="HomeMetricCard" TargetType="Border" BasedOn="{StaticResource Card}">
+   <Setter Property="Margin" Value="6"/><Setter Property="Padding" Value="10"/>
+   <Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Padding" Value="16"/></DataTrigger></Style.Triggers>
+  </Style>
+  <Style x:Key="HomeMetricCount" TargetType="TextBlock">
+   <Setter Property="Grid.Column" Value="1"/><Setter Property="VerticalAlignment" Value="Center"/>
+   <Setter Property="FontSize" Value="22"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FlowDirection" Value="LeftToRight"/><Setter Property="Margin" Value="12,0,0,0"/>
+   <Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+    <Setter Property="Grid.Column" Value="0"/><Setter Property="Grid.Row" Value="1"/><Setter Property="FontSize" Value="25"/><Setter Property="Margin" Value="0,8,0,0"/><Setter Property="HorizontalAlignment" Value="Left"/>
+   </DataTrigger></Style.Triggers>
   </Style>
   <Style x:Key="HomeMetrics" TargetType="UniformGrid">
    <Setter Property="Columns" Value="4"/>
@@ -41,18 +52,28 @@
    </Border.Style>
    <StackPanel>
     <TextBlock Text="حالة البيانات" FontWeight="SemiBold" Margin="0,0,0,6" Style="{StaticResource ManagerOnly}"/>
-    <TextBlock Text="{Binding Notice, FallbackValue=بيانات الرئيسية غير متاحة.}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
-    <Button Content="إعادة تحميل البيانات" Style="{StaticResource LinkButton}" Click="RefreshClick" HorizontalAlignment="Left" Margin="0,8,0,0" AutomationProperties.Name="إعادة تحميل بيانات الرئيسية"/>
+    <Grid>
+     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <TextBlock Text="{Binding Notice, FallbackValue=بيانات الرئيسية غير متاحة.}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+     <Button Content="إعادة تحميل البيانات" Click="RefreshClick" HorizontalAlignment="Left" AutomationProperties.Name="إعادة تحميل بيانات الرئيسية">
+      <Button.Style><Style TargetType="Button" BasedOn="{StaticResource LinkButton}">
+       <Setter Property="Grid.Column" Value="1"/><Setter Property="Margin" Value="12,0,0,0"/>
+       <Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Grid.Column" Value="0"/><Setter Property="Grid.Row" Value="1"/><Setter Property="Margin" Value="0,8,0,0"/></DataTrigger></Style.Triggers>
+      </Style></Button.Style>
+     </Button>
+    </Grid>
     <TextBlock Text="غير متاح: البحث الشامل في عملاء المؤسسة وتحصيل المدفوعات والمخزون والتركيبات والرسائل وتقارير الأقسام." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,10,0,0" Style="{StaticResource ManagerOnly}"/>
    </StackPanel>
   </Border>
-  <StackPanel Grid.Row="1" Margin="0,14,0,0">
+  <StackPanel Grid.Row="1">
+   <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Margin" Value="0,8,0,0"/><Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Margin" Value="0,14,0,0"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
    <TextBlock Text="نظرة عامة" FontWeight="SemiBold" Margin="0,0,0,6" Style="{StaticResource ManagerOnly}"/>
    <UniformGrid x:Name="MetricsGrid" Style="{StaticResource HomeMetrics}" Margin="-6,0" layout:ResponsiveLayout.IsEnabled="True">
-    <Border Style="{StaticResource Card}" Margin="6" Padding="16"><StackPanel><TextBlock Text="عروض أسعار مفتوحة" TextWrapping="Wrap"/><TextBlock Text="{Binding OpenCount, FallbackValue=—}" Style="{StaticResource HomeCount}"/></StackPanel></Border>
-    <Border Style="{StaticResource Card}" Margin="6" Padding="16"><StackPanel><TextBlock Text="طلبات قيد التنفيذ" TextWrapping="Wrap"/><TextBlock Text="{Binding OrderCount, FallbackValue=—}" Style="{StaticResource HomeCount}"/></StackPanel></Border>
-    <Border Style="{StaticResource ReceptionOnly}"><StackPanel><TextBlock Text="بانتظار الموافقة" TextWrapping="Wrap"/><TextBlock Text="{Binding ApprovalCount, FallbackValue=—}" Style="{StaticResource HomeCount}"/></StackPanel></Border>
-    <Border Style="{StaticResource ReceptionOnly}"><StackPanel><TextBlock Text="طلبات جاهزة للعميل" TextWrapping="Wrap"/><TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource HomeCount}"/></StackPanel></Border>
+    <Border Style="{StaticResource HomeMetricCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="عروض أسعار مفتوحة" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBlock Text="{Binding OpenCount, FallbackValue=—}" Style="{StaticResource HomeMetricCount}"/></Grid></Border>
+    <Border Style="{StaticResource HomeMetricCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="طلبات قيد التنفيذ" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBlock Text="{Binding OrderCount, FallbackValue=—}" Style="{StaticResource HomeMetricCount}"/></Grid></Border>
+    <Border Style="{StaticResource ReceptionOnly}"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="بانتظار الموافقة" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBlock Text="{Binding ApprovalCount, FallbackValue=—}" Style="{StaticResource HomeMetricCount}"/></Grid></Border>
+    <Border Style="{StaticResource ReceptionOnly}"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="طلبات جاهزة للعميل" TextWrapping="Wrap" VerticalAlignment="Center"/><TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource HomeMetricCount}"/></Grid></Border>
    </UniformGrid>
   </StackPanel>
   <StackPanel x:Name="OperationalPanel">
@@ -74,8 +95,8 @@
       <Button Content="فتح الموافقات" Style="{StaticResource PrimaryButton}" Margin="0,12,0,0" HorizontalAlignment="Right" Tag="الموافقات" Click="ApprovalsClick" AutomationProperties.Name="فتح موافقات الخصم"/>
      </StackPanel>
     </Border>
-    <Border x:Name="ReadyOrdersPanel" Padding="16" VerticalAlignment="Top">
-     <Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Grid.ColumnSpan" Value="2"/><Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Grid.Column" Value="1"/><Setter Property="Grid.ColumnSpan" Value="1"/><Setter Property="Margin" Value="12,0,0,0"/></DataTrigger></Style.Triggers></Style></Border.Style>
+    <Border x:Name="ReadyOrdersPanel" VerticalAlignment="Top">
+     <Border.Style><Style TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Padding" Value="12"/><Setter Property="Grid.ColumnSpan" Value="2"/><Style.Triggers><DataTrigger Binding="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Padding" Value="16"/><Setter Property="Grid.Column" Value="1"/><Setter Property="Grid.ColumnSpan" Value="1"/><Setter Property="Margin" Value="12,0,0,0"/></DataTrigger></Style.Triggers></Style></Border.Style>
      <StackPanel>
       <TextBlock Text="طلبات جاهزة للعميل" Style="{StaticResource SectionTitle}"/>
       <TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource HomeCount}" Visibility="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibility}}"/>

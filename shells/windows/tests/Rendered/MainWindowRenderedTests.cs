@@ -149,14 +149,19 @@ public sealed class MainWindowRenderedTests
     }
 
     [TestMethod]
-    public void ReceptionistActionsStackAtCompactWindowWidth()
+    public void ReceptionistRoutesRemainCompactAtMinimumWindowWidth()
     {
-        WpfTestHost.Run(780, 745, window =>
+        WpfTestHost.Run(720, 560, window =>
         {
             WpfTestHost.SignIn(window, "receptionist");
             WpfTestHost.CompleteLayout(window);
 
-            Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);
+            var routes = WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid");
+            var buttons = WpfTestHost.Descendants<Button>(routes).ToArray();
+            var bounds = buttons.Select(b => b.TransformToAncestor(routes).TransformBounds(new Rect(b.RenderSize))).ToArray();
+            Assert.AreEqual(3, buttons.Length);
+            Assert.IsTrue(bounds.All(b => Math.Abs(b.Top - bounds[0].Top) < 1));
+            Assert.IsTrue(bounds.All(b => b.Left >= 0 && b.Right <= routes.ActualWidth));
         }, showSignIn: true);
     }
 

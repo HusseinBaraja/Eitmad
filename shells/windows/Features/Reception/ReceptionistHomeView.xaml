@@ -11,28 +11,10 @@
              Language="ar-YE"
              Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
-        <Style x:Key="ReceptionActionCard" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-            <Setter Property="Height" Value="142" />
-            <Setter Property="Margin" Value="7" />
-            <Setter Property="Padding" Value="20" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#E5DED7" />
-            <Setter Property="controls:ControlOptions.HoverBackground" Value="#FBF4EC" />
-            <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#C38A55" />
-            <Setter Property="controls:ControlOptions.CornerRadius" Value="12" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-        </Style>
-        <Style x:Key="ReceptionActionGrid" TargetType="UniformGrid">
-            <Setter Property="Columns" Value="3" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Columns" Value="1" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="ReceptionSummaryGrid" TargetType="UniformGrid">
-            <Setter Property="Columns" Value="3" />
+        <Style x:Key="ReceptionRoute" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Padding" Value="10,6" />
         </Style>
     </UserControl.Resources>
 
@@ -57,95 +39,26 @@
                                 SearchSubmitted="TitleBarSearchSubmitted" />
 
         <ScrollViewer x:Name="HomeContent" Grid.Row="1" Grid.Column="0" FlowDirection="RightToLeft" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-            <StackPanel Margin="38,28,38,34" MaxWidth="1180">
-                <TextBlock Text="أهلاً بك" FontSize="29" FontWeight="Bold" />
-                <TextBlock Text="ابدأ خدمة العميل من الإجراء الذي تحتاجه."
-                           Foreground="{StaticResource MutedBrush}"
-                           FontSize="14"
-                           Margin="0,7,0,22" />
-
+            <StackPanel Margin="24,12,24,24" MaxWidth="1180">
                 <Button x:Name="NewQuotationAction"
-                        Height="176"
-                        Margin="0,0,0,14"
-                        Padding="30,24"
-                        BorderThickness="0"
-                        Style="{StaticResource ActionButton}"
+                        Style="{StaticResource PrimaryButton}"
+                        MinHeight="48"
+                        Padding="18,10"
+                        FontSize="17"
+                        Content="عرض سعر جديد"
+                        controls:ControlOptions.Icon="{StaticResource IconPlus}"
+                        HorizontalAlignment="Left"
                         Tag="عرض سعر جديد"
                         Click="ActionClick"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch"
-                        controls:ControlOptions.CornerRadius="14"
-                        controls:ControlOptions.HoverOpacity="0.90"
-                        automation:AutomationProperties.Name="بدء عرض سعر جديد">
-                    <Button.Background>
-                        <LinearGradientBrush StartPoint="1,0" EndPoint="0,1">
-                            <GradientStop Color="#9B5C22" />
-                            <GradientStop Color="#633203" Offset="1" />
-                        </LinearGradientBrush>
-                    </Button.Background>
-                    <Grid FlowDirection="LeftToRight">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="2" Width="96" Height="96" CornerRadius="48" Background="#2AFFFFFF" VerticalAlignment="Center">
-                            <Path Data="{StaticResource IconQuote}" Width="43" Height="43" Fill="White" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="1" Margin="28,0" HorizontalAlignment="Right" VerticalAlignment="Center" FlowDirection="RightToLeft">
-                            <TextBlock Text="عرض سعر جديد" Foreground="White" FontSize="27" FontWeight="Bold" TextAlignment="Right" />
-                            <TextBlock Text="ابدأ تسجيل احتياج العميل وأصناف عرضه."
-                                       Foreground="#F7EADF"
-                                       FontSize="13"
-                                       Margin="0,9,0,0"
-                                       TextAlignment="Right" />
-                        </StackPanel>
-                        <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#2AFFFFFF" VerticalAlignment="Center">
-                            <TextBlock Text="←" Foreground="White" FontFamily="Segoe UI" FontSize="21" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </Grid>
-                </Button>
+                        automation:AutomationProperties.Name="بدء عرض سعر جديد" />
 
-                <UniformGrid x:Name="ReceptionistActionsGrid" Style="{StaticResource ReceptionActionGrid}" Margin="-7,0" layout:ResponsiveLayout.IsEnabled="True">
-                    <Button x:Name="QuotationsAction" Style="{StaticResource ReceptionActionCard}" Tag="عروض الأسعار" Click="ActionClick" automation:AutomationProperties.Name="فتح عروض الأسعار">
-                        <Grid FlowDirection="LeftToRight">
-                            <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <Border Width="50" Height="50" CornerRadius="12" Background="#F4E7DA" HorizontalAlignment="Right">
-                                <Path Data="{StaticResource IconQuote}" Width="24" Height="24" Fill="#8A4D18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <StackPanel Grid.Row="1" Margin="0,12,0,0" HorizontalAlignment="Right" FlowDirection="RightToLeft" TextBlock.TextAlignment="Right">
-                                <TextBlock Text="عروض الأسعار" FontSize="17" FontWeight="SemiBold" />
-                                <TextBlock Text="راجع العروض الحالية" FontSize="11" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-                    </Button>
-                    <Button x:Name="OrdersAction" Style="{StaticResource ReceptionActionCard}" Tag="الطلبات" Click="ActionClick" automation:AutomationProperties.Name="فتح الطلبات">
-                        <Grid FlowDirection="LeftToRight">
-                            <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <Border Width="50" Height="50" CornerRadius="12" Background="#EAF1E9" HorizontalAlignment="Right">
-                                <Path Data="{StaticResource IconOrder}" Width="24" Height="24" Fill="#376A42" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <StackPanel Grid.Row="1" Margin="0,12,0,0" HorizontalAlignment="Right" FlowDirection="RightToLeft" TextBlock.TextAlignment="Right">
-                                <TextBlock Text="الطلبات" FontSize="17" FontWeight="SemiBold" />
-                                <TextBlock Text="تابع طلبات العملاء" FontSize="11" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-                    </Button>
-                    <Button x:Name="ProductsAction" Style="{StaticResource ReceptionActionCard}" Tag="المنتجات" Click="ActionClick" automation:AutomationProperties.Name="فتح المنتجات">
-                        <Grid FlowDirection="LeftToRight">
-                            <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <Border Width="50" Height="50" CornerRadius="12" Background="#EEEAF4" HorizontalAlignment="Right">
-                                <Path Data="{StaticResource IconProducts}" Width="24" Height="24" Fill="#65517A" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <StackPanel Grid.Row="1" Margin="0,12,0,0" HorizontalAlignment="Right" FlowDirection="RightToLeft" TextBlock.TextAlignment="Right">
-                                <TextBlock Text="المنتجات" FontSize="17" FontWeight="SemiBold" />
-                                <TextBlock Text="افتح كتالوج المبيعات" FontSize="11" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-                    </Button>
+                <UniformGrid x:Name="ReceptionistActionsGrid" Columns="3" Margin="-4,8,-4,0">
+                    <Button x:Name="QuotationsAction" Style="{StaticResource ReceptionRoute}" Content="عروض الأسعار" Tag="عروض الأسعار" Click="ActionClick" automation:AutomationProperties.Name="فتح عروض الأسعار" />
+                    <Button x:Name="OrdersAction" Style="{StaticResource ReceptionRoute}" Content="الطلبات" Tag="الطلبات" Click="ActionClick" automation:AutomationProperties.Name="فتح الطلبات" />
+                    <Button x:Name="ProductsAction" Style="{StaticResource ReceptionRoute}" Content="المنتجات" Tag="المنتجات" Click="ActionClick" automation:AutomationProperties.Name="فتح المنتجات" />
                 </UniformGrid>
 
-                <home:HomeView x:Name="ReceptionHome" Margin="0,24,0,0"/>
+                <home:HomeView x:Name="ReceptionHome" Margin="0,8,0,0"/>
             </StackPanel>
         </ScrollViewer>
 
