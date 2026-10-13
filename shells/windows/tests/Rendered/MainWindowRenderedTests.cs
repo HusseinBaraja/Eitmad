@@ -301,7 +301,7 @@ public sealed class MainWindowRenderedTests
             var root = WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot");
             Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.GetMode(root));
             Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
-            Assert.AreEqual(3, WpfTestHost.FindByName<UniformGrid>(window, "QuickActionsGrid").Columns);
+            AssertQuickRoutesFit(window);
         });
 
         WpfTestHost.Run(780, 745, window =>
@@ -309,12 +309,23 @@ public sealed class MainWindowRenderedTests
             var root = WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot");
             Assert.AreEqual(ResponsiveLayoutMode.Compact, ResponsiveLayout.GetMode(root));
             Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
-            Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "QuickActionsGrid").Columns);
+            AssertQuickRoutesFit(window);
 
             var search = WpfTestHost.FindByName<TextBox>(window, "SearchBox");
             var searchBorder = WpfTestHost.Ancestor<Border>(search);
             Assert.AreEqual(1, Grid.GetRow(searchBorder));
             Assert.AreEqual(4, Grid.GetColumnSpan(searchBorder));
         });
+    }
+
+    private static void AssertQuickRoutesFit(MainWindow window)
+    {
+        var routes = WpfTestHost.FindByName<WrapPanel>(window, "QuickRoutesPanel");
+        foreach (Button button in routes.Children)
+        {
+            var bounds = button.TransformToAncestor(routes).TransformBounds(new Rect(button.RenderSize));
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= routes.ActualWidth + 1,
+                $"Quick route {button.Tag} must fit within the dashboard.");
+        }
     }
 }

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         bool preview = false)
     {
         InitializeComponent();
+        ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
         if (preview && engine is null) {
             QuotationsSurface.UsePreviewFixtures(); OrdersSurface.UsePreviewFixtures(); WorkOrdersSurface.UsePreviewFixtures();
         }

@@ -93,6 +93,8 @@ public sealed class HomeRenderedTests
             window.ManagerHome.DataContext = state.Model;
             window.ManagerTitleBar.ApprovalCount = state.Model.ApprovalCount;
             WpfTestHost.CompleteLayout(window);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Manager capture: requested {width} x {height}; actual {window.ActualWidth} x {window.ActualHeight}; display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight}; scaling {dpi.DpiScaleX * 100}%");
             WpfTestHost.Capture(window, $"home-manager-top-{width}");
             Verify(window, window.ManagerHome, "manager", width);
             if (width == 1338) {
