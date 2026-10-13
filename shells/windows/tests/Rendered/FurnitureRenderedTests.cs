@@ -14,6 +14,79 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
+    [DataRow(720, 560, false)]
+    [DataRow(720, 560, true)]
+    [DataRow(1338, 753, false)]
+    [DataRow(1338, 753, true)]
+    [DataRow(1920, 1080, false)]
+    [DataRow(1920, 1080, true)]
+    public void InformationStartsWithIdentifyingFieldsAndKeepsImageReachable(int width, int height, bool edit)
+    {
+        var fixture = new FurnitureFixtures();
+        if (edit) fixture.Seed();
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            if (edit)
+            {
+                var item = view.ViewModel.VisibleFurniture.Single();
+                Assert.IsTrue(view.PrepareEditorAsync(item).GetAwaiter().GetResult());
+                view.ViewModel.BeginEdit(item);
+            }
+            else Click(view, "إضافة منتج");
+            WpfTestHost.CompleteLayout(window);
+            var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox");
+            var category = WpfTestHost.FindByAutomationName<ComboBox>(view, "فئة الأثاث");
+            var scroll = WpfTestHost.Ancestor<ScrollViewer>(name);
+            scroll.ScrollToTop(); WpfTestHost.CompleteLayout(window);
+            var viewport = (ScrollContentPresenter)scroll.Template.FindName("PART_ScrollContentPresenter", scroll);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"scaling: {dpi.DpiScaleX * 100}%; primary display: {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.";
+            Console.WriteLine(geometry);
+            var state = edit ? "edit" : "add";
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui18-{state}-{width}x{height}.txt"), geometry);
+            }
+            WpfTestHost.Capture(window, $"ui18-{state}-{width}x{height}");
+            foreach (var field in new FrameworkElement[] { name, category })
+            {
+                var bounds = field.TransformToAncestor(viewport).TransformBounds(new Rect(field.RenderSize));
+                Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= viewport.ActualHeight + 1,
+                    $"Identifying fields must be visible before scrolling: {bounds}; viewport height {viewport.ActualHeight}.");
+            }
+            var next = WpfTestHost.FindByName<Button>(view, "NextButton");
+            var nextBounds = next.TransformToAncestor(view).TransformBounds(new Rect(next.RenderSize));
+            Assert.IsTrue(nextBounds.Top >= 0 && nextBounds.Bottom <= view.ActualHeight + 1);
+            var choose = WpfTestHost.FindByAutomationName<Button>(view, "اختيار صورة الأثاث");
+            if (width > 720)
+                Assert.IsTrue(name.PointToScreen(new Point()).X > choose.PointToScreen(new Point()).X,
+                    "The wider layout must retain information on the right and image controls on the left.");
+            choose.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            var chooseBounds = choose.TransformToAncestor(viewport).TransformBounds(new Rect(choose.RenderSize));
+            Assert.IsTrue(chooseBounds.Top >= -1 && chooseBounds.Bottom <= viewport.ActualHeight + 1);
+            WpfTestHost.Capture(window, $"ui18-image-{state}-{width}x{height}");
+            if (width == 720 && !edit)
+            {
+                name.FontSize *= 1.5; category.FontSize *= 1.5;
+                foreach (var field in new FrameworkElement[] { name, category, choose })
+                {
+                    field.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                    var bounds = field.TransformToAncestor(viewport).TransformBounds(new Rect(field.RenderSize));
+                    Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= viewport.ActualHeight + 1,
+                        "Larger text must leave each changed field and the image action reachable.");
+                }
+                name.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui18-information-enlarged-text-720x560");
+            }
+        }, engine: fixture.Engine());
+    }
+
+    [TestMethod]
     [DataRow("add")]
     [DataRow("edit")]
     [DataRow("duplicate")]
