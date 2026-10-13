@@ -17,6 +17,115 @@ public sealed class FurnitureRenderedTests
     [DataRow(720, 560)]
     [DataRow(1338, 753)]
     [DataRow(1920, 1080)]
+    public void OptionGroupsRenderAdjustmentsAndKeepTheirOwnActions(int width, int height)
+    {
+        var fixture = new FurnitureFixtures();
+        var saved = fixture.Seed();
+        saved.Colors =
+        [
+            new FurnitureOption { Id = Guid.NewGuid(), Name = "أبيض", Visual = "#F7F4EF" },
+            new FurnitureOption { Id = Guid.NewGuid(), Name = "جوزي", Visual = "#4F2C1D", PriceAdjustmentYer = 10000 },
+        ];
+        saved.Handles =
+        [
+            new FurnitureOption { Id = Guid.NewGuid(), Name = "مقبض قياسي", Visual = "Standard" },
+            new FurnitureOption { Id = Guid.NewGuid(), Name = "معدن أسود", Visual = "BlackMetal", PriceAdjustmentYer = 3000, Archived = true },
+        ];
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var item = view.ViewModel.VisibleFurniture.Single();
+            Assert.IsTrue(view.PrepareEditorAsync(item).GetAwaiter().GetResult());
+            view.ViewModel.BeginEdit(item);
+            for (var step = 1; step < 4; step++) Next(view);
+            WpfTestHost.CompleteLayout(window);
+            var options = WpfTestHost.FindByName<StackPanel>(view, "OptionsStep");
+            var scroll = WpfTestHost.Ancestor<ScrollViewer>(options);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            var displays = string.Join("; ", System.Windows.Forms.Screen.AllScreens.Select(s => $"{s.Bounds.Width}x{s.Bounds.Height} pixels"));
+            var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
+                + $"display scaling: {dpi.DpiScaleX * 100}%; available displays: {displays}; "
+                + "capture: off-screen WPF RenderTargetBitmap at 96 DPI; synthetic engine responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, $"ui22-{width}x{height}.txt"), geometry);
+            }
+            scroll.ScrollToTop(); WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"ui22-options-top-{width}x{height}");
+            scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"ui22-options-bottom-{width}x{height}");
+            AssertOptionContentFits(options);
+            if (width == 720)
+            {
+                var longColor = view.ViewModel.Colors[1];
+                var longHandle = view.ViewModel.Handles[1];
+                view.ViewModel.Colors[1] = new FurnitureColorOption(longColor.Id,
+                    "جوزي داكن مناسب للخزائن الكبيرة وأثاث غرف النوم", longColor.SwatchHex, longColor.PriceAdjustment, longColor.IsActive);
+                view.ViewModel.Handles[1] = new FurnitureHandleOption(longHandle.Id,
+                    "مقبض معدني أسود طويل مناسب لأبواب الخزائن الكبيرة", longHandle.HandleKind, longHandle.PriceAdjustment, longHandle.IsActive);
+                WpfTestHost.CompleteLayout(window);
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(options)) text.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                AssertOptionContentFits(options);
+                scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui22-options-enlarged-text-720x560");
+                foreach (var text in WpfTestHost.Descendants<TextBlock>(options)) text.ClearValue(TextBlock.FontSizeProperty);
+                view.Resources[SystemParameters.HighContrastKey] = true;
+                view.Resources[SystemColors.WindowBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.WindowTextBrushKey] = Brushes.White;
+                view.Resources[SystemColors.ControlBrushKey] = Brushes.Black;
+                view.Resources[SystemColors.ControlTextBrushKey] = Brushes.White;
+                WpfTestHost.CompleteLayout(window);
+                AssertOptionContentFits(options);
+                scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "ui22-options-system-colors-720x560");
+            }
+            var color = view.ViewModel.Colors[0];
+            var handle = view.ViewModel.Handles[0];
+            Click(view, "تغيير حالة اللون");
+            Assert.IsFalse(color.IsActive);
+            Assert.IsTrue(handle.IsActive, "A color action must not change a handle.");
+            Click(view, "تغيير حالة المقبض");
+            Assert.IsFalse(handle.IsActive);
+            var input = view.ViewModel.SaveInput(FurnitureState.Draft);
+            Assert.AreEqual(saved.Colors[1].Id, input.Colors[1].Id);
+            Assert.AreEqual(10000L, input.Colors[1].PriceAdjustmentYer);
+            Assert.AreEqual(saved.Handles[1].Id, input.Handles[1].Id);
+            Assert.AreEqual(3000L, input.Handles[1].PriceAdjustmentYer);
+        }, engine: fixture.Engine());
+    }
+
+    private static void AssertOptionContentFits(StackPanel options)
+    {
+        var rows = WpfTestHost.Descendants<Border>(options).Where(b => b.Name == "OptionRow").ToArray();
+        Assert.HasCount(4, rows);
+        foreach (var row in rows)
+        {
+            foreach (var element in WpfTestHost.Descendants<FrameworkElement>(row)
+                .Where(e => e.Name is "OptionPreview" or "OptionName" or "OptionAdjustment" || e is Button or Controls.StatusBadge))
+            {
+                var bounds = element.TransformToAncestor(row).TransformBounds(new Rect(element.RenderSize));
+                Assert.IsTrue(bounds.Left >= -1 && bounds.Right <= row.ActualWidth + 1
+                    && bounds.Top >= -1 && bounds.Bottom <= row.ActualHeight + 1,
+                    $"Option content must remain inside its row: {element.Name}, {bounds}.");
+            }
+            var name = WpfTestHost.FindByName<TextBlock>(row, "OptionName");
+            var adjustment = WpfTestHost.FindByName<StackPanel>(row, "OptionAdjustment");
+            var nameBounds = name.TransformToAncestor(row).TransformBounds(new Rect(name.RenderSize));
+            var adjustmentBounds = adjustment.TransformToAncestor(row).TransformBounds(new Rect(adjustment.RenderSize));
+            Assert.IsFalse(nameBounds.IntersectsWith(adjustmentBounds), "An adjustment must not overlap its option name.");
+            Assert.AreEqual(FlowDirection.LeftToRight, WpfTestHost.FindByName<TextBlock>(row, "OptionAmount").FlowDirection);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(720, 560)]
+    [DataRow(1338, 753)]
+    [DataRow(1920, 1080)]
     public void PricingGroupsStartWithVariantIdentityAndContainLongNames(int width, int height)
     {
         var fixture = new FurnitureFixtures();
