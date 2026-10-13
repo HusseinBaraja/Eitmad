@@ -13,6 +13,93 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class MainWindowRenderedTests
 {
     [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void ToolbarActionsKeepTheirMeaningAndLiveQuotationCount(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window =>
+        {
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            WpfTestHost.CompleteLayout(window);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Toolbar requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
+            var manager = WpfTestHost.FindByName<ShellTitleBar>(window, "ManagerTitleBar");
+            AssertToolbarContentFits(manager);
+            WpfTestHost.Capture(window, $"ui-08-manager-{width}");
+            manager.PrimaryActionButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(window.QuotationsSurface.IsVisible);
+            Assert.IsTrue(window.QuotationsSurface.ViewModel.ApprovalsOnly);
+
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            window.ResponsiveRoot.Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            var title = WpfTestHost.FindByName<ShellTitleBar>(reception, "ReceptionistTitleBar");
+            var catalog = WpfTestHost.FindByName<SalesCatalogView>(reception, "CatalogContent");
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            Assert.AreEqual("(0)", title.PrimaryActionCountText.Text);
+            Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model, 12000);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("(1)", title.PrimaryActionCountText.Text);
+            Assert.IsTrue(title.PrimaryActionCountText.IsVisible);
+            AssertToolbarContentFits(title);
+            WpfTestHost.Capture(window, $"ui-08-reception-{width}");
+            title.PrimaryActionButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(catalog.IsVisible);
+            Assert.IsTrue(model.IsReviewingQuotation);
+            model.QuotationLines.Clear();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("(0)", title.PrimaryActionCountText.Text);
+        });
+    }
+
+    [TestMethod]
+    public void CompactToolbarActionsFitWithLargerText()
+    {
+        WpfTestHost.Run(720, 560, window =>
+        {
+            var manager = window.ManagerTitleBar;
+            manager.PrimaryActionText.FontSize = 18;
+            WpfTestHost.CompleteLayout(window);
+            AssertToolbarContentFits(manager);
+            WpfTestHost.Capture(window, "ui-08-manager-larger-text");
+
+            var reception = window.ReceptionistSurface;
+            reception.Visibility = Visibility.Visible;
+            window.ResponsiveRoot.Visibility = Visibility.Collapsed;
+            var title = reception.ReceptionistTitleBar;
+            var model = (SalesCatalogViewModel)reception.CatalogContent.DataContext;
+            for (var line = 0; line < 12; line++)
+                Products.SalesCatalogPresentationTests.AddHistoricalProductLine(model, 12000);
+            title.PrimaryActionText.FontSize = 18;
+            title.PrimaryActionCountText.FontSize = 18;
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("(12)", title.PrimaryActionCountText.Text);
+            AssertToolbarContentFits(title);
+            WpfTestHost.Capture(window, "ui-08-reception-larger-text");
+        });
+    }
+
+    private static void AssertToolbarContentFits(ShellTitleBar title)
+    {
+        Assert.IsTrue(title.PrimaryActionText.IsVisible);
+        var button = title.PrimaryActionButton;
+        foreach (var content in WpfTestHost.Descendants<FrameworkElement>(button)
+            .Where(element => element.IsVisible && element is TextBlock or System.Windows.Shapes.Path))
+        {
+            var bounds = content.TransformToAncestor(button).TransformBounds(new Rect(content.RenderSize));
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= button.ActualWidth);
+            Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= button.ActualHeight);
+        }
+        var actionBounds = button.TransformToAncestor(title).TransformBounds(new Rect(button.RenderSize));
+        var headingBounds = title.TitleText.TransformToAncestor(title).TransformBounds(new Rect(title.TitleText.RenderSize));
+        Assert.IsFalse(actionBounds.IntersectsWith(headingBounds));
+    }
+
+    [TestMethod]
     public void RootResolvesArabicRtlAndNativeWindowChrome()
     {
         WpfTestHost.Run(1338, 753, window =>

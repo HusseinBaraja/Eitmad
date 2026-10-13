@@ -286,7 +286,7 @@ public sealed class SalesCatalogRenderedTests
             var model = (SalesCatalogViewModel)catalog.DataContext;
             Assert.HasCount(1, model.QuotationLines);
             var title = WpfTestHost.FindByName<Eitmad.WindowsShell.Controls.ShellTitleBar>(reception, "ReceptionistTitleBar");
-            Assert.AreEqual(model.QuotationLabel, title.PrimaryActionLabel);
+            Assert.AreEqual(model.QuotationLines.Count.ToString(System.Globalization.CultureInfo.InvariantCulture), title.PrimaryActionCount);
             WpfTestHost.Capture(window, "catalog-selection-total");
             WpfTestHost.FindByAutomationName<Button>(reception, "فتح عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);

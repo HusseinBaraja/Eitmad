@@ -49,6 +49,7 @@
 
         <controls:ShellTitleBar x:Name="ReceptionistTitleBar" Grid.Row="0" Grid.Column="0"
                                 Title="الرئيسية"
+                                PrimaryActionLabel="عرض السعر" PrimaryActionIcon="{StaticResource IconQuote}"
                                 SearchPlaceholder="ابحث عن عروض الأسعار، العملاء، المنتجات، أو الطلبات..."
                                 SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                                 AccountSwitchRequested="SharedAccountSwitchRequested"

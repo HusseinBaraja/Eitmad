@@ -67,7 +67,7 @@
         </Grid.ColumnDefinitions>
         <Grid x:Name="DashboardSurface" Grid.Column="0" FlowDirection="RightToLeft">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <controls:ShellTitleBar x:Name="ManagerTitleBar" Title="لوحة التحكم" PrimaryActionLabel="الموافقات"
+            <controls:ShellTitleBar x:Name="ManagerTitleBar" Title="لوحة التحكم" PrimaryActionLabel="الموافقات" PrimaryActionIcon="{StaticResource IconTasks}"
                 SearchPlaceholder="ابحث عن عرض سعر أو طلب أو عميل أو صنف..."
                 SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                 AccountSwitchRequested="ManagerTitleBarAccountSwitchRequested"

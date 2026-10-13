@@ -72,22 +72,23 @@
             <Button x:Name="PrimaryActionButton" Grid.Column="0" Height="44" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Tag="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Click="PrimaryActionClick">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                        <Setter Property="Width" Value="180" />
+                        <Setter Property="MinWidth" Value="180" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                                <Setter Property="Width" Value="48" />
+                                <Setter Property="MinWidth" Value="0" />
                                 <Setter Property="Padding" Value="12" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Button.Style>
                 <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">
-                    <Path Data="{StaticResource IconPlus}" Width="20" Height="20" Fill="White" Stretch="Uniform" />
-                    <TextBlock x:Name="PrimaryActionText" Text="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Foreground="White" FontSize="14" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Path Data="{Binding PrimaryActionIcon, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Width="20" Height="20" Fill="White" Stretch="Uniform" />
+                    <TextBlock x:Name="PrimaryActionText" Text="{Binding PrimaryActionLabel, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Foreground="White" FontSize="14" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    <TextBlock x:Name="PrimaryActionCountText" Text="{Binding PrimaryActionCount, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}, StringFormat='({0})'}" FlowDirection="LeftToRight" Foreground="White" FontSize="14" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip="عدد بنود عرض السعر">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <DataTrigger Binding="{Binding PrimaryActionCount, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" Value="">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </Style.Triggers>

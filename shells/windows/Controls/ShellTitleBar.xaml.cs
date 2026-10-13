@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Button = System.Windows.Controls.Button;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using UserControl = System.Windows.Controls.UserControl;
@@ -13,6 +14,8 @@ public partial class ShellTitleBar : UserControl
     public static readonly DependencyProperty ApprovalCountProperty = DependencyProperty.Register(nameof(ApprovalCount), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("—"));
     public static readonly DependencyProperty SearchPlaceholderProperty = DependencyProperty.Register(nameof(SearchPlaceholder), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("ابحث عن عروض أسعار، عملاء، منتجات، أو أوامر عمل..."));
     public static readonly DependencyProperty PrimaryActionLabelProperty = DependencyProperty.Register(nameof(PrimaryActionLabel), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("عرض سعر جديد"));
+    public static readonly DependencyProperty PrimaryActionIconProperty = DependencyProperty.Register(nameof(PrimaryActionIcon), typeof(Geometry), typeof(ShellTitleBar));
+    public static readonly DependencyProperty PrimaryActionCountProperty = DependencyProperty.Register(nameof(PrimaryActionCount), typeof(string), typeof(ShellTitleBar), new PropertyMetadata(""));
     public static readonly DependencyProperty SwitchAccountHintProperty = DependencyProperty.Register(nameof(SwitchAccountHint), typeof(string), typeof(ShellTitleBar), new PropertyMetadata("تبديل الحساب · Alt+K"));
 
     public ShellTitleBar() => InitializeComponent();
@@ -21,6 +24,8 @@ public partial class ShellTitleBar : UserControl
     public string ApprovalCount { get => (string)GetValue(ApprovalCountProperty); set => SetValue(ApprovalCountProperty, value); }
     public string SearchPlaceholder { get => (string)GetValue(SearchPlaceholderProperty); set => SetValue(SearchPlaceholderProperty, value); }
     public string PrimaryActionLabel { get => (string)GetValue(PrimaryActionLabelProperty); set => SetValue(PrimaryActionLabelProperty, value); }
+    public Geometry PrimaryActionIcon { get => (Geometry)GetValue(PrimaryActionIconProperty); set => SetValue(PrimaryActionIconProperty, value); }
+    public string PrimaryActionCount { get => (string)GetValue(PrimaryActionCountProperty); set => SetValue(PrimaryActionCountProperty, value); }
     public string SwitchAccountHint { get => (string)GetValue(SwitchAccountHintProperty); set => SetValue(SwitchAccountHintProperty, value); }
 
     public event EventHandler? AccountSwitchRequested;

@@ -113,10 +113,9 @@ public partial class ReceptionistHomeView : UserControl
         PreviewOrders.ConfigureReceptionist(preview);
         PreviewOrders.CustomerRequested += id => _ = OpenOrderCustomerAsync(id);
         ReceptionOrders.Content = PreviewOrders;
-        ReceptionistTitleBar.PrimaryActionButton.Width = 220;
         System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
-        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
-            new System.Windows.Data.Binding(nameof(SalesCatalogViewModel.QuotationLabel)) { Source = catalog });
+        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionCountProperty,
+            new System.Windows.Data.Binding("QuotationLines.Count") { Source = catalog });
     }
 
     private async Task OpenHomeItemAsync(Features.Home.HomeRow row)
