@@ -22,6 +22,101 @@ public sealed class UsersRenderedTests
     [DataRow(1920d, 1080d)]
     [DataRow(1338d, 753d)]
     [DataRow(720d, 560d)]
+    public void CreateValidationIdentifiesPasswordAndAuthorityFailureUsesFormSummary(double width, double height)
+    {
+        var engine = Engine();
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (width == 1920) window.WindowState = WindowState.Maximized;
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100:0}%; WPF RenderTargetBitmap at 96 DPI; synthetic account responses.";
+            Console.WriteLine(geometry);
+            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
+            {
+                System.IO.Directory.CreateDirectory(directory);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"ui40-{width}.txt"), geometry);
+            }
+
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var name = WpfTestHost.FindByName<TextBox>(view, "UserNameInput");
+            var username = WpfTestHost.FindByName<TextBox>(view, "UsernameInput");
+            var password = WpfTestHost.FindByName<PasswordBox>(view, "UserPasswordInput");
+            var nameField = WpfTestHost.Ancestor<FormField>(name);
+            var passwordField = WpfTestHost.Ancestor<FormField>(password);
+            var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ");
+            name.Text = "مستخدم تجريبي";
+            username.Text = "synthetic.user";
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(((TextBlock)passwordField.Template.FindName("Help", passwordField)).IsVisible);
+            foreach (var value in new[] { "", "short" })
+            {
+                password.Password = value;
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(password.IsKeyboardFocusWithin);
+                Assert.IsNull(engine.LastCommand);
+                Assert.AreEqual("", nameField.ErrorText);
+                Assert.AreEqual("", WpfTestHost.Ancestor<FormField>(username).ErrorText);
+                Assert.IsTrue(passwordField.ErrorText.Length > 0);
+                Assert.AreEqual(value, password.Password);
+                Assert.AreEqual("مستخدم تجريبي", name.Text);
+                Assert.AreEqual("synthetic.user", username.Text);
+                if (value.Length == 0 && width == 720)
+                {
+                    WpfTestHost.Ancestor<ScrollViewer>(password).ScrollToEnd();
+                    WpfTestHost.CompleteLayout(window);
+                    var saveBounds = save.TransformToAncestor(view).TransformBounds(new Rect(save.RenderSize));
+                    Assert.IsTrue(saveBounds.Top >= 0 && saveBounds.Bottom <= view.ActualHeight);
+                    AssertTextFitsView((TextBlock)passwordField.Template.FindName("Error", passwordField), view);
+                    WpfTestHost.Capture(window, "ui40-empty-password-error-720");
+                }
+            }
+            var error = (TextBlock)passwordField.Template.FindName("Error", passwordField);
+            error.BringIntoView();
+            WpfTestHost.CompleteLayout(window);
+            AssertTextFitsView(error, view);
+            WpfTestHost.Capture(window, $"ui40-password-error-{width}");
+
+            password.Password = "synthetic-password";
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("", passwordField.ErrorText);
+            engine.CommandHandler = _ => new CommandResponseEnvelope
+            {
+                Outcome = new CommandOutcome
+                {
+                    Status = CommandOutcomeStatus.Failed,
+                    Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 },
+                },
+            };
+            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var summary = WpfTestHost.FindByName<TextBlock>(view, "EditorFailureSummary");
+            Assert.IsTrue(summary.IsVisible);
+            AssertTextFitsView(summary, view);
+            Assert.IsTrue(WpfTestHost.Descendants<FormField>(view).Where(field => field.IsVisible).All(field => field.ErrorText.Length == 0));
+            Assert.AreEqual("synthetic-password", password.Password);
+            Assert.AreEqual("مستخدم تجريبي", name.Text);
+            Assert.AreEqual("synthetic.user", username.Text);
+            WpfTestHost.Capture(window, $"ui40-authority-summary-{width}");
+        }, engine: engine);
+    }
+
+    private static void AssertTextFitsView(TextBlock text, FrameworkElement view)
+    {
+        var bounds = text.TransformToAncestor(view).TransformBounds(new Rect(text.RenderSize));
+        Assert.IsTrue(text.IsVisible && text.ActualWidth > 0 && text.ActualHeight > 0);
+        Assert.IsTrue(bounds.Left >= -1 && bounds.Right <= view.ActualWidth + 1);
+        Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= view.ActualHeight + 1);
+    }
+
+    [TestMethod]
+    [DataRow(1920d, 1080d)]
+    [DataRow(1338d, 753d)]
+    [DataRow(720d, 560d)]
     public void SameDisplayNameShowsDistinctLoginIdentitiesInRowsAndConfirmation(double width, double height)
     {
         var engine = Engine();

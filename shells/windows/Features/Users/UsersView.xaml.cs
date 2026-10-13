@@ -39,13 +39,21 @@ public partial class UsersView : UserControl
     { if (sender is Button { DataContext: UserPreview user }) ViewModel.BeginDeactivation(user); }
     private async void ApplyClick(object sender, RoutedEventArgs e)
     {
-        if (!await ViewModel.ApplyAsync(UserPasswordInput.Password)) UserNameInput.Focus();
+        if (!await ViewModel.ApplyAsync(UserPasswordInput.Password))
+        {
+            if (ViewModel.EditorNameError.Length > 0) UserNameInput.Focus();
+            else if (ViewModel.EditorUsernameError.Length > 0) UsernameInput.Focus();
+            else if (ViewModel.EditorPasswordError.Length > 0) UserPasswordInput.Focus();
+            else if (ViewModel.EditorRoleError.Length > 0) UserRoleInput.Focus();
+            else EditorFailureSummary.BringIntoView();
+        }
         else
         {
             UserPasswordInput.Clear();
             RestoreListFocus();
         }
     }
+    private void PasswordChanged(object sender, RoutedEventArgs e) => ViewModel.ClearPasswordError();
     private void CancelEditClick(object sender, RoutedEventArgs e) { ViewModel.CancelEditor(); RestoreListFocus(); }
     private void CancelDeactivateClick(object sender, RoutedEventArgs e) => ViewModel.CancelDeactivation();
     private async void ConfirmDeactivateClick(object sender, RoutedEventArgs e)

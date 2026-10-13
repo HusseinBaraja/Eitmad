@@ -33,6 +33,7 @@ public sealed class UsersViewModel : ObservableObject
     private bool isEditorOpen, isDeactivationOpen, isBusy;
     private string editorName = "", editorRole = "مدير", editorError = "", editorTitle = "", deactivationName = "";
     private string editorUsername = "";
+    private string editorNameError = "", editorUsernameError = "", editorPasswordError = "", editorRoleError = "";
     private string deactivationUsername = "";
     private UserPreview? editing, deactivating;
 
@@ -47,11 +48,15 @@ public sealed class UsersViewModel : ObservableObject
     public bool IsListVisible => !IsEditorOpen;
     public bool IsEditing => editing is not null;
     public bool IsBusy { get => isBusy; private set => Set(ref isBusy, value); }
-    public string EditorUsername { get => editorUsername; set => Set(ref editorUsername, value); }
+    public string EditorUsername { get => editorUsername; set { if (Set(ref editorUsername, value)) EditorUsernameError = ""; } }
     public bool IsDeactivationOpen { get => isDeactivationOpen; private set => Set(ref isDeactivationOpen, value); }
-    public string EditorName { get => editorName; set => Set(ref editorName, value); }
-    public string EditorRole { get => editorRole; set => Set(ref editorRole, value); }
+    public string EditorName { get => editorName; set { if (Set(ref editorName, value)) EditorNameError = ""; } }
+    public string EditorRole { get => editorRole; set { if (Set(ref editorRole, value)) EditorRoleError = ""; } }
     public string EditorError { get => editorError; private set => Set(ref editorError, value); }
+    public string EditorNameError { get => editorNameError; private set => Set(ref editorNameError, value); }
+    public string EditorUsernameError { get => editorUsernameError; private set => Set(ref editorUsernameError, value); }
+    public string EditorPasswordError { get => editorPasswordError; private set => Set(ref editorPasswordError, value); }
+    public string EditorRoleError { get => editorRoleError; private set => Set(ref editorRoleError, value); }
     public string EditorTitle { get => editorTitle; private set => Set(ref editorTitle, value); }
     public string DeactivationName { get => deactivationName; private set => Set(ref deactivationName, value); }
     public string DeactivationUsername { get => deactivationUsername; private set => Set(ref deactivationUsername, value); }
@@ -112,6 +117,7 @@ public sealed class UsersViewModel : ObservableObject
         EditorName = user?.Name ?? "";
         EditorRole = user?.Role ?? Roles[0];
         EditorError = "";
+        ClearInputErrors();
         EditorTitle = user is null ? "إضافة مستخدم" : "تعديل المستخدم";
         IsEditorOpen = true;
     }
@@ -121,20 +127,32 @@ public sealed class UsersViewModel : ObservableObject
         IsEditorOpen = false;
         editing = null;
         EditorError = "";
+        ClearInputErrors();
         Raise(nameof(IsEditing));
+    }
+
+    public void ClearPasswordError() => EditorPasswordError = "";
+
+    private void ClearInputErrors()
+    {
+        EditorNameError = "";
+        EditorUsernameError = "";
+        EditorPasswordError = "";
+        EditorRoleError = "";
     }
 
     public async Task<bool> ApplyAsync(string password, CancellationToken cancellationToken = default)
     {
         if (!IsEditorOpen || engine is null || IsBusy) return false;
-        if (string.IsNullOrWhiteSpace(EditorName)
-            || string.IsNullOrWhiteSpace(EditorUsername)
-            || !Roles.Contains(EditorRole)
-            || (editing is null && password.Length < 12))
-        {
-            EditorError = "أدخل الاسم واسم المستخدم واختر الدور. يجب أن تتكون كلمة المرور من 12 حرفًا على الأقل.";
+        EditorError = "";
+        EditorNameError = string.IsNullOrWhiteSpace(EditorName) ? "أدخل الاسم." : "";
+        EditorUsernameError = string.IsNullOrWhiteSpace(EditorUsername) ? "أدخل اسم المستخدم." : "";
+        EditorRoleError = !Roles.Contains(EditorRole) ? "اختر الدور." : "";
+        EditorPasswordError = editing is null && password.Length < 12
+            ? "أدخل كلمة مرور مؤقتة من 12 حرفًا على الأقل." : "";
+        if (EditorNameError.Length > 0 || EditorUsernameError.Length > 0
+            || EditorRoleError.Length > 0 || EditorPasswordError.Length > 0)
             return false;
-        }
 
         var role = EditorRole == "مدير" ? DesktopAccountRole.Manager : DesktopAccountRole.Receptionist;
         var command = editing is null

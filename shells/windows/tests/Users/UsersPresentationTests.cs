@@ -107,6 +107,65 @@ public sealed class UsersPresentationTests
     }
 
     [TestMethod]
+    [DataRow("")]
+    [DataRow("short")]
+    public async Task ShortPasswordOnlyMarksPasswordAndPreservesValidInputs(string password)
+    {
+        var engine = Engine();
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        vm.BeginEdit();
+        vm.EditorName = "مستخدم تجريبي";
+        vm.EditorUsername = "synthetic.user";
+        vm.EditorRole = "موظف الاستقبال";
+
+        Assert.IsFalse(await vm.ApplyAsync(password));
+        Assert.IsTrue(vm.IsEditorOpen);
+        Assert.AreEqual("مستخدم تجريبي", vm.EditorName);
+        Assert.AreEqual("synthetic.user", vm.EditorUsername);
+        Assert.AreEqual("موظف الاستقبال", vm.EditorRole);
+        Assert.AreEqual("", vm.EditorNameError);
+        Assert.AreEqual("", vm.EditorUsernameError);
+        Assert.AreEqual("", vm.EditorRoleError);
+        Assert.AreEqual("", vm.EditorError);
+        Assert.IsTrue(vm.EditorPasswordError.Length > 0);
+        Assert.IsNull(engine.LastCommand);
+
+        vm.ClearPasswordError();
+        Assert.AreEqual("", vm.EditorPasswordError);
+        Assert.IsTrue(await vm.ApplyAsync("synthetic-password"));
+        Assert.IsNotNull(engine.LastCommand?.AsDesktopAccountCreate());
+    }
+
+    [TestMethod]
+    public async Task AuthorityFailureUsesSummaryAndPreservesInputsWithoutFieldErrors()
+    {
+        var engine = Engine();
+        engine.CommandHandler = _ => new CommandResponseEnvelope
+        {
+            Outcome = new CommandOutcome
+            {
+                Status = CommandOutcomeStatus.Failed,
+                Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 },
+            },
+        };
+        var vm = new UsersViewModel();
+        vm.Attach(engine);
+        vm.BeginEdit();
+        vm.EditorName = "مستخدم تجريبي";
+        vm.EditorUsername = "synthetic.user";
+        Assert.IsFalse(await vm.ApplyAsync("synthetic-password"));
+        Assert.IsTrue(vm.IsEditorOpen);
+        Assert.AreEqual("مستخدم تجريبي", vm.EditorName);
+        Assert.AreEqual("synthetic.user", vm.EditorUsername);
+        Assert.IsTrue(vm.EditorError.Length > 0);
+        Assert.AreEqual("", vm.EditorNameError);
+        Assert.AreEqual("", vm.EditorUsernameError);
+        Assert.AreEqual("", vm.EditorPasswordError);
+        Assert.AreEqual("", vm.EditorRoleError);
+    }
+
+    [TestMethod]
     public async Task ValidationAndLastManagerFailureKeepTheEditorState()
     {
         var engine = Engine();
@@ -114,8 +173,14 @@ public sealed class UsersPresentationTests
         vm.Attach(engine);
         await vm.LoadAsync();
         vm.BeginEdit();
+        vm.EditorRole = "";
         Assert.IsFalse(await vm.ApplyAsync("short"));
         Assert.IsTrue(vm.IsEditorOpen);
+        Assert.IsTrue(vm.EditorNameError.Length > 0);
+        Assert.IsTrue(vm.EditorUsernameError.Length > 0);
+        Assert.IsTrue(vm.EditorPasswordError.Length > 0);
+        Assert.IsTrue(vm.EditorRoleError.Length > 0);
+        Assert.AreEqual("", vm.EditorError);
 
         engine.CommandHandler = _ => new CommandResponseEnvelope
         {
@@ -128,6 +193,10 @@ public sealed class UsersPresentationTests
             },
         };
         vm.CancelEditor();
+        Assert.AreEqual("", vm.EditorNameError);
+        Assert.AreEqual("", vm.EditorUsernameError);
+        Assert.AreEqual("", vm.EditorPasswordError);
+        Assert.AreEqual("", vm.EditorRoleError);
         var manager = vm.VisibleUsers.Single(user => user.Role == "مدير");
         vm.BeginDeactivation(manager);
         Assert.IsFalse(await vm.DeactivateAsync());

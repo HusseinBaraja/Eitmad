@@ -58,8 +58,8 @@
     <TextBlock Text="يسري تغيير الدور أو التعطيل على الجلسات المفتوحة فورًا." Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,20"/>
     <Border Style="{StaticResource Card}" Padding="24">
      <StackPanel>
-      <controls:FormField Label="الاسم" ErrorText="{Binding EditorError}"><TextBox x:Name="UserNameInput" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="الاسم"/></controls:FormField>
-      <controls:FormField Margin="0,20,0,0">
+      <controls:FormField Label="الاسم" ErrorText="{Binding EditorNameError}"><TextBox x:Name="UserNameInput" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="الاسم"/></controls:FormField>
+      <controls:FormField Margin="0,20,0,0" ErrorText="{Binding EditorUsernameError}">
        <controls:FormField.Style>
         <Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}">
          <Setter Property="Label" Value="اسم المستخدم"/>
@@ -68,13 +68,16 @@
        </controls:FormField.Style>
        <TextBox x:Name="UsernameInput" Text="{Binding EditorUsername, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsEditing}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم المستخدم"/>
       </controls:FormField>
-      <controls:FormField Label="كلمة المرور المؤقتة" Margin="0,20,0,0">
+      <controls:FormField Label="كلمة المرور المؤقتة" Margin="0,20,0,0" HelpText="استخدم 12 حرفًا على الأقل." ErrorText="{Binding EditorPasswordError}">
        <controls:FormField.Style><Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}"><Style.Triggers><DataTrigger Binding="{Binding IsEditing}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></controls:FormField.Style>
-       <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
+       <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" PasswordChanged="PasswordChanged" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
       </controls:FormField>
       <layout:AdaptiveFieldsPanel MinItemWidth="260" Spacing="20" Margin="0,20,0,0">
-       <controls:FormField Label="الدور"><ComboBox x:Name="UserRoleInput" ItemsSource="{Binding Roles}" SelectedItem="{Binding EditorRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="دور المستخدم"/></controls:FormField>
+       <controls:FormField Label="الدور" ErrorText="{Binding EditorRoleError}"><ComboBox x:Name="UserRoleInput" ItemsSource="{Binding Roles}" SelectedItem="{Binding EditorRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="دور المستخدم"/></controls:FormField>
       </layout:AdaptiveFieldsPanel>
+      <TextBlock x:Name="EditorFailureSummary" Text="{Binding EditorError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="14" Margin="0,20,0,0">
+       <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding EditorError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+      </TextBlock>
       <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,24,0,0" Padding="0,20,0,0">
        <StackPanel Orientation="Horizontal">
         <Button Content="حفظ" MinWidth="104" Style="{StaticResource PrimaryButton}" Click="ApplyClick" AutomationProperties.Name="حفظ"/>
