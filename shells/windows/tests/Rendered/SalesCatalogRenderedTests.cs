@@ -154,7 +154,9 @@ public sealed class SalesCatalogRenderedTests
                     Assert.IsNotNull(target);
                     if (point == emptyPoint)
                         Assert.IsFalse(WpfTestHost.Descendants<ListBoxItem>(list).Any(item => item.IsAncestorOf(target) || item == target), "The regression must cover empty row space.");
-                    var source = target as UIElement ?? WpfTestHost.Ancestor<UIElement>(target);
+                    var source = target as UIElement
+                        ?? (target is FrameworkContentElement content ? content.Parent as UIElement : null)
+                        ?? WpfTestHost.Ancestor<UIElement>(target);
                     foreach (var delta in new[] { -120, 120 })
                     {
                         page.ScrollToVerticalOffset(page.ScrollableHeight / 2);

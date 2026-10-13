@@ -1,12 +1,15 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception">
+  <Style x:Key="SelectionSupportingAction" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+   <Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="10,5"/>
+  </Style>
   <Style x:Key="OptionCard" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChip}">
-   <Setter Property="MinWidth" Value="180"/><Setter Property="Padding" Value="18,12"/><Setter Property="Margin" Value="0,0,10,10"/>
+   <Setter Property="MinWidth" Value="160"/><Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,0,10,10"/>
    <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
   </Style>
   <DataTemplate x:Key="OptionTitle">
    <StackPanel Orientation="Horizontal" TextBlock.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
     <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Text="✓" Margin="0,0,8,0" Visibility="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource BooleanToVisibility}}"/>
-    <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" reception:SalesText.Value="{Binding Name}" FontSize="18"/>
+    <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" reception:SalesText.Value="{Binding Name}" FontSize="16"/>
    </StackPanel>
   </DataTemplate>
   <Style x:Key="Options" TargetType="ListBox">
