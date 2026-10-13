@@ -1,5 +1,58 @@
 <UserControl x:Class="Eitmad.WindowsShell.Features.Furniture.FurnitureView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
-    <UserControl.Resources></UserControl.Resources>
+    <UserControl.Resources>
+        <Style x:Key="FurnitureProgress" TargetType="controls:StepIndicator" BasedOn="{StaticResource {x:Type controls:StepIndicator}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                    <Setter Property="FontSize" Value="16" />
+                    <Setter Property="ItemsPanel">
+                        <Setter.Value>
+                            <ItemsPanelTemplate><StackPanel /></ItemsPanelTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ItemContainerStyle">
+                        <Setter.Value>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <Trigger Property="controls:StepIndicator.State" Value="الحالية">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="ItemTemplate">
+                        <Setter.Value>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=controls:StepIndicator}}" />
+                            </DataTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="controls:StepIndicator">
+                                <Grid MinHeight="36" Background="{TemplateBinding Background}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ItemsPresenter VerticalAlignment="Center" Margin="0,0,16,0" />
+                                    <TextBlock x:Name="StepPosition" Grid.Column="1" VerticalAlignment="Center" FontSize="{TemplateBinding FontSize}" Foreground="{TemplateBinding Foreground}">
+                                        <Run Text="الخطوة " /><Run Text="{Binding CurrentStep, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" FlowDirection="LeftToRight" /><Run Text=" من " /><Run Text="{Binding Items.Count, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" FlowDirection="LeftToRight" />
+                                    </TextBlock>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+                <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
             <Grid.RowDefinitions>
@@ -254,7 +307,7 @@
                     <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="{Binding EditorStepDescription}">
                         <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" />
                     </controls:PageHeader>
-                    <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="24,12,24,14">
+                    <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}" Margin="24,12,24,14">
                         <controls:StepIndicator.ItemsSource>
                             <x:Array Type="{x:Type sys:String}">
                                 <sys:String>المعلومات</sys:String>
