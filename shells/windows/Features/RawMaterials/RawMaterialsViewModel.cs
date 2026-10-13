@@ -265,7 +265,22 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public UnitDimension ReferenceDimension
     {
         get => referenceDimension;
-        set => Set(ref referenceDimension, value);
+        set
+        {
+            if (Set(ref referenceDimension, value)) RaiseConversionExample();
+        }
+    }
+
+    public RawMaterialReferenceOption? ReferenceConversionExample => ActiveUnits.FirstOrDefault(unit =>
+        unit.Dimension == ReferenceDimension && unit.Numerator > 0 && unit.Denominator > 0);
+
+    public string ReferenceConversionExampleUnitName => ReferenceConversionExample?.Name
+        ?? $"الوحدة الأساسية لقياس {UnitDimensions.First(option => option.Value == ReferenceDimension).Label}";
+
+    private void RaiseConversionExample()
+    {
+        Raise(nameof(ReferenceConversionExample));
+        Raise(nameof(ReferenceConversionExampleUnitName));
     }
 
     public long ReferenceNumerator
@@ -310,6 +325,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
             if (!option.IsArchived) ActiveUnits.Add(option);
         }
         RefreshEditorReferences();
+        RaiseConversionExample();
         if (IsEditorOpen)
         {
             EditorCategoryId = priorEditorCategoryId;

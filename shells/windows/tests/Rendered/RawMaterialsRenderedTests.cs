@@ -101,8 +101,12 @@ public sealed class RawMaterialsRenderedTests
                 ],
                 Units =
                 [
-                    new MaterialUnit { Id = unit.Id, Scope = scope, Name = "متر طولي", Revision = 2 },
-                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = unit.Name, Revision = 1 },
+                    new MaterialUnit { Id = unit.Id, Scope = scope, Name = "متر طولي", Dimension = unit.Dimension,
+                        Numerator = unit.Numerator, Denominator = unit.Denominator, Revision = 2 },
+                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = unit.Name, Dimension = unit.Dimension,
+                        Numerator = unit.Numerator, Denominator = unit.Denominator, Revision = 1 },
+                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "سنتيمتر مربع", Dimension = UnitDimension.Area,
+                        Numerator = 1, Denominator = 10_000, Revision = 1 },
                 ],
             }, [material]);
             WpfTestHost.CompleteLayout(window);
@@ -118,6 +122,38 @@ public sealed class RawMaterialsRenderedTests
             Assert.IsTrue(view.ViewModel.IsReferenceEditorOpen);
             Assert.IsTrue(view.ViewModel.IsUnitReference);
             WpfTestHost.Capture(window, $"material-durable-unit-{width}x{height}");
+            var conversion = WpfTestHost.FindByName<StackPanel>(view, "UnitConversionGroup");
+            var referenceScroll = WpfTestHost.Ancestor<ScrollViewer>(conversion);
+            referenceScroll.ScrollToBottom();
+            WpfTestHost.CompleteLayout(window);
+            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
+            WpfTestHost.Capture(window, $"material-unit-conversion-count-{width}x{height}");
+
+            view.ViewModel.ReferenceDimension = UnitDimension.Length;
+            WpfTestHost.CompleteLayout(window);
+            referenceScroll.ScrollToBottom();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(unit.Id, view.ViewModel.ReferenceConversionExample!.Id);
+            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
+            WpfTestHost.Capture(window, $"material-unit-conversion-length-{width}x{height}");
+            view.ViewModel.ReferenceDimension = UnitDimension.Area;
+            WpfTestHost.CompleteLayout(window);
+            referenceScroll.ScrollToBottom();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(10_000L, view.ViewModel.ReferenceConversionExample!.Denominator);
+            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
+            WpfTestHost.Capture(window, $"material-unit-conversion-area-{width}x{height}");
+            if (width == 720)
+            {
+                WpfTestHost.FindByName<TextBlock>(view, "UnitConversionExample").FontSize = 16;
+                foreach (var field in WpfTestHost.Descendants<FormField>(conversion))
+                    ControlOptions.SetHighContrast(field, true);
+                WpfTestHost.CompleteLayout(window);
+                referenceScroll.ScrollToBottom();
+                WpfTestHost.CompleteLayout(window);
+                AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
+                WpfTestHost.Capture(window, "material-unit-conversion-larger-text-system-colors-720x560");
+            }
         }, engine: engine);
     }
 
