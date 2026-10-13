@@ -77,9 +77,9 @@ public partial class PricingView : UserControl
     }
     private void UpdateColumns()
     {
-        PricingRows.Columns[2].Visibility = ViewModel.CanReadCosts ? Visibility.Visible : Visibility.Collapsed;
-        PricingRows.Columns[4].Visibility = ViewModel.CanReadCosts ? Visibility.Visible : Visibility.Collapsed;
-        PricingRows.Columns[6].Visibility = ViewModel.CanManage ? Visibility.Visible : Visibility.Collapsed;
+        PricingRows.SetColumnAvailable(PricingRows.Columns[2], ViewModel.CanReadCosts);
+        PricingRows.SetColumnAvailable(PricingRows.Columns[4], ViewModel.CanReadCosts);
+        PricingRows.SetColumnAvailable(PricingRows.Columns[6], ViewModel.CanManage);
         PricingRows.IsRowInvocationEnabled = ViewModel.CanManage && ViewModel.CanReadCosts;
     }
     private async Task ReviewAsync()

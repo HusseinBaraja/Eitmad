@@ -15,6 +15,7 @@ public sealed class PartsRenderedTests
 {
     [TestMethod]
     [DataRow(1920, 1080)]
+    [DataRow(1536, 864)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
     public void CreateWizardRendersAccessibleStepsAndMaterialPicker(int width, int height)
@@ -74,6 +75,15 @@ public sealed class PartsRenderedTests
             Assert.IsTrue(unitSelector.IsDropDownOpen);
             unitSelector.IsDropDownOpen = false;
             WpfTestHost.Capture(window,$"part-materials-{width}x{height}");
+            var materialRows = WpfTestHost.FindByName<Controls.OperationsTable>(view, "MaterialRows");
+            var unitCost = WpfTestHost.Descendants<Controls.AmountDisplay>(materialRows)
+                .First(amount => amount.AmountText == view.ViewModel.SelectedMaterials[0].UnitCostLabel);
+            unitCost.BringIntoView();
+            WpfTestHost.CompleteLayout(window);
+            var costPoint = unitCost.TranslatePoint(new Point(), materialRows);
+            Assert.IsTrue(costPoint.X >= 0 && costPoint.X + unitCost.ActualWidth <= materialRows.ActualWidth);
+            Assert.AreEqual(0, ((ScrollViewer)materialRows.Template.FindName("DG_ScrollViewer", materialRows)).ScrollableWidth, 1);
+            WpfTestHost.Capture(window, $"ui04-material-costs-{width}x{height}");
 
             WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المراجعة")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

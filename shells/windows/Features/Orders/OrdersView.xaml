@@ -72,11 +72,11 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="العميل" Width="1.65*" MinWidth="160" SortMemberPath="Customer">
+                                        <DataGridTemplateColumn Header="العميل" controls:OperationsTable.IsCompactDetail="True" Width="1.65*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" />
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -87,7 +87,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="التاريخ" Width="1.05*" MinWidth="120" SortMemberPath="Date">
+                                        <DataGridTemplateColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Date">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
@@ -264,7 +264,7 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="SemiBold" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -274,11 +274,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="التنويعة" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
+                                            <DataGridTemplateColumn Header="التنويعة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -288,7 +288,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الأبعاد" Width="1.28*" MinWidth="120" SortMemberPath="Dimensions">
+                                            <DataGridTemplateColumn Header="الأبعاد" controls:OperationsTable.IsCompactDetail="True" Width="1.28*" MinWidth="120" SortMemberPath="Dimensions">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
@@ -302,11 +302,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="اللون" Width="0.82*" MinWidth="160" SortMemberPath="Color">
+                                            <DataGridTemplateColumn Header="اللون" controls:OperationsTable.IsCompactDetail="True" Width="0.82*" MinWidth="160" SortMemberPath="Color">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -316,11 +316,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="المقبض" Width="1.02*" MinWidth="120" SortMemberPath="Handle">
+                                            <DataGridTemplateColumn Header="المقبض" controls:OperationsTable.IsCompactDetail="True" Width="1.02*" MinWidth="120" SortMemberPath="Handle">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">

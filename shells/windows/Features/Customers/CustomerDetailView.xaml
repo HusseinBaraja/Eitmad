@@ -46,8 +46,8 @@
      <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد عروض أسعار لهذا العميل"/></controls:OperationsTable.EmptyContent>
      <DataGrid.Columns>
       <DataGridTextColumn Header="رقم العرض" Binding="{Binding Number}" Width="1.2*" MinWidth="140" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="التاريخ" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="الأصناف" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
+      <DataGridTextColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
+      <DataGridTextColumn Header="الأصناف" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="*" MinWidth="110" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الإجمالي" Binding="{Binding Total}" Width="*" MinWidth="130" ElementStyle="{StaticResource HistoryValue}" CanUserSort="False"/>
      </DataGrid.Columns>
@@ -57,8 +57,8 @@
      <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد طلبات لهذا العميل"/></controls:OperationsTable.EmptyContent>
      <DataGrid.Columns>
       <DataGridTextColumn Header="رقم الطلب" Binding="{Binding Number}" Width="1.2*" MinWidth="140" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="التاريخ" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="الأصناف" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
+      <DataGridTextColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
+      <DataGridTextColumn Header="الأصناف" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="*" MinWidth="110" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الإجمالي" Binding="{Binding Total}" Width="*" MinWidth="130" ElementStyle="{StaticResource HistoryValue}" CanUserSort="False"/>
      </DataGrid.Columns>

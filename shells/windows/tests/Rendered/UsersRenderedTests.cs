@@ -45,6 +45,45 @@ public sealed class UsersRenderedTests
         }, engine: Engine());
     }
     [TestMethod]
+    [DataRow(720d, 560d)]
+    [DataRow(1338d, 753d)]
+    [DataRow(1536d, 864d)]
+    public void ListKeepsActionsAndRoleReachableWithoutHorizontalScrolling(double width, double height)
+    {
+        WpfTestHost.Run(width, height, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<UsersView>(window).Single();
+            var table = WpfTestHost.FindByName<OperationsTable>(view, "UsersTable");
+            var scroll = (ScrollViewer)table.Template.FindName("DG_ScrollViewer", table);
+            Assert.AreEqual(0, scroll.ScrollableWidth, 1);
+            var edit = WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم");
+            var deactivate = WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم محمد سالم");
+            foreach (var action in new[] { edit, deactivate })
+            {
+                var point = action.TranslatePoint(new Point(), table);
+                Assert.IsTrue(point.X >= 0 && point.X + action.ActualWidth <= table.ActualWidth);
+            }
+            table.SelectedIndex = 0;
+            if (width == 720)
+            {
+                var sort = WpfTestHost.FindByAutomationName<Button>(table, "ترتيب حسب الدور");
+                Assert.IsTrue(sort.Focus());
+                sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(System.ComponentModel.ListSortDirection.Ascending, table.Columns[1].SortDirection);
+            }
+            Console.WriteLine($"Users: {window.ActualWidth}x{window.ActualHeight} DIP; scaling {System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%.");
+            WpfTestHost.Capture(window, $"ui04-users-{width}x{height}");
+            WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(view.ViewModel.IsEditorOpen);
+        }, engine: Engine());
+    }
+
+    [TestMethod]
     public void UsersNavigationFiltersAndEditorPageWorkInTheRenderedShell()
     {
         WpfTestHost.Run(1338, 753, window =>

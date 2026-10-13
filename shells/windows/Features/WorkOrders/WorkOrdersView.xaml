@@ -86,12 +86,12 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="العميل / الطلب" Width="1.85*" MinWidth="160" SortMemberPath="Customer">
+                                        <DataGridTemplateColumn Header="العميل / الطلب" controls:OperationsTable.IsCompactDetail="True" Width="1.85*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell2" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <StackPanel VerticalAlignment="Center" Margin="10,0">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="SemiBold" />
                                                             <TextBlock x:Name="ContrastCell1" Text="{Binding OrderNumber, StringFormat=الطلب {0}}" Foreground="{StaticResource MutedBrush}" FontSize="9" TextAlignment="Center" FlowDirection="LeftToRight" Margin="0,3,0,0" />
                                                         </StackPanel>
                                                     </Border>
@@ -105,12 +105,12 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="الأثاث" Width="1.55*" MinWidth="160" SortMemberPath="FurnitureSummary">
+                                        <DataGridTemplateColumn Header="الأثاث" controls:OperationsTable.IsCompactDetail="True" Width="1.55*" MinWidth="160" SortMemberPath="FurnitureSummary">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
                                                         <Border x:Name="ContrastCell2" BorderBrush="#9A5C22" BorderThickness="2,0,0,0" Padding="9,0" Margin="4,12">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureSummary}" Style="{StaticResource TableBody}" FontWeight="Bold" FontSize="12" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureSummary}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="Bold" FontSize="12" />
                                                         </Border>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -137,11 +137,11 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="مسند إلى" Width="1.05*" MinWidth="120" SortMemberPath="AssignedTo">
+                                        <DataGridTemplateColumn Header="مسند إلى" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="AssignedTo">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding AssignedTo}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding AssignedTo}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -152,7 +152,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="موعد التسليم" Width="1.2*" MinWidth="120" SortMemberPath="DueDate">
+                                        <DataGridTemplateColumn Header="موعد التسليم" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="DueDate">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">

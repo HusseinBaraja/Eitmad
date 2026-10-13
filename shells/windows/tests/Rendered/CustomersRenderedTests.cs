@@ -129,6 +129,7 @@ public sealed class CustomersRenderedTests
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
+    [DataRow(1536, 864)]
     public void DetailEditKeepsHistoryAndCancelDiscardsDraft(int width, int height)
     {
         var engine = new FakeEngine();
@@ -145,6 +146,13 @@ public sealed class CustomersRenderedTests
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, $"customers-detail-{width}x{height}");
+            foreach (var table in WpfTestHost.Descendants<OperationsTable>(view))
+            {
+                table.BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(0, ((ScrollViewer)table.Template.FindName("DG_ScrollViewer", table)).ScrollableWidth, 1);
+                WpfTestHost.Capture(window, $"ui04-history-{table.Name}-{width}x{height}");
+            }
             var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
             edit.Focus();
             edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

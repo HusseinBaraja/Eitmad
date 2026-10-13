@@ -115,11 +115,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الفئة" Width="1.2*" MinWidth="120" SortMemberPath="Category">
+                                            <DataGridTemplateColumn Header="الفئة" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="Category">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
@@ -137,7 +137,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الوحدة" Width="0.8*" MinWidth="120" SortMemberPath="Unit">
+                                            <DataGridTemplateColumn Header="الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="0.8*" MinWidth="120" SortMemberPath="Unit">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">

@@ -129,11 +129,11 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="الفئة" Width="1.1*" MinWidth="120" SortMemberPath="Category">
+                                        <DataGridTemplateColumn Header="الفئة" controls:OperationsTable.IsCompactDetail="True" Width="1.1*" MinWidth="120" SortMemberPath="Category">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="RowSurface" MinHeight="78" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" />
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding IsArchived}" Value="True">
@@ -147,7 +147,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="عدد المقاسات" Width="1.05*" MinWidth="120" SortMemberPath="VariantCount">
+                                        <DataGridTemplateColumn Header="عدد المقاسات" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="VariantCount">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="RowSurface" MinHeight="78" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -420,7 +420,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="تكلفة الوحدة" Width="1.2*" MinWidth="120" SortMemberPath="Part.UnitCost">
+                                        <DataGridTemplateColumn Header="تكلفة الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="Part.UnitCost">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell0" MinHeight="78" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -591,7 +591,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="تعديل السعر" Width="1.2*" MinWidth="120" SortMemberPath="PriceAdjustment">
+                                        <DataGridTemplateColumn Header="تعديل السعر" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="PriceAdjustment">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" MinHeight="70" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">

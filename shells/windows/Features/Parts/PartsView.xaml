@@ -87,11 +87,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الفئة" Width="1.2*" MinWidth="120" SortMemberPath="Category">
+                                            <DataGridTemplateColumn Header="الفئة" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="Category">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
@@ -130,7 +130,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="مستخدم في" Width="1*" MinWidth="120" SortMemberPath="UsedInCount">
+                                            <DataGridTemplateColumn Header="مستخدم في" controls:OperationsTable.IsCompactDetail="True" Width="1*" MinWidth="120" CanUserSort="False">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
@@ -326,7 +326,7 @@
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Border x:Name="ContrastCell1" MinHeight="60" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding Material.Name}" FlowDirection="LeftToRight" Margin="16,0" VerticalAlignment="Center" FontWeight="SemiBold" TextAlignment="Right" />
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding Material.Name}" TextWrapping="Wrap" FlowDirection="LeftToRight" Margin="16,0" VerticalAlignment="Center" FontWeight="SemiBold" TextAlignment="Right" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
                                                                     <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -337,7 +337,7 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTemplateColumn Header="الكمية المستخدمة" Width="1.15*" MinWidth="120" SortMemberPath="Quantity" CanUserSort="False">
+                                                    <DataGridTemplateColumn Header="الكمية المستخدمة" controls:OperationsTable.IsCompactDetail="True" Width="1.15*" MinWidth="120" SortMemberPath="Quantity" CanUserSort="False">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Border x:Name="ContrastCell0" MinHeight="60" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -351,7 +351,7 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTemplateColumn Header="الوحدة" Width="0.7*" MinWidth="120" SortMemberPath="Material.Unit">
+                                                    <DataGridTemplateColumn Header="الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="0.7*" MinWidth="120" SortMemberPath="Material.Unit">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Border x:Name="ContrastCell1" MinHeight="60" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -366,7 +366,7 @@
                                                             </DataTemplate>
                                                         </DataGridTemplateColumn.CellTemplate>
                                                     </DataGridTemplateColumn>
-                                                    <DataGridTemplateColumn Header="تكلفة الوحدة" Width="1.05*" MinWidth="120" SortMemberPath="Material.UnitCost">
+                                                    <DataGridTemplateColumn Header="تكلفة الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Material.UnitCost">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
                                                                 <Border x:Name="ContrastCell0" MinHeight="60" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -479,7 +479,7 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" MinHeight="48" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Material.Name}" FlowDirection="LeftToRight" Margin="16,0" VerticalAlignment="Center" FontWeight="SemiBold" TextAlignment="Right" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Material.Name}" TextWrapping="Wrap" FlowDirection="LeftToRight" Margin="16,0" VerticalAlignment="Center" FontWeight="SemiBold" TextAlignment="Right" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
