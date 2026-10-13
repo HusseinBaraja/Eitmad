@@ -267,23 +267,62 @@
                             <StackPanel FlowDirection="RightToLeft">
                                 <TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" />
                                 <TextBlock Text="عرّف المنتج الجاهز كما سيظهر في نقاط البيع." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,20" />
-                                <controls:FormField Label="اسم المنتج">
-                                    <TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" />
-                                </controls:FormField>
-                                <controls:FormField Label="الفئة" Margin="0,17,0,0">
-                                    <ComboBox ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" controls:ControlOptions.FooterTemplate="{StaticResource CategoryActionsTemplate}" automation:AutomationProperties.Name="فئة المنتج" />
-                                </controls:FormField>
+                                <layout:AdaptiveFieldsPanel MinItemWidth="220" Spacing="17">
+                                    <controls:FormField Label="اسم المنتج">
+                                        <TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" />
+                                    </controls:FormField>
+                                    <controls:FormField Label="الفئة">
+                                        <ComboBox ItemsSource="{Binding ActiveCategories}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" controls:ControlOptions.FooterTemplate="{StaticResource CategoryActionsTemplate}" automation:AutomationProperties.Name="فئة المنتج" />
+                                    </controls:FormField>
+                                </layout:AdaptiveFieldsPanel>
                                 <controls:FormField Label="وصف قصير" Margin="0,17,0,0">
                                     <TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="88" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير للمنتج" />
                                 </controls:FormField>
-                                <controls:FormField Label="الصورة" Margin="0,17,0,0">
-                                    <StackPanel>
-                                        <Image Source="{Binding ProductImage}" Height="120" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة المنتج"/>
-                                        <WrapPanel Margin="0,8,0,0">
+                                <controls:FormField x:Name="ProductImageField" Label="الصورة" Margin="0,17,0,0">
+                                    <WrapPanel>
+                                        <Border Width="120" Height="88" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,12,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                                    <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Image Source="{Binding ProductImage}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة المنتج" />
+                                                <TextBlock TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="13">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                            <Setter Property="Text" Value="لا توجد صورة" />
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ProductImage}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding HasEditorImage}" Value="True">
+                                                                    <Setter Property="Text" Value="المعاينة غير متاحة" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <WrapPanel VerticalAlignment="Center">
                                             <Button Content="اختيار صورة" Style="{StaticResource SecondaryButton}" Click="ChooseImageClick" IsEnabled="{Binding CanEdit}" automation:AutomationProperties.Name="اختيار صورة المنتج"/>
-                                            <Button Content="إزالة الصورة" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Click="RemoveImageClick" IsEnabled="{Binding CanEdit}" automation:AutomationProperties.Name="إزالة صورة المنتج"/>
+                                            <Button Content="إزالة الصورة" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Click="RemoveImageClick" IsEnabled="{Binding CanEdit}" Visibility="{Binding HasEditorImage, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إزالة صورة المنتج"/>
                                         </WrapPanel>
-                                    </StackPanel>
+                                    </WrapPanel>
                                 </controls:FormField>
 
                             </StackPanel>

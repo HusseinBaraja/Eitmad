@@ -31,9 +31,10 @@ public sealed class ProductsViewModel : ObservableObject
     public void InvalidateImageLoad() => ++ImageEditVersion;
     private CatalogImageRef? editorImageReference;
     public CatalogImageRef? EditorImageReference => editorImageReference;
+    public bool HasEditorImage => editorImageReference is not null;
     private System.Windows.Media.ImageSource? productImage;
     public System.Windows.Media.ImageSource? ProductImage { get => productImage; private set => Set(ref productImage,value); }
-    public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; }
+    public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; Raise(nameof(HasEditorImage)); }
     public void ApplyImage(Guid id, System.Windows.Media.ImageSource? image) { var row=products.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;

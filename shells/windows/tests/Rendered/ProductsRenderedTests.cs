@@ -133,7 +133,7 @@ public sealed class ProductsRenderedTests
             Assert.AreEqual(data.Categories.Items[0].Name, filter.SelectedItem);
             filter.SelectedItem = ProductsViewModel.AllCategories;
             WpfTestHost.CompleteLayout(window);
-            Console.WriteLine($"Products rendered {window.ActualWidth}x{window.ActualHeight} DIP; scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%.");
+            Console.WriteLine($"Products rendered {window.ActualWidth}x{window.ActualHeight} DIP; scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
             WpfTestHost.Capture(window, $"products-list-{width}x{height}");
             var action = WpfTestHost.FindByAutomationName<Button>(view, "إجراءات المنتج"); action.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window); Assert.IsTrue(action.ContextMenu!.IsOpen);
             WpfTestHost.Capture((FrameworkElement)action.ContextMenu, $"products-actions-{width}x{height}"); action.ContextMenu.IsOpen = false;
@@ -141,6 +141,22 @@ public sealed class ProductsRenderedTests
             view.ViewModel.BeginEdit(view.ViewModel.VisibleProducts.Single()); WpfTestHost.CompleteLayout(window);
             var category = WpfTestHost.FindByAutomationName<ComboBox>(view, "فئة المنتج"); Assert.AreEqual(data.Categories.Items[0].Id, category.SelectedValue);
             Assert.IsNotNull(WpfTestHost.FindByAutomationName<Button>(view, "أرشفة خيار المنتج")); WpfTestHost.Capture(window, $"products-editor-{width}x{height}");
+            WpfTestHost.FindByName<FormField>(view, "ProductImageField").BringIntoView(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByAutomationName<Button>(view, "إزالة صورة المنتج").Visibility);
+            WpfTestHost.Capture(window, $"products-empty-image-{width}x{height}");
+            if (width == 720)
+            {
+                var imageField = WpfTestHost.FindByName<FormField>(view, "ProductImageField");
+                var placeholder = WpfTestHost.Descendants<TextBlock>(imageField).Single(text => text.Text == "لا توجد صورة");
+                placeholder.FontSize = 16;
+                foreach (var border in WpfTestHost.Descendants<Border>(imageField)) ControlOptions.SetHighContrast(border, true);
+                foreach (var button in WpfTestHost.Descendants<Button>(imageField)) ControlOptions.SetHighContrast(button, true);
+                WpfTestHost.CompleteLayout(window); imageField.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, "products-empty-image-larger-text-system-colors-720x560");
+                placeholder.ClearValue(TextBlock.FontSizeProperty);
+                foreach (var border in WpfTestHost.Descendants<Border>(imageField)) border.ClearValue(ControlOptions.HighContrastProperty);
+                foreach (var button in WpfTestHost.Descendants<Button>(imageField)) button.ClearValue(ControlOptions.HighContrastProperty);
+            }
             var variants = WpfTestHost.FindByName<StackPanel>(view, "VariantsPricing"); variants.BringIntoView(); WpfTestHost.CompleteLayout(window);
             var variantName = WpfTestHost.FindByAutomationName<TextBox>(view, "اسم خيار المنتج"); variantName.Focus(); Assert.IsTrue(variantName.IsKeyboardFocusWithin);
             WpfTestHost.Capture(window, $"products-variants-{width}x{height}");

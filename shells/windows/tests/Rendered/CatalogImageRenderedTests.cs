@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Eitmad.Contracts;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Furniture;
 using Eitmad.WindowsShell.Features.Products;
 using Eitmad.WindowsShell.Tests.Products;
@@ -57,12 +58,22 @@ public sealed class CatalogImageRenderedTests
             var row = products.ViewModel.VisibleProducts.Single(); Assert.IsNotNull(row.Image);
             WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, $"catalog-product-image-list-{width}x{height}");
             products.ViewModel.BeginEdit(row); WpfTestHost.CompleteLayout(window);
-            var picker = WpfTestHost.FindByAutomationName<Button>(products, "اختيار صورة المنتج"); picker.BringIntoView(); picker.Focus(); WpfTestHost.CompleteLayout(window);
+            var picker = WpfTestHost.FindByAutomationName<Button>(products, "اختيار صورة المنتج");
+            picker.Focus(); WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByName<FormField>(products, "ProductImageField").BringIntoView(); WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(picker.IsKeyboardFocusWithin);
             Assert.IsTrue(WpfTestHost.Descendants<Image>(products).Any(image => image.IsVisible && image.Source is not null));
             WpfTestHost.Capture(window, $"catalog-product-image-editor-{width}x{height}");
-            WpfTestHost.FindByAutomationName<Button>(products, "إزالة صورة المنتج").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var removeProductImage = WpfTestHost.FindByAutomationName<Button>(products, "إزالة صورة المنتج");
+            // A failed preview must not hide removal or discard the authoritative reference.
+            products.ViewModel.SetImportedImage(reference, null); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Visible, removeProductImage.Visibility);
+            Assert.AreSame(reference, products.ViewModel.SaveInput().Image);
+            WpfTestHost.Capture(window, $"catalog-product-image-unavailable-{width}x{height}");
+            removeProductImage.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Collapsed, removeProductImage.Visibility);
             Assert.IsNull(products.ViewModel.SaveInput().Image); Assert.IsNotNull(data.Products.Single().Image);
+            WpfTestHost.Capture(window, $"catalog-product-image-removed-{width}x{height}");
             products.ViewModel.CancelEditor();
 
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
