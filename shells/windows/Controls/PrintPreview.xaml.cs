@@ -20,16 +20,16 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
         InitializeComponent();
         Loaded += (_, _) => {
             if (document is not null && Pages.Document is null) RefreshPages();
-            ScheduleFitWidth();
+            ScheduleFitPage();
         };
-        Pages.SizeChanged += (_, _) => ScheduleFitWidth();
+        Pages.SizeChanged += (_, _) => ScheduleFitPage();
         Unloaded += (_, _) => ReleasePages();
         // The viewer's keyboard/menu print route must use the same Rust gate.
         System.Windows.Input.CommandManager.AddPreviewExecutedHandler(this, (sender, args) => {
             if (args.Command == NavigationCommands.Zoom || args.Command == NavigationCommands.IncreaseZoom ||
                 args.Command == NavigationCommands.DecreaseZoom || args.Command == DocumentViewer.FitToWidthCommand ||
                 args.Command == DocumentViewer.FitToHeightCommand || args.Command == DocumentViewer.FitToMaxPagesAcrossCommand ||
-                args.Command == DocumentViewer.ViewThumbnailsCommand) followViewportWidth = false;
+                args.Command == DocumentViewer.ViewThumbnailsCommand) followViewportPage = false;
             if (args.Command != System.Windows.Input.ApplicationCommands.Print) return;
             args.Handled = true; PrintClick(sender, args);
         });
@@ -45,7 +45,7 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
     private XpsDocument? previewArchive;
     private Uri? previewUri;
     private bool printing;
-    private bool followViewportWidth = true;
+    private bool followViewportPage = true;
     private bool fitPending;
     private void NativeSearchLoaded(object sender, RoutedEventArgs e)
     {
@@ -92,16 +92,16 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
             ("OptionsAlefHamzaMenuItem", "مطابقة همزة الألف") })
             ((MenuItem)toolbar.FindName(name)).Header = caption;
     }
-    private void ScheduleFitWidth()
+    private void ScheduleFitPage()
     {
-        if (!IsLoaded || !followViewportWidth || fitPending) return;
+        if (!IsLoaded || !followViewportPage || fitPending) return;
         fitPending = true;
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => {
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() => {
             fitPending = false;
-            // Fit after layout, until a native zoom/layout command gives control
+            // Fit after native page loading and layout, until a zoom/layout command gives control
             // to the user. Pagination can also change Zoom, so do not infer intent
             // from the Zoom property itself.
-            if (IsLoaded && followViewportWidth && Pages.Document is not null) Pages.FitToWidth();
+            if (IsLoaded && followViewportPage && Pages.Document is not null) Pages.FitToMaxPagesAcross(1);
         }));
     }
     private void RefreshPages()
@@ -116,7 +116,7 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
             previewArchive = new XpsDocument(previewPackage, CompressionOption.Normal, previewUri.AbsoluteUri);
             XpsDocument.CreateXpsDocumentWriter(previewArchive).Write(new CustomerDocumentPages(document));
             Pages.Document = previewArchive.GetFixedDocumentSequence();
-            ScheduleFitWidth();
+            ScheduleFitPage();
         } catch { ReleasePages(); throw; }
     }
     private void ReleasePages()

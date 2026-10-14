@@ -31,6 +31,37 @@ public sealed class CustomerDocumentsRenderedTests
     };
 
     [TestMethod]
+    [DataRow("percentage")]
+    [DataRow("increase")]
+    [DataRow("width")]
+    [DataRow("height")]
+    public void PreviewRefreshPreservesNativeZoomSelection(string selection)
+    {
+        WpfTestHost.Run(1920, 1080, window => {
+            window.Left = 0; window.WindowState = WindowState.Maximized;
+            var preview = new PrintPreview { Document = QuotationCustomerDocument.CreateSaved(Saved()) };
+            window.Content = preview;
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsPage(preview.Pages);
+            preview.Document = OrderCustomerDocument.CreateSaved(Saved(true));
+            WpfTestHost.CompleteLayout(window);
+            AssertFitsPage(preview.Pages);
+            switch (selection) {
+                case "percentage": NavigationCommands.Zoom.Execute(125.0, preview.Pages); break;
+                case "increase": NavigationCommands.IncreaseZoom.Execute(null, preview.Pages); break;
+                case "width": DocumentViewer.FitToWidthCommand.Execute(null, preview.Pages); break;
+                case "height": DocumentViewer.FitToHeightCommand.Execute(null, preview.Pages); break;
+            }
+            WpfTestHost.CompleteLayout(window);
+            var chosenZoom = preview.Pages.Zoom;
+            if (selection == "width") AssertFitsWidth(preview.Pages);
+            preview.Document = QuotationCustomerDocument.CreateSaved(Saved());
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(chosenZoom, preview.Pages.Zoom, 0.01, "An authorization refresh must preserve the user's native zoom selection.");
+        });
+    }
+
+    [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
@@ -53,7 +84,7 @@ public sealed class CustomerDocumentsRenderedTests
                 var authorization = new TaskCompletionSource<bool>(); var requests = 0;
                 preview.AuthorizePrint = () => { requests++; return authorization.Task; };
                 var pages = WpfTestHost.FindByName<System.Windows.Controls.DocumentViewer>(preview, "Pages");
-                AssertFitsWidth(pages);
+                AssertFitsPage(pages);
                 var nativePage = ((FixedDocumentSequence)pages.Document).DocumentPaginator.GetPage(0);
                 Assert.IsTrue(string.Concat(WpfTestHost.Descendants<Glyphs>(nativePage.Visual).Select(glyph => glyph.UnicodeString)).Contains("47,500"), "The preview must retain searchable saved text.");
                 WpfTestHost.CompleteLayout(window);
@@ -72,7 +103,7 @@ public sealed class CustomerDocumentsRenderedTests
             var draftPreview = new PrintPreview { Document = QuotationCustomerDocument.CreateSaved(draft), CanPrint = draft.CanPrint };
             window.Content = draftPreview; WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(draftPreview.CanPrint);
-            AssertFitsWidth(draftPreview.Pages);
+            AssertFitsPage(draftPreview.Pages);
             Assert.IsTrue(new TextRange(draftPreview.Document.ContentStart, draftPreview.Document.ContentEnd).Text.Contains("غير مرقم"));
             WpfTestHost.Capture(window, $"saved-document-draft-{width}");
             ExportPages(draftPreview.Document, "saved-draft", width == 1338, "47,500");
@@ -88,18 +119,18 @@ public sealed class CustomerDocumentsRenderedTests
             var preview = new PrintPreview { Document = QuotationCustomerDocument.CreateSaved(Saved()) };
             window.Content = preview;
             WpfTestHost.CompleteLayout(window);
-            AssertFitsWidth(preview.Pages);
+            AssertFitsPage(preview.Pages);
             var initialZoom = preview.Pages.Zoom;
-            window.Width = 1338;
+            window.Width = 1338; window.Height = 753;
             // Arrange the native resize, then drain the preview's deferred fitting.
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.CompleteLayout(window);
-            AssertFitsWidth(preview.Pages);
-            Assert.IsTrue(preview.Pages.Zoom > initialZoom, "Native fit-width mode must follow a larger viewport.");
-            window.Width = 720;
+            AssertFitsPage(preview.Pages);
+            Assert.IsTrue(preview.Pages.Zoom > initialZoom, "Native whole-page mode must follow a larger viewport.");
+            window.Width = 720; window.Height = 560;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.CompleteLayout(window);
-            AssertFitsWidth(preview.Pages);
+            AssertFitsPage(preview.Pages);
             if (percentage) NavigationCommands.Zoom.Execute(125.0, preview.Pages);
             else NavigationCommands.IncreaseZoom.Execute(null, preview.Pages);
             WpfTestHost.CompleteLayout(window);
@@ -133,12 +164,12 @@ public sealed class CustomerDocumentsRenderedTests
             var preview = new PrintPreview { Document = document };
             window.Content = preview;
             WpfTestHost.CompleteLayout(window);
-            AssertFitsWidth(preview.Pages);
+            AssertFitsPage(preview.Pages);
             Assert.AreEqual(paginator.PageCount, preview.Pages.PageCount);
             WpfTestHost.Capture(window, $"saved-document-multipage-{width}");
             preview.Pages.LastPage();
             WpfTestHost.CompleteLayout(window);
-            AssertFitsWidth(preview.Pages);
+            AssertFitsPage(preview.Pages);
             Assert.AreEqual(preview.Pages.PageCount, preview.Pages.MasterPageNumber);
             WpfTestHost.Capture(window, $"saved-document-multipage-last-{width}");
             AssertNativePreviewCommands(window, preview, width);
@@ -196,6 +227,17 @@ public sealed class CustomerDocumentsRenderedTests
             WpfTestHost.Capture(window, $"preview-high-contrast-{width}");
             preview.Resources.Remove(SystemParameters.HighContrastKey);
         }
+    }
+
+    private static void AssertFitsPage(DocumentViewer viewer)
+    {
+        AssertFitsWidth(viewer);
+        var viewport = (ScrollViewer)viewer.Template.FindName("PART_ContentHost", viewer);
+        var page = viewer.PageViews.Single(page => page.PageNumber == viewer.MasterPageNumber - 1);
+        var bounds = page.TransformToAncestor(viewport).TransformBounds(new Rect(page.RenderSize));
+        Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= viewport.ViewportHeight + 1,
+            $"The current page must be fully visible: {bounds}; viewport height {viewport.ViewportHeight:0.00} DIP at {viewer.Zoom:0.00}%.");
+        if (viewer.PageCount == 1) Assert.IsTrue(viewport.ScrollableHeight < 1, "A one-page preview must not require vertical scrolling.");
     }
 
     private static void AssertFitsWidth(DocumentViewer viewer)
