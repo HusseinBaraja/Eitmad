@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -46,6 +47,12 @@ public sealed class SalesCatalogAuthorityRenderedTests
                     .Select(name => WpfTestHost.FindByAutomationName<TextBox>(detail, name)).ToArray();
                 var options = WpfTestHost.FindByName<ScrollViewer>(detail, "SelectionOptions");
                 inputs[0].BringIntoView(); WpfTestHost.CompleteLayout(window);
+                // Verify the rendered numeric range reads from minimum to maximum in the RTL form.
+                var range = WpfTestHost.FindByName<TextBlock>(detail, "WidthRange");
+                var run = range.Inlines.OfType<Run>().Single();
+                var first = run.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+                var last = run.ContentEnd.GetCharacterRect(LogicalDirection.Backward);
+                Assert.IsTrue(first.Left < last.Left, "The minimum must appear to the left of the maximum.");
                 foreach (var input in inputs)
                 {
                     var bounds = input.TransformToAncestor(options).TransformBounds(new Rect(input.RenderSize));
@@ -160,7 +167,7 @@ public sealed class SalesCatalogAuthorityRenderedTests
     {
         var options = WpfTestHost.FindByName<ScrollViewer>(selection, "SelectionOptions");
         Assert.IsTrue(options.ViewportHeight > 80, "Option inputs must retain a usable scroll viewport.");
-        var names = new[] { "ItemName", "CurrentOptions", "QuantityControl", "LineTotal", "AddButton", "LocalNotice" };
+        var names = new[] { "ItemName", "CurrentOptions", "QuantityControl", "LineTotal", "AddButton" };
         foreach (var name in names)
         {
             var element = WpfTestHost.FindByName<FrameworkElement>(selection, name);

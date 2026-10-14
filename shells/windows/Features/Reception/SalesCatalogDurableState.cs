@@ -86,7 +86,7 @@ public sealed partial class SalesCatalogViewModel
             Raise(nameof(SelectedCategory)); applyingCatalog = false;
             foreach (var group in page.Items.GroupBy(e => (SalesCatalogClient.Target(e).Kind, ItemId(e)))) VisibleItems.Add(Item(group.First()));
             nextCatalogPage = page.Next; Raise(nameof(HasNextPage));
-            CatalogStatus = Availability(page.ServerAvailable) + " · الاختيارات وعرض السعر غير محفوظة.";
+            CatalogStatus = Availability(page.ServerAvailable);
             IsCatalogLoading = false;
             await catalogThumbnails.ApplyAsync(catalogClient.Images, VisibleItems.Where(i => i.Entry?.Image is not null).Select(i => (i.Id, i.Entry!.Image!)), (id, image) => {
                 if (version != catalogVersion) return;
@@ -103,8 +103,8 @@ public sealed partial class SalesCatalogViewModel
         if (failure == PricingFailure.Denied) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); }
         nextCatalogPage = null; Raise(nameof(HasNextPage)); CatalogStatus = SalesCatalogClient.Message(failure);
     }
-    /// <summary>Labels server-confirmed data or a cached projection whose prices and availability may be stale.</summary>
-    internal static string Availability(bool online) => online ? "كتالوج مؤكد من الخادم" : "الخادم غير متصل — آخر كتالوج مؤكد؛ التوفر والأسعار قد تكون قديمة";
+    /// <summary>Warns when returned catalog prices and availability may be stale.</summary>
+    internal static string Availability(bool online) => online ? "" : "الخادم غير متصل؛ التوفر والأسعار قد تكون قديمة";
     private static Guid ItemId(CatalogEntry entry) => SalesCatalogClient.Target(entry).AsProduct()?.ProductId ?? SalesCatalogClient.Target(entry).AsFurniture()!.FurnitureId;
     private static SalesCatalogItem Item(CatalogEntry entry, bool starting = false) => new(ItemId(entry), entry.Name, entry.CategoryName,
         entry.Description, entry.VariantName, entry.Price.SellingPriceYer, starting, "", null) { Entry = entry };
@@ -128,13 +128,11 @@ public sealed partial class SalesCatalogViewModel
             {
                 ProductSelection = new(current, entries.Select(e => new SalesProductVariant(SalesCatalogClient.Target(e).AsProduct()!.VariantId, e.VariantName, e.Price.SellingPriceYer) { Entry = e }).ToArray()) { IsEditing = editingLine is not null };
                 ProductSelection.Changed += (_, _) => QueueConfigurationCheck();
-                ProductSelection.Fail("اختر النوع / المقاس للتحقق من المنتج.");
             }
             else
             {
                 Selection = new(current, entries.Select(e => new SalesSize(SalesCatalogClient.Target(e).AsFurniture()!.VariantId, e.VariantName, DimensionsLabel(e.Dimensions!), e.Price.SellingPriceYer) { Entry = e }).ToArray(), [], []) { IsEditing = editingLine is not null };
                 Selection.Changed += (_, _) => QueueConfigurationCheck();
-                Selection.Fail("اختر المقاس والخيارات للتحقق من الأثاث.");
             }
             SelectionNotice = Availability(result.Value.ServerAvailable);
         }

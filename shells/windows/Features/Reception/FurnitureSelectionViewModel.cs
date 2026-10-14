@@ -26,8 +26,12 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     public string WidthCm { get => widthCm; set { if (Set(ref widthCm, value)) Refresh(); } }
     public string HeightCm { get => heightCm; set { if (Set(ref heightCm, value)) Refresh(); } }
     public string DepthCm { get => depthCm; set { if (Set(ref depthCm, value)) Refresh(); } }
-    public string MinimumDimensionsLabel => SelectedSize?.Entry?.Customization is { } c ? SalesCatalogViewModel.DimensionsLabel(c.Minimum) : "";
-    public string MaximumDimensionsLabel => SelectedSize?.Entry?.Customization is { } c ? SalesCatalogViewModel.DimensionsLabel(c.Maximum) : "";
+    public string WidthRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.WidthMm, c.Maximum.WidthMm) : "";
+    public string HeightRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.HeightMm, c.Maximum.HeightMm) : "";
+    public string DepthRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.DepthMm, c.Maximum.DepthMm) : "";
+    private static string DimensionRange(long minimum, long maximum) => minimum == maximum
+        ? FormattableString.Invariant($"{minimum / 10m:0.#}")
+        : FormattableString.Invariant($"{minimum / 10m:0.#}–{maximum / 10m:0.#}");
     public Eitmad.Contracts.CheckSalesConfiguration? ConfigurationInput()
     {
         if (SelectedSize?.Entry is not { } e) return null;
@@ -54,7 +58,6 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     public string ActionLabel => IsEditing ? "حفظ التعديلات" : "إضافة إلى عرض السعر";
     public string BackLabel => IsEditing ? "إلغاء" : "العودة إلى المنتجات";
     public SalesCatalogItem Item { get; }
-    public string PersistenceNotice => Item.Entry is null ? "الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" : "الاختيار محلي. راجع عرض السعر ثم استخدم حفظ كمسودة لتأكيد الحفظ.";
     public IReadOnlyList<SalesSize> Sizes { get; }
     public IReadOnlyList<SalesOption> Colors { get; private set; }
     public IReadOnlyList<SalesOption> Handles { get; private set; }
@@ -73,7 +76,7 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
             widthCm = (e.Dimensions!.WidthMm / 10m).ToString("0.#", CultureInfo.InvariantCulture);
             heightCm = (e.Dimensions.HeightMm / 10m).ToString("0.#", CultureInfo.InvariantCulture);
             depthCm = (e.Dimensions.DepthMm / 10m).ToString("0.#", CultureInfo.InvariantCulture);
-            foreach (var name in new[] { nameof(Colors), nameof(Handles), nameof(HasColors), nameof(HasHandles), nameof(SelectedColor), nameof(SelectedHandle), nameof(CanCustomize), nameof(MinimumDimensionsLabel), nameof(MaximumDimensionsLabel), nameof(WidthCm), nameof(HeightCm), nameof(DepthCm) }) Raise(name);
+            foreach (var name in new[] { nameof(Colors), nameof(Handles), nameof(HasColors), nameof(HasHandles), nameof(SelectedColor), nameof(SelectedHandle), nameof(CanCustomize), nameof(WidthRange), nameof(HeightRange), nameof(DepthRange), nameof(WidthCm), nameof(HeightCm), nameof(DepthCm) }) Raise(name);
         }
         Refresh();
     } }
@@ -82,7 +85,7 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     public int Quantity { get => quantity; set { if (value >= 1 && value <= 999 && Set(ref quantity, value)) Refresh(); } }
     public bool CanAdd => Item.Entry is not null ? configuration is not null : SelectedSize is not null && (!HasColors || SelectedColor is not null)
         && (!HasHandles || SelectedHandle is not null) && TryPrice(out _, out _);
-    public string Guidance => Item.Entry is not null ? validationMessage : Sizes.Count == 0 ? "لا توجد مقاسات متاحة لهذا الأثاث" : CanAdd ? "" : "اختر المقاس والخيارات المتاحة لإضافة الأثاث";
+    public string Guidance => Item.Entry is not null ? validationMessage : Sizes.Count == 0 ? "لا توجد مقاسات متاحة لهذا الأثاث" : "";
     public decimal UnitPrice => Item.Entry is not null ? configuration?.Price.UnitPriceYer ?? 0 : TryPrice(out var unit, out _) ? unit : 0;
     public decimal LineTotal => Item.Entry is not null ? configuration?.Price.TotalYer ?? 0 : TryPrice(out _, out var total) ? total : 0;
     public string BasePriceLabel => SelectedSize?.PriceLabel ?? "—";
@@ -99,7 +102,7 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     /// <summary>Invalidates checked totals when inputs change and notifies the catalog to request Rust validation.</summary>
     private void Refresh()
     {
-        if (Item.Entry is not null) { configuration = null; validationMessage = "اختر المقاس والخيارات للتحقق من الأثاث."; }
+        if (Item.Entry is not null) { configuration = null; validationMessage = ""; }
         RaiseState(); Changed?.Invoke(this, EventArgs.Empty);
     }
     private void RaiseState()

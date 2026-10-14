@@ -16,7 +16,11 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,16" Style="{StaticResource CatalogText}" AutomationProperties.LiveSetting="Polite"/>
+        <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,16" AutomationProperties.LiveSetting="Polite">
+            <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource CatalogText}"><Style.Triggers>
+                <DataTrigger Binding="{Binding CatalogStatus}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+            </Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
         <TextBox Grid.Row="1" x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن منتج..." AutomationProperties.Name="ابحث عن منتج"/>
         <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" BorderThickness="0" Background="Transparent" Margin="0,14,0,16" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="فئات المنتجات">
             <ListBox.ItemsPanel>
@@ -69,7 +73,11 @@
             <Button Content="مسح الفلاتر" Style="{StaticResource SecondaryButton}" Click="ClearClick" AutomationProperties.Name="مسح الفلاتر"/>
         </StackPanel>
         <StackPanel Grid.Row="4">
-            <TextBlock Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource CatalogText}"/>
+            <TextBlock Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite">
+                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource CatalogText}"><Style.Triggers>
+                    <DataTrigger Binding="{Binding SelectionNotice}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                </Style.Triggers></Style></TextBlock.Style>
+            </TextBlock>
             <WrapPanel>
                 <Button Content="تحديث الكتالوج" Click="ReloadClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تحديث الكتالوج"/>
                 <Button Content="الصفحة التالية" Click="NextClick" Style="{StaticResource SecondaryButton}" Margin="8,0" Visibility="{Binding HasNextPage, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="الصفحة التالية"/>

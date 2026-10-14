@@ -29,7 +29,6 @@
   <ScrollViewer x:Name="SelectionOptions" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel Margin="0,0,8,0">
   <TextBlock Text="اختر المقاس" FontSize="18" FontWeight="Bold" Margin="0,0,0,4"/>
-  <TextBlock Text="العرض × الارتفاع × العمق · مقاسات ثابتة" Margin="0,0,0,6"/>
   <ListBox x:Name="SizesList" Style="{StaticResource Options}" ItemsSource="{Binding Sizes}" SelectedItem="{Binding SelectedSize}" AutomationProperties.Name="اختر المقاس">
    <ListBox.ItemTemplate><DataTemplate><StackPanel>
     <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource OptionTitle}"/>
@@ -38,23 +37,25 @@
    </StackPanel></DataTemplate></ListBox.ItemTemplate>
   </ListBox>
   <StackPanel Visibility="{Binding CanCustomize, Converter={StaticResource BooleanToVisibility}}">
-   <TextBlock Text="المقاسات بالسنتيمتر" FontSize="16" Margin="0,12,0,8"/>
-   <WrapPanel>
-    <TextBlock Text="المسموح من" Margin="0,0,8,0"/>
-    <TextBlock Text="{Binding MinimumDimensionsLabel}" FlowDirection="LeftToRight" Margin="0,0,8,0"/>
-    <TextBlock Text="إلى" Margin="0,0,8,0"/>
-    <TextBlock Text="{Binding MaximumDimensionsLabel}" FlowDirection="LeftToRight"/>
-   </WrapPanel>
    <Grid Margin="0,12,0,8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <controls:FormField Label="العرض (سم)">
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding WidthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العرض بالسنتيمتر"/>
+     <StackPanel>
+     <TextBlock x:Name="WidthRange" Text="{Binding WidthRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+     <TextBox Style="{StaticResource TextInput}" Text="{Binding WidthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العرض بالسنتيمتر" AutomationProperties.HelpText="{Binding WidthRange}"/>
+     </StackPanel>
     </controls:FormField>
     <controls:FormField Grid.Column="2" Label="الارتفاع (سم)">
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding HeightCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="الارتفاع بالسنتيمتر"/>
+     <StackPanel>
+     <TextBlock x:Name="HeightRange" Text="{Binding HeightRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+     <TextBox Style="{StaticResource TextInput}" Text="{Binding HeightCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="الارتفاع بالسنتيمتر" AutomationProperties.HelpText="{Binding HeightRange}"/>
+     </StackPanel>
     </controls:FormField>
     <controls:FormField Grid.Column="4" Label="العمق (سم)">
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding DepthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العمق بالسنتيمتر"/>
+     <StackPanel>
+     <TextBlock x:Name="DepthRange" Text="{Binding DepthRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+     <TextBox Style="{StaticResource TextInput}" Text="{Binding DepthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العمق بالسنتيمتر" AutomationProperties.HelpText="{Binding DepthRange}"/>
+     </StackPanel>
     </controls:FormField>
    </Grid>
   </StackPanel>
@@ -125,8 +126,11 @@
      </StackPanel>
      <Button x:Name="AddButton" Grid.Column="2" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="48" VerticalAlignment="Center" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
     </Grid>
-    <TextBlock x:Name="SelectionGuidance" Text="{Binding Guidance}" TextWrapping="Wrap" FontSize="14" Margin="0,4,0,0"/>
-    <TextBlock x:Name="LocalNotice" Text="{Binding PersistenceNotice}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"/>
+    <TextBlock x:Name="SelectionGuidance" Text="{Binding Guidance}" TextWrapping="Wrap" FontSize="14" Margin="0,4,0,0">
+     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers>
+      <DataTrigger Binding="{Binding Guidance}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+     </Style.Triggers></Style></TextBlock.Style>
+    </TextBlock>
    </StackPanel>
   </Border>
  </Grid>

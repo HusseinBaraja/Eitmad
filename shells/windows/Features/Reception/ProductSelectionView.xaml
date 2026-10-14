@@ -61,8 +61,11 @@
      </StackPanel>
      <Button x:Name="AddButton" Grid.Column="2" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="48" VerticalAlignment="Center" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
     </Grid>
-    <TextBlock x:Name="SelectionGuidance" Text="{Binding Guidance}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"/>
-    <TextBlock x:Name="LocalNotice" Text="{Binding PersistenceNotice}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0"/>
+    <TextBlock x:Name="SelectionGuidance" Text="{Binding Guidance}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0">
+     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers>
+      <DataTrigger Binding="{Binding Guidance}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+     </Style.Triggers></Style></TextBlock.Style>
+    </TextBlock>
    </StackPanel>
   </Border>
  </Grid>
