@@ -16,36 +16,55 @@
   </TextBlock>
    <TextBlock Text="{Binding QuotationEditorGuidance}" TextWrapping="Wrap" Margin="0,0,0,20"/>
   <TextBlock Text="عرض السعر فارغ. تابع اختيار المنتجات لإضافة الأصناف." TextWrapping="Wrap" FontSize="20" Margin="0,20" Visibility="{Binding IsQuotationEmpty, Converter={StaticResource BooleanToVisibility}}"/>
-  <controls:FormField Label="الأصناف" ErrorText="{Binding ItemsError}"><ItemsControl ItemsSource="{Binding QuotationLines}">
+  <controls:FormField Label="الأصناف" ErrorText="{Binding ItemsError}"><StackPanel Grid.IsSharedSizeScope="True">
+   <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,0,0,1" Padding="0,8">
+    <Grid>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="76" SharedSizeGroup="Quantity"/><ColumnDefinition Width="Auto" MinWidth="160" SharedSizeGroup="UnitPrice"/><ColumnDefinition Width="Auto" MinWidth="170" SharedSizeGroup="Total"/><ColumnDefinition Width="Auto" SharedSizeGroup="Actions"/></Grid.ColumnDefinitions>
+     <TextBlock Text="الصنف والخيارات" FontWeight="SemiBold"/>
+     <TextBlock Grid.Column="1" Text="الكمية" TextAlignment="Center"/>
+     <TextBlock Grid.Column="2" Text="سعر الوحدة" Margin="12,0"/>
+     <TextBlock Grid.Column="3" Text="الإجمالي" Margin="12,0"/>
+     <TextBlock Grid.Column="4" Text="إجراءات الصنف" Margin="12,0"/>
+    </Grid>
+   </Border>
+   <ItemsControl ItemsSource="{Binding QuotationLines}">
    <ItemsControl.ItemTemplate><DataTemplate>
-    <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,0,0,1" Padding="0,16">
+    <Border x:Name="QuotationLineRow" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,0,0,1" Padding="0,12">
      <Grid>
-      <Grid.ColumnDefinitions><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <Grid Width="88" Height="88" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-       <Viewbox>
-        <ContentControl Width="200" Height="188" DataContext="{Binding Item}" Content="{Binding}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
-       </Viewbox>
-       <Image Source="{Binding Item.Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto" MinWidth="76" SharedSizeGroup="Quantity"/><ColumnDefinition Width="Auto" MinWidth="160" SharedSizeGroup="UnitPrice"/><ColumnDefinition Width="Auto" MinWidth="170" SharedSizeGroup="Total"/><ColumnDefinition Width="Auto" SharedSizeGroup="Actions"/></Grid.ColumnDefinitions>
+      <Grid Margin="0,0,12,0">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="68"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Grid Width="56" Height="56" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        <Viewbox>
+         <ContentControl Width="200" Height="188" DataContext="{Binding Item}" Content="{Binding}" Style="{StaticResource CatalogIllustration}" Focusable="False" IsHitTestVisible="False"/>
+        </Viewbox>
+        <Image Source="{Binding Item.Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
+       </Grid>
+       <StackPanel Grid.Column="1">
+        <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock x:Name="LineDescription" reception:SalesText.Value="{Binding Item.Description}" TextWrapping="Wrap">
+         <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers><DataTrigger Binding="{Binding Item.Description}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
+        <TextBlock reception:SalesText.Value="{Binding Options}" TextWrapping="Wrap">
+         <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers><DataTrigger Binding="{Binding Options}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
+        <TextBlock Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right">
+         <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
+       </StackPanel>
       </Grid>
-      <StackPanel Grid.Column="1">
-       <TextBlock Text="{Binding Name}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
-       <TextBlock Text="{Binding Options}" TextWrapping="Wrap" Margin="0,4"/>
-       <TextBlock Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right"/>
-       <WrapPanel Margin="0,10,0,0">
-        <StackPanel MinWidth="100" Margin="0,0,0,8"><TextBlock Text="الكمية"/><TextBlock Text="{Binding Quantity}" FontSize="18"/></StackPanel>
-        <StackPanel MinWidth="160" Margin="0,0,0,8"><TextBlock Text="سعر الوحدة"/><controls:AmountDisplay AmountText="{Binding UnitPrice, StringFormat=N0}" UnitText="ر.ي" FontSize="18" HorizontalAlignment="Right"/></StackPanel>
-        <StackPanel MinWidth="170" Margin="0,0,0,8"><TextBlock Text="الإجمالي"/><controls:AmountDisplay AmountText="{Binding LineTotal, StringFormat=N0}" UnitText="ر.ي" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right"/></StackPanel>
-       </WrapPanel>
-       <WrapPanel>
-        <Button Content="تعديل" Style="{StaticResource SecondaryButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل {0}}" Margin="0,4,0,0"/>
-        <Button Content="تكرار" Style="{StaticResource SecondaryButton}" Click="DuplicateClick" AutomationProperties.Name="{Binding Name, StringFormat=تكرار {0}}" Margin="8,4,0,0"/>
-        <Button Content="إزالة" Style="{StaticResource SecondaryButton}" Click="RemoveClick" AutomationProperties.Name="{Binding Name, StringFormat=إزالة {0}}" Margin="8,4,0,0"/>
-       </WrapPanel>
+      <TextBlock Grid.Column="1" Text="{Binding Quantity}" FontSize="18" FlowDirection="LeftToRight" TextAlignment="Center" VerticalAlignment="Center"/>
+      <controls:AmountDisplay Grid.Column="2" AmountText="{Binding UnitPrice, StringFormat=N0}" UnitText="ر.ي" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0"/>
+      <controls:AmountDisplay Grid.Column="3" AmountText="{Binding LineTotal, StringFormat=N0}" UnitText="ر.ي" FontSize="22" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0"/>
+      <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+       <Button Content="تعديل" Style="{StaticResource SecondaryButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل {0}}"/>
+       <Button Content="تكرار" Style="{StaticResource SecondaryButton}" Click="DuplicateClick" AutomationProperties.Name="{Binding Name, StringFormat=تكرار {0}}" Margin="6,0,0,0"/>
+       <Button Content="إزالة" Style="{StaticResource SecondaryButton}" Click="RemoveClick" AutomationProperties.Name="{Binding Name, StringFormat=إزالة {0}}" Margin="6,0,0,0"/>
       </StackPanel>
      </Grid>
     </Border>
    </DataTemplate></ItemsControl.ItemTemplate>
-  </ItemsControl></controls:FormField>
+  </ItemsControl></StackPanel></controls:FormField>
   <Border x:Name="CustomerSection" MaxWidth="600" HorizontalAlignment="Left" Margin="0,28,0,0" Padding="16" Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}">
   <StackPanel>
    <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold"/>
