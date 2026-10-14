@@ -53,8 +53,8 @@ public sealed partial class SalesCatalogViewModel
             if (evaluation is not null) ApplyEvaluatedLines(evaluation);
             QuotationNotice = !result.Succeeded ? SalesCatalogClient.Message(result.Failure)
                 : evaluation!.Errors.Length > 0 ? EvaluationMessage(evaluation.Errors[0])
-                : evaluation.ServerAvailable ? "تم تقييم عرض السعر — لم يُحفظ أو يصدر."
-                : "تم التقييم بآخر كتالوج مؤكد — الخادم غير متصل؛ لم يُحفظ أو يصدر عرض السعر.";
+                : evaluation.ServerAvailable ? "تم تقييم عرض السعر"
+                : "الخادم غير متصل — الأسعار من آخر كتالوج مؤكد";
             RaiseEvaluation();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
