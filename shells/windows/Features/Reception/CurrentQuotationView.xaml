@@ -88,8 +88,17 @@
   <StackPanel>
    <Grid Margin="0,0,0,8">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <Button Grid.Column="1" Content="+ عميل جديد" Style="{StaticResource SecondaryButton}" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد"/>
-    <TextBlock Text="بيانات العميل" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
+    <Button Grid.Column="1" Content="+ عميل جديد" Click="NewCustomerClick" AutomationProperties.Name="عميل جديد">
+     <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}"><Style.Triggers>
+      <DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+     </Style.Triggers></Style></Button.Style>
+    </Button>
+    <TextBlock FontSize="23" FontWeight="Bold" VerticalAlignment="Center">
+     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+      <Setter Property="Text" Value="بيانات العميل"/>
+      <Style.Triggers><DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Text" Value="عميل جديد"/></DataTrigger></Style.Triggers>
+     </Style></TextBlock.Style>
+    </TextBlock>
    </Grid>
    <TextBlock x:Name="CustomerSelectionState" TextWrapping="Wrap" Margin="0,0,0,8" FontWeight="SemiBold">
     <TextBlock.Style>
@@ -97,7 +106,7 @@
       <Setter Property="Text" Value="عميل محدد من السجل"/>
       <Style.Triggers>
        <DataTrigger Binding="{Binding SelectedCustomer}" Value="{x:Null}"><Setter Property="Text" Value="لم يُحدد العميل"/></DataTrigger>
-       <DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Text" Value="عميل جديد"/></DataTrigger>
+       <DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
       </Style.Triggers>
      </Style>
     </TextBlock.Style>
@@ -107,7 +116,11 @@
     <controls:FormField Label="اسم العميل" IsRequired="True" ErrorText="{Binding CustomerNameError}"><TextBox x:Name="CustomerNameInput" Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم العميل"/></controls:FormField>
     <controls:FormField Grid.Column="2" Label="رقم الهاتف" IsRequired="True" ErrorText="{Binding PhoneError}"><TextBox x:Name="PhoneInput" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم الهاتف"/></controls:FormField>
    </Grid>
-   <ItemsControl ItemsSource="{Binding CustomerMatches}"><ItemsControl.ItemTemplate><DataTemplate>
+   <ItemsControl ItemsSource="{Binding CustomerMatches}">
+   <ItemsControl.Style><Style TargetType="ItemsControl"><Style.Triggers>
+    <DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+   </Style.Triggers></Style></ItemsControl.Style>
+   <ItemsControl.ItemTemplate><DataTemplate>
     <Button HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Click="AttachCustomerClick" AutomationProperties.Name="{Binding Name, StringFormat=اختيار العميل {0}}" Margin="0,0,0,8">
      <WrapPanel FlowDirection="RightToLeft">
       <TextBlock Text="{Binding Name}"/>
@@ -116,7 +129,12 @@
      </WrapPanel>
     </Button>
    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-   <TextBlock Text="جارٍ البحث…" Visibility="{Binding IsCustomerBusy, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite"/>
+   <TextBlock Visibility="{Binding IsCustomerBusy, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,8" AutomationProperties.LiveSetting="Polite">
+    <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+     <Setter Property="Text" Value="جارٍ البحث…"/>
+     <Style.Triggers><DataTrigger Binding="{Binding IsNewCustomer}" Value="True"><Setter Property="Text" Value="جارٍ حفظ العميل…"/></DataTrigger></Style.Triggers>
+    </Style></TextBlock.Style>
+   </TextBlock>
    <TextBlock Text="{Binding CustomerOperationError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,0,0,8" AutomationProperties.LiveSetting="Assertive">
     <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers></Style></TextBlock.Style>
    </TextBlock>

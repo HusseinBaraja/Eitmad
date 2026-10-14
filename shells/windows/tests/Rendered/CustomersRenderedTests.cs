@@ -129,7 +129,7 @@ public sealed class CustomersRenderedTests
             var state = WpfTestHost.FindByName<TextBlock>(review, "CustomerSelectionState");
             var typedState = state.Text;
             var phone = WpfTestHost.FindByName<TextBox>(review, "PhoneInput");
-            var scroll = WpfTestHost.Descendants<ScrollViewer>(review).First();
+            var scroll = WpfTestHost.FindByName<ScrollViewer>(review, "QuotationDetailsScroll");
             WpfTestHost.CompleteLayout(window);
             scroll.ScrollToVerticalOffset(scroll.VerticalOffset + section.TranslatePoint(new Point(), scroll).Y);
             WpfTestHost.CompleteLayout(window);
@@ -145,7 +145,7 @@ public sealed class CustomersRenderedTests
                 Assert.IsTrue(local.Left >= 0 && local.Right <= section.ActualWidth + 1,
                     "Customer controls must remain within the bounded section.");
             }
-            Assert.IsTrue(section.ActualWidth <= 600);
+            Assert.IsTrue(section.ActualWidth <= scroll.ActualWidth);
             Assert.AreEqual(0, scroll.ScrollableWidth);
             Assert.AreEqual(FlowDirection.LeftToRight, phone.FlowDirection);
             var dpi = VisualTreeHelper.GetDpi(window);
@@ -176,14 +176,65 @@ public sealed class CustomersRenderedTests
             Assert.IsTrue(model.IsNewCustomer);
             Assert.IsNull(model.SelectedCustomer);
             Assert.AreEqual("", phone.Text);
-            Assert.AreNotEqual(typedState, state.Text);
-            Assert.AreNotEqual(selectedState, state.Text);
+            Assert.IsFalse(create.IsVisible, "Creation must hide its own trigger.");
+            Assert.IsFalse(state.IsVisible, "The creation heading replaces the selection state.");
+            var saveCustomer = WpfTestHost.FindByAutomationName<Button>(review, "حفظ العميل");
+            Assert.IsTrue(saveCustomer.IsVisible);
             WpfTestHost.Capture(window, $"ui30-customer-new-{width}x{height}");
             WpfTestHost.FindByAutomationName<Button>(review, "إلغاء العميل الجديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(engine.Customers[0].Id, model.SelectedCustomer!.Id);
             Assert.AreEqual(engine.Customers[0].Phone, phone.Text);
             Assert.AreEqual(selectedState, state.Text);
+            Assert.IsTrue(create.IsVisible, "Cancel must restore the selection action.");
+            Assert.IsTrue(state.IsVisible);
+            Assert.IsFalse(saveCustomer.IsVisible);
+            WpfTestHost.Capture(window, $"ui28-customer-cancelled-{width}x{height}");
+
+            create.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            model.CustomerName = "عميل جديد تجريبي";
+            model.Phone = "invalid";
+            model.Address = "صنعاء، شارع تجريبي";
+            model.Notes = "الاتصال قبل التوصيل";
+            var rejectedSave = model.SaveNewCustomerAsync();
+            Finish(rejectedSave);
+            Assert.IsFalse(rejectedSave.Result);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(model.IsNewCustomer);
+            Assert.IsFalse(create.IsVisible, "A rejected save must keep the creation state.");
+            Assert.AreEqual("عميل جديد تجريبي", model.CustomerName);
+            Assert.AreEqual("صنعاء، شارع تجريبي", model.Address);
+            Assert.AreEqual("الاتصال قبل التوصيل", model.Notes);
+            Assert.IsTrue(model.PhoneError.Length > 0);
+            model.Phone = "777000002";
+            var releaseSave = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            engine.CommandBarrier = _ => releaseSave.Task;
+            var savedCustomer = model.SaveNewCustomerAsync();
+            try
+            {
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(model.IsNewCustomer, "Creation remains open until the authority reply.");
+                Assert.IsFalse(create.IsVisible);
+                Assert.IsFalse(saveCustomer.IsEnabled);
+            }
+            finally { releaseSave.SetResult(); }
+            Finish(savedCustomer);
+            Assert.IsTrue(savedCustomer.Result);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(model.IsNewCustomer);
+            Assert.IsTrue(create.IsVisible, "A confirmed save must restore the selection action.");
+            Assert.IsTrue(state.IsVisible);
+            Assert.IsFalse(saveCustomer.IsVisible);
+            Assert.AreEqual(engine.Customers[1].Id, model.SelectedCustomer!.Id);
+            Assert.AreEqual("777000002", phone.Text);
+            Assert.AreEqual("صنعاء، شارع تجريبي", model.Address);
+            Assert.AreEqual("الاتصال قبل التوصيل", model.Notes);
+            WpfTestHost.Capture(window, $"ui28-customer-saved-{width}x{height}");
+            WpfTestHost.FindByName<TextBox>(review, "CustomerNameInput").Text = "الاعتماد";
+            Finish(model.LastCustomerSearch);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(review, "اختيار العميل مؤسسة الاعتماد للأثاث").IsVisible,
+                "Search and selection must be available after saving.");
             if (width == 720)
             {
                 foreach (var text in WpfTestHost.Descendants<TextBlock>(section)) text.FontSize = Math.Max(text.FontSize, 18);
