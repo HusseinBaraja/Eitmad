@@ -30,13 +30,38 @@
 
 
         <controls:ShellTitleBar x:Name="ReceptionistTitleBar" Grid.Row="0" Grid.Column="0"
-                                Title="الرئيسية"
+                                Tag="الرئيسية"
                                 PrimaryActionLabel="عرض السعر" PrimaryActionIcon="{StaticResource IconQuote}"
                                 SearchPlaceholder="ابحث عن عروض الأسعار، العملاء، المنتجات، أو الطلبات..."
                                 SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                                 AccountSwitchRequested="SharedAccountSwitchRequested"
                                 ActionRequested="TitleBarActionRequested"
-                                SearchSubmitted="TitleBarSearchSubmitted" />
+                                SearchSubmitted="TitleBarSearchSubmitted">
+            <controls:ShellTitleBar.Style>
+                <Style TargetType="controls:ShellTitleBar">
+                    <Setter Property="Title" Value="{Binding Tag, RelativeSource={RelativeSource Self}}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Visibility, ElementName=ReceptionQuotations}" Value="Visible">
+                            <Setter Property="Title" Value="{Binding ViewModel.ListTitle, ElementName=ReceptionQuotations}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Visibility, ElementName=ReceptionQuotations}" Value="Visible" />
+                                <Condition Binding="{Binding ViewModel.IsDetailVisible, ElementName=ReceptionQuotations}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Title" Value="تفاصيل عرض السعر" />
+                        </MultiDataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Visibility, ElementName=ReceptionOrders}" Value="Visible" />
+                                <Condition Binding="{Binding Content.ViewModel.IsDetailVisible, ElementName=ReceptionOrders}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Title" Value="تفاصيل الطلب" />
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </controls:ShellTitleBar.Style>
+        </controls:ShellTitleBar>
 
         <ScrollViewer x:Name="HomeContent" Grid.Row="1" Grid.Column="0" FlowDirection="RightToLeft" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="24,12,24,24" MaxWidth="1180">

@@ -187,7 +187,7 @@ public partial class ReceptionistHomeView : UserControl
         ReceptionQuotations.Visibility = destination == "عروض الأسعار" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionOrders.Visibility = destination == "الطلبات" ? Visibility.Visible : Visibility.Collapsed;
         HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
-        ReceptionistTitleBar.Title = destination;
+        ReceptionistTitleBar.Tag = destination;
         ReceptionistSidebar.SelectDestination(destination);
         if (destination == "الرئيسية") home?.Search("");
     }
@@ -240,7 +240,7 @@ public partial class ReceptionistHomeView : UserControl
         CatalogContent.Visibility = Visibility.Collapsed;
         CustomerDetail.DataContext = customer;
         CustomerDetail.Visibility = Visibility.Visible;
-        ReceptionistTitleBar.Title = "تفاصيل العميل";
+        ReceptionistTitleBar.Tag = "تفاصيل العميل";
         await Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
     }
 

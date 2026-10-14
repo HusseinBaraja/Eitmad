@@ -23,8 +23,10 @@ public sealed class ReceptionOrdersRenderedTests
             WpfTestHost.FindByName<Button>(reception, "OrdersAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<OrdersView>(reception).Single();
+            var titleBar = WpfTestHost.FindByName<ShellTitleBar>(reception, "ReceptionistTitleBar");
             Assert.IsTrue(view.IsVisible);
             Assert.IsTrue(view.ViewModel.IsReceptionist);
+            Assert.AreEqual("الطلبات", titleBar.Title);
             WpfTestHost.Capture(window, "reception-orders-list");
             view.ViewModel.SearchText = "٠٠٠٠٠٠٠٨٥";
             view.ViewModel.SelectedStatus = OrdersViewModel.ReadyStatus;
@@ -34,6 +36,7 @@ public sealed class ReceptionOrdersRenderedTests
             WpfTestHost.FindByAutomationName<Button>(view, "فتح الطلب").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").IsKeyboardFocusWithin);
+            Assert.AreEqual("تفاصيل الطلب", titleBar.Title);
             Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
             Assert.AreEqual("الطلب جاهز", WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").Message);
             WpfTestHost.Capture(window, "reception-orders-ready");
@@ -41,6 +44,7 @@ public sealed class ReceptionOrdersRenderedTests
             InspectDocument(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton"), ready.OriginalQuotation!.Number, "عرض السعر الأصلي — بيانات تجريبية");
             WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("الطلبات", titleBar.Title);
             Assert.IsTrue(WpfTestHost.FindByName<TextBox>(view, "OrderSearchBox").IsKeyboardFocusWithin);
             Assert.AreEqual("٠٠٠٠٠٠٠٨٥", view.ViewModel.SearchText);
             view.ViewModel.SearchText = "";

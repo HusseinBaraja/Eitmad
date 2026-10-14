@@ -1,5 +1,30 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Quotations.QuotationsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" Language="ar-YE" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Quotations.QuotationsView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" Language="ar-YE" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
+        <Style x:Key="DocumentHeader" TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsVisible, RelativeSource={RelativeSource AncestorType={x:Type reception:ReceptionistHomeView}}}" Value="True">
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Padding" Value="32,12,32,0" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="controls:PageHeader">
+                                <Grid Margin="{TemplateBinding Padding}" FlowDirection="LeftToRight">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <StackPanel FlowDirection="RightToLeft">
+                                        <Button x:Name="HeaderButton" Content="{TemplateBinding ButtonText}" Height="46" FontSize="13"
+                                                Style="{StaticResource PrimaryButton}" Visibility="{Binding ContainsButton, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibility}}"
+                                                automation:AutomationProperties.Name="{TemplateBinding ButtonText}" />
+                                        <ContentPresenter Content="{TemplateBinding Content}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding ListSubtitle}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                               FlowDirection="RightToLeft" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="LifecycleBusyNotice" TargetType="controls:FeedbackNotice" BasedOn="{StaticResource {x:Type controls:FeedbackNotice}}">
             <Setter Property="Message" Value="جارٍ تأكيد العملية. انتظر قبل تنفيذ إجراء آخر." />
             <Setter Property="Margin" Value="0,0,0,12" />
@@ -30,7 +55,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="{Binding ListTitle}" Subtitle="{Binding ListSubtitle}" ContainsButton="{Binding IsReceptionist}" ButtonText="+ عرض سعر جديد" ButtonClick="NewQuotationClick"></controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Style="{StaticResource DocumentHeader}" Title="{Binding ListTitle}" Subtitle="{Binding ListSubtitle}" ContainsButton="{Binding IsReceptionist}" ButtonText="+ عرض سعر جديد" ButtonClick="NewQuotationClick"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <CheckBox Content="طلبات الخصم المعلقة فقط" IsChecked="{Binding ApprovalsOnly}" Margin="0,0,0,14" AutomationProperties.Name="عرض طلبات الخصم المعلقة فقط"/>
@@ -176,7 +201,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="تفاصيل عرض السعر" Subtitle="مراجعة بنود العرض والإجماليات">
+            <controls:PageHeader Style="{StaticResource DocumentHeader}" Title="تفاصيل عرض السعر" Subtitle="مراجعة بنود العرض والإجماليات">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="BackToQuotationsButton" Content="العودة إلى العروض" Style="{StaticResource InlineActionButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة عروض الأسعار" />
                 </StackPanel>
