@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Quotations;
 
@@ -13,6 +14,7 @@ public sealed partial class OrdersViewModel
     private DateTime dueDate = DateTime.Today.AddDays(7);
     private Command? retryCommand;
     private Guid retryKey;
+    private Guid? retryOrderId;
     private IReadOnlyList<OrderPending> pending = [];
     public event EventHandler? DocumentsInvalidated;
     public async Task<CustomerDocument?> ReadDocumentAsync(bool source)
@@ -30,9 +32,22 @@ public sealed partial class OrdersViewModel
     public string ListState { get => listState; private set { Set(ref listState, value); Raise(nameof(ListSubtitle)); } }
     public string ActionNotice { get => actionNotice; private set => Set(ref actionNotice, value); }
     public bool ActionsAvailable => !busy;
-    public bool CanRetry => !busy && (retryCommand is not null || pending.Any(p => p.RejectedCode is null));
-    public bool HasPending => pending.Count > 0;
-    public string PendingNotice => pending.Any(p => p.RejectedCode is null) ? "توجد عملية بانتظار تأكيد الخادم. أعد المحاولة لتأكيد نتيجتها." : pending.Count > 0 ? "رفض الخادم عملية سابقة. راجع الحالة والبيانات قبل إرسال عملية جديدة." : "";
+    public bool HasUnresolvedOperation => retryCommand is not null || pending.Any(p => p.RejectedCode is null);
+    public bool CanRetry => !busy && HasUnresolvedOperation;
+    public bool HasPending => retryCommand is not null || pending.Count > 0;
+    public string PendingNotice => HasUnresolvedOperation ? "بانتظار تأكيد الخادم. أعد محاولة العملية نفسها." : HasPending ? "رفض الخادم عملية سابقة. راجع الحالة والبيانات قبل إرسال عملية جديدة." : "";
+    private IEnumerable<OrderPending> SelectedPending => SelectedOrder is { } row ? pending.Where(p => PendingOrderId(p) == row.Id) : [];
+    private bool HasSelectedRetry => retryCommand is not null && SelectedOrder?.Id == retryOrderId;
+    public bool HasOrderPending => HasSelectedRetry || SelectedPending.Any();
+    public bool HasOrderRetry => HasSelectedRetry || SelectedPending.Any(p => p.RejectedCode is null);
+    public bool CanRetryOrder => !busy && HasOrderRetry && (retryCommand is null || HasSelectedRetry);
+    public string OrderPendingNotice => HasOrderRetry ? "بانتظار تأكيد الخادم. أعد محاولة العملية نفسها." : HasOrderPending ? "رفض الخادم عملية سابقة. راجع الحالة والبيانات قبل إرسال عملية جديدة." : "";
+    private static Guid? PendingOrderId(OrderPending operation)
+    {
+        var action = JsonSerializer.SerializeToElement(operation.Request.Action);
+        return action.TryGetProperty("payload", out var payload) && payload.TryGetProperty("orderId", out var id)
+            && id.TryGetGuid(out var orderId) ? orderId : null;
+    }
     public string FulfillmentNote { get => fulfillmentNote; set => Set(ref fulfillmentNote, value); }
     public string DeliveryNote { get => deliveryNote; set => Set(ref deliveryNote, value); }
     public string Recipient { get => recipient; set => Set(ref recipient, value); }
@@ -118,7 +133,7 @@ public sealed partial class OrdersViewModel
             _ => WorkCommand(value, action),
         };
         if (retryCommand is null) { ActionNotice = "لا يوجد أمر عمل مناسب. حدّث الطلب."; return; }
-        retryKey = Guid.NewGuid(); await SendAsync();
+        retryOrderId = value.Id; retryKey = Guid.NewGuid(); await SendAsync();
     }
     private Command? WorkCommand(OrderRecord value, OrderPermittedAction action)
     {
@@ -127,10 +142,14 @@ public sealed partial class OrdersViewModel
         var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = new DateTimeOffset(DateTime.SpecifyKind(DueDate.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(3)).ToUnixTimeMilliseconds() };
         return start ? Command.ForOrderWorkStart(input) : Command.ForOrderWorkComplete(input);
     }
-    public void Retry() => LastAction = RetryAsync();
-    private async Task RetryAsync()
+    public void Retry() => LastAction = RetryAsync(false);
+    public void RetrySelectedOrder() => LastAction = RetryAsync(true);
+    private async Task RetryAsync(bool selectedOnly)
     {
-        if (retryCommand is null && pending.FirstOrDefault(p => p.RejectedCode is null) is { } intent) { retryCommand = OrderClient.RetryCommand(intent.Request.Action); retryKey = intent.Request.IdempotencyKey; }
+        if (selectedOnly ? !CanRetryOrder : !CanRetry) return;
+        if (retryCommand is null && (selectedOnly ? SelectedPending : pending).FirstOrDefault(p => p.RejectedCode is null) is { } intent) {
+            retryCommand = OrderClient.RetryCommand(intent.Request.Action); retryKey = intent.Request.IdempotencyKey; retryOrderId = PendingOrderId(intent);
+        }
         await SendAsync();
     }
     private async Task SendAsync()
@@ -146,7 +165,11 @@ public sealed partial class OrdersViewModel
         }
         finally { if (session == generation) { busy = false; RaiseActions(); } }
     }
-    private void RaiseActions() { Raise(nameof(ActionsAvailable)); Raise(nameof(CanRetry)); Raise(nameof(HasPending)); Raise(nameof(PendingNotice)); }
+    private void RaiseActions()
+    {
+        Raise(nameof(ActionsAvailable)); Raise(nameof(CanRetry)); Raise(nameof(HasPending)); Raise(nameof(PendingNotice)); Raise(nameof(HasUnresolvedOperation));
+        Raise(nameof(HasOrderPending)); Raise(nameof(HasOrderRetry)); Raise(nameof(CanRetryOrder)); Raise(nameof(OrderPendingNotice));
+    }
     internal static OrderListItem Project(OrderRecord value)
     {
         var q = value.Source;

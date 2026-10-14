@@ -103,6 +103,7 @@ public partial class OrdersView : UserControl
     private async void StartWorkClick(object sender, RoutedEventArgs e) { ViewModel.StartWork(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
     private async void CompleteWorkClick(object sender, RoutedEventArgs e) { ViewModel.CompleteWork(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
     private async void RetryOrderClick(object sender, RoutedEventArgs e) { ViewModel.Retry(); await ViewModel.LastAction; }
+    private async void RetrySelectedOrderClick(object sender, RoutedEventArgs e) { ViewModel.RetrySelectedOrder(); await ViewModel.LastAction; BackToOrdersButton.Focus(); }
     private void BackToListClick(object sender, RoutedEventArgs eventArgs)
     {
         ViewModel.CloseOrder();

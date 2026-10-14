@@ -54,9 +54,9 @@
             <controls:PageHeader Grid.Row="0" Style="{StaticResource DocumentHeader}" Title="الطلبات" Subtitle="{Binding ListSubtitle}"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
+                    <StackPanel Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
                         <controls:FeedbackNotice Message="{Binding PendingNotice}" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}"/>
-                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
+                        <Button Content="إعادة محاولة العملية" Click="RetryOrderClick" Visibility="{Binding HasUnresolvedOperation, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
                     </StackPanel>
                     <WrapPanel Margin="0,0,0,16">
                         <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
@@ -455,7 +455,10 @@
                             <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
                         </StackPanel>
                         <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
-                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تأكيد نتيجة عملية الطلب"/>
+                        <StackPanel x:Name="OrderRecovery" Visibility="{Binding HasOrderPending, Converter={StaticResource BooleanToVisibility}}">
+                            <controls:FeedbackNotice Message="{Binding OrderPendingNotice}"/>
+                            <Button x:Name="RetrySelectedOrderButton" Content="إعادة محاولة العملية" Click="RetrySelectedOrderClick" Visibility="{Binding HasOrderRetry, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetryOrder}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
+                        </StackPanel>
                         <Border x:Name="CancellationSection" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="0,1,0,0" Padding="20" Margin="0,24,0,0" Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
                             <StackPanel>
                                 <TextBlock Text="إلغاء الطلب" Style="{StaticResource SectionTitle}" Foreground="{DynamicResource DangerBrush}"/>

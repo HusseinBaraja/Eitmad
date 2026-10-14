@@ -197,6 +197,7 @@ public sealed partial class OrdersViewModel : ObservableObject
                 Raise(nameof(ProductionAction)); Raise(nameof(ProductionSummary)); Raise(nameof(ProductionNumber));
                 Raise(nameof(IsListVisible));
                 Raise(nameof(IsDetailVisible));
+                RaiseActions();
             }
         }
     }
