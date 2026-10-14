@@ -93,7 +93,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         RefreshPartOptions();
     }
 
-    public ObservableCollection<string> CategoryOptions { get; }
+    public ObservableCollection<string> CategoryOptions { get; private set; }
 
     internal bool FixtureSalesCatalog { get; set; }
 

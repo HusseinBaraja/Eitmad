@@ -14,6 +14,50 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
+    public void CategoryFilterRestoresValidSelectionAndFallsBackWhenRemoved()
+    {
+        var fixture = new FurnitureFixtures();
+        fixture.Seed();
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            var filter = WpfTestHost.FindByAutomationName<ComboBox>(view, "تصفية فئة الأثاث");
+            var model = view.ViewModel;
+
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectedItem);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectionBoxItem);
+            Assert.HasCount(1, model.VisibleFurniture);
+            model.ApplyDurableData(fixture.Snapshot());
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectedItem);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectionBoxItem);
+            filter.SelectedItem = fixture.Category.Name;
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(fixture.Category.Name, model.SelectedCategory);
+
+            model.ApplyDurableData(fixture.Snapshot());
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(fixture.Category.Name, model.SelectedCategory);
+            Assert.AreEqual(fixture.Category.Name, filter.SelectedItem);
+            Assert.AreEqual(fixture.Category.Name, filter.SelectionBoxItem);
+            Assert.HasCount(1, model.VisibleFurniture);
+
+            model.ApplyDurableData(fixture.Snapshot() with { Categories = new FurnitureCategories { Items = [] } });
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, model.SelectedCategory);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectedItem);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectionBoxItem);
+            Assert.HasCount(1, model.VisibleFurniture, "Removing a category must not leave an invisible stale filter.");
+
+            model.ApplyDurableData(fixture.Snapshot());
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(FurnitureViewModel.AllCategories, filter.SelectedItem);
+        }, engine: fixture.Engine());
+    }
+
+    [TestMethod]
     [DataRow(720, 560)]
     [DataRow(1338, 753)]
     [DataRow(1920, 1080)]

@@ -89,8 +89,13 @@ public sealed partial class FurnitureViewModel
         IsLoading=false; DataStateText=""; CanManage = snapshot.CanManage;
         categories = snapshot.Categories.Items; partCategories = snapshot.PartCategories;
         var stagedCategory = EditorCategory;
-        EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
-        foreach (var c in categories.Where(c => !c.Archived)) { EditorCategoryOptions.Add(c.Name); CategoryOptions.Add(c.Name); }
+        EditorCategoryOptions.Clear();
+        foreach (var c in categories.Where(c => !c.Archived)) EditorCategoryOptions.Add(c.Name);
+        // Select the fallback before replacing choices so WPF never loses the active item.
+        if (!EditorCategoryOptions.Contains(SelectedCategory)) SelectedCategory = AllCategories;
+        CategoryOptions = [AllCategories, .. EditorCategoryOptions];
+        Raise(nameof(CategoryOptions));
+        Raise(nameof(SelectedCategory));
         if (IsEditorOpen) EditorCategory = stagedCategory;
         records.Clear(); furniture.Clear(); availableParts.Clear(); compositions.Clear();
         foreach (var part in snapshot.Parts.Concat(snapshot.Compositions)) compositions[(part.Id, part.Revision)] = part;
