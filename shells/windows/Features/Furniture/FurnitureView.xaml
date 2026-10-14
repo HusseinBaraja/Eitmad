@@ -1251,7 +1251,7 @@
         <controls:DialogHost x:Name="VariantDialog" IsEnabled="{Binding CanEditFields}" Panel.ZIndex="31" IsOpen="{Binding IsVariantEditorOpen}" Title="{Binding VariantEditorTitle}" PreferredWidth="640" Padding="20" FooterMargin="0,12,0,0" FlowDirection="RightToLeft" CloseRequested="CancelVariantClick" InitialFocusTarget="{Binding ElementName=VariantNameBox}">
             <controls:DialogHost.Footer>
                 <StackPanel Orientation="Horizontal" FlowDirection="LeftToRight" HorizontalAlignment="Left">
-                    <Button Style="{StaticResource PrimaryButton}" Height="43" Click="SaveVariantClick" automation:AutomationProperties.Name="حفظ المقاس">
+                    <Button Style="{StaticResource PrimaryButton}" Height="43" IsEnabled="{Binding CanSaveVariantOptions}" Click="SaveVariantClick" automation:AutomationProperties.Name="حفظ المقاس">
                         <TextBlock Text="حفظ المقاس" Foreground="White" />
                     </Button>
                     <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="9,0,0,0" Click="CancelVariantClick" />
@@ -1318,11 +1318,17 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="الألوان" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                <ItemsControl ItemsSource="{Binding VariantColorChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                <RadioButton Content="كل الألوان" Style="{StaticResource ChoiceRadio}" Margin="0,0,0,4" IsChecked="{Binding AllowAllVariantColors}" automation:AutomationProperties.Name="كل الألوان" />
+                                <RadioButton Content="ألوان محددة" Style="{StaticResource ChoiceRadio}" Margin="0,0,0,4" IsChecked="{Binding RestrictVariantColors}" automation:AutomationProperties.Name="ألوان محددة" />
+                                <ItemsControl ItemsSource="{Binding VariantColorChoices}" Visibility="{Binding RestrictVariantColors, Converter={StaticResource BooleanToVisibility}}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                <TextBlock Text="اختر لوناً واحداً على الأقل." Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Visibility="{Binding NeedsVariantColorSelection, Converter={StaticResource BooleanToVisibility}}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="المقابض" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                <ItemsControl ItemsSource="{Binding VariantHandleChoices}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                <RadioButton Content="كل المقابض" Style="{StaticResource ChoiceRadio}" Margin="0,0,0,4" IsChecked="{Binding AllowAllVariantHandles}" automation:AutomationProperties.Name="كل المقابض" />
+                                <RadioButton Content="مقابض محددة" Style="{StaticResource ChoiceRadio}" Margin="0,0,0,4" IsChecked="{Binding RestrictVariantHandles}" automation:AutomationProperties.Name="مقابض محددة" />
+                                <ItemsControl ItemsSource="{Binding VariantHandleChoices}" Visibility="{Binding RestrictVariantHandles, Converter={StaticResource BooleanToVisibility}}"><ItemsControl.ItemTemplate><DataTemplate><CheckBox Style="{StaticResource FormCheckBox}" Content="{Binding Name}" IsChecked="{Binding Selected}" automation:AutomationProperties.Name="{Binding Name}" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                <TextBlock Text="اختر مقبضاً واحداً على الأقل." Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Visibility="{Binding NeedsVariantHandleSelection, Converter={StaticResource BooleanToVisibility}}" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>

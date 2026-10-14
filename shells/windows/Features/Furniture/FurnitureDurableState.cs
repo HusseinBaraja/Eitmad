@@ -55,6 +55,30 @@ public sealed partial class FurnitureViewModel
     public decimal MaxDepth { get; set; } = 55m;
     public ObservableCollection<FurnitureOptionChoice> VariantColorChoices { get; } = [];
     public ObservableCollection<FurnitureOptionChoice> VariantHandleChoices { get; } = [];
+    private bool restrictVariantColors, restrictVariantHandles;
+    public bool RestrictVariantColors
+    {
+        get => restrictVariantColors;
+        set { if (Set(ref restrictVariantColors, value)) { Raise(nameof(AllowAllVariantColors)); RefreshVariantOptionState(); } }
+    }
+    public bool AllowAllVariantColors { get => !RestrictVariantColors; set => RestrictVariantColors = !value; }
+    public bool RestrictVariantHandles
+    {
+        get => restrictVariantHandles;
+        set { if (Set(ref restrictVariantHandles, value)) { Raise(nameof(AllowAllVariantHandles)); RefreshVariantOptionState(); } }
+    }
+    public bool AllowAllVariantHandles { get => !RestrictVariantHandles; set => RestrictVariantHandles = !value; }
+    public bool NeedsVariantColorSelection => RestrictVariantColors && !VariantColorChoices.Any(c => c.Selected);
+    public bool NeedsVariantHandleSelection => RestrictVariantHandles && !VariantHandleChoices.Any(c => c.Selected);
+    public bool CanSaveVariantOptions => !NeedsVariantColorSelection && !NeedsVariantHandleSelection;
+
+    private void VariantOptionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => RefreshVariantOptionState();
+    private void RefreshVariantOptionState()
+    {
+        Raise(nameof(NeedsVariantColorSelection));
+        Raise(nameof(NeedsVariantHandleSelection));
+        Raise(nameof(CanSaveVariantOptions));
+    }
     public event EventHandler? SearchChanged;
     public event EventHandler? PartSearchChanged;
     public event EventHandler? ReviewRequested;
@@ -171,9 +195,14 @@ public sealed partial class FurnitureViewModel
         MaxWidth = v?.Customization?.Maximum.WidthMm / 10m ?? MinWidth;
         MaxHeight = v?.Customization?.Maximum.HeightMm / 10m ?? MinHeight;
         MaxDepth = v?.Customization?.Maximum.DepthMm / 10m ?? MinDepth;
+        foreach (var choice in VariantColorChoices.Concat(VariantHandleChoices)) choice.PropertyChanged -= VariantOptionChanged;
         VariantColorChoices.Clear(); VariantHandleChoices.Clear();
         foreach (var c in Colors.Where(c => c.IsActive)) VariantColorChoices.Add(new(c.Id, c.Name, v?.ColorIds.Contains(c.Id) == true));
         foreach (var h in Handles.Where(h => h.IsActive)) VariantHandleChoices.Add(new(h.Id, h.Name, v?.HandleIds.Contains(h.Id) == true));
+        foreach (var choice in VariantColorChoices.Concat(VariantHandleChoices)) choice.PropertyChanged += VariantOptionChanged;
+        RestrictVariantColors = v?.ColorIds.Length > 0;
+        RestrictVariantHandles = v?.HandleIds.Length > 0;
+        RefreshVariantOptionState();
         foreach (var name in new[] { nameof(AllowCustomization), nameof(MinWidth), nameof(MinHeight), nameof(MinDepth), nameof(MaxWidth), nameof(MaxHeight), nameof(MaxDepth) }) Raise(name);
     }
 }

@@ -520,6 +520,7 @@ public sealed class FurnitureRenderedTests
     public void VariantCustomizationDialogRendersNativeAccessibleBoundsAndChoices(int width, int height)
     {
         var f = new FurnitureFixtures(); var furniture = f.Seed();
+        furniture.Colors[0].Name = "أبيض عاجي بتشطيب مطفي مناسب لغرف النوم والخزائن الكبيرة والأبواب الداخلية المتناسقة";
         var engine = f.Engine();
         WpfTestHost.Run(width, height, window =>
         {
@@ -538,15 +539,23 @@ public sealed class FurnitureRenderedTests
                 File.WriteAllText(Path.Combine(directory, $"ui20-{width}x{height}.txt"), geometry);
             }
             WpfTestHost.Capture(window, $"furniture-variant-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
-            var handle = WpfTestHost.FindByAutomationName<CheckBox>(view, furniture.Handles[0].Name);
             var dialog = WpfTestHost.FindByName<Controls.DialogHost>(view, "VariantDialog");
-            var scroll = WpfTestHost.Ancestor<ScrollViewer>(handle);
-            var handleBounds = handle.TransformToAncestor(scroll).TransformBounds(new Rect(handle.RenderSize));
-            Assert.IsTrue(handleBounds.Top >= -1 && handleBounds.Bottom <= scroll.ActualHeight + 1,
-                "Both compatibility lists must be visible without scrolling for the standard fixture.");
-            var standardColor = WpfTestHost.FindByAutomationName<CheckBox>(view, furniture.Colors[0].Name);
-            var colorBounds = standardColor.TransformToAncestor(scroll).TransformBounds(new Rect(standardColor.RenderSize));
-            Assert.IsTrue(colorBounds.Top >= -1 && colorBounds.Bottom <= scroll.ActualHeight + 1);
+            var allColors = WpfTestHost.FindByAutomationName<RadioButton>(dialog, "كل الألوان");
+            var allHandles = WpfTestHost.FindByAutomationName<RadioButton>(dialog, "كل المقابض");
+            var selectedColors = WpfTestHost.FindByAutomationName<RadioButton>(dialog, "ألوان محددة");
+            var selectedHandles = WpfTestHost.FindByAutomationName<RadioButton>(dialog, "مقابض محددة");
+            var save = WpfTestHost.FindByAutomationName<Button>(dialog, "حفظ المقاس");
+            Assert.IsTrue(allColors.IsChecked); Assert.IsTrue(allHandles.IsChecked);
+            Assert.IsFalse(WpfTestHost.Descendants<CheckBox>(dialog).Any(c => c.IsVisible && AutomationProperties.GetName(c) == furniture.Colors[0].Name));
+            Assert.IsFalse(WpfTestHost.Descendants<CheckBox>(dialog).Any(c => c.IsVisible && AutomationProperties.GetName(c) == furniture.Handles[0].Name));
+            foreach (var mode in new[] { allColors, allHandles, selectedColors, selectedHandles })
+            {
+                Assert.IsTrue(mode.Focusable); Assert.IsTrue(mode.IsTabStop);
+                Assert.IsNotNull(mode.FocusVisualStyle, "Native radio choices must retain a visible keyboard focus cue.");
+                var scroll = WpfTestHost.Ancestor<ScrollViewer>(mode);
+                var bounds = mode.TransformToAncestor(scroll).TransformBounds(new Rect(mode.RenderSize));
+                Assert.IsTrue(bounds.Top >= -1 && bounds.Bottom <= scroll.ActualHeight + 1);
+            }
             Click(view, "حفظ المقاس");
             var unchanged = view.ViewModel.SaveInput(FurnitureState.Draft).Variants[0];
             Assert.IsEmpty(unchanged.ColorIds); Assert.IsEmpty(unchanged.HandleIds);
@@ -555,11 +564,13 @@ public sealed class FurnitureRenderedTests
             Assert.AreEqual(furniture.Variants[0].Dimensions.DepthMm, unchanged.Dimensions.DepthMm);
             Assert.AreEqual(furniture.Variants[0].Name, unchanged.Name);
             view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
-            var colorChoice = new FurnitureOptionChoice(furniture.Colors[0].Id,
-                "أبيض عاجي بتشطيب مطفي مناسب لغرف النوم والخزائن الكبيرة والأبواب الداخلية المتناسقة", false);
-            view.ViewModel.VariantColorChoices[0] = colorChoice;
+            Assert.IsTrue(selectedColors.Focus()); Assert.IsTrue(selectedColors.IsKeyboardFocused);
+            var modePeer = new System.Windows.Automation.Peers.RadioButtonAutomationPeer(selectedColors);
+            ((System.Windows.Automation.Provider.ISelectionItemProvider)modePeer.GetPattern(System.Windows.Automation.Peers.PatternInterface.SelectionItem)).Select();
             WpfTestHost.CompleteLayout(window);
-            var color = WpfTestHost.FindByAutomationName<CheckBox>(view, colorChoice.Name);
+            Assert.IsTrue(view.ViewModel.RestrictVariantColors); Assert.IsFalse(save.IsEnabled);
+            var color = WpfTestHost.FindByAutomationName<CheckBox>(view, furniture.Colors[0].Name);
+            Assert.IsTrue(color.IsVisible);
             color.BringIntoView(); WpfTestHost.CompleteLayout(window);
             var label = WpfTestHost.Descendants<TextBlock>(color).Single();
             Assert.IsTrue(label.ActualWidth <= color.ActualWidth, "Long option labels must stay inside the checkbox hit area.");
@@ -570,6 +581,7 @@ public sealed class FurnitureRenderedTests
             var peer = new System.Windows.Automation.Peers.CheckBoxAutomationPeer(color);
             ((System.Windows.Automation.Provider.IToggleProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)).Toggle();
             Assert.IsTrue(view.ViewModel.VariantColorChoices.Single().Selected);
+            WpfTestHost.CompleteLayout(window); Assert.IsTrue(save.IsEnabled);
             WpfTestHost.Capture(window, $"furniture-variant-choices-{Math.Round(window.ActualWidth)}x{Math.Round(window.ActualHeight)}-{dpi.DpiScaleX * 100}percent");
             if (width == 720)
             {
@@ -590,9 +602,21 @@ public sealed class FurnitureRenderedTests
             CollectionAssert.AreEqual(new[] { furniture.Colors[0].Id }, input.Variants[0].ColorIds);
             view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(view.ViewModel.VariantColorChoices.Single().Selected);
+            Assert.IsTrue(selectedColors.IsChecked); Assert.IsTrue(allHandles.IsChecked);
+            selectedHandles.IsChecked = true; WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(save.IsEnabled);
             var handleChoice = WpfTestHost.FindByAutomationName<CheckBox>(view, furniture.Handles[0].Name);
-            handleChoice.IsChecked = true; Click(view, "حفظ المقاس");
+            handleChoice.IsChecked = true; WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(save.IsEnabled);
+            WpfTestHost.Capture(window, $"furniture-variant-restricted-{width}x{height}");
+            Click(view, "حفظ المقاس");
             CollectionAssert.AreEqual(new[] { furniture.Handles[0].Id }, view.ViewModel.SaveInput(FurnitureState.Draft).Variants[0].HandleIds);
+            view.ViewModel.BeginEditVariant(view.ViewModel.Variants.Single()); WpfTestHost.CompleteLayout(window);
+            allColors.IsChecked = true; allHandles.IsChecked = true; WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(view.ViewModel.CanSaveVariantOptions);
+            Click(view, "حفظ المقاس");
+            var unrestricted = view.ViewModel.SaveInput(FurnitureState.Draft).Variants[0];
+            Assert.IsEmpty(unrestricted.ColorIds); Assert.IsEmpty(unrestricted.HandleIds);
         }, engine: engine);
     }
     private static void Click(FurnitureView view, string name) { WpfTestHost.FindByAutomationName<Button>(view, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(view); }

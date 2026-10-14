@@ -98,9 +98,53 @@ public sealed class FurniturePresentationTests
     public void CustomizationAndCompatibilityRoundTripWithoutShellCostFormula()
     {
         var f = new FurnitureFixtures(); f.Seed(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single());
-        model.BeginEditVariant(model.Variants[0]); model.AllowCustomization = true; model.MinWidth = 100; model.MaxWidth = 160; model.VariantColorChoices[0].Selected = true;
+        model.BeginEditVariant(model.Variants[0]); model.AllowCustomization = true; model.MinWidth = 100; model.MaxWidth = 160; model.RestrictVariantColors = true; model.VariantColorChoices[0].Selected = true;
         Assert.IsTrue(model.SaveVariant()); var input = model.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.HasCount(1, input.Variants[0].ColorIds);
         model.ApplyReview(f.Review); Assert.AreEqual(18900m, model.CurrentPartsCost); Assert.AreEqual("181,100", model.Variants[0].MarginLabel);
+    }
+    [TestMethod]
+    public void ExplicitOptionModesPreserveRestrictedAndUnrestrictedContractSets()
+    {
+        var fixture = new FurnitureFixtures(); fixture.Seed(); var model = fixture.Model();
+        model.BeginEdit(model.VisibleFurniture.Single());
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
+        model.RestrictVariantColors = true;
+        Assert.IsFalse(model.CanSaveVariantOptions);
+        Assert.IsFalse(model.SaveVariant(), "An unfinished restriction must not become an unrestricted contract set.");
+        Assert.IsTrue(model.IsVariantEditorOpen);
+        model.VariantColorChoices[0].Selected = true;
+        Assert.IsTrue(model.CanSaveVariantOptions);
+        model.RestrictVariantHandles = true;
+        Assert.IsFalse(model.CanSaveVariantOptions);
+        model.VariantHandleChoices[0].Selected = true;
+        Assert.IsTrue(model.SaveVariant());
+        var restricted = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        CollectionAssert.AreEqual(new[] { model.Colors[0].Id }, restricted.ColorIds);
+        CollectionAssert.AreEqual(new[] { model.Handles[0].Id }, restricted.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.RestrictVariantColors); Assert.IsTrue(model.RestrictVariantHandles);
+        model.VariantColorChoices[0].Selected = false;
+        Assert.IsFalse(model.CanSaveVariantOptions, "Clearing the last color must retain selected-options mode.");
+        model.AllowAllVariantColors = true;
+        Assert.IsTrue(model.CanSaveVariantOptions);
+        Assert.IsTrue(model.SaveVariant());
+        var mixed = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        Assert.IsEmpty(mixed.ColorIds);
+        CollectionAssert.AreEqual(restricted.HandleIds, mixed.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.RestrictVariantHandles);
+        model.AllowAllVariantHandles = true;
+        model.RestrictVariantHandles = true;
+        Assert.IsTrue(model.VariantHandleChoices[0].Selected, "Mode changes retain staged choices until save.");
+        model.AllowAllVariantHandles = true;
+        Assert.IsTrue(model.SaveVariant());
+        var unrestricted = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        Assert.IsEmpty(unrestricted.ColorIds); Assert.IsEmpty(unrestricted.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
+        model.BeginAddVariant();
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
     }
     [TestMethod]
     public void BelowCostAcknowledgementTracksReturnedReviewAndResetsForChangedInput()

@@ -578,6 +578,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public bool SaveVariant()
     {
+        // Empty contract lists mean unrestricted; an unfinished selected-options choice cannot encode that intent.
+        if (!CanSaveVariantOptions)
+        {
+            EditorError = NeedsVariantColorSelection ? "اختر لوناً واحداً على الأقل." : "اختر مقبضاً واحداً على الأقل.";
+            return false;
+        }
+
         if (VariantName.Trim().Length == 0)
         {
             EditorError = "أدخل اسم المقاس.";
@@ -615,8 +622,8 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
         var savedVariant = editingVariant is null ? Variants[^1] : Variants.First(v => v.Id == editingVariant.Id);
         savedVariant.Customization = customization;
-        savedVariant.ColorIds = VariantColorChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
-        savedVariant.HandleIds = VariantHandleChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
+        savedVariant.ColorIds = RestrictVariantColors ? VariantColorChoices.Where(c => c.Selected).Select(c => c.Id).ToArray() : [];
+        savedVariant.HandleIds = RestrictVariantHandles ? VariantHandleChoices.Where(c => c.Selected).Select(c => c.Id).ToArray() : [];
         ReviewRequested?.Invoke(this, EventArgs.Empty);
         IsVariantEditorOpen = false;
         EditorError = string.Empty;
