@@ -38,17 +38,17 @@
                         <controls:FeedbackNotice Message="{Binding PendingNotice}" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}"/>
                         <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
                     </StackPanel>
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
-                        <controls:FormField Label="البحث">
+                    <WrapPanel Margin="0,0,0,16">
+                        <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                             <TextBox x:Name="OrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="{Binding SearchName}" controls:ControlOptions.Placeholder="{Binding SearchName}" Style="{StaticResource SearchInput}" />
                         </controls:FormField>
-                        <controls:FormField Label="الحالة">
+                        <controls:FormField Label="الحالة" Width="240" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الطلبات حسب الحالة" />
                         </controls:FormField>
-                        <controls:FormField Label="التاريخ">
+                        <controls:FormField Label="التاريخ" Width="220" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الطلبات حسب التاريخ" />
                         </controls:FormField>
-                    </layout:AdaptiveFieldsPanel>
+                    </WrapPanel>
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">

@@ -38,29 +38,29 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,28">
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" x:Name="FiltersGrid" Margin="0,0,0,14">
-                        <StackPanel>
+                    <WrapPanel x:Name="FiltersGrid" Margin="0,0,0,14">
+                        <StackPanel Width="360" Margin="0,0,12,8">
                             <controls:FormField Label="البحث">
                                 <TextBox x:Name="PartsSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="ابحث باسم الجزء أو الفئة" automation:AutomationProperties.Name="البحث عن جزء" Style="{StaticResource SearchInput}" />
                             </controls:FormField>
                         </StackPanel>
-                        <StackPanel>
+                        <StackPanel Width="240" Margin="0,0,12,8">
                             <controls:FormField Label="الفئة">
                                 <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الفئة" />
                             </controls:FormField>
                         </StackPanel>
-                        <StackPanel>
+                        <StackPanel Width="180" Margin="0,0,12,8">
                             <controls:FormField Label="الحالة">
                                 <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الحالة" />
                             </controls:FormField>
                         </StackPanel>
-                    </layout:AdaptiveFieldsPanel>
-                    <Border Style="{StaticResource Card}" ClipToBounds="True" MinHeight="310">
+                    </WrapPanel>
+                    <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="52" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="42" />
+                                <RowDefinition Height="0" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid Grid.RowSpan="2">
                                 <Grid>
@@ -76,7 +76,7 @@
                                             <DataGridTemplateColumn Header="اسم الجزء" Width="2*" MinWidth="160" SortMemberPath="Name">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <StackPanel VerticalAlignment="Center" Margin="18,8" FlowDirection="LeftToRight">
                                                                 <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextAlignment="Right" TextWrapping="Wrap" />
                                                                 <TextBlock x:Name="ContrastCell1" Text="جزء أثاث" Foreground="{StaticResource MutedBrush}" FontSize="13" TextAlignment="Right" Margin="0,3,0,0" />
@@ -102,7 +102,7 @@
                                             <DataGridTemplateColumn Header="الفئة" controls:OperationsTable.IsCompactDetail="True" Width="1.2*" MinWidth="120" SortMemberPath="Category">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding Category}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -124,7 +124,7 @@
                                             <DataGridTemplateColumn Header="التكلفة" Width="1.1*" MinWidth="120" SortMemberPath="Cost">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <controls:AmountDisplay HorizontalAlignment="Center" AmountText="{Binding CostAmountLabel}" UnitText="{Binding CurrencyLabel}" UnitPlacement="After" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -145,7 +145,7 @@
                                             <DataGridTemplateColumn Header="مستخدم في" controls:OperationsTable.IsCompactDetail="True" Width="1*" MinWidth="120" CanUserSort="False">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <TextBlock x:Name="ContrastCell0" Text="—" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -167,7 +167,7 @@
                                             <DataGridTemplateColumn Header="الحالة" Width="0.9*" MinWidth="100" SortMemberPath="StatusLabel">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <controls:StatusBadge x:Name="StatusPill" Padding="10,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Tone="Success"></controls:StatusBadge>
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -190,7 +190,7 @@
                                             <DataGridTemplateColumn Header="الإجراءات" Width="0.55*" MinWidth="70" CanUserSort="False">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <Border x:Name="RowSurface" MinHeight="78" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
+                                                        <Border x:Name="RowSurface" MinHeight="64" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White">
                                                             <Button HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource RowActionButton}" Content="⋮" Click="OpenRowMenuClick" automation:AutomationProperties.Name="إجراءات الجزء">
                                                                 <Button.ContextMenu>
                                                                     <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" FlowDirection="LeftToRight" Style="{StaticResource ActionMenu}" Placement="MousePoint">

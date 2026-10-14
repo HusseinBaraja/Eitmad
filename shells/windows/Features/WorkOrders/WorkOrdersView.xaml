@@ -101,17 +101,17 @@
                         <TextBlock Text="{Binding PendingNotice}" TextWrapping="Wrap"/><TextBlock Text="{Binding ActionNotice}" TextWrapping="Wrap"/>
                         <Button Content="تأكيد نتيجة العملية السابقة" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetry}" Click="RetryClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" automation:AutomationProperties.Name="إعادة محاولة عملية الإنتاج"/>
                     </StackPanel>
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,8">
-                        <controls:FormField Label="البحث">
+                    <WrapPanel Margin="0,0,0,8">
+                        <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                             <TextBox x:Name="WorkOrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في أوامر العمل" Style="{StaticResource SearchInput}" />
                         </controls:FormField>
-                        <controls:FormField Label="الحالة">
+                        <controls:FormField Label="الحالة" Width="240" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب الحالة" />
                         </controls:FormField>
-                        <controls:FormField Label="موعد التسليم">
+                        <controls:FormField Label="موعد التسليم" Width="220" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding DueDateOptions}" SelectedItem="{Binding SelectedDueDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية أوامر العمل حسب موعد التسليم" />
                         </controls:FormField>
-                    </layout:AdaptiveFieldsPanel>
+                    </WrapPanel>
                     <Grid Margin="0,0,0,12" FlowDirection="LeftToRight">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

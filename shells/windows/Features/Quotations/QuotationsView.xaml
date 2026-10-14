@@ -34,17 +34,17 @@
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
                     <CheckBox Content="طلبات الخصم المعلقة فقط" IsChecked="{Binding ApprovalsOnly}" Margin="0,0,0,14" AutomationProperties.Name="عرض طلبات الخصم المعلقة فقط"/>
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
-                        <controls:FormField Label="البحث">
+                    <WrapPanel Margin="0,0,0,16">
+                        <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                             <TextBox x:Name="QuotationSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="{Binding SearchName}" Style="{StaticResource SearchInput}" />
                         </controls:FormField>
-                        <controls:FormField Label="الحالة">
+                        <controls:FormField Label="الحالة" Width="240" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب الحالة" />
                         </controls:FormField>
-                        <controls:FormField Label="التاريخ">
+                        <controls:FormField Label="التاريخ" Width="220" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية عروض الأسعار حسب التاريخ" />
                         </controls:FormField>
-                    </layout:AdaptiveFieldsPanel>
+                    </WrapPanel>
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">

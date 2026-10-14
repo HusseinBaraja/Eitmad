@@ -40,17 +40,17 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <layout:AdaptiveFieldsPanel MinItemWidth="220">
-                    <controls:FormField Label="البحث">
+                <WrapPanel>
+                    <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                         <TextBox x:Name="ProductSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المنتجات" Style="{StaticResource SearchInput}" />
                     </controls:FormField>
-                    <controls:FormField Label="الفئة">
+                    <controls:FormField Label="الفئة" Width="240" Margin="0,0,12,8">
                         <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة المنتجات" />
                     </controls:FormField>
-                    <controls:FormField Label="الحالة">
+                    <controls:FormField Label="الحالة" Width="180" Margin="0,0,12,8">
                         <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة المنتجات" />
                     </controls:FormField>
-                </layout:AdaptiveFieldsPanel>
+                </WrapPanel>
                 <Grid Grid.Row="1" Margin="0,15,0,9" FlowDirection="LeftToRight">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -59,7 +59,7 @@
                     <TextBlock Text="{Binding AvailabilityMessage}" Foreground="#9A5C22" FontSize="13" />
                     <TextBlock Grid.Column="1" Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                 </Grid>
-                <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                <Border Grid.Row="2" VerticalAlignment="Top" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
                     <Grid>
                         <Grid>
                             <Grid.RowDefinitions>

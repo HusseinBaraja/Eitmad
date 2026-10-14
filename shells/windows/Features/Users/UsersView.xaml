@@ -13,11 +13,11 @@
   <Grid Grid.Row="1" Margin="28,22,28,28">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
    <StackPanel Margin="0,0,0,16"><TextBlock Text="تدار الحسابات والصلاحيات من محرك الاعتماد." Foreground="{DynamicResource MutedBrush}" FontSize="12"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
-   <layout:AdaptiveFieldsPanel Grid.Row="1" MinItemWidth="170" Margin="0,0,0,18">
-    <controls:FormField Label="البحث"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
-    <controls:FormField Label="الدور"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
-    <controls:FormField Label="الحالة"><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الحالة"/></controls:FormField>
-   </layout:AdaptiveFieldsPanel>
+   <WrapPanel Grid.Row="1" Margin="0,0,0,18">
+    <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
+    <controls:FormField Label="الدور" Width="240" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
+    <controls:FormField Label="الحالة" Width="180" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الحالة"/></controls:FormField>
+   </WrapPanel>
    <DockPanel Grid.Row="2" Margin="0,0,0,12" Visibility="{Binding HasLoadFailure, Converter={StaticResource BooleanToVisibility}}">
     <Button x:Name="RetryUsersButton" DockPanel.Dock="Left" Content="إعادة التحميل" Style="{StaticResource SecondaryButton}" Click="RetryClick" IsEnabled="{Binding CanRetry}" VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="إعادة تحميل المستخدمين"/>
     <controls:FeedbackNotice x:Name="UsersLoadNotice" Message="{Binding LoadNotice}" Tone="Warning"/>

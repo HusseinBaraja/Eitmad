@@ -11,14 +11,14 @@
                            Visibility="{Binding HasSyncIssues, Converter={StaticResource BooleanToVisibility}}"
                            automation:AutomationProperties.Name="تعريفات تحتاج مراجعة المزامنة" />
                 <Button Content="إعادة تحميل الأسعار" Click="ReloadClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,12" automation:AutomationProperties.Name="إعادة تحميل الأسعار" />
-                <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,17">
-                    <controls:FormField Label="البحث">
+                <WrapPanel Margin="0,0,0,17">
+                    <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                         <TextBox x:Name="PricingSearchBox" Height="46" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن منتج أو مقاس" Style="{StaticResource SearchInput}" />
                     </controls:FormField>
-                    <controls:FormField Label="الفئة">
+                    <controls:FormField Label="الفئة" Width="240" Margin="0,0,12,8">
                         <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حسب الفئة" />
                     </controls:FormField>
-                </layout:AdaptiveFieldsPanel>
+                </WrapPanel>
                 <Border Style="{StaticResource Card}" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>

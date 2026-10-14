@@ -872,6 +872,7 @@
         </Setter>
     </Style>
     <Style TargetType="controls:OperationsTable">
+        <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="RowDetailsVisibilityMode" Value="Collapsed" />
         <Setter Property="RowDetailsTemplate">
             <Setter.Value>

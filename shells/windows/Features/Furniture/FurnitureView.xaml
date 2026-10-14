@@ -88,23 +88,23 @@
             <ScrollViewer Grid.Row="1" Padding="28,20,28,28" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <TextBlock Text="{Binding DataStateText}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8" />
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,14">
-                        <StackPanel>
+                    <WrapPanel Margin="0,0,0,14">
+                        <StackPanel Width="360" Margin="0,0,12,8">
                             <controls:FormField Label="البحث">
                                 <TextBox x:Name="FurnitureSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن أثاث" Style="{StaticResource SearchInput}" />
                             </controls:FormField>
                         </StackPanel>
-                        <StackPanel>
+                        <StackPanel Width="240" Margin="0,0,12,8">
                             <controls:FormField Label="الفئة">
                                 <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية فئة الأثاث" />
                             </controls:FormField>
                         </StackPanel>
-                        <StackPanel>
+                        <StackPanel Width="180" Margin="0,0,12,8">
                             <controls:FormField Label="الحالة">
                                 <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية حالة الأثاث" />
                             </controls:FormField>
                         </StackPanel>
-                    </layout:AdaptiveFieldsPanel>
+                    </WrapPanel>
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
                         <Border Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
                             <Grid>
@@ -473,7 +473,7 @@
                                 <TextBlock Text="اختر الجزء، ثم اضبط الكمية وشاهد التكلفة المحدثة." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
-                        <Border Style="{StaticResource Card}" Padding="0" MinHeight="230">
+                        <Border Style="{StaticResource Card}" Padding="0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="0" />
