@@ -261,9 +261,8 @@ public sealed class FurnitureRenderedTests
                 var name = WpfTestHost.Descendants<TextBlock>(group).Single(t => t.Text == variant.Name);
                 var dimensions = WpfTestHost.Descendants<TextBlock>(group).Single(t => t.Text == variant.DimensionsLabel);
                 var fields = WpfTestHost.Descendants<Layout.AdaptiveFieldsPanel>(group).Single();
-                var identityBounds = dimensions.TransformToAncestor(group).TransformBounds(new Rect(dimensions.RenderSize));
-                var fieldBounds = fields.TransformToAncestor(group).TransformBounds(new Rect(fields.RenderSize));
-                Assert.IsTrue(identityBounds.Bottom <= fieldBounds.Top, "The size identity must precede every financial field.");
+                var identity = WpfTestHost.FindByName<StackPanel>(group, "PricingIdentity");
+                Assert.IsTrue(Precedes(identity, fields, group), "The size identity must precede every financial field in RTL reading order.");
                 foreach (var element in new FrameworkElement[] { name, dimensions, fields })
                 {
                     var bounds = element.TransformToAncestor(group).TransformBounds(new Rect(element.RenderSize));
@@ -274,6 +273,7 @@ public sealed class FurnitureRenderedTests
                 Assert.AreEqual(FlowDirection.LeftToRight, dimensions.FlowDirection);
                 var price = WpfTestHost.FindByAutomationName<TextBox>(group, "سعر بيع المقاس");
                 Assert.AreSame(variant, price.DataContext, "Each price must belong to the identified variant.");
+                Assert.AreEqual(variant.Name, AutomationProperties.GetHelpText(price));
                 Assert.AreEqual(FlowDirection.LeftToRight, price.FlowDirection);
                 var cost = (FrameworkElement)fields.Children[0];
                 var selling = (FrameworkElement)fields.Children[1];

@@ -75,6 +75,18 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="FurniturePricingMutedText" TargetType="TextBlock" BasedOn="{StaticResource FurnitureOptionText}">
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        </Style>
+        <Style x:Key="FurniturePricingLabel" TargetType="TextBlock" BasedOn="{StaticResource FurniturePricingMutedText}">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <DataTemplate x:Key="FurnitureOptionColumns">
             <Grid FlowDirection="RightToLeft" Margin="12,6">
                 <Grid.ColumnDefinitions>
@@ -849,55 +861,104 @@
                                 <TextBlock Text="تسعير المقاسات" FontSize="24" FontWeight="Bold" />
                             </StackPanel>
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding Variants}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border x:Name="PricingGroup" Style="{StaticResource Card}" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
-                                        <StackPanel FlowDirection="RightToLeft">
-                                            <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="22,16">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="18" FontWeight="Bold" />
-                                                    <TextBlock Text="{Binding DimensionsLabel}" FlowDirection="LeftToRight" TextAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,0" />
-                                                </StackPanel>
+                        <Border x:Name="PricingComparison" Style="{StaticResource FurnitureOptionRow}" BorderThickness="1" CornerRadius="10" Padding="0" ClipToBounds="True">
+                            <StackPanel>
+                                <Grid x:Name="PricingColumns" FlowDirection="RightToLeft" Margin="16,10">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="3*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="المقاس والأبعاد" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" />
+                                    <layout:AdaptiveFieldsPanel Grid.Column="1" MinItemWidth="170">
+                                        <TextBlock Text="التكلفة" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" Margin="12,0" />
+                                        <TextBlock Text="سعر البيع" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" FontSize="13" Margin="12,0" />
+                                        <TextBlock Text="هامش الربح" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" Margin="12,0" />
+                                    </layout:AdaptiveFieldsPanel>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding Variants}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="PricingGroup" Style="{StaticResource FurnitureOptionRow}" Padding="16,12">
+                                                <Grid FlowDirection="RightToLeft">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="3*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <StackPanel x:Name="PricingIdentity" Margin="0,0,16,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource FurnitureOptionText}" TextWrapping="Wrap" FontSize="18" FontWeight="Bold" />
+                                                        <TextBlock Text="{Binding DimensionsLabel}" Style="{StaticResource FurniturePricingMutedText}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="13" Margin="0,5,0,0" />
+                                                    </StackPanel>
+                                                    <layout:AdaptiveFieldsPanel x:Name="PricingFields" Grid.Column="1" MinItemWidth="170">
+                                                        <StackPanel Margin="12,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="التكلفة" Style="{StaticResource FurniturePricingLabel}" />
+                                                            <controls:AmountDisplay FontSize="15" FontWeight="SemiBold" AmountText="{Binding CalculatedCostLabel}" UnitText="ر.ي" UnitPlacement="After" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="12,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="سعر البيع" Style="{StaticResource FurniturePricingLabel}" />
+                                                            <Grid FlowDirection="LeftToRight">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBox Text="{Binding SellingPriceInput, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Height="50" FontFamily="Segoe UI" FontSize="18" FontWeight="Bold" Padding="12,0" VerticalContentAlignment="Center" FlowDirection="LeftToRight" TextAlignment="Right" BorderBrush="#B97A3E" automation:AutomationProperties.Name="سعر بيع المقاس" automation:AutomationProperties.HelpText="{Binding Name}" />
+                                                                <TextBlock Grid.Column="1" Text="ر.ي" Style="{StaticResource FurnitureOptionText}" FontSize="13" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="12,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding MarginCaption}">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource FurniturePricingLabel}">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <controls:AmountDisplay FontSize="16" FontWeight="Bold" AmountText="{Binding MarginLabel}" UnitText="ر.ي" UnitPlacement="After">
+                                                                <controls:AmountDisplay.Style>
+                                                                    <Style TargetType="controls:AmountDisplay" BasedOn="{StaticResource {x:Type controls:AmountDisplay}}">
+                                                                        <Setter Property="Foreground" Value="#28733C" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#A13B27" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </controls:AmountDisplay.Style>
+                                                            </controls:AmountDisplay>
+                                                        </StackPanel>
+                                                    </layout:AdaptiveFieldsPanel>
+                                                </Grid>
                                             </Border>
-                                            <layout:AdaptiveFieldsPanel MinItemWidth="170">
-                                                <StackPanel Margin="20,17" VerticalAlignment="Center">
-                                                    <TextBlock Text="التكلفة" Foreground="{StaticResource MutedBrush}" FontSize="13" />
-                                                    <controls:AmountDisplay Margin="0,6,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#51483F" AmountText="{Binding CalculatedCostLabel}" UnitText="ر.ي" UnitPlacement="After" />
-                                                </StackPanel>
-                                                <Border Background="#F7E9DA" BorderBrush="#D6B48F" BorderThickness="1,0" Padding="20,15">
-                                                    <controls:FormField Label="سعر البيع">
-                                                        <Grid FlowDirection="LeftToRight" Margin="0,7,0,0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBox Text="{Binding SellingPriceInput, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Height="50" FontFamily="Segoe UI" FontSize="18" FontWeight="Bold" Padding="12,0" VerticalContentAlignment="Center" FlowDirection="LeftToRight" TextAlignment="Right" BorderBrush="#B97A3E" automation:AutomationProperties.Name="سعر بيع المقاس" />
-                                                            <TextBlock Grid.Column="1" Text="ر.ي" Foreground="#6F3B0D" FontSize="13" FontWeight="Bold" Margin="10,0,0,3" VerticalAlignment="Bottom" />
-                                                        </Grid>
-                                                    </controls:FormField>
-                                                </Border>
-                                                <StackPanel Margin="20,17" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding MarginCaption}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
-                                                    <controls:AmountDisplay Margin="0,6,0,0" FontSize="16" FontWeight="Bold" AmountText="{Binding MarginLabel}" UnitText="ر.ي" UnitPlacement="After">
-                                                        <controls:AmountDisplay.Style>
-                                                            <Style TargetType="controls:AmountDisplay" BasedOn="{StaticResource {x:Type controls:AmountDisplay}}">
-                                                                <Setter Property="Foreground" Value="#28733C" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#A13B27" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </controls:AmountDisplay.Style>
-                                                    </controls:AmountDisplay>
-                                                </StackPanel>
-                                            </layout:AdaptiveFieldsPanel>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter TargetName="PricingIdentity" Property="Grid.ColumnSpan" Value="2" />
+                                                    <Setter TargetName="PricingIdentity" Property="Margin" Value="0,0,0,12" />
+                                                    <Setter TargetName="PricingFields" Property="Grid.Row" Value="1" />
+                                                    <Setter TargetName="PricingFields" Property="Grid.Column" Value="0" />
+                                                    <Setter TargetName="PricingFields" Property="Grid.ColumnSpan" Value="2" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     <StackPanel x:Name="ReviewStep" Visibility="{Binding IsStepSix, Converter={StaticResource BooleanToVisibility}}">
                         <CheckBox Content="أؤكد السعر المقترح الأقل من التكلفة عند وجود خسارة متوقعة" IsChecked="{Binding ConfirmBelowCost}" automation:AutomationProperties.Name="تأكيد السعر الأقل من التكلفة" Margin="0,0,0,12" />
