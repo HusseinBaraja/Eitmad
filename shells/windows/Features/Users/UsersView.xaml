@@ -12,7 +12,9 @@
   </controls:PageHeader>
   <Grid Grid.Row="1" Margin="28,22,28,28">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <StackPanel Margin="0,0,0,16"><TextBlock Text="تدار الحسابات والصلاحيات من محرك الاعتماد." Foreground="{DynamicResource MutedBrush}" FontSize="12"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+   <TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16">
+    <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding EditorError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+   </TextBlock>
    <WrapPanel Grid.Row="1" Margin="0,0,0,18">
     <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
     <controls:FormField Label="الدور" Width="240" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
@@ -59,7 +61,6 @@
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,28,28,32" HorizontalContentAlignment="Stretch" Grid.RowSpan="2">
    <StackPanel x:Name="EditorContent" MaxWidth="640" HorizontalAlignment="Stretch">
     <controls:PageHeader Title="{Binding EditorTitle}" Height="Auto" MinHeight="64" Padding="0,0,0,16" Background="Transparent" BorderThickness="0"/>
-    <TextBlock Text="يسري تغيير الدور أو التعطيل على الجلسات المفتوحة فورًا." Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,20"/>
     <Border Style="{StaticResource Card}" Padding="24">
      <StackPanel>
       <controls:FormField Label="الاسم" ErrorText="{Binding EditorNameError}"><TextBox x:Name="UserNameInput" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="الاسم"/></controls:FormField>
@@ -72,7 +73,7 @@
        </controls:FormField.Style>
        <TextBox x:Name="UsernameInput" Text="{Binding EditorUsername, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsEditing}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم المستخدم"/>
       </controls:FormField>
-      <controls:FormField Label="كلمة المرور المؤقتة" Margin="0,20,0,0" HelpText="استخدم 12 حرفًا على الأقل." ErrorText="{Binding EditorPasswordError}">
+      <controls:FormField Label="كلمة المرور المؤقتة (12 حرفًا على الأقل)" Margin="0,20,0,0" ErrorText="{Binding EditorPasswordError}">
        <controls:FormField.Style><Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}"><Style.Triggers><DataTrigger Binding="{Binding IsEditing}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></controls:FormField.Style>
        <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" PasswordChanged="PasswordChanged" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
       </controls:FormField>

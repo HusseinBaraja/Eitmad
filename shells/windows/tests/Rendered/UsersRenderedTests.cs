@@ -139,7 +139,6 @@ public sealed class UsersRenderedTests
             name.Text = "مستخدم تجريبي";
             username.Text = "synthetic.user";
             WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(((TextBlock)passwordField.Template.FindName("Help", passwordField)).IsVisible);
             foreach (var value in new[] { "", "short" })
             {
                 password.Password = value;
