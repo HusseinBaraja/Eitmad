@@ -379,7 +379,15 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <layout:AdaptiveFieldsPanel MinItemWidth="280" FlowDirection="RightToLeft">
+                        <Grid FlowDirection="RightToLeft">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <StackPanel FlowDirection="RightToLeft">
                                 <StackPanel>
                                     <StackPanel.Style>
@@ -393,27 +401,44 @@
                                     </StackPanel.Style>
                                     <TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,12" />
                                 </StackPanel>
+                                <layout:AdaptiveFieldsPanel MinItemWidth="240" Spacing="16">
                                 <controls:FormField Label="اسم الأثاث">
                                     <TextBox x:Name="FurnitureNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم الأثاث" />
                                 </controls:FormField>
-                                <controls:FormField Label="الفئة" Margin="0,17,0,0">
+                                <controls:FormField Label="الفئة">
                                     <StackPanel>
                                     <ComboBox IsEditable="True" ItemsSource="{Binding EditorCategoryOptions}" Text="{Binding EditorCategory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="فئة الأثاث" />
                                     <Button Content="حفظ فئة جديدة" Click="SaveCategoryClick" Style="{StaticResource SecondaryButton}" Margin="0,6,0,0" automation:AutomationProperties.Name="حفظ فئة الأثاث" />
                                     </StackPanel>
                                 </controls:FormField>
+                                </layout:AdaptiveFieldsPanel>
                                 <controls:FormField Label="وصف قصير" Margin="0,17,0,0">
-                                    <TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="86" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير" />
+                                    <TextBox Text="{Binding ShortDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الوصف القصير" />
                                 </controls:FormField>
                                 <controls:FormField Label="ملاحظات داخلية" Margin="0,17,0,0">
-                                    <TextBox Text="{Binding InternalNotes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="86" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الملاحظات الداخلية" />
+                                    <TextBox Text="{Binding InternalNotes, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Height="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" automation:AutomationProperties.Name="الملاحظات الداخلية" />
                                 </controls:FormField>
                             </StackPanel>
                             <StackPanel FlowDirection="RightToLeft">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Grid.Column" Value="1" />
+                                        <Setter Property="Width" Value="240" />
+                                        <Setter Property="Margin" Value="24,0,0,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                <Setter Property="Grid.Column" Value="0" />
+                                                <Setter Property="Grid.Row" Value="1" />
+                                                <Setter Property="Margin" Value="0,16,0,0" />
+                                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
                                 <TextBlock Text="صورة المنتج" Style="{StaticResource FieldLabel}" />
-                                <Border Height="360" Background="#F2E7DB" BorderBrush="#D6B997" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                                <Border Height="180" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                                     <Grid>
-                                        <Image Source="{Binding ProductImage}" Stretch="UniformToFill" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
+                                        <Image Source="{Binding ProductImage}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
                                             <Image.Style>
                                                 <Style TargetType="Image">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -425,33 +450,24 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <Grid>
-                                            <Grid.Style>
-                                                <Style TargetType="Grid">
+                                        <TextBlock Text="لا توجد صورة" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding HasProductImage}" Value="True">
                                                             <Setter Property="Visibility" Value="Collapsed" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Grid.Style>
-                                            <Canvas Width="160" Height="155" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Rectangle Canvas.Left="20" Canvas.Top="12" Width="120" Height="126" RadiusX="8" Fill="#9A6237" />
-                                                <Rectangle Canvas.Left="28" Canvas.Top="20" Width="50" Height="110" RadiusX="3" Fill="#B97D46" />
-                                                <Rectangle Canvas.Left="82" Canvas.Top="20" Width="50" Height="110" RadiusX="3" Fill="#8B5026" />
-                                                <Ellipse Canvas.Left="70" Canvas.Top="76" Width="7" Height="7" Fill="#4B260B" />
-                                                <Ellipse Canvas.Left="84" Canvas.Top="76" Width="7" Height="7" Fill="#4B260B" />
-                                                <Rectangle Canvas.Left="28" Canvas.Top="138" Width="12" Height="8" Fill="#623510" />
-                                                <Rectangle Canvas.Left="120" Canvas.Top="138" Width="12" Height="8" Fill="#623510" />
-                                            </Canvas>
-                                        </Grid>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </Grid>
                                 </Border>
                                 <TextBlock Text="{Binding ProductImageName}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
                                 <Button Content="اختيار صورة" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0" Click="ChooseImageClick" IsEnabled="{Binding CanEditFields}" automation:AutomationProperties.Name="اختيار صورة الأثاث" />
                                 <Button Content="إزالة الصورة" Style="{StaticResource SecondaryButton}" Margin="0,6,0,0" Click="RemoveImageClick" IsEnabled="{Binding CanEditFields}" automation:AutomationProperties.Name="إزالة صورة الأثاث"/>
                             </StackPanel>
-                        </layout:AdaptiveFieldsPanel>
+                        </Grid>
                     </Border>
                     <StackPanel x:Name="PartsStep" Visibility="{Binding IsStepTwo, Converter={StaticResource BooleanToVisibility}}">
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,16">
