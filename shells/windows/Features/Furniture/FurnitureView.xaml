@@ -53,9 +53,11 @@
             </Style.Triggers>
         </Style>
         <Style x:Key="FurnitureOptionRow" TargetType="Border" BasedOn="{StaticResource Card}">
-            <Setter Property="Padding" Value="12" />
-            <Setter Property="Margin" Value="0,0,0,8" />
-            <Setter Property="MinHeight" Value="76" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Effect" Value="{x:Null}" />
+            <Setter Property="MinHeight" Value="48" />
             <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
             <Style.Triggers>
                 <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
@@ -71,6 +73,37 @@
                 <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
                     <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                 </Trigger>
+            </Style.Triggers>
+        </Style>
+        <DataTemplate x:Key="FurnitureOptionColumns">
+            <Grid FlowDirection="RightToLeft" Margin="12,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="64" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="85" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.ColumnSpan="2" Text="الخيار" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="2" Text="تعديل السعر" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" Margin="0,0,12,0" />
+                <TextBlock Grid.Column="3" Text="الحالة" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="الإجراء" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" HorizontalAlignment="Left" />
+            </Grid>
+        </DataTemplate>
+        <Style x:Key="FurnitureOptionHeader" TargetType="ContentControl">
+            <Setter Property="ContentTemplate" Value="{StaticResource FurnitureOptionColumns}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FurnitureOptionAdjustmentLabel" TargetType="TextBlock" BasedOn="{StaticResource FurnitureOptionText}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
@@ -661,7 +694,7 @@
                             </controls:EmptyState.Style>
                         </controls:EmptyState>
                     </StackPanel>
-                    <StackPanel x:Name="OptionsStep" Visibility="{Binding IsStepFour, Converter={StaticResource BooleanToVisibility}}">
+                    <StackPanel x:Name="OptionsStep" MaxWidth="720" Visibility="{Binding IsStepFour, Converter={StaticResource BooleanToVisibility}}">
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -669,59 +702,64 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="AddColorClick" automation:AutomationProperties.Name="إضافة لون" Content="إضافة لون" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="16,0,0,0">
-                                <TextBlock Text="الألوان المتاحة" FontSize="24" FontWeight="Bold" />
+                                <TextBlock Text="الألوان المتاحة" FontSize="20" FontWeight="Bold" />
                             </StackPanel>
                         </Grid>
-                        <ItemsControl x:Name="ColorsOptions" ItemsSource="{Binding Colors}" HorizontalContentAlignment="Stretch">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border x:Name="OptionRow" Style="{StaticResource FurnitureOptionRow}">
-                                        <Grid FlowDirection="RightToLeft">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="80" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition x:Name="AdjustmentColumn" Width="150" />
-                                                <ColumnDefinition Width="90" />
-                                                <ColumnDefinition Width="85" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="OptionPreview" Grid.RowSpan="2" Width="64" Height="48" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                <Border Width="32" Height="32" CornerRadius="16" Background="{Binding SwatchBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" />
+                        <Border Style="{StaticResource FurnitureOptionRow}" BorderThickness="1" CornerRadius="8" Padding="0">
+                            <StackPanel>
+                                <ContentControl Style="{StaticResource FurnitureOptionHeader}" />
+                                <ItemsControl x:Name="ColorsOptions" ItemsSource="{Binding Colors}" HorizontalContentAlignment="Stretch">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="OptionRow" Style="{StaticResource FurnitureOptionRow}">
+                                                <Grid FlowDirection="RightToLeft">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition x:Name="AdjustmentColumn" Width="150" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="85" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border x:Name="OptionPreview" Grid.RowSpan="2" Width="52" Height="36" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <Border Width="28" Height="28" CornerRadius="14" Background="{Binding SwatchBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" />
+                                                    </Border>
+                                                    <TextBlock x:Name="OptionName" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource FurnitureOptionText}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                                    <StackPanel x:Name="OptionAdjustment" Grid.Column="2" FlowDirection="LeftToRight" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <TextBlock Text="تعديل السعر" Style="{StaticResource FurnitureOptionAdjustmentLabel}" FlowDirection="RightToLeft" TextAlignment="Right" FontSize="11" />
+                                                        <TextBlock x:Name="OptionAmount" Text="{Binding PriceAdjustmentLabel}" Style="{StaticResource FurnitureOptionText}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="14" FontWeight="SemiBold" />
+                                                    </StackPanel>
+                                                    <controls:StatusBadge Grid.Column="3" Grid.RowSpan="2" Padding="9,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
+                                                        <controls:StatusBadge.Style>
+                                                            <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
+                                                                <Setter Property="Tone" Value="Success" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                        <Setter Property="Tone" Value="Neutral" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </controls:StatusBadge.Style>
+                                                    </controls:StatusBadge>
+                                                    <Button Grid.Column="4" Grid.RowSpan="2" Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleColorClick" automation:AutomationProperties.Name="تغيير حالة اللون" HorizontalAlignment="Left" VerticalAlignment="Center" MinWidth="70" />
+                                                </Grid>
                                             </Border>
-                                            <TextBlock x:Name="OptionName" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource FurnitureOptionText}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                            <StackPanel x:Name="OptionAdjustment" Grid.Column="2" FlowDirection="LeftToRight" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                <TextBlock Text="تعديل السعر" Style="{StaticResource FurnitureOptionText}" FlowDirection="RightToLeft" TextAlignment="Left" FontSize="11" />
-                                                <TextBlock x:Name="OptionAmount" Text="{Binding PriceAdjustmentLabel}" Style="{StaticResource FurnitureOptionText}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="14" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                            <controls:StatusBadge Grid.Column="3" Grid.RowSpan="2" Padding="9,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
-                                                <controls:StatusBadge.Style>
-                                                    <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
-                                                        <Setter Property="Tone" Value="Success" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                <Setter Property="Tone" Value="Neutral" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </controls:StatusBadge.Style>
-                                            </controls:StatusBadge>
-                                            <Button Grid.Column="4" Grid.RowSpan="2" Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleColorClick" automation:AutomationProperties.Name="تغيير حالة اللون" HorizontalAlignment="Left" VerticalAlignment="Center" MinWidth="70" />
-                                        </Grid>
-                                    </Border>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                                            <Setter TargetName="AdjustmentColumn" Property="Width" Value="0" />
-                                            <Setter TargetName="OptionAdjustment" Property="Grid.Column" Value="1" />
-                                            <Setter TargetName="OptionAdjustment" Property="Grid.Row" Value="1" />
-                                            <Setter TargetName="OptionAdjustment" Property="Margin" Value="0,4,12,0" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter TargetName="AdjustmentColumn" Property="Width" Value="0" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Grid.Column" Value="1" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Grid.Row" Value="1" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Margin" Value="0,4,12,0" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                         <Grid FlowDirection="LeftToRight" Margin="0,14,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -729,66 +767,71 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="AddHandleClick" automation:AutomationProperties.Name="إضافة مقبض" Content="إضافة مقبض" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="16,0,0,0">
-                                <TextBlock Text="المقابض المتاحة" FontSize="24" FontWeight="Bold" />
+                                <TextBlock Text="المقابض المتاحة" FontSize="20" FontWeight="Bold" />
                             </StackPanel>
                         </Grid>
-                        <ItemsControl x:Name="HandlesOptions" ItemsSource="{Binding Handles}" HorizontalContentAlignment="Stretch">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border x:Name="OptionRow" Style="{StaticResource FurnitureOptionRow}">
-                                        <Grid FlowDirection="RightToLeft">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="80" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition x:Name="AdjustmentColumn" Width="150" />
-                                                <ColumnDefinition Width="90" />
-                                                <ColumnDefinition Width="85" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border x:Name="OptionPreview" Grid.RowSpan="2" Width="64" Height="48" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                <Viewbox Width="64" Height="44">
-                                                    <Canvas Width="122" Height="54" FlowDirection="LeftToRight">
-                                                        <Rectangle Canvas.Left="18" Canvas.Top="24" Width="86" Height="8" RadiusX="4" Fill="{Binding HandleBrush}" />
-                                                        <Ellipse Canvas.Left="15" Canvas.Top="20" Width="16" Height="16" Fill="{Binding HandleAccentBrush}" />
-                                                        <Ellipse Canvas.Left="91" Canvas.Top="20" Width="16" Height="16" Fill="{Binding HandleAccentBrush}" />
-                                                        <Rectangle Canvas.Left="38" Canvas.Top="16" Width="46" Height="3" RadiusX="1.5" Fill="{Binding HandleAccentBrush}" />
-                                                    </Canvas>
-                                                </Viewbox>
+                        <Border Style="{StaticResource FurnitureOptionRow}" BorderThickness="1" CornerRadius="8" Padding="0">
+                            <StackPanel>
+                                <ContentControl Style="{StaticResource FurnitureOptionHeader}" />
+                                <ItemsControl x:Name="HandlesOptions" ItemsSource="{Binding Handles}" HorizontalContentAlignment="Stretch">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="OptionRow" Style="{StaticResource FurnitureOptionRow}">
+                                                <Grid FlowDirection="RightToLeft">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition x:Name="AdjustmentColumn" Width="150" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="85" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border x:Name="OptionPreview" Grid.RowSpan="2" Width="52" Height="36" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                        <Viewbox Width="52" Height="36">
+                                                            <Canvas Width="122" Height="54" FlowDirection="LeftToRight">
+                                                                <Rectangle Canvas.Left="18" Canvas.Top="24" Width="86" Height="8" RadiusX="4" Fill="{Binding HandleBrush}" />
+                                                                <Ellipse Canvas.Left="15" Canvas.Top="20" Width="16" Height="16" Fill="{Binding HandleAccentBrush}" />
+                                                                <Ellipse Canvas.Left="91" Canvas.Top="20" Width="16" Height="16" Fill="{Binding HandleAccentBrush}" />
+                                                                <Rectangle Canvas.Left="38" Canvas.Top="16" Width="46" Height="3" RadiusX="1.5" Fill="{Binding HandleAccentBrush}" />
+                                                            </Canvas>
+                                                        </Viewbox>
+                                                    </Border>
+                                                    <TextBlock x:Name="OptionName" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource FurnitureOptionText}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                                    <StackPanel x:Name="OptionAdjustment" Grid.Column="2" FlowDirection="LeftToRight" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <TextBlock Text="تعديل السعر" Style="{StaticResource FurnitureOptionAdjustmentLabel}" FlowDirection="RightToLeft" TextAlignment="Right" FontSize="11" />
+                                                        <TextBlock x:Name="OptionAmount" Text="{Binding PriceAdjustmentLabel}" Style="{StaticResource FurnitureOptionText}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="14" FontWeight="SemiBold" />
+                                                    </StackPanel>
+                                                    <controls:StatusBadge Grid.Column="3" Grid.RowSpan="2" Padding="9,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
+                                                        <controls:StatusBadge.Style>
+                                                            <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
+                                                                <Setter Property="Tone" Value="Success" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                        <Setter Property="Tone" Value="Neutral" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </controls:StatusBadge.Style>
+                                                    </controls:StatusBadge>
+                                                    <Button Grid.Column="4" Grid.RowSpan="2" Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleHandleClick" automation:AutomationProperties.Name="تغيير حالة المقبض" HorizontalAlignment="Left" VerticalAlignment="Center" MinWidth="70" />
+                                                </Grid>
                                             </Border>
-                                            <TextBlock x:Name="OptionName" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource FurnitureOptionText}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                            <StackPanel x:Name="OptionAdjustment" Grid.Column="2" FlowDirection="LeftToRight" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                <TextBlock Text="تعديل السعر" Style="{StaticResource FurnitureOptionText}" FlowDirection="RightToLeft" TextAlignment="Left" FontSize="11" />
-                                                <TextBlock x:Name="OptionAmount" Text="{Binding PriceAdjustmentLabel}" Style="{StaticResource FurnitureOptionText}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="14" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                            <controls:StatusBadge Grid.Column="3" Grid.RowSpan="2" Padding="9,4" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
-                                                <controls:StatusBadge.Style>
-                                                    <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
-                                                        <Setter Property="Tone" Value="Success" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                <Setter Property="Tone" Value="Neutral" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </controls:StatusBadge.Style>
-                                            </controls:StatusBadge>
-                                            <Button Grid.Column="4" Grid.RowSpan="2" Content="{Binding ToggleActionLabel}" Style="{StaticResource CompactButton}" Click="ToggleHandleClick" automation:AutomationProperties.Name="تغيير حالة المقبض" HorizontalAlignment="Left" VerticalAlignment="Center" MinWidth="70" />
-                                        </Grid>
-                                    </Border>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                                            <Setter TargetName="AdjustmentColumn" Property="Width" Value="0" />
-                                            <Setter TargetName="OptionAdjustment" Property="Grid.Column" Value="1" />
-                                            <Setter TargetName="OptionAdjustment" Property="Grid.Row" Value="1" />
-                                            <Setter TargetName="OptionAdjustment" Property="Margin" Value="0,4,12,0" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ItemsControl}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter TargetName="AdjustmentColumn" Property="Width" Value="0" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Grid.Column" Value="1" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Grid.Row" Value="1" />
+                                                    <Setter TargetName="OptionAdjustment" Property="Margin" Value="0,4,12,0" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     <StackPanel x:Name="PricingStep" Visibility="{Binding IsStepFive, Converter={StaticResource BooleanToVisibility}}">
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,18">
