@@ -1,11 +1,13 @@
 using System.Runtime.CompilerServices;
 using Button = System.Windows.Controls.Button;
+using Brush = System.Windows.Media.Brush;
 using ComboBox = System.Windows.Controls.ComboBox;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -16,7 +18,7 @@ namespace Eitmad.WindowsShell.Controls;
 [TemplatePart(Name = "PART_Close", Type = typeof(Button))]
 public sealed class DialogHost : ContentControl
 {
-    private static readonly ConditionalWeakTable<Window, List<DialogHost>> ActiveDialogs = new();
+    private static readonly ConditionalWeakTable<Window, DialogSession> ActiveDialogs = new();
     private Window? owner;
     private IInputElement? returnFocus;
     private Button? closeButton;
@@ -54,6 +56,7 @@ public sealed class DialogHost : ContentControl
         Unloaded += (_, _) => Deactivate();
         IsVisibleChanged += (_, _) => UpdateActivation();
         SizeChanged += (_, _) => UpdateViewport();
+        LayoutUpdated += (_, _) => { if (IsActive) ActiveDialogs.GetOrCreateValue(owner!).Scrim?.Refresh(); };
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
         KeyboardNavigation.SetControlTabNavigation(this, KeyboardNavigationMode.Cycle);
     }
@@ -83,7 +86,7 @@ public sealed class DialogHost : ContentControl
         SetValue(DialogMaxHeightPropertyKey, Math.Max(0, ActualHeight - 48));
     }
 
-    private bool IsActive => owner is not null && ActiveDialogs.GetOrCreateValue(owner).LastOrDefault() == this;
+    private bool IsActive => owner is not null && ActiveDialogs.GetOrCreateValue(owner).Dialogs.LastOrDefault() == this;
     private void UpdateActivation()
     {
         if (!IsOpen || !IsVisible || !IsLoaded) { Deactivate(); return; }
@@ -91,11 +94,14 @@ public sealed class DialogHost : ContentControl
         owner = Window.GetWindow(this);
         if (owner is null) return;
         returnFocus = Keyboard.FocusedElement;
-        ActiveDialogs.GetOrCreateValue(owner).Add(this);
+        var session = ActiveDialogs.GetOrCreateValue(owner);
+        session.Dialogs.Add(this);
+        session.UpdateScrim(owner);
         owner.PreviewGotKeyboardFocus += KeepFocusInside;
         owner.PreviewKeyDown += BlockBackgroundKeys;
         owner.PreviewMouseDown += BlockBackgroundPointer;
         owner.PreviewMouseWheel += BlockBackgroundPointer;
+        CommandManager.AddPreviewCanExecuteHandler(owner, BlockShellCommands);
         owner.KeyDown += HandleEscape;
         owner.AddHandler(AccessKeyManager.AccessKeyPressedEvent, new AccessKeyPressedEventHandler(ScopeAccessKeys));
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusInitial));
@@ -110,16 +116,19 @@ public sealed class DialogHost : ContentControl
         owner.PreviewKeyDown -= BlockBackgroundKeys;
         owner.PreviewMouseDown -= BlockBackgroundPointer;
         owner.PreviewMouseWheel -= BlockBackgroundPointer;
+        CommandManager.RemovePreviewCanExecuteHandler(owner, BlockShellCommands);
         owner.KeyDown -= HandleEscape;
         owner.RemoveHandler(AccessKeyManager.AccessKeyPressedEvent, new AccessKeyPressedEventHandler(ScopeAccessKeys));
-        ActiveDialogs.GetOrCreateValue(owner).Remove(this);
+        var session = ActiveDialogs.GetOrCreateValue(owner);
+        session.Dialogs.Remove(this);
+        session.UpdateScrim(owner);
         owner = null;
         var target = returnFocus;
         returnFocus = null;
         if (!wasActive) return;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
-            var active = ActiveDialogs.GetOrCreateValue(previousOwner).LastOrDefault();
+            var active = ActiveDialogs.GetOrCreateValue(previousOwner).Dialogs.LastOrDefault();
             if (target is UIElement element && element.IsVisible && element.IsEnabled && element.Focusable && (active is null || active.Contains(element)))
                 Keyboard.Focus(element);
             else if (active is not null) active.FocusInitial();
@@ -173,6 +182,13 @@ public sealed class DialogHost : ContentControl
         if (IsActive && !ContainsIncludingPopup(e.OriginalSource as DependencyObject)) e.Handled = true;
     }
 
+    private void BlockShellCommands(object sender, CanExecuteRoutedEventArgs e)
+    {
+        if (!IsActive || !owner!.CommandBindings.OfType<CommandBinding>().Any(binding => binding.Command == e.Command)) return;
+        e.CanExecute = false;
+        e.Handled = true;
+    }
+
     private void BlockBackgroundPointer(object sender, MouseEventArgs e)
     {
         if (IsActive && !ContainsIncludingPopup(e.OriginalSource as DependencyObject)) e.Handled = true;
@@ -193,5 +209,62 @@ public sealed class DialogHost : ContentControl
         if (root is T match) yield return match;
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
             foreach (var child in Descendants<T>(VisualTreeHelper.GetChild(root, index))) yield return child;
+    }
+
+    private sealed class DialogSession
+    {
+        public List<DialogHost> Dialogs { get; } = new();
+        public ShellScrim? Scrim { get; private set; }
+        private AdornerLayer? layer;
+
+        public void UpdateScrim(Window window)
+        {
+            if (Dialogs.Count == 0)
+            {
+                if (Scrim is not null) layer?.Remove(Scrim);
+                Scrim = null;
+                layer = null;
+                return;
+            }
+            if (Scrim is null && window.Content is UIElement root)
+            {
+                layer = AdornerLayer.GetAdornerLayer(root);
+                if (layer is not null) layer.Add(Scrim = new ShellScrim(root, this));
+            }
+            Scrim?.Refresh();
+        }
+    }
+
+    // Keep each dialog in its feature's logical and visual tree for bindings and routed events.
+    // One window adorner shades everything except the active dialog's rounded surface.
+    private sealed class ShellScrim(UIElement root, DialogSession session) : Adorner(root)
+    {
+        private Rect surfaceBounds;
+        private CornerRadius corners;
+        private Brush? brush;
+
+        public void Refresh()
+        {
+            var dialog = session.Dialogs.LastOrDefault();
+            if (dialog?.GetTemplateChild("DialogSurface") is not Border surface || !surface.IsVisible) return;
+            var bounds = surface.TransformToAncestor(AdornedElement).TransformBounds(new Rect(surface.RenderSize));
+            if (bounds == surfaceBounds && corners == surface.CornerRadius && ReferenceEquals(brush, dialog.Background)) return;
+            surfaceBounds = bounds;
+            corners = surface.CornerRadius;
+            brush = dialog.Background;
+            InvalidateVisual();
+        }
+
+        protected override void OnRender(DrawingContext drawingContext)
+        {
+            if (surfaceBounds.IsEmpty || brush is null) return;
+            var backdrop = new CombinedGeometry(GeometryCombineMode.Exclude,
+                new RectangleGeometry(new Rect(AdornedElement.RenderSize)),
+                new RectangleGeometry(surfaceBounds, corners.TopLeft, corners.TopLeft));
+            drawingContext.DrawGeometry(brush, null, backdrop);
+        }
+
+        protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters) =>
+            surfaceBounds.Contains(hitTestParameters.HitPoint) ? null : new PointHitTestResult(this, hitTestParameters.HitPoint);
     }
 }

@@ -792,7 +792,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="controls:DialogHost">
-                    <Grid Background="{TemplateBinding Background}">
+                    <Grid Background="Transparent">
                         <Border x:Name="DialogSurface" Width="{TemplateBinding DialogWidth}" MaxHeight="{TemplateBinding DialogMaxHeight}" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource PanelBrush}" BorderBrush="#D8C8B9" BorderThickness="1" CornerRadius="14" Padding="{TemplateBinding Padding}">
                             <Border.Effect>
                                 <DropShadowEffect BlurRadius="35" ShadowDepth="10" Opacity="0.28" Color="#3D2513" />
