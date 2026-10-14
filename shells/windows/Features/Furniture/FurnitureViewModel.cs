@@ -77,7 +77,14 @@ public sealed partial class FurnitureViewModel : ObservableObject
         SelectedParts = [];
         FilteredParts = [];
         Variants = [];
-        Variants.CollectionChanged += (_, e) => { if (e.NewItems is not null) foreach (FurnitureVariant v in e.NewItems) v.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(FurnitureVariant.SellingPrice)) ReviewRequested?.Invoke(this, EventArgs.Empty); }; };
+        Variants.CollectionChanged += (_, e) =>
+        {
+            if (e.OldItems is not null) foreach (FurnitureVariant v in e.OldItems) v.PropertyChanged -= VariantReviewChanged;
+            if (e.NewItems is not null) foreach (FurnitureVariant v in e.NewItems) v.PropertyChanged += VariantReviewChanged;
+            ConfirmBelowCost = false;
+            RefreshBelowCostState();
+        };
+        ReviewRequested += (_, _) => ConfirmBelowCost = false;
         Colors = [];
         Handles = [];
 
@@ -794,6 +801,12 @@ public sealed partial class FurnitureViewModel : ObservableObject
         Raise(nameof(HasSelectedParts));
         Raise(nameof(CurrentPartsCost));
         Raise(nameof(CurrentPartsCostLabel));
+    }
+
+    private void VariantReviewChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(FurnitureVariant.SellingPrice)) ReviewRequested?.Invoke(this, EventArgs.Empty);
+        if (args.PropertyName == nameof(FurnitureVariant.HasNegativeMargin)) RefreshBelowCostState();
     }
 
     private void ReplaceVariants(IEnumerable<FurnitureVariant> variants)

@@ -36,6 +36,15 @@ public sealed partial class FurnitureViewModel
     public bool CanSubmit => CanManage && !IsBusy;
     public bool CanEditFields => CanManage && !IsBusy && pendingSave is null;
     public bool ConfirmBelowCost { get => confirmBelowCost; set => Set(ref confirmBelowCost, value); }
+    public IReadOnlyList<FurnitureVariant> BelowCostVariants => Variants.Where(v => !v.IsArchived && v.HasNegativeMargin).ToArray();
+    public bool HasBelowCostVariants => BelowCostVariants.Count > 0;
+
+    private void RefreshBelowCostState()
+    {
+        if (!HasBelowCostVariants) ConfirmBelowCost = false;
+        Raise(nameof(BelowCostVariants));
+        Raise(nameof(HasBelowCostVariants));
+    }
     private bool allowCustomization;
     public bool AllowCustomization { get => allowCustomization; set => Set(ref allowCustomization,value); }
     public decimal MinWidth { get; set; } = 120m;
@@ -146,6 +155,8 @@ public sealed partial class FurnitureViewModel
     }
     public void ApplyReview(FurnitureReview review)
     {
+        if (reviewedCost != review.PartsCostYer || Variants.Where((v, i) => i < review.MarginsYer.Length && v.Margin != review.MarginsYer[i]).Any())
+            ConfirmBelowCost = false;
         reviewedCost = review.PartsCostYer;
         for (var i = 0; i < SelectedParts.Count && i < review.RowCostsYer.Length; i++) SelectedParts[i].ApplyRowCost(review.RowCostsYer[i]);
         for (var i = 0; i < Variants.Count && i < review.MarginsYer.Length; i++) Variants[i].ApplyReview(review.PartsCostYer, review.MarginsYer[i]);
