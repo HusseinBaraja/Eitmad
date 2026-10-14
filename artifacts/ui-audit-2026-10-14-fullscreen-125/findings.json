@@ -1,0 +1,669 @@
+[
+  {
+    "title": "Remove sign-in explanatory text",
+    "page": "Sign-in",
+    "image": "sign-in-1920x1080",
+    "owner": "Features/Authentication/SignInView.xaml",
+    "issue": "The line under the sign-in heading explains entering account details. The image panel also has a marketing sentence under its slogan. Both add copy to a self-evident task.",
+    "done": "Remove explanatory subtext under the form heading and image slogan. Rebalance margins around the logo, heading and inputs. Keep field labels, the brand lockup, and actual error/progress messages.",
+    "id": "UI-001",
+    "screenshots": [
+      "sign-in-1920x1080"
+    ]
+  },
+  {
+    "title": "Reduce the oversized shared shell header",
+    "page": "Manager and Receptionist shell",
+    "image": "ui14-reception-top-1920",
+    "owner": "Controls/ShellTitleBar.xaml; Resources/OperationsControls.xaml",
+    "issue": "The shared title/search/action band is approximately 135 DIP high, while its controls use only a narrow central strip. The large blank band pushes every home workflow down.",
+    "done": "Redesign the title bar as a compact native toolbar. Align the title, search and actions on a deliberate baseline, reduce empty vertical padding, preserve comfortable targets and the visible Arabic account action.",
+    "id": "UI-002",
+    "screenshots": [
+      "ui14-reception-top-1920"
+    ]
+  },
+  {
+    "title": "Make home activity and ready-order rows easy to scan",
+    "page": "Manager dashboard and Receptionist Home",
+    "image": "audit-home-manager-start",
+    "owner": "Features/Home/HomeView.xaml",
+    "issue": "Ready-order and activity cards span almost the entire workspace. Customer/title/status are at the far right while document number and date are at the far left, with a wide empty gap. The activity card is tall for one record and visually heavier than the actual daily work.",
+    "done": "Redesign these rows with the best restrained native layout. Group each record's identity, customer, status and date so it can be scanned as one item; use compact rows and clear hierarchy. Keep identifiers isolated LTR and preserve real counts and open actions.",
+    "id": "UI-003",
+    "screenshots": [
+      "audit-home-manager-start"
+    ]
+  },
+  {
+    "title": "Remove home explanatory footnotes",
+    "page": "Manager dashboard, Receptionist Home and Home search",
+    "image": "ui13-home-search-manager-1920",
+    "owner": "Features/Home/HomeView.xaml; Features/Home/HomeViewModel.cs",
+    "issue": "The home includes a data-scope explanation, an eight-record explanation and a long list of absent capabilities. Home search repeats the entered term below the heading with a separate introductory label. This reads as documentation inside daily work. Partial, denied and unavailable states also repeat long explanations in several cards; the partial reception state illustrates this repetition.",
+    "done": "Remove instructional and repeated subtext. Retain concise truthful data availability, stale/denied/partial states and actionable retry controls. Represent a meaningful result limit or status compactly, and keep the active search term in a clear search control rather than a paragraph.",
+    "id": "UI-004",
+    "screenshots": [
+      "ui13-home-search-manager-1920",
+      "ui12-home-reception-partial-denied-1920-ready"
+    ]
+  },
+  {
+    "title": "Improve shared list density and filter proportions",
+    "page": "Raw materials and other operational lists",
+    "image": "material-durable-list-1920x1080",
+    "owner": "Controls/OperationsTable.cs; Resources/OperationsControls.xaml; Features/RawMaterials/RawMaterialsView.xaml",
+    "issue": "A single material appears inside a large table body with a substantial empty area below the row. All three filters stretch to equal oversized widths, including the small status choice. The sparse list occupies several hundred pixels but presents very little information.",
+    "done": "Use a deliberate compact list layout, proportionate filter widths, and content-driven table body sizing for small lists. Preserve useful rows at larger record counts, counts/pagination and keyboard/native scrolling. Verify each list that uses the shared table; do not shrink text to hide overflow.",
+    "id": "UI-005",
+    "screenshots": [
+      "material-durable-list-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove raw-material list and editor subtext",
+    "page": "Raw materials list, create/edit material and reference dialogs",
+    "image": "material-durable-editor-1920x1080",
+    "owner": "Features/RawMaterials/RawMaterialsView.xaml; Controls/PageHeader.cs; Controls/FormField.cs",
+    "issue": "The page header describes the list; the editor repeats 'raw material data' below its title and asks users to review before saving. Material rows repeat their record type. Reference dialogs repeat the same generic subtitle.",
+    "done": "Remove all explanatory subtitles and redundant record-type labels in this capability. Keep meaningful category/unit labels, actual validation, saved data and errors. Close the spacing left by removed text.",
+    "id": "UI-006",
+    "screenshots": [
+      "material-durable-editor-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove the empty stretched material editor card",
+    "page": "Create/edit raw material",
+    "image": "material-durable-editor-1920x1080",
+    "owner": "Features/RawMaterials/RawMaterialsView.xaml",
+    "issue": "The editor has only a name, category, unit and cost, but its white panel fills nearly the entire available height. A large blank area remains under the cost field.",
+    "done": "Redesign the form with content-sized sections and balanced width. Keep Save/Cancel in a stable native footer and place the short form near the reading origin; avoid a large empty white container.",
+    "id": "UI-007",
+    "screenshots": [
+      "material-durable-editor-1920x1080"
+    ]
+  },
+  {
+    "title": "Redesign unit conversion so labels replace paragraphs",
+    "page": "Add/edit measurement unit",
+    "image": "material-durable-unit-1920x1080",
+    "owner": "Features/RawMaterials/RawMaterialsView.xaml; Features/RawMaterials/RawMaterialsViewModel.cs",
+    "issue": "The unit dialog has a generic subtitle, an abbreviation example, a mathematical conversion explanation, raw numerator/denominator fields and another long example. The form relies on paragraphs to explain a central relationship.",
+    "done": "Redesign with the clearest Arabic field labels and a compact explicit conversion relationship, so the user can enter an exact factor without instructional subtext. Keep exact numerator/denominator semantics and Rust validation. Do not silently round or alter saved units.",
+    "id": "UI-008",
+    "screenshots": [
+      "material-durable-unit-1920x1080"
+    ]
+  },
+  {
+    "title": "Give dialogs a consistent whole-shell modal appearance",
+    "page": "Reference, category, picker and confirmation dialogs",
+    "image": "material-durable-unit-1920x1080",
+    "owner": "Controls/DialogHost.cs; Resources/OperationsControls.xaml; MainWindow.xaml; Features/Reception/ReceptionistHomeView.xaml",
+    "issue": "The material dialog dims the feature workspace but leaves the sidebar bright and visually active. The overlay ends exactly at the content/sidebar boundary. Many feature dialogs use this same partial treatment.",
+    "done": "Make modal coverage and interaction scope consistent across the shell. The complete blocked background, including navigation, must have one deliberate scrim; preserve focus containment, Escape/cancel and return focus. Confirm the actual navigation/input behavior instead of assuming it from the image.",
+    "id": "UI-009",
+    "screenshots": [
+      "material-durable-unit-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove Part wizard explanatory text",
+    "page": "Part information, materials, review and material picker",
+    "image": "part-information-1920x1080",
+    "owner": "Features/Parts/PartsView.xaml",
+    "issue": "The header narrates the wizard order. Each step repeats a paragraph telling the user what to enter or which navigation button to use. The materials cost card also explains when calculation happens.",
+    "done": "Remove explanatory subtext from all Part steps and picker surfaces. Keep step names, field labels, current calculation availability, returned costs and actual errors. Tighten the spacing after removal.",
+    "id": "UI-010",
+    "screenshots": [
+      "part-information-1920x1080"
+    ]
+  },
+  {
+    "title": "Keep Part wizard navigation fully visible",
+    "page": "Part information",
+    "image": "part-information-1920x1080",
+    "owner": "Features/Parts/PartsView.xaml",
+    "issue": "At maximized 125%, the Next and Cancel buttons are partly below the visible client viewport, although this step contains only name, category, category creation and notes. The form uses excessive spacing and a permanently expanded category creation row.",
+    "done": "Keep all step navigation in a stable footer outside the scrolling form. Redesign spacing and category creation so the short information form is balanced and its actions are fully visible at this exact maximized size. Preserve entered values and focus behavior.",
+    "id": "UI-011",
+    "screenshots": [
+      "part-information-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove Furniture wizard subtext",
+    "page": "Furniture list and all six editor steps",
+    "image": "furniture-information-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml; Features/Furniture/FurnitureViewModel.cs",
+    "issue": "Every step header narrates the step. Information, image, options, pricing and review sections add more instructional paragraphs. The pricing step adds a general cost explanation. The result is repeated explanation across an already named six-step flow.",
+    "done": "Remove instructional subtext across information, parts, sizes, options, pricing, review and their dialogs. Keep actual descriptions/notes entered by users, dimensions, price labels, scope/preview markers and real error or availability states. Remove the empty margins left behind.",
+    "id": "UI-012",
+    "screenshots": [
+      "furniture-information-1920x1080"
+    ]
+  },
+  {
+    "title": "Reduce the Furniture image placeholder's visual weight",
+    "page": "Furniture information",
+    "image": "furniture-information-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml",
+    "issue": "The empty image panel takes about half of the form width and is very tall, with a small illustration in a large beige area. Internal notes and image actions require scrolling while the placeholder dominates the first viewport.",
+    "done": "Redesign with a compact image preview/upload group and balanced primary fields. Keep existing native image selection/removal behavior and real thumbnails. The form's important fields should dominate, and the empty image state should use a short label with no explanatory sentence.",
+    "id": "UI-013",
+    "screenshots": [
+      "furniture-information-1920x1080"
+    ]
+  },
+  {
+    "title": "Make Furniture options a compact comparison",
+    "page": "Furniture options",
+    "image": "ui22-options-top-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml",
+    "issue": "Each simple color/handle option becomes a very wide standalone card. Name/visual, adjustment, state and action are separated by large empty gaps; four options nearly fill the viewport.",
+    "done": "Redesign using the best compact native comparison layout, with aligned option identity, swatch/handle visual, adjustment, state and action. Preserve separate color/handle groups, inactive options and price values. Several realistic options should be easy to compare without giant cards.",
+    "id": "UI-014",
+    "screenshots": [
+      "ui22-options-top-1920x1080"
+    ]
+  },
+  {
+    "title": "Make Furniture size pricing easier to compare",
+    "page": "Furniture pricing step",
+    "image": "ui21-pricing-top-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml",
+    "issue": "Every size repeats a large header and three broad cost/price/margin blocks. Only one complete size and part of a second are visible. Most block area is empty, so the manager must scroll to compare prices.",
+    "done": "Redesign with the best native layout for comparing size identity, dimensions, cost, editable price and returned margin. Keep long names readable, clear currency and Rust-owned review/validation. Reduce repeated labels and vertical card size without shrinking text.",
+    "id": "UI-015",
+    "screenshots": [
+      "ui21-pricing-top-1920x1080"
+    ]
+  },
+  {
+    "title": "Show below-cost confirmation only in the relevant review context",
+    "page": "Furniture review",
+    "image": "furniture-review-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml:846; Features/Furniture/FurnitureViewModel.cs",
+    "issue": "A below-cost acknowledgement sits alone above the review title even when the displayed size has a selling price of 200,000 and a cost of 18,900. The XAML shows this checkbox without a visibility condition. It looks unrelated to the reviewed record and is easy to miss.",
+    "done": "Show and group the acknowledgement with the actual Rust-reported below-cost warning/affected sizes when it is required. Omit it from ordinary positive-margin reviews. Use the existing accessible checkbox style, preserve Rust authorization/validation and retain the confirmation requirement for a real loss.",
+    "id": "UI-016",
+    "screenshots": [
+      "furniture-review-1920x1080"
+    ]
+  },
+  {
+    "title": "Make the Furniture review summary compact",
+    "page": "Furniture review",
+    "image": "furniture-review-1920x1080",
+    "owner": "Features/Furniture/FurnitureView.xaml",
+    "issue": "The product summary is a very tall card with identity at the right, category isolated near the center-left, and a large placeholder at the left. Only the top of the sizes/prices section is visible at full screen.",
+    "done": "Redesign the review as a coherent compact record summary followed by aligned review sections. Group name, category, actual description and thumbnail. Show more substantive review data before scrolling and keep the save footer stable.",
+    "id": "UI-017",
+    "screenshots": [
+      "furniture-review-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove ready-made Product subtext",
+    "page": "Products list, editor, categories and archive dialogs",
+    "image": "products-variants-1920x1080",
+    "owner": "Features/Products/ProductsView.xaml",
+    "issue": "The list explains local storage/pricing. The editor explains basic information and supplier variants, and repeats that selling prices are set elsewhere. Category management explains that the same categories occur in two places.",
+    "done": "Remove all explanatory subtitles and instructional help text throughout Products. Retain real product descriptions, supplier variant identities, currency, actual errors and concise durable/availability state when relevant. Rebalance the remaining form.",
+    "id": "UI-018",
+    "screenshots": [
+      "products-variants-1920x1080"
+    ]
+  },
+  {
+    "title": "Add clear currency to Product variant cost entry",
+    "page": "Products — single purchase cost and variant purchase costs",
+    "image": "products-variants-1920x1080",
+    "owner": "Features/Products/ProductsView.xaml",
+    "issue": "The purchase-cost column contains plain values such as 55000 and 80000 with no currency in the column heading or input. Other money displays use ر.ي, so this form has a weaker unit cue. The product without variants also leaves its unit in a sentence beneath the cost input.",
+    "done": "Identify YER with the cost label or a stable native input suffix. Isolate numeric entry LTR and preserve exact whole-YER input and Rust validation. Avoid explanatory helper paragraphs. Apply the same visible unit to the single purchase-cost field; its currency currently appears only in a helper sentence that must be removed.",
+    "id": "UI-019",
+    "screenshots": [
+      "products-variants-1920x1080",
+      "audit-product-without-variants"
+    ]
+  },
+  {
+    "title": "Restore the visible Pricing category selection after loading",
+    "page": "Pricing list",
+    "image": "pricing-1550x830-125percent",
+    "owner": "Features/Pricing/PricingView.xaml; Features/Pricing/PricingViewModel.cs:71",
+    "issue": "The category filter renders as an empty field after data loads, although the model has AllCategories and the table shows prices. ApplyDurableData clears/repopulates Categories and resets SelectedCategory only when its string is absent; the ComboBox selection can remain blank.",
+    "done": "Ensure the visible selection and model agree after initial load and reload. Display كل الفئات for the default and preserve valid user selections. Verify the actual WPF ComboBox, category filtering and reload behavior with a focused regression check.",
+    "id": "UI-020",
+    "screenshots": [
+      "pricing-1550x830-125percent"
+    ]
+  },
+  {
+    "title": "Replace Pricing prose with compact state and actions",
+    "page": "Pricing list and price editor",
+    "image": "pricing-1550x830-125percent",
+    "owner": "Features/Pricing/PricingView.xaml; Features/Pricing/PricingViewModel.cs",
+    "issue": "The Pricing heading carries a server-availability sentence. A long synchronization paragraph stretches above the filters and tells users to correct definitions and save another revision. The editor adds another server-confirmation explanation.",
+    "done": "Remove explanatory subtext. Retain essential truth as concise server/publication/sync states next to the relevant action or affected record, with an actionable review/retry route. Do not hide failed publication, rejected definitions, or stale prices. Tighten the layout and keep real below-cost warnings.",
+    "id": "UI-021",
+    "screenshots": [
+      "pricing-1550x830-125percent"
+    ]
+  },
+  {
+    "title": "Remove sales catalog and selection subtext",
+    "page": "Reception Products catalog, Furniture selection and Product selection",
+    "image": "ui28-furniture-reception-1920x1080",
+    "owner": "Features/Reception/SalesCatalogView.xaml; Features/Reception/FurnitureSelectionView.xaml; Features/Reception/ProductSelectionView.xaml; Features/Reception/SalesText.cs",
+    "issue": "The catalog/selection surfaces add paragraphs about connection, confirmed catalogs, local selection, saving drafts and fixed dimensions. Similar text appears again under the selection footer. Users already have named options, amounts and an Add action.",
+    "done": "Remove instructional subtext and redundant record-source labels. Keep concise, truthful stale/offline/unavailable states, actual variant identities, limits and returned amounts. Integrate meaningful dimension limits into labelled controls. Close the spacing left by removal.",
+    "id": "UI-022",
+    "screenshots": [
+      "ui28-furniture-reception-1920x1080"
+    ]
+  },
+  {
+    "title": "Redesign the sales selection workspace",
+    "page": "Furniture and ready-made Product selection",
+    "image": "ui28-product-reception-1920x1080",
+    "owner": "Features/Reception/FurnitureSelectionView.xaml; Features/Reception/ProductSelectionView.xaml; Resources/SalesSelectionStyles.xaml",
+    "issue": "A single small option group is pushed to the far right of an almost empty full-width canvas. Furniture options stack down a narrow area while dimensions span very long fields. Quantity, total and Add are separated across the entire footer. Price-breakdown labels are on the far right while their amounts are on the far left, so a simple calculation also requires scanning the complete screen width.",
+    "done": "Redesign using the best restrained native desktop layout. Group item identity, options and quantity with a compact purchase summary; use available width to compare options without a large empty canvas. Keep the existing scrolling/selection-footer behavior and all Arabic keyboard/accessible names.",
+    "id": "UI-023",
+    "screenshots": [
+      "ui28-product-reception-1920x1080",
+      "sales-furniture-total-1920"
+    ]
+  },
+  {
+    "title": "Use the current workflow name in the quotation window header",
+    "page": "New/edit quotation review",
+    "image": "quotation-draft-lines-1920",
+    "owner": "Features/Reception/SalesCatalogView.xaml; Features/Reception/SalesCatalogView.xaml.cs",
+    "issue": "The standalone quotation editor still says Products in the large page header while the content says Quotation and New quotation. The header action also repeats the quotation item count, creating conflicting hierarchy.",
+    "done": "Make the title reflect browsing, item selection or quotation review as appropriate. Use one clear current task title with the relevant navigation/action. Preserve the item count where it helps and remove repeated headings.",
+    "id": "UI-024",
+    "screenshots": [
+      "quotation-draft-lines-1920"
+    ]
+  },
+  {
+    "title": "Make quotation lines compact and aligned",
+    "page": "Current quotation and saved draft editor",
+    "image": "quotation-draft-lines-1920",
+    "owner": "Features/Reception/CurrentQuotationView.xaml",
+    "issue": "Each line uses a tall region, a large title and total, three separate edit/duplicate/remove buttons and a thumbnail, clustered only on the right. Two lines consume most of the first viewport while the left half is empty.",
+    "done": "Redesign as a compact native line editor with aligned identity/options, quantity, unit price and total. Group row actions clearly. Keep real saved descriptions/options and Rust totals. Several lines must be readable in the first viewport without shrinking text or making actions ambiguous.",
+    "id": "UI-025",
+    "screenshots": [
+      "quotation-draft-lines-1920"
+    ]
+  },
+  {
+    "title": "Balance quotation customer and totals sections",
+    "page": "Current quotation, draft and issue review",
+    "image": "quotation-evaluation-summary-1920",
+    "owner": "Features/Reception/CurrentQuotationView.xaml",
+    "issue": "The customer form and totals stack in narrow right-aligned panels while most of the left side is empty. The user must scroll far to reach totals and save/issue actions. Explanatory and unsaved-state sentences accumulate beneath the actions.",
+    "done": "Redesign the desktop workspace so customer selection, totals and the relevant save/issue action have a clear relationship and use the available width. Keep essential unsaved/pending/failure states concise and visible. Preserve read-only saved customer data and every Rust-owned availability rule.",
+    "id": "UI-026",
+    "screenshots": [
+      "quotation-evaluation-summary-1920"
+    ]
+  },
+  {
+    "title": "Remove quotation editor instructional subtext",
+    "page": "Current quotation, customer selection and new customer form",
+    "image": "ui30-customer-new-1920x1080",
+    "owner": "Features/Reception/CurrentQuotationView.xaml; Features/Reception/CurrentQuotation.cs; Features/Reception/SalesCatalogViewModel.cs",
+    "issue": "The editor explains which fields are required, how to search/select/save a customer, where notes come from, when to save/issue, and why the draft is local. Much of this repeats labels or visible buttons.",
+    "done": "Remove explanatory subtext from all customer modes, quotation lines, totals and footer. Use required markers and precise Arabic labels. Keep actionable validation, current unsaved/pending/conflict state and real server confirmation without explanatory paragraphs.",
+    "id": "UI-027",
+    "screenshots": [
+      "ui30-customer-new-1920x1080"
+    ]
+  },
+  {
+    "title": "Hide the New customer action while creating that customer",
+    "page": "Inline new customer within current quotation",
+    "image": "ui30-customer-new-1920x1080",
+    "owner": "Features/Reception/CurrentQuotationView.xaml",
+    "issue": "The form is already creating a new customer but still shows another New customer button inside it. The same generic customer panel and source-of-notes paragraph are reused, so the creation state is unclear.",
+    "done": "Use one clear creation state with labelled fields and Save/Cancel. Hide the redundant New customer trigger during creation and restore search/selection after cancel or a confirmed save. Keep existing typed data and authority behavior.",
+    "id": "UI-028",
+    "screenshots": [
+      "ui30-customer-new-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove Customer detail and editor technical subtext",
+    "page": "Customer details, edit dialog and sync-conflict state",
+    "image": "customers-editor-1920x1080",
+    "owner": "Features/Customers/CustomerDetailView.xaml; Features/Customers/CustomerEditorView.xaml",
+    "issue": "The page and dialog explain that data is stored/validated in the engine. The conflict state includes an extra sentence explaining that the user can review the tables below or return.",
+    "done": "Remove implementation and navigation explanations. Keep actual contact fields, user notes, history, concise sync state and meaningful conflict/permission errors. Preserve clear inability to edit unresolved conflicts.",
+    "id": "UI-029",
+    "screenshots": [
+      "customers-editor-1920x1080",
+      "ui38-conflict-OrdersTable-1920x1080"
+    ]
+  },
+  {
+    "title": "Group Customer contact details coherently",
+    "page": "Customer details",
+    "image": "customers-detail-1920x1080",
+    "owner": "Features/Customers/CustomerDetailView.xaml",
+    "issue": "The customer card spans the whole window; phone sits on the far right while address is near the middle, and Edit is at the far left. The identity, sync state and contact values are spread across a large empty surface.",
+    "done": "Redesign the contact summary with a compact, deliberate reading order for identity, sync state, phone, address, notes and Edit. Keep history tables and all real customer data. Use isolated LTR phone values without moving the surrounding RTL labels.",
+    "id": "UI-030",
+    "screenshots": [
+      "customers-detail-1920x1080"
+    ]
+  },
+  {
+    "title": "Remove duplicate headers in Reception list/detail routes",
+    "page": "Reception Quotations and Orders",
+    "image": "quotation-list",
+    "owner": "Features/Reception/ReceptionistHomeView.xaml; Features/Quotations/QuotationsView.xaml; Features/Orders/OrdersView.xaml",
+    "issue": "The reception shell title bar says Quotations, then a second tall page header repeats Quotations directly below it. Orders has the same duplicate structure. These two bands use about one-third of the usable screen before the filters.",
+    "done": "Give each hosted page one clear title and a compact place for its actions. Keep the shared search/account controls and the feature's task/navigation actions. Remove duplicate titles and redundant subtitle space in list and detail modes.",
+    "id": "UI-031",
+    "screenshots": [
+      "quotation-list"
+    ]
+  },
+  {
+    "title": "Remove Quotation list/detail explanatory subtext",
+    "page": "Quotation lists, detail, issue/accept/convert/cancel and discount review",
+    "image": "quotation-issued-manager-1920",
+    "owner": "Features/Quotations/QuotationsView.xaml; Features/Quotations/QuotationsViewModel.cs",
+    "issue": "Detail headings explain reviewing lines/totals. Action cards narrate issuing, reissuing and canceling. Approval blocks tell the manager to review before deciding and explain server confirmation. List and saved draft screens have more subtitles.",
+    "done": "Remove explanatory subtext from every quotation state and action surface. Keep accurate draft/issued/expired/converted/approval status, validity, actual rejection/cancellation reasons, warnings and unavailable actions. Preview-only fixtures must still be clearly labelled with a compact marker.",
+    "id": "UI-032",
+    "screenshots": [
+      "quotation-issued-manager-1920"
+    ]
+  },
+  {
+    "title": "Put quotation information before oversized action forms",
+    "page": "Issued quotation details",
+    "image": "quotation-issued-manager-1920",
+    "owner": "Features/Quotations/QuotationsView.xaml",
+    "issue": "The first viewport is dominated by a full-width issue/print card and a full-width cancellation form. The quotation's actual items and financial summary are below them, so a user opening details sees action forms before the commercial record.",
+    "done": "Redesign the detail hierarchy: compact identity/state, readable items and totals, then appropriate task actions. Keep frequent actions clear and place cancellation in a restrained deliberate area. Preserve cancellation reasons, confirmation and all Rust-owned status rules.",
+    "id": "UI-033",
+    "screenshots": [
+      "quotation-issued-manager-1920"
+    ]
+  },
+  {
+    "title": "Keep discount decision evidence beside the decision",
+    "page": "Manager discount approval",
+    "image": "discount-review-manager-1920",
+    "owner": "Features/Quotations/QuotationsView.xaml",
+    "issue": "The approval section fills most of the viewport with empty width, repeated headings and a very wide rejection textarea. Approve/Reject are visible while the actual quotation lines/totals are farther down.",
+    "done": "Redesign the approval workspace so requested percentage/value, relevant quotation summary and Approve/Reject can be understood together. Make rejection entry proportionate and show it when needed. Keep required reason, pending authorization, server-confirmed results and clear focus.",
+    "id": "UI-034",
+    "screenshots": [
+      "discount-review-manager-1920"
+    ]
+  },
+  {
+    "title": "Remove Order explanatory subtext and duplicate state text",
+    "page": "Order lists, details, original quotation, delivery and cancellation",
+    "image": "order-confirmed-manager-1920",
+    "owner": "Features/Orders/OrdersView.xaml; Features/Orders/OrdersViewModel.cs",
+    "issue": "Order details explain that data is server-confirmed and prices/customer data are saved as accepted. The ready state repeats its badge in a green banner. Cancellation and delivery add explanatory copy, and the list adds a subtitle.",
+    "done": "Remove instructional subtext and redundant repeated state text. Retain compact current state, customer/order identifiers, actual operational notes, authorization/availability errors and meaningful delivery/cancellation confirmation consequences.",
+    "id": "UI-035",
+    "screenshots": [
+      "order-confirmed-manager-1920"
+    ]
+  },
+  {
+    "title": "Hide the idle pending-operation retry control",
+    "page": "Order detail",
+    "image": "order-manager-actions-1920",
+    "owner": "Features/Orders/OrdersView.xaml:443",
+    "issue": "A disabled Confirm pending operation button is permanently displayed between notes and cancellation, even when no operation is pending. XAML binds only IsEnabled to CanRetry at this location. It adds an unexplained recovery control to an ordinary order.",
+    "done": "Show the retry/confirmation action only for the corresponding real unresolved-operation state. Group it with concise status/failure feedback and use a clear Arabic action name. Preserve recovery/idempotency and keep an unavailable real pending operation truthful.",
+    "id": "UI-036",
+    "screenshots": [
+      "order-manager-actions-1920"
+    ]
+  },
+  {
+    "title": "Remove Work-order subtext",
+    "page": "Work-order list, detail and production actions",
+    "image": "work-confirmed-detail-1920",
+    "owner": "Features/WorkOrders/WorkOrdersView.xaml; Features/WorkOrders/WorkOrdersViewModel.cs",
+    "issue": "The detail header asks what must be manufactured. State controls describe the whole transition sequence. Preview/list sections add explanatory copy although the data and actions have labels.",
+    "done": "Remove explanatory subtitles, helper paragraphs and repeated transition narration. Retain actual work-order/customer/assignment/date/production values, real notes, scope/preview markers and concise failure/availability states.",
+    "id": "UI-037",
+    "screenshots": [
+      "work-confirmed-detail-1920"
+    ]
+  },
+  {
+    "title": "Fix Work-order section and table alignment",
+    "page": "Work-order details",
+    "image": "work-confirmed-detail-1920",
+    "owner": "Features/WorkOrders/WorkOrdersView.xaml",
+    "issue": "The required-furniture heading is physically left-aligned while the surrounding page and required-parts heading are RTL at the right. Its count badge is crowded against the title. In the Parts table, the part name is near the left edge of its very wide column while the header is centered much farther right, making the association hard to scan.",
+    "done": "Apply a consistent deliberate RTL heading/count layout and align part values with their headers. Keep quantity LTR where appropriate and use proportionate column widths. Verify the rendered furniture and parts sections with mixed Arabic identifiers.",
+    "id": "UI-038",
+    "screenshots": [
+      "work-confirmed-detail-1920"
+    ]
+  },
+  {
+    "title": "Remove Users explanatory subtext",
+    "page": "Users list, create/edit and deactivation",
+    "image": "ui40-password-error-1920",
+    "owner": "Features/Users/UsersView.xaml",
+    "issue": "The list states that the engine manages accounts/permissions. The editor explains the effect on existing sessions. The password helper repeats the 12-character requirement already repeated by validation.",
+    "done": "Remove general explanatory text. Express any necessary password requirement in a concise label/control cue, retain actionable validation and essential consequences in deactivation confirmation. Keep explicit login identity and role as actual data, not expendable decoration.",
+    "id": "UI-039",
+    "screenshots": [
+      "ui40-password-error-1920"
+    ]
+  },
+  {
+    "title": "Unify Users editor page hierarchy",
+    "page": "Add/edit User",
+    "image": "users-editor",
+    "owner": "Features/Users/UsersView.xaml",
+    "issue": "The Users editor uses an isolated heading inside a narrow centered layout, unlike the shared page headers elsewhere. It has a large gap between title and form, with inconsistent visual placement of the task and its actions.",
+    "done": "Redesign the editor using the established native page/form hierarchy and deliberate spacing. Give the task a clear heading, proportionate form and stable Save/Cancel. Keep read-only login identity, creation-only password and role controls.",
+    "id": "UI-040",
+    "screenshots": [
+      "users-editor"
+    ]
+  },
+  {
+    "title": "Use consistent confirmation dialog typography",
+    "page": "Account switch and user deactivation confirmations and quotation conversion confirmation",
+    "image": "ui-09-dialog-manager-1920",
+    "owner": "MainWindow.xaml; Features/Users/UsersView.xaml; Resources/OperationsControls.xaml; Features/Quotations/QuotationsView.xaml",
+    "issue": "Confirmation body text is almost as large as the dialog title and spans several prominent lines. User deactivation has the same oversized body treatment. These dialogs read as another page rather than a short decision. The quotation-to-order confirmation also has several large explanatory paragraphs competing with its customer, item count and total.",
+    "done": "Use the existing theme's restrained title/body hierarchy, balanced spacing and concise consequences. Preserve warnings about unsaved fields/session ending, the exact affected account identity, default Cancel focus and the explicit action. Apply this hierarchy to quotation conversion: retain customer, total, essential consequence and a concise preview-only marker, while removing repeated process explanations.",
+    "id": "UI-041",
+    "screenshots": [
+      "ui-09-dialog-manager-1920",
+      "ui39-users-deactivate-m.salem-1920",
+      "quotation-conversion-confirmation"
+    ]
+  },
+  {
+    "title": "Open print previews with the complete page visible",
+    "page": "Saved quotation/order/draft and multi-page print preview",
+    "image": "saved-document-quotation-1920",
+    "owner": "Controls/PrintPreview.xaml.cs; Controls/PrintPreview.xaml",
+    "issue": "The default fit-width mode opens at roughly 190% zoom on this full-screen display. Only the document heading and contact data are visible; item rows and totals require substantial vertical scrolling even for a one-page document.",
+    "done": "Use a deliberate initial whole-page view at this maximized 125% environment so users can inspect the paper, items and totals. Keep native fit-width/manual zoom commands and preserve a user-chosen zoom across refresh. Do not alter print scaling or the saved commercial document to compensate.",
+    "id": "UI-042",
+    "screenshots": [
+      "saved-document-quotation-1920"
+    ]
+  },
+  {
+    "title": "Make allowed Furniture options explicit",
+    "page": "Furniture — size editor",
+    "image": "audit-furniture-size-edit",
+    "owner": "Features/Furniture/FurnitureView.xaml; Features/Furniture/FurnitureViewModel.cs",
+    "issue": "The allowed-colors and allowed-handles section shows unchecked options, but the explanatory paragraph says that no selection allows every option. The visual state means the opposite of the actual rule. Removing subtext would make this ambiguity worse.",
+    "done": "Show an explicit, labeled choice for all options versus selected options. Make the allowed set clear from the controls themselves, without a paragraph. Preserve the Rust contract meaning for an unrestricted set and for a restricted set; do not invent validation in the shell. Use the existing contract and focused editor tests to verify both cases.",
+    "id": "UI-043",
+    "screenshots": [
+      "audit-furniture-size-edit"
+    ]
+  },
+  {
+    "title": "Keep each printed line together across pages",
+    "page": "Print preview — multi-page quotation and order",
+    "image": "audit-print-multipage-page-2",
+    "owner": "Controls/CustomerDocumentPages.cs; Controls/CustomerDocumentLayout.cs; Features/Reception/QuotationCustomerDocument.cs; Features/Orders/OrderCustomerDocument.cs",
+    "issue": "In the 36-line synthetic quotation, item A-8 starts at the bottom of page 1 with its name and monetary cells. Its description and dimensions continue alone at the top of page 2. The repeated column header cannot identify which item that fragment belongs to. Pages 3 and 4 and the final total were checked separately.",
+    "done": "Keep normal-sized line rows, including their descriptions, selected options, dimensions, quantity and prices, on one page. Move a row to the next page when it will fit there. Handle an exceptional row taller than a page explicitly without losing text or causing a pagination loop. Retain repeated column headings, page numbering, Arabic shaping, LTR identifiers and unchanged Rust totals. Add a focused pagination regression for the observed A-8 split and verify every page at full-screen 125%.",
+    "id": "UI-044",
+    "screenshots": [
+      "audit-print-multipage-page-2",
+      "audit-print-multipage-page-1"
+    ]
+  },
+  {
+    "title": "Label Furniture option price adjustments with their unit",
+    "page": "Furniture — handle editor",
+    "image": "dialog-furniture-handle-1920",
+    "owner": "Features/Furniture/FurnitureView.xaml",
+    "issue": "The handle dialog labels its numeric input only as price adjustment and shows 0. The color dialog labels the equivalent adjustment with ر.ي. The handle field does not show the currency or clearly communicate that it is an adjustment rather than a full price.",
+    "done": "Use the same concise adjustment label and visible YER unit in the handle and color editors. Keep signed numeric input isolated LTR within RTL layout, and preserve the contract's existing adjustment semantics. Remove the illustration explanation below the input, close its gap, and retain the actual preview visual.",
+    "id": "UI-045",
+    "screenshots": [
+      "dialog-furniture-handle-1920"
+    ]
+  },
+  {
+    "title": "Show an explicit empty state in the Furniture part picker",
+    "page": "Furniture — add part dialog",
+    "image": "dialog-furniture-part-picker-1920",
+    "owner": "Features/Furniture/FurnitureView.xaml; Features/Furniture/FurnitureViewModel.cs",
+    "issue": "The part picker contains a search box and a blank results area with no status. In the captured fixture the only seeded part is already in the composition, so no addable row is shown. The user cannot tell whether there are no available parts, no search matches, or data has not loaded. The material picker already gives a concise no-match state.",
+    "done": "Show one concise Arabic state for an empty loaded set and a different concise state for an unmatched search. Use actual authority loading/unavailable state where supported; do not turn unavailable data into a successful empty result. Preserve the addable-part filtering and close action. Remove the instructional paragraph and size the dialog around its real contents.",
+    "id": "UI-046",
+    "screenshots": [
+      "dialog-furniture-part-picker-1920"
+    ]
+  },
+  {
+    "title": "Use a compact Product editor hierarchy",
+    "page": "Products — create/edit, with and without variants",
+    "image": "audit-product-add",
+    "owner": "Features/Products/ProductsView.xaml; Resources/OperationsTheme.xaml",
+    "issue": "The basic information card uses most of the viewport for a name, category, description and small image. The variant-mode choice begins below the fold even on this full-screen display. Large card padding, vertical gaps and helper copy make a simple product form feel long; the no-variant cost and notes require a separate scroll.",
+    "done": "Redesign the form with the best native layout for this task. Keep the product identity, variant-mode choice and main cost path visible together when practical at full-screen 125%. Use restrained spacing and one clear hierarchy; keep optional description, image and notes available without giving them more visual weight than required fields. Retain the fixed save/cancel footer, entered text, all variant data and actual errors. Do not scale the page or force every large variant list into the initial viewport.",
+    "id": "UI-047",
+    "screenshots": [
+      "audit-product-add"
+    ]
+  },
+  {
+    "title": "Make the sales catalog useful at full-screen width",
+    "page": "Receptionist — Products sales catalog",
+    "image": "audit-reception-catalog",
+    "owner": "Features/Reception/SalesCatalogView.xaml; Resources/SalesCatalogVisuals.xaml",
+    "issue": "Each catalog entry occupies almost the full content width and about 150 physical pixels of height. The image and product name sit at the far right while price and selection action sit at the far left, leaving most of each card empty. Only about three products fit in the initial viewport. The small fallback Furniture drawing is dwarfed by its large gray tile.",
+    "done": "Redesign the catalog using the best native list or card layout for quick product comparison. Keep each product's visual, identity, variant count, starting price and select action together. Use available full-screen width to show more useful choices without making labels small. Give real images and fallback vectors a deliberate scale. Preserve actual product descriptions, category filters, search, unavailable/stale status and keyboard selection; do not remove record descriptions as explanatory subtext.",
+    "id": "UI-048",
+    "screenshots": [
+      "audit-reception-catalog"
+    ]
+  },
+  {
+    "title": "Correct mixed-direction delivery dates",
+    "page": "Work Orders — list and detail",
+    "image": "audit-workorders-shell-detail",
+    "owner": "Features/WorkOrders/WorkOrdersView.xaml; Features/WorkOrders/WorkOrderModels.cs",
+    "issue": "The delivery date is constructed as day, Arabic month, year, but both list and detail force the entire mixed string to LeftToRight. The rendered date reads as '21 2026 أكتوبر', separating the month from its intended sequence. This is visible in the list and the detail metadata.",
+    "done": "Render the localized date in a clear stable Arabic sequence, for example '21 أكتوبر 2026', using direction isolation for numeric segments where required. Keep physical alignment distinct from reading direction. Do not change the stored date, timezone or authority rules. Verify the list, detail and changed date field at full-screen 125% with a focused mixed-direction formatting check if presentation logic changes.",
+    "id": "UI-049",
+    "screenshots": [
+      "audit-workorders-shell-detail"
+    ]
+  },
+  {
+    "title": "Align the Order delivery form with the record",
+    "page": "Receptionist — ready Order detail and delivery",
+    "image": "order-reception-delivery-1920",
+    "owner": "Features/Orders/OrdersView.xaml",
+    "issue": "The order total is a narrow card at the right. The delivery form is a wider card centered farther left, separated by a large vertical blank gap. The register-delivery action sits at the bottom edge even after scrolling. This breaks the page's alignment and makes the next daily action harder to find.",
+    "done": "Redesign the detail and delivery area with the best native layout. Use one consistent content grid, a compact total and a clearly placed delivery section. Keep receiver, acceptance method, delivery notes and register action together with no arbitrary empty spacer. Keep relevant lines and authority state available and preserve actual permission, validation and delivery behavior. Verify the ready reception state at full-screen 125%.",
+    "id": "UI-050",
+    "screenshots": [
+      "order-reception-delivery-1920"
+    ]
+  },
+  {
+    "title": "Place custom-dimension validation beside the field",
+    "page": "Sales Furniture selection — custom dimensions",
+    "image": "ui29-dimensions-invalid-1920x1080",
+    "owner": "Features/Reception/FurnitureSelectionView.xaml; Features/Reception/FurnitureSelectionViewModel.cs",
+    "issue": "An invalid width is shown as plain 'invalid' in a normal input. The only correction message appears in black near the bottom of the page, far from the width field, beside a separate process explanation. The add action is disabled and total is a dash, but the invalid field has no clear visible error association.",
+    "done": "Show a concise Arabic validation message and an accessible error state at the relevant dimension input, with a visible indication beyond color. Keep allowed bounds and cm units as compact field information. Keep an actual pending-authority status near the total while evaluation runs, without a permanent process paragraph. Preserve Rust evaluation, unavailable totals and disabled add until a valid reply; do not locally invent a price.",
+    "id": "UI-051",
+    "screenshots": [
+      "ui29-dimensions-invalid-1920x1080"
+    ]
+  },
+  {
+    "title": "Identify the actual raw-material field error",
+    "page": "Raw materials — edit validation",
+    "image": "material-durable-editor-error-1920x1080",
+    "owner": "Features/RawMaterials/RawMaterialsView.xaml; Features/RawMaterials/RawMaterialsViewModel.cs",
+    "issue": "The captured form has a selected category and unit, but a purchase cost of 8.5 is rejected with a combined message that tells the user to select a category, unit and valid cost. It does not identify what needs correction and can lead the user to change valid fields.",
+    "done": "Display a concise error beside the field that is actually invalid, with a clear visible association and accessible name. Keep a form summary for authority failures that cannot be mapped safely. Use the existing Rust-owned validation contract and accepted numeric rules; do not duplicate domain validation or loosen precision in C#. Preserve entered values and keep legitimate errors after explanatory subtext is removed.",
+    "id": "UI-052",
+    "screenshots": [
+      "material-durable-editor-error-1920x1080"
+    ]
+  },
+  {
+    "title": "Restore the visible Furniture category filter after loading",
+    "page": "Furniture — list category filter",
+    "image": "audit-furniture-list",
+    "owner": "Features/Furniture/FurnitureDurableState.cs; Features/Furniture/FurnitureView.xaml; Features/Furniture/FurnitureViewModel.cs",
+    "issue": "The category filter is blank while the list contains a loaded Furniture item. ApplyDurableData clears and rebuilds CategoryOptions, which includes the all-categories label, but does not restore or notify the selected category afterward. The control therefore does not tell the user which scope is active.",
+    "done": "Keep a valid selected category visibly selected when the category collection is refreshed. Preserve a still-valid choice and fall back to the existing all-categories choice if it is removed. Do not insert a cosmetic placeholder that hides a stale selection. Use a focused binding/state regression and render the loaded list at full-screen 125%.",
+    "id": "UI-053",
+    "screenshots": [
+      "audit-furniture-list"
+    ]
+  },
+  {
+    "title": "Add a visible close action to the Part material picker",
+    "page": "Parts — raw material picker",
+    "image": "part-picker-1920x1080",
+    "owner": "Features/Parts/PartsView.xaml; Controls/DialogHost.cs",
+    "issue": "The loaded material picker shows a search box and Choose buttons, but no visible Close or Cancel action. Its no-match state also lacks an exit control. The Furniture part picker has an explicit Close footer, so the two otherwise similar dialogs use different exit patterns.",
+    "done": "Give this picker a visible concise Arabic Close/Cancel action in the existing dialog footer, without adding an explanatory sentence. Preserve Escape, focus return and selection behavior. Closing must not add a material or discard existing composition rows. Verify the loaded and no-match states at full-screen 125%, using the existing dialog interaction tests where applicable.",
+    "id": "UI-054",
+    "screenshots": [
+      "part-picker-1920x1080"
+    ]
+  },
+  {
+    "title": "Make Order line cards compact and scannable",
+    "page": "Orders — mixed Furniture and ready-made Product detail",
+    "image": "reception-orders-mixed-items",
+    "owner": "Features/Orders/OrdersView.xaml",
+    "issue": "Each order line stretches across the workspace while its name, variant, options, quantity and price occupy a small cluster at the right. A large empty area remains in every card, and only one complete line fits below the duplicated reception headers. This slows comparison of a mixed order.",
+    "done": "Redesign the order lines as compact native rows or a purposeful details grid. Keep identity, variant, dimensions, options, quantity and unit price together with clear labels and a deliberate image scale. Preserve all stored line data and Rust totals; do not delete variant details as subtext. Show more useful lines at full-screen 125% without shrinking typography or scaling the page.",
+    "id": "UI-055",
+    "screenshots": [
+      "reception-orders-mixed-items"
+    ]
+  }
+]

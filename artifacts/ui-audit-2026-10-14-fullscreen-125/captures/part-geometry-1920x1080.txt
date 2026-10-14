@@ -1,0 +1,1 @@
+Requested: 1920x1080; actual window: 1550.4x830.4 DIP; display scaling 125%; available display: 1536x864 DIP.

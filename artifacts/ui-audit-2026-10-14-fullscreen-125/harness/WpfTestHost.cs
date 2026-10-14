@@ -1,0 +1,206 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Eitmad.WindowsShell.Features.Authentication;
+using Eitmad.Platform.Windows.Shell;
+
+namespace Eitmad.WindowsShell.Tests.Rendered;
+
+internal static class WpfTestHost
+{
+    private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
+
+    public static void Run(
+        double width,
+        double height,
+        Action<MainWindow> test,
+        bool showSignIn = false,
+        IEngineShellBridge? engine = null,
+        IDesktopSessionController? sessions = null)
+    {
+        TestDispatcher.Value.Invoke(() =>
+        {
+            var window = new MainWindow(
+                sessions ?? (showSignIn ? new RenderedSessionController() : null),
+                showSignIn: showSignIn,
+                engine: engine,
+                preview: engine is null)
+            {
+                Width = width,
+                Height = height,
+                Left = 0,
+                Top = 0,
+                ShowInTaskbar = false,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+            };
+
+            try
+            {
+                if (engine is null && window.FindName("FurnitureSurface") is Features.Furniture.FurnitureView fixtureView) { fixtureView.ViewModel.ApplyDurableData(Furniture.FurnitureFixtures.SalesSnapshot()); fixtureView.ViewModel.FixtureSalesCatalog=true; }
+                if (engine is null && window.FindName("RawMaterialsSurface") is Features.RawMaterials.RawMaterialsView materials)
+                {
+                    var data = RawMaterials.MaterialFixtures.Snapshot();
+                    materials.ViewModel.ApplyDurableData(data.References, data.Materials);
+                }
+                if (engine is null && window.FindName("PricingSurface") is Features.Pricing.PricingView pricing)
+                {
+                    var priceEngine = new TestDoubles.FakeEngine();
+                    priceEngine.QueryHandler = _ => new Contracts.QueryResponseEnvelope { Outcome = new Contracts.QueryOutcome { Status = Contracts.CommandOutcomeStatus.Succeeded, Payload = Contracts.QueryResult.ForPrices(Pricing.PricingPresentationTests.Data()) } };
+                    pricing.Attach(priceEngine);
+                }
+                window.WindowState = WindowState.Maximized;
+                window.Show();
+                window.Activate();
+                CompleteLayout(window);
+                test(window);
+            }
+            finally
+            {
+                window.Close();
+                PumpDispatcher();
+            }
+        });
+    }
+
+    internal static void SignIn(MainWindow window, string username)
+    {
+        FindByName<TextBox>(window, "UsernameBox").Text = username;
+        FindByName<PasswordBox>(window, "PasswordInput").Password = "synthetic-password";
+        FindByName<Button>(window, "SignInButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        PumpDispatcher();
+    }
+
+    public static T FindByName<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        var matches = Descendants<T>(root).Where(element => element.Name == name).ToList();
+        return matches.Count == 1 ? matches[0] : matches.Single(element => element.IsVisible);
+    }
+
+    public static T FindByAutomationName<T>(DependencyObject root, string name) where T : DependencyObject =>
+        Descendants<T>(root).First(element => AutomationProperties.GetName(element) == name);
+
+    public static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root is T match)
+        {
+            yield return match;
+        }
+
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            foreach (var descendant in Descendants<T>(VisualTreeHelper.GetChild(root, index)))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    public static T Ancestor<T>(DependencyObject child) where T : DependencyObject
+    {
+        var current = VisualTreeHelper.GetParent(child);
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        throw new InvalidOperationException($"No {typeof(T).Name} ancestor was found.");
+    }
+
+    public static void Capture(FrameworkElement element, string name)
+    {
+        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+
+        Directory.CreateDirectory(directory);
+        // Popup roots carry the RTL transform that is absent on their child alone.
+        element = PresentationSource.FromVisual(element)?.RootVisual as FrameworkElement ?? element;
+        var dpi = VisualTreeHelper.GetDpi(element);
+        if (Math.Abs(dpi.DpiScaleX - 1.25) > 0.01) throw new InvalidOperationException("Audit requires current 125% scaling.");
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth * dpi.DpiScaleX),
+            (int)Math.Ceiling(element.ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        bitmap.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(Path.Combine(directory, name + ".png"));
+        encoder.Save(stream);
+        File.AppendAllText(Path.Combine(directory, "capture-manifest.tsv"), $"{name}\t{element.ActualWidth:0.0}\t{element.ActualHeight:0.0}\t{VisualTreeHelper.GetDpi(element).DpiScaleX * 100:0}\t{SystemParameters.PrimaryScreenWidth:0.0}\t{SystemParameters.PrimaryScreenHeight:0.0}\n");
+        var rows = Descendants<TextBlock>(element).Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => {
+            var p = t.TransformToAncestor(element).Transform(new Point());
+            return $"{t.Name}\t{t.FontSize:0.0}\t{p.X:0.0},{p.Y:0.0}\t{t.ActualWidth:0.0},{t.ActualHeight:0.0}\t{t.Text.Replace("\n", " ").Replace("\r", " ")}";
+        });
+        File.WriteAllLines(Path.Combine(directory, name + ".text.tsv"), rows);
+    }
+
+    public static void CompleteLayout(FrameworkElement root)
+    {
+        root.UpdateLayout();
+        PumpDispatcher();
+        root.UpdateLayout();
+    }
+
+    public static void PumpDispatcher() =>
+        Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+    private static Dispatcher StartDispatcher()
+    {
+        var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            application.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/Eitmad.WindowsShell;component/Resources/OperationsTheme.xaml"),
+            });
+            application.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/Eitmad.WindowsShell;component/Resources/OperationsIcons.xaml"),
+            });
+            application.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/Eitmad.WindowsShell;component/Resources/OperationsControls.xaml"),
+            });
+            EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, e) => {
+                if(sender is Window auditWindow) { auditWindow.WindowState=WindowState.Maximized; }
+            }));
+            ready.SetResult(Dispatcher.CurrentDispatcher);
+            Dispatcher.Run();
+        })
+        {
+            IsBackground = true,
+            Name = "Eitmad WPF test host",
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return ready.Task.GetAwaiter().GetResult();
+    }
+
+    private sealed class RenderedSessionController : IDesktopSessionController
+    {
+        public event EventHandler<SessionEndedEventArgs>? SessionEnded
+        {
+            add { }
+            remove { }
+        }
+
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<AuthenticatedSurface> SignInAsync(
+            string username,
+            string password,
+            CancellationToken cancellationToken = default) => Task.FromResult(
+                username == "receptionist" ? AuthenticatedSurface.Receptionist : AuthenticatedSurface.Manager);
+
+        public Task SignOutAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}

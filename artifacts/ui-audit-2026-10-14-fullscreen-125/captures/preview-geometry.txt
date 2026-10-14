@@ -1,0 +1,6 @@
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 190.15%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 190.15%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 190.15%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 184.95%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 184.95%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
+Display 1920x1080 px; actual window 1550.4x830.4 DIP; scaling 125%; high contrast False; viewport 1519.2x676.8 DIP; zoom 190.15%; horizontal scroll 0.00 DIP. Synthetic WPF fixture, RenderTargetBitmap at 96 DPI.
