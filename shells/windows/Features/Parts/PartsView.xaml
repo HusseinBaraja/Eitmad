@@ -244,7 +244,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="حدّد المعلومات أولاً، ثم المواد الخام، ثم راجع الجزء."></controls:PageHeader>
+            <controls:PageHeader Title="{Binding EditorTitle}" ShowSubtitle="False" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="28,22,28,30" MaxWidth="980" HorizontalAlignment="Stretch">
                     <controls:StepIndicator CurrentStep="{Binding CurrentStep}" Margin="0,0,0,14">
@@ -268,8 +268,7 @@
                             </Style>
                         </Border.Style>
                         <StackPanel>
-                            <TextBlock Text="معلومات الجزء" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="عرّف الجزء الآن. ستختار المواد الخام المستخدمة في الخطوة التالية." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,6,0,24" />
+                            <TextBlock Text="معلومات الجزء" FontSize="22" FontWeight="Bold" Margin="0,0,0,16" />
                             <controls:FormField Label="اسم الجزء">
                                 <TextBox x:Name="EditorNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" Margin="0,0,0,18" automation:AutomationProperties.Name="اسم الجزء" />
                             </controls:FormField>
@@ -318,10 +317,9 @@
                                 <Button Grid.Column="0" Height="42" Style="{StaticResource SecondaryButton}" Click="OpenMaterialPickerClick" automation:AutomationProperties.Name="إضافة مادة خام" Content="إضافة مادة خام" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="20,0,0,0">
                                     <TextBlock Text="المواد الخام المستخدمة" FontSize="22" FontWeight="Bold" />
-                                    <TextBlock Text="أدخل الكميات والوحدات. تُحسب التكلفة في المراجعة، وتُقرب مرة واحدة بعد جمع القيم الدقيقة." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,0" />
                                 </StackPanel>
                             </Grid>
-                            <Border Margin="0,22,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="9" ClipToBounds="True">
+                            <Border Margin="0,16,0,0" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="9" ClipToBounds="True">
                                 <Grid>
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -331,7 +329,7 @@
                                         <Grid Grid.Row="1">
                                             <controls:OperationsTable x:Name="MaterialRows" ItemsSource="{Binding SelectedMaterials}" FlowDirection="RightToLeft" MaxHeight="460" automation:AutomationProperties.Name="المادة الخام">
                                                 <controls:OperationsTable.EmptyContent>
-                                                    <controls:EmptyState Heading="لم تضف مواد خام بعد" Description="اختر مادة خام، ثم أدخل الكمية المستخدمة." IsCompact="True" />
+                                                    <controls:EmptyState Heading="لم تضف مواد خام بعد" IsCompact="True" />
                                                 </controls:OperationsTable.EmptyContent>
                                                 <DataGrid.Columns>
                                                     <DataGridTemplateColumn Header="المادة الخام" Width="2.1*" MinWidth="160" SortMemberPath="Material.Name">
@@ -434,7 +432,6 @@
                                     <TextBlock Text="تكلفة الجزء" Foreground="#714216" FontSize="14" FontWeight="SemiBold" />
                                     <TextBlock Style="{StaticResource PendingCostText}" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
                                     <controls:AmountDisplay Margin="0,4,0,0" FontSize="27" FontWeight="Bold" Foreground="#6D390A" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After" Visibility="{Binding HasCalculatedCost, Converter={StaticResource BooleanToVisibility}}" />
-                                    <TextBlock Text="تُحسب التكلفة عند الانتقال إلى المراجعة." Style="{StaticResource PendingCostText}" Margin="0,6,0,0" FontSize="13" MaxWidth="260" />
                                 </StackPanel>
                             </Border>
                             <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
@@ -463,8 +460,7 @@
                             </Style>
                         </Border.Style>
                         <StackPanel>
-                            <TextBlock Text="مراجعة الجزء" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="تحقّق من المعلومات والتكلفة قبل الحفظ. استخدم «السابق» لإجراء أي تعديل." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,16" />
+                            <TextBlock Text="مراجعة الجزء" FontSize="22" FontWeight="Bold" Margin="0,0,0,16" />
                             <Grid Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
@@ -570,20 +566,10 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Grid FlowDirection="LeftToRight">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" FlowDirection="RightToLeft" Margin="18,0,0,0">
-                            <TextBlock Text="ابحث، ثم اختر مادة لإضافتها إلى الجزء." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBox x:Name="MaterialSearchBox" Text="{Binding MaterialSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المواد الخام" Grid.Row="1" Margin="0,20,0,14" Style="{StaticResource SearchInput}" />
-                    <Grid Grid.Row="2">
+                    <TextBox x:Name="MaterialSearchBox" Text="{Binding MaterialSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث في المواد الخام" Margin="0,0,0,14" Style="{StaticResource SearchInput}" />
+                    <Grid Grid.Row="1">
                         <Border>
                             <ItemsControl ItemsSource="{Binding FilteredMaterials}">
                                 <ItemsControl.ItemTemplate>

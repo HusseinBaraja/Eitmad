@@ -98,14 +98,14 @@ public sealed class PartsRenderedTests
             if (width == 720)
             {
                 WpfTestHost.Descendants<TextBlock>(materialsStep)
-                    .Single(text => text.Text == "تُحسب التكلفة عند الانتقال إلى المراجعة.").BringIntoView();
+                    .Single(text => text.Text == "تكلفة الجزء").BringIntoView();
                 WpfTestHost.CompleteLayout(window);
                 WpfTestHost.Capture(window, $"part-materials-total-{width}x{height}");
             }
             if (width == 1338)
             {
                 var costText = WpfTestHost.Descendants<TextBlock>(materialsStep)
-                    .Where(text => text.Text is "بانتظار المراجعة" or "تُحسب التكلفة عند الانتقال إلى المراجعة.")
+                    .Where(text => text.Text == "بانتظار المراجعة")
                     .Select(text => (Text: text, Size: text.FontSize)).ToArray();
                 foreach (var item in costText) item.Text.FontSize = item.Size * 1.25;
                 WpfTestHost.CompleteLayout(window);
