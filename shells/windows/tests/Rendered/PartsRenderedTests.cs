@@ -16,6 +16,81 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PartsRenderedTests
 {
     [TestMethod]
+    public void MaterialPickerClosePreservesCompositionAndSelectionReturnsFocus()
+    {
+        var fixture = new PartFixtures();
+        var engine = fixture.Engine();
+        var query = engine.QueryHandler!;
+        engine.QueryHandler = input => input.Kind == Query.MaterialListKind && input.AsMaterialList()!.Term.Length > 0
+            ? PartFixtures.Success(QueryResult.ForMaterials(new MaterialPage { Items = [] })) : query(input);
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PartsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PartsView>(window).Single();
+            view.ViewModel.BeginCreate();
+            view.ViewModel.EditorName = "جانب خزانة تجريبي";
+            Assert.IsTrue(view.ViewModel.MoveToMaterials());
+            view.ViewModel.AddMaterial(view.ViewModel.FilteredMaterials[0]);
+            var retained = view.ViewModel.SelectedMaterials[0];
+            retained.Quantity = "1.2";
+            WpfTestHost.CompleteLayout(window);
+            var invoker = WpfTestHost.FindByAutomationName<Button>(view, "إضافة مادة خام");
+            foreach (var noMatch in new[] { false, true })
+            {
+                invoker.Focus();
+                invoker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                var search = WpfTestHost.FindByName<TextBox>(view, "MaterialSearchBox");
+                Assert.IsTrue(search.IsKeyboardFocused);
+                if (noMatch) search.Text = "مادة غير موجودة";
+                WpfTestHost.CompleteLayout(window);
+                Assert.HasCount(noMatch ? 0 : 1, view.ViewModel.FilteredMaterials);
+                var dialog = WpfTestHost.Descendants<Controls.DialogHost>(view).Single(host => host.IsOpen);
+                var close = WpfTestHost.FindByAutomationName<Button>(dialog, "إغلاق اختيار المادة الخام");
+                Assert.IsTrue(close.IsVisible && close.IsEnabled);
+                var focusStops = WpfTestHost.Descendants<UIElement>(dialog).Count(element => element.IsVisible && element.IsEnabled && element.Focusable);
+                for (var index = 0; index < focusStops && !close.IsKeyboardFocused; index++)
+                {
+                    ((UIElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+                    Assert.IsTrue(dialog.IsKeyboardFocusWithin);
+                }
+                Assert.IsTrue(close.IsKeyboardFocused, "The footer is reachable within the dialog focus scope.");
+                Assert.IsTrue(((Border)close.Template.FindName("FocusRing", close)).IsVisible);
+                close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(view.ViewModel.IsMaterialPickerOpen);
+                Assert.IsTrue(invoker.IsKeyboardFocused);
+                Assert.HasCount(1, view.ViewModel.SelectedMaterials);
+                Assert.AreSame(retained, view.ViewModel.SelectedMaterials[0]);
+                Assert.AreEqual("1.2", retained.Quantity);
+            }
+            invoker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var picker = WpfTestHost.Descendants<Controls.DialogHost>(view).Single(host => host.IsOpen);
+            picker.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(picker), 0, Key.Escape)
+            { RoutedEvent = Keyboard.KeyDownEvent });
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(view.ViewModel.IsMaterialPickerOpen);
+            Assert.IsTrue(invoker.IsKeyboardFocused);
+            Assert.HasCount(1, view.ViewModel.SelectedMaterials);
+            Assert.AreSame(retained, view.ViewModel.SelectedMaterials[0]);
+            Assert.AreEqual("1.2", retained.Quantity);
+            invoker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var choice = view.ViewModel.FilteredMaterials.Single();
+            WpfTestHost.FindByAutomationName<Button>(view, "اختيار المادة الخام").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(view.ViewModel.IsMaterialPickerOpen);
+            Assert.IsTrue(invoker.IsKeyboardFocused);
+            Assert.HasCount(2, view.ViewModel.SelectedMaterials);
+            Assert.AreSame(retained, view.ViewModel.SelectedMaterials[0]);
+            Assert.AreEqual(choice.Id, view.ViewModel.SelectedMaterials[1].Material.Id);
+            Assert.IsNull(engine.LastCommand, "Picker actions must not submit saved product state.");
+        }, engine: engine);
+    }
+
+    [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1536, 864)]
     [DataRow(1338, 753)]

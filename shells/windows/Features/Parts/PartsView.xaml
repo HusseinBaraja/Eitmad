@@ -575,6 +575,9 @@
                 </Grid>
             </Border>
             <controls:DialogHost Grid.RowSpan="3" Panel.ZIndex="30" IsOpen="{Binding IsMaterialPickerOpen}" Title="اختيار مادة خام" PreferredWidth="620" FlowDirection="RightToLeft" CloseRequested="CloseMaterialPickerClick" InitialFocusTarget="{Binding ElementName=MaterialSearchBox}">
+                <controls:DialogHost.Footer>
+                    <Button Content="إغلاق" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="CloseMaterialPickerClick" automation:AutomationProperties.Name="إغلاق اختيار المادة الخام" />
+                </controls:DialogHost.Footer>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
