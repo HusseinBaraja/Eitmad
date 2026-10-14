@@ -391,31 +391,27 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <controls:FormField Label="الاسم المختصر" HelpText="مثال: متر مربع — m²">
+                    <controls:FormField Label="الرمز المختصر">
                         <TextBox Text="{Binding ReferenceShortName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" />
                     </controls:FormField>
                     <controls:FormField Label="نوع القياس" Margin="0,14,0,0">
                         <ComboBox ItemsSource="{Binding UnitDimensions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ReferenceDimension, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="نوع قياس الوحدة" />
                     </controls:FormField>
                     <StackPanel x:Name="UnitConversionGroup" Margin="0,14,0,0">
-                        <TextBlock Text="معامل التحويل الدقيق إلى الوحدة الأساسية" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <TextBlock Text="اقسم البسط على المقام لمعرفة مقدار وحدة جديدة واحدة بالوحدة الأساسية." FontSize="13" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,10" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="32" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <controls:FormField Label="البسط">
-                                <TextBox x:Name="UnitNumeratorBox" Text="{Binding ReferenceNumerator}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="بسط معامل التحويل" />
+                            <controls:FormField Label="الكمية بهذه الوحدة">
+                                <TextBox x:Name="UnitDenominatorBox" Text="{Binding ReferenceDenominator}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="الكمية بهذه الوحدة" />
                             </controls:FormField>
-                            <controls:FormField Grid.Column="2" Label="المقام">
-                                <TextBox x:Name="UnitDenominatorBox" Text="{Binding ReferenceDenominator}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="مقام معامل التحويل" />
+                            <TextBlock Grid.Column="1" Text="=" FontSize="24" Height="48" VerticalAlignment="Bottom" TextAlignment="Center" FlowDirection="LeftToRight" />
+                            <controls:FormField Grid.Column="2" Label="الكمية بالوحدة الأساسية">
+                                <TextBox x:Name="UnitNumeratorBox" Text="{Binding ReferenceNumerator}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="الكمية بالوحدة الأساسية" />
                             </controls:FormField>
                         </Grid>
-                        <TextBlock x:Name="UnitConversionExample" FontSize="13" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,0">
-                            <Run Text="مثال: البسط " /><Span FlowDirection="LeftToRight"><Run Text="{Binding ReferenceConversionExample.Numerator, Mode=OneWay, TargetNullValue=1, FallbackValue=1}" /></Span><Run Text=" والمقام " /><Span FlowDirection="LeftToRight"><Run Text="{Binding ReferenceConversionExample.Denominator, Mode=OneWay, TargetNullValue=1, FallbackValue=1}" /></Span><Run Text=" يعنيان أن وحدة جديدة واحدة تساوي وحدة واحدة من " /><Run Text="{Binding ReferenceConversionExampleUnitName, Mode=OneWay}" /><Run Text="." />
-                        </TextBlock>
                     </StackPanel>
                 </StackPanel>
                 <TextBlock Text="{Binding ReferenceError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,9,0,0">

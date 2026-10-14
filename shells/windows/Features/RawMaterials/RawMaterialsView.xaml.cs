@@ -264,7 +264,7 @@ public partial class RawMaterialsView : UserControl
             if (!long.TryParse(UnitNumeratorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var numerator)
                 || !long.TryParse(UnitDenominatorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var denominator)
                 || numerator <= 0 || denominator <= 0)
-            { ViewModel.Fail("أدخل بسطاً ومقاماً صحيحين أكبر من صفر.", reference: true); return; }
+            { ViewModel.Fail("أدخل كميتين صحيحتين أكبر من صفر.", reference: true); return; }
             failure = await client.SaveAsync(new SaveMaterialUnit
                 { Id = selected?.Id, ExpectedRevision = selected?.Revision,
                   Name = ViewModel.ReferenceName.Trim(), Symbol = ViewModel.ReferenceShortName.Trim(),

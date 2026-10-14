@@ -9,34 +9,21 @@ namespace Eitmad.WindowsShell.Tests.RawMaterials;
 public sealed class RawMaterialsPresentationTests
 {
     [TestMethod]
-    public void ConversionExampleUsesAnActiveAuthorityUnitOfTheSelectedDimension()
+    public void UnitEditorPreservesExactFactorAcrossDimensionChanges()
     {
         var model = new RawMaterialsViewModel();
         var scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() };
-        var length = new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "سنتيمتر",
-            Dimension = UnitDimension.Length, Numerator = 1, Denominator = 100, Revision = 1 };
-        var area = new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "متر مربع",
-            Dimension = UnitDimension.Area, Numerator = 1, Denominator = 1, Revision = 1 };
-        model.ApplyDurableData(new MaterialReferences { Categories = [], Units =
-        [
-            new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "طول مؤرشف",
-                Dimension = UnitDimension.Length, Numerator = 1000, Denominator = 1, Archived = true, Revision = 1 },
-            length, area,
-        ] }, []);
+        var unit = new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "وحدة مخصصة",
+            Dimension = UnitDimension.Length, Numerator = 9_007_199_254_740_993, Denominator = 7, Revision = 1 };
+        model.ApplyDurableData(new MaterialReferences { Categories = [], Units = [unit] }, []);
+        model.BeginManageUnits();
+        model.BeginEditReference(model.Units.Single());
 
-        model.ReferenceDimension = UnitDimension.Length;
-        Assert.AreEqual(length.Id, model.ReferenceConversionExample!.Id);
-        Assert.AreEqual(1L, model.ReferenceConversionExample.Numerator);
-        Assert.AreEqual(100L, model.ReferenceConversionExample.Denominator);
-        model.ReferenceDimension = UnitDimension.Area;
-        Assert.AreEqual(area.Id, model.ReferenceConversionExample!.Id);
+        Assert.AreEqual(unit.Numerator, model.ReferenceNumerator);
+        Assert.AreEqual(unit.Denominator, model.ReferenceDenominator);
         model.ReferenceDimension = UnitDimension.Mass;
-        Assert.IsNull(model.ReferenceConversionExample);
-        Assert.IsTrue(model.ReferenceConversionExampleUnitName.Contains("كتلة", StringComparison.Ordinal));
-
-        model.ReferenceDimension = UnitDimension.Length;
-        model.ApplyDurableData(new MaterialReferences { Categories = [], Units = [area] }, []);
-        Assert.IsNull(model.ReferenceConversionExample);
+        Assert.AreEqual(unit.Numerator, model.ReferenceNumerator);
+        Assert.AreEqual(unit.Denominator, model.ReferenceDenominator);
     }
 
     [TestMethod]

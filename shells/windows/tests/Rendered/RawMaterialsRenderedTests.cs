@@ -133,19 +133,16 @@ public sealed class RawMaterialsRenderedTests
             WpfTestHost.CompleteLayout(window);
             referenceScroll.ScrollToBottom();
             WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(unit.Id, view.ViewModel.ReferenceConversionExample!.Id);
             AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
             WpfTestHost.Capture(window, $"material-unit-conversion-length-{width}x{height}");
             view.ViewModel.ReferenceDimension = UnitDimension.Area;
             WpfTestHost.CompleteLayout(window);
             referenceScroll.ScrollToBottom();
             WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(10_000L, view.ViewModel.ReferenceConversionExample!.Denominator);
             AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
             WpfTestHost.Capture(window, $"material-unit-conversion-area-{width}x{height}");
             if (width == 720)
             {
-                WpfTestHost.FindByName<TextBlock>(view, "UnitConversionExample").FontSize = 16;
                 foreach (var field in WpfTestHost.Descendants<FormField>(conversion))
                     ControlOptions.SetHighContrast(field, true);
                 WpfTestHost.CompleteLayout(window);
@@ -154,6 +151,12 @@ public sealed class RawMaterialsRenderedTests
                 AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
                 WpfTestHost.Capture(window, "material-unit-conversion-larger-text-system-colors-720x560");
             }
+            view.ViewModel.CancelReferenceEditor();
+            view.ViewModel.BeginManageUnits();
+            view.ViewModel.BeginEditReference(view.ViewModel.Units.Single(item => item.Dimension == UnitDimension.Area));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("1", WpfTestHost.FindByName<TextBox>(view, "UnitNumeratorBox").Text);
+            Assert.AreEqual("10000", WpfTestHost.FindByName<TextBox>(view, "UnitDenominatorBox").Text);
         }, engine: engine);
     }
 
