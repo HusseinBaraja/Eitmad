@@ -17,3 +17,7 @@ node_modules/
 # Local IDE state belongs to each developer.
 .idea/
 .vscode/
+
+# Keep UI screenshot and review image evidence local.
+/artifacts/**/*.png
+/artifacts/**/*.jpg
