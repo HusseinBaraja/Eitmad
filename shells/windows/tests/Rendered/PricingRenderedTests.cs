@@ -13,6 +13,73 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PricingRenderedTests
 {
     [TestMethod]
+    public void CategorySelectionMatchesVisibleFilterAfterLoadingAndReloading()
+    {
+        var page = PricingPresentationTests.Data();
+        var engine = new FakeEngine();
+        engine.QueryHandler = _ => new QueryResponseEnvelope { Outcome = new QueryOutcome
+        {
+            Status = CommandOutcomeStatus.Succeeded, Payload = QueryResult.ForPrices(page),
+        } };
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            window.WindowState = WindowState.Maximized;
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            VerifyCategoryFilter(WpfTestHost.Descendants<PricingView>(window).Single(), replacement => page = replacement);
+        }, engine: engine);
+    }
+
+    internal static void VerifyCategoryFilter(PricingView view, Action<PricePage> replacePage)
+    {
+        var model = view.ViewModel;
+        var filter = WpfTestHost.FindByAutomationName<ComboBox>(view, "تصفية حسب الفئة");
+        var reload = WpfTestHost.FindByAutomationName<Button>(view, "إعادة تحميل الأسعار");
+
+        void CheckSelection(string expected, int count)
+        {
+            WpfTestHost.CompleteLayout(view);
+            Assert.AreEqual(expected, model.SelectedCategory);
+            Assert.AreEqual(expected, filter.SelectedItem);
+            Assert.AreEqual(expected, filter.SelectionBoxItem);
+            Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(filter).Any(text => text.IsVisible && text.Text == expected));
+            Assert.HasCount(count, model.VisiblePrices);
+            Assert.HasCount(count, WpfTestHost.FindByName<OperationsTable>(view, "PricingRows").Items);
+        }
+
+        void Reload(PricePage page)
+        {
+            replacePage(page);
+            reload.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(view);
+        }
+
+        CheckSelection(PricingViewModel.AllCategories, 2);
+        Reload(PricingPresentationTests.Data());
+        CheckSelection(PricingViewModel.AllCategories, 2);
+
+        filter.SelectedItem = "غرف الطعام";
+        CheckSelection("غرف الطعام", 1);
+        Assert.AreEqual("طاولة طعام", model.VisiblePrices.Single().Product);
+        Reload(PricingPresentationTests.Data());
+        CheckSelection("غرف الطعام", 1);
+        Assert.AreEqual("طاولة طعام", model.VisiblePrices.Single().Product);
+
+        var remaining = PricingPresentationTests.Data();
+        remaining.Items = [remaining.Items[0]];
+        Reload(remaining);
+        CheckSelection(PricingViewModel.AllCategories, 1);
+        Reload(new PricePage { Items = [], CanManage = true, CanReadCosts = true });
+        CheckSelection(PricingViewModel.AllCategories, 0);
+        Reload(PricingPresentationTests.Data());
+        CheckSelection(PricingViewModel.AllCategories, 2);
+
+        filter.SelectedItem = "غرف الطعام";
+        view.ClearSession();
+        CheckSelection(PricingViewModel.AllCategories, 0);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void UnexpectedPublicationFailureKeepsExactRetryAndIgnoresEndedSession(bool endSession)

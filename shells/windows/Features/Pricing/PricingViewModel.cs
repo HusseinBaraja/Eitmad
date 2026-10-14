@@ -68,9 +68,12 @@ public sealed class PricingViewModel : ObservableObject
             if (!CanReadCosts) { record.CostYer = null; record.MarginYer = null; }
             if (CanManage || record.Published is not null) prices.Add(new(record));
         }
-        Categories.Clear(); Categories.Add(AllCategories);
-        foreach (var category in prices.Select(p => p.Category).Distinct()) Categories.Add(category);
-        if (!Categories.Contains(SelectedCategory)) SelectedCategory = AllCategories;
+        var categories = prices.Select(p => p.Category).Prepend(AllCategories).Distinct().ToArray();
+        if (!categories.Contains(SelectedCategory)) SelectedCategory = AllCategories;
+        // Keep retained items in place so WPF does not clear their selection display.
+        foreach (var category in Categories.Where(category => !categories.Contains(category)).ToArray()) Categories.Remove(category);
+        foreach (var category in categories.Where(category => !Categories.Contains(category))) Categories.Add(category);
+        Raise(nameof(SelectedCategory));
         AvailabilityMessage = page.ServerAvailable ? "أسعار مؤكدة من الخادم — القيم الداخلية حسب الصلاحية" : "الخادم غير متاح — عرض آخر أسعار مؤكدة، والنشر يحتاج اتصالاً.";
         SyncIssueMessage = CanManage && page.CatalogSyncIssues is { Length: > 0 } issues
             ? "تحتاج مزامنة هذه التعريفات إلى مراجعة: " + string.Join("، ", issues.Take(3).Select(issue => issue.Name))
@@ -80,7 +83,9 @@ public sealed class PricingViewModel : ObservableObject
     }
     public void ClearSession()
     {
-        CancelEditor(force: true); prices.Clear(); VisiblePrices.Clear(); Categories.Clear(); Categories.Add(AllCategories);
+        CancelEditor(force: true); prices.Clear(); VisiblePrices.Clear(); SelectedCategory = AllCategories;
+        foreach (var category in Categories.Where(category => category != AllCategories).ToArray()) Categories.Remove(category);
+        Raise(nameof(SelectedCategory));
         CanManage = false; CanReadCosts = false; SavePending = false; IsBusy = false; FeedbackMessage = "";
         SyncIssueMessage = "";
         AvailabilityMessage = "بيانات الأسعار غير متاحة."; Raise(nameof(VisibleCountLabel));
