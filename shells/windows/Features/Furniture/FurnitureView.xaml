@@ -80,7 +80,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="الأثاث" Subtitle="منتجات ثابتة ومقاسات يحددها المدير">
+            <controls:PageHeader Grid.Row="0" Title="الأثاث" ShowSubtitle="False" Height="Auto" MinHeight="96">
                 <StackPanel Orientation="Horizontal">
                     <Button Style="{StaticResource PrimaryButton}" Height="46" IsEnabled="{Binding CanSubmit}" Click="AddFurnitureClick" automation:AutomationProperties.Name="إضافة منتج" Content="إضافة منتج" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                 </StackPanel>
@@ -187,7 +187,6 @@
                                                     <Border x:Name="RowSurface" MinHeight="78" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
                                                         <StackPanel Margin="16,8" VerticalAlignment="Center">
                                                             <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                            <TextBlock x:Name="ContrastCell1" Text="منتج أثاث ثابت" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,3,0,0" />
                                                         </StackPanel>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -196,7 +195,6 @@
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                             <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            <Setter TargetName="ContrastCell1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                                                             <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
                                                         </DataTrigger>
                                                     </DataTemplate.Triggers>
@@ -325,7 +323,7 @@
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Padding="0">
                 <StackPanel>
-                    <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="{Binding EditorStepDescription}">
+                    <controls:PageHeader Title="{Binding EditorTitle}" ShowSubtitle="False" Height="Auto" MinHeight="96">
                         <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" />
                     </controls:PageHeader>
                     <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}" Margin="24,12,24,14">
@@ -393,8 +391,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
-                                    <TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" />
-                                    <TextBlock Text="عرّف المنتج كما سيظهر للمدير في قائمة الأثاث." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,20" />
+                                    <TextBlock Text="المعلومات الأساسية" FontSize="19" FontWeight="SemiBold" Margin="0,0,0,12" />
                                 </StackPanel>
                                 <controls:FormField Label="اسم الأثاث">
                                     <TextBox x:Name="FurnitureNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم الأثاث" />
@@ -414,7 +411,6 @@
                             </StackPanel>
                             <StackPanel FlowDirection="RightToLeft">
                                 <TextBlock Text="صورة المنتج" Style="{StaticResource FieldLabel}" />
-                                <TextBlock Text="تُحفظ الصورة عند حفظ التعريف" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="13" Margin="0,0,0,6" />
                                 <Border Height="360" Background="#F2E7DB" BorderBrush="#D6B997" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
                                     <Grid>
                                         <Image Source="{Binding ProductImage}" Stretch="UniformToFill" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
@@ -439,7 +435,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Grid.Style>
-                                            <Canvas Width="160" Height="155" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,42">
+                                            <Canvas Width="160" Height="155" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <Rectangle Canvas.Left="20" Canvas.Top="12" Width="120" Height="126" RadiusX="8" Fill="#9A6237" />
                                                 <Rectangle Canvas.Left="28" Canvas.Top="20" Width="50" Height="110" RadiusX="3" Fill="#B97D46" />
                                                 <Rectangle Canvas.Left="82" Canvas.Top="20" Width="50" Height="110" RadiusX="3" Fill="#8B5026" />
@@ -448,10 +444,6 @@
                                                 <Rectangle Canvas.Left="28" Canvas.Top="138" Width="12" Height="8" Fill="#623510" />
                                                 <Rectangle Canvas.Left="120" Canvas.Top="138" Width="12" Height="8" Fill="#623510" />
                                             </Canvas>
-                                            <StackPanel VerticalAlignment="Bottom" Margin="24,0,24,24">
-                                                <TextBlock Text="اختر صورة واضحة للمنتج" FontWeight="SemiBold" TextAlignment="Center" />
-                                                <TextBlock Text="تظهر هنا كمعاينة كبيرة قبل المتابعة" Foreground="{StaticResource MutedBrush}" FontSize="13" TextAlignment="Center" Margin="0,5,0,0" />
-                                            </StackPanel>
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -470,7 +462,6 @@
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="OpenPartPickerClick" automation:AutomationProperties.Name="إضافة جزء للأثاث" Content="إضافة جزء" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
                                 <TextBlock Text="الأجزاء المستخدمة" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="اختر الجزء، ثم اضبط الكمية وشاهد التكلفة المحدثة." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
                         <Border Style="{StaticResource Card}" Padding="0">
@@ -569,7 +560,6 @@
                                 <controls:AmountDisplay Grid.Column="0" VerticalAlignment="Center" FontSize="29" FontWeight="Bold" Foreground="White" AmountText="{Binding CurrentPartsCostLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
                                 <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
                                     <TextBlock Text="تكلفة الأجزاء الحالية" Foreground="White" FontSize="14" FontWeight="SemiBold" />
-                                    <TextBlock Text="تُحدّث مع كل تغيير في الكمية" Foreground="#D8C8B8" FontSize="13" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -583,7 +573,6 @@
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="AddVariantClick" automation:AutomationProperties.Name="إضافة مقاس" Content="إضافة مقاس" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
                                 <TextBlock Text="المقاسات الثابتة" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="قارن المقاسات التي يحددها المدير لهذا المنتج." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
                         <ItemsControl ItemsSource="{Binding Variants}">
@@ -628,10 +617,25 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <controls:EmptyState Heading="لا توجد مقاسات بعد" Description="أضف أول مقاس ثابت لتبدأ المقارنة.">
+                        <controls:EmptyState Heading="لا توجد مقاسات بعد">
                             <controls:EmptyState.Style>
                                 <Style TargetType="controls:EmptyState" BasedOn="{StaticResource {x:Type controls:EmptyState}}">
                                     <Setter Property="Visibility" Value="Collapsed" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="controls:EmptyState">
+                                                <Border x:Name="EmptySurface" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="10">
+                                                    <TextBlock x:Name="EmptyHeading" Text="{TemplateBinding Heading}" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
+                                                        <Setter TargetName="EmptySurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                        <Setter TargetName="EmptyHeading" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasVariants}" Value="False">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -650,7 +654,6 @@
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="AddColorClick" automation:AutomationProperties.Name="إضافة لون" Content="إضافة لون" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="16,0,0,0">
                                 <TextBlock Text="الألوان المتاحة" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="الخيارات المتاحة لموظف الاستقبال، مع تعديل السعر لكل خيار." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
                         <ItemsControl x:Name="ColorsOptions" ItemsSource="{Binding Colors}" HorizontalContentAlignment="Stretch">
@@ -711,7 +714,6 @@
                             <Button Grid.Column="0" Style="{StaticResource PrimaryButton}" Height="45" Click="AddHandleClick" automation:AutomationProperties.Name="إضافة مقبض" Content="إضافة مقبض" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" Margin="16,0,0,0">
                                 <TextBlock Text="المقابض المتاحة" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="الخيارات المتاحة لموظف الاستقبال، مع تعديل السعر لكل خيار." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
                         <ItemsControl x:Name="HandlesOptions" ItemsSource="{Binding Handles}" HorizontalContentAlignment="Stretch">
@@ -786,12 +788,8 @@
                             </Border>
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
                                 <TextBlock Text="تسعير المقاسات" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="حدّد سعر البيع لكل مقاس. يظهر هامش الربح مباشرة للمقارنة." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
-                        <Border Background="#FBF4EC" BorderBrush="#E2C8AC" BorderThickness="1" CornerRadius="10" Padding="16,11" Margin="0,0,0,12">
-                            <TextBlock Text="التكلفة للمرجع فقط. سعر البيع هو القيمة التي ستظهر للعميل." Foreground="#704217" FontSize="13" />
-                        </Border>
                         <ItemsControl ItemsSource="{Binding Variants}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -854,7 +852,6 @@
                             </Border>
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
                                 <TextBlock Text="مراجعة المنتج" FontSize="24" FontWeight="Bold" />
-                                <TextBlock Text="راجع المعلومات والخيارات قبل حفظ التعريف." Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </StackPanel>
                         </Grid>
                         <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,18">
@@ -926,7 +923,6 @@
                             <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18">
                                 <StackPanel FlowDirection="RightToLeft">
                                     <TextBlock Text="المقابض المتاحة" FontSize="16" FontWeight="Bold" />
-                                    <TextBlock Text="المقابض النشطة وفرق السعر" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,3,0,12" />
                                     <ItemsControl ItemsSource="{Binding Handles}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -962,7 +958,6 @@
                             <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18">
                                 <StackPanel FlowDirection="RightToLeft">
                                     <TextBlock Text="الألوان المتاحة" FontSize="16" FontWeight="Bold" />
-                                    <TextBlock Text="الألوان النشطة وفرق السعر" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,3,0,12" />
                                     <ItemsControl ItemsSource="{Binding Colors}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -1070,13 +1065,11 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="يُضاف الجزء بكمية أولية يمكنك تعديلها." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,35,0,0" />
-                <TextBox x:Name="PartSearchBox" Text="{Binding PartSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن جزء متاح" Grid.Row="1" Margin="0,18,0,12" Style="{StaticResource SearchInput}" />
-                <Border Grid.Row="2">
+                <TextBox x:Name="PartSearchBox" Text="{Binding PartSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن جزء متاح" Grid.Row="0" Margin="0,0,0,12" Style="{StaticResource SearchInput}" />
+                <Border Grid.Row="1">
                     <ItemsControl ItemsSource="{Binding FilteredParts}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -1161,7 +1154,6 @@
                 <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,10,0,0">
                     <StackPanel>
                         <TextBlock Text="الخيارات المتوافقة" FontSize="16" FontWeight="SemiBold" />
-                        <TextBlock Text="حدّد الخيارات المسموحة لهذا المقاس. دون تحديد في القائمة، تُسمح كل خياراتها." Foreground="{DynamicResource MutedBrush}" FontSize="13" Margin="0,4,0,8" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -1198,7 +1190,6 @@
                 </StackPanel>
             </controls:DialogHost.Footer>
             <StackPanel FlowDirection="RightToLeft">
-                <TextBlock Text="أضف خياراً واضحاً مع فرق السعر الذي سيظهر لاحقاً." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,18" />
                 <controls:FormField Label="اسم اللون">
                     <TextBox x:Name="ColorNameBox" Text="{Binding ColorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم اللون" />
                 </controls:FormField>
@@ -1241,11 +1232,10 @@
                 </StackPanel>
             </controls:DialogHost.Footer>
             <StackPanel FlowDirection="RightToLeft">
-                <TextBlock Text="أضف المقبض مع فرق السعر الذي سيراه موظف الاستقبال." Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,18" />
                 <controls:FormField Label="اسم المقبض">
                     <TextBox x:Name="HandleNameBox" Text="{Binding HandleName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المقبض" />
                 </controls:FormField>
-                <controls:FormField Label="تعديل السعر" Margin="0,17,0,0" HelpText="سيُختار الرسم المناسب تلقائياً في المعاينة.">
+                <controls:FormField Label="تعديل السعر" Margin="0,17,0,0">
                     <TextBox Text="{Binding HandlePriceAdjustment, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="تعديل سعر المقبض" />
                 </controls:FormField>
                 <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0" />

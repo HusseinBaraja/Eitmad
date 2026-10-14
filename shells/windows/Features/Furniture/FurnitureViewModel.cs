@@ -212,7 +212,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
                 Raise(nameof(IsStepFour));
                 Raise(nameof(IsStepFive));
                 Raise(nameof(IsStepSix));
-                Raise(nameof(EditorStepDescription));
             }
         }
     }
@@ -228,16 +227,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
     public bool IsStepFive => CurrentStep == 5;
 
     public bool IsStepSix => CurrentStep == 6;
-
-    public string EditorStepDescription => CurrentStep switch
-    {
-        2 => "اختر الأجزاء، واضبط الكمية، وشاهد التكلفة المحدثة.",
-        3 => "أضف المقاسات الثابتة التي يحددها المدير.",
-        4 => "حدّد الألوان والمقابض التي يمكن اختيارها لاحقاً.",
-        5 => "حدّد سعر بيع كل مقاس وقارن هامش الربح مباشرة.",
-        6 => "راجع الأثاث كاملاً قبل حفظ المسودة أو التعريف.",
-        _ => "أنشئ معلومات المنتج الأساسية قبل المتابعة.",
-    };
 
     public string EditorName { get => editorName; set => Set(ref editorName, value ?? string.Empty); }
 
