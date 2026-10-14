@@ -37,7 +37,7 @@ public static class QuotationCustomerDocument
             row.Cells.Add(options);
             row.Cells.Add(Cell(line.Quantity.ToString(CultureInfo.InvariantCulture), true));
             row.Cells.Add(Cell(Money(line.UnitPriceYer), true)); row.Cells.Add(Cell(Money(line.TotalYer), true));
-            table.RowGroups[0].Rows.Add(row);
+            AddItem(table, row);
         }
         document.Blocks.Add(table);
         AddTotals(document, ("المجموع الفرعي", Money(saved.SubtotalYer)),
@@ -72,7 +72,7 @@ public static class QuotationCustomerDocument
             row.Cells.Add(Cell(line.Name)); row.Cells.Add(Cell(line.Options.Length == 0 ? "—" : line.Options));
             row.Cells.Add(Cell(line.Quantity.ToString(CultureInfo.InvariantCulture), true));
             row.Cells.Add(Cell(Money(line.UnitPrice), true)); row.Cells.Add(Cell(Money(line.LineTotal), true));
-            table.RowGroups[0].Rows.Add(row);
+            AddItem(table, row);
         }
         document.Blocks.Add(table);
         AddTotals(document, ("المجموع الفرعي", Money(model.Subtotal)), ("الخصم", Money(model.Discount)), ("الإجمالي النهائي", Money(model.FinalTotal)));

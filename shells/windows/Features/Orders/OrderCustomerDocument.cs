@@ -39,7 +39,7 @@ public static class OrderCustomerDocument
             }
             row.Cells.Add(options); row.Cells.Add(Cell(line.QuantityLabel, true));
             row.Cells.Add(Cell(line.SellingPriceLabel, true)); row.Cells.Add(Cell(line.Total.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " ر.ي", true));
-            table.RowGroups[0].Rows.Add(row);
+            AddItem(table, row);
         }
         document.Blocks.Add(table);
         AddTotals(document, ("المجموع الفرعي", order.SubtotalLabel), ("الخصم", order.DiscountLabel), ("الإجمالي النهائي", order.FinalTotalLabel));

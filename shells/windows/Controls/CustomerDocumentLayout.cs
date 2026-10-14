@@ -71,6 +71,19 @@ internal static class CustomerDocumentLayout
         return table;
     }
 
+    internal static void AddItem(Table table, TableRow row)
+    {
+        // Keep each cell's complete paragraph chain on the same page. WPF uses the
+        // tallest cell to place the row. These are soft constraints: an exceptional
+        // cell taller than the printable page can still flow without clipping text.
+        foreach (var cell in row.Cells)
+            foreach (var paragraph in cell.Blocks.OfType<Paragraph>()) {
+                paragraph.KeepTogether = true;
+                paragraph.KeepWithNext = paragraph != cell.Blocks.LastBlock;
+            }
+        table.RowGroups[0].Rows.Add(row);
+    }
+
     internal static void AddTotals(FlowDocument document, params (string Label, string Value)[] values)
     {
         var table = Columns(347.7, 210, 140);

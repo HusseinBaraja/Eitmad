@@ -178,6 +178,77 @@ public sealed class CustomerDocumentsRenderedTests
         });
     }
 
+    internal static CustomerDocument MultiPageSaved(bool order)
+    {
+        var saved = Saved(order);
+        saved.Customer.Name = "شركة الأثاث التجريبية";
+        saved.Lines = Enumerable.Range(0, 36).Select(i => new CustomerDocumentLine {
+            Name = $"خزانة تجريبية A-{i}", Description = "نص عربي طويل لقياس التفاف السطر", VariantName = "بابان",
+            Dimensions = new() { WidthMm = 1200, HeightMm = 1800, DepthMm = 600 },
+            Quantity = 1, UnitPriceYer = 12500, TotalYer = 12500,
+        }).ToArray();
+        saved.SubtotalYer = 450000; saved.DiscountYer = 22500; saved.TotalYer = 427500;
+        return saved;
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void NormalLineRowsStayTogetherAcrossPages(bool order)
+    {
+        WpfTestHost.Run(1920, 1080, window => {
+            window.Left = 0; window.WindowState = WindowState.Maximized;
+            var saved = MultiPageSaved(order);
+            saved.Lines[12].ColorName = "جوزي"; saved.Lines[12].HandleName = "معدن H-2";
+            var document = order ? OrderCustomerDocument.CreateSaved(saved) : QuotationCustomerDocument.CreateSaved(saved);
+            var pages = new CustomerDocumentPages(document);
+            Assert.IsTrue(pages.PageCount > 1);
+            var paginator = (DynamicDocumentPaginator)((IDocumentPaginatorSource)document).DocumentPaginator;
+            var rows = document.Blocks.OfType<Table>().Single(table => Equals(table.Tag, CustomerDocumentLayout.ItemsTag)).RowGroups[0].Rows;
+            for (var index = 0; index < saved.Lines.Length; index++) {
+                var row = rows[index + 1];
+                var firstPage = paginator.GetPageNumber(row.Cells[0].Blocks.FirstBlock.ContentStart);
+                foreach (var paragraph in row.Cells.SelectMany(cell => cell.Blocks.OfType<Paragraph>())) {
+                    Assert.AreEqual(firstPage, paginator.GetPageNumber(paragraph.ContentStart), $"A-{index}: cell starts on another page.");
+                    Assert.AreEqual(firstPage, paginator.GetPageNumber(paragraph.ContentEnd), $"A-{index}: cell ends on another page.");
+                }
+            }
+            if (!order) Assert.AreEqual(1, paginator.GetPageNumber(rows[9].Cells[0].Blocks.FirstBlock.ContentStart), "A-8 must move intact to page 2.");
+        });
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void OversizedLineFlowsWithoutLosingTextOrBlockingPagination(bool order)
+    {
+        WpfTestHost.Run(1920, 1080, window => {
+            window.Left = 0; window.WindowState = WindowState.Maximized;
+            var saved = MultiPageSaved(order);
+            var markers = Enumerable.Range(0, 130).Select(i => $"TALL-{i:D3}").ToArray();
+            saved.Lines[8].Description = string.Join("\n", markers.Select(marker => "وصف عربي طويل " + marker));
+            var document = order ? OrderCustomerDocument.CreateSaved(saved) : QuotationCustomerDocument.CreateSaved(saved);
+            var preview = new PrintPreview { Document = document };
+            window.Content = preview; WpfTestHost.CompleteLayout(window);
+            var paginator = preview.Pages.Document.DocumentPaginator;
+            Assert.IsTrue(paginator.PageCount > 4 && paginator.PageCount < 10, "The oversized row must make finite progress across pages.");
+            var exportedText = "";
+            for (var index = 0; index < paginator.PageCount; index++) {
+                var page = paginator.GetPage(index);
+                var text = string.Concat(WpfTestHost.Descendants<Glyphs>(page.Visual).Select(glyph => glyph.UnicodeString));
+                exportedText += text;
+                Assert.IsTrue(text.Contains($"{index + 1} / {paginator.PageCount}"), "Every page must retain its number.");
+                if (index > 0 && text.Contains("TALL-"))
+                    foreach (var header in new[] { "الصنف", "الخيارات المحددة", "الكمية", "سعر الوحدة", "الإجمالي" })
+                        Assert.IsTrue(text.Contains(header), "Oversized row continuation must retain column headings.");
+            }
+            foreach (var marker in markers) Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Matches(exportedText, marker).Count, marker);
+            foreach (var line in saved.Lines)
+                Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Matches(exportedText, @"A-\d+").Count(match => match.Value == line.Name.Split(' ').Last()), line.Name);
+            Assert.IsTrue(exportedText.Contains("427,500"), "The unchanged Rust total must survive oversized row pagination.");
+        });
+    }
+
     private static void AssertNativePreviewCommands(MainWindow window, PrintPreview preview, int width)
     {
         // Execute with the same explicit target as a native Button, rather than the test's focus.
