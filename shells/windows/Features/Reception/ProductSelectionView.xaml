@@ -7,7 +7,7 @@
   </Style>
  </ResourceDictionary></UserControl.Resources>
  <Grid Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
- <Grid Margin="20,12" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
+ <Grid Style="{StaticResource SelectionWorkspace}" MaxHeight="480" VerticalAlignment="Top" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Grid Margin="0,0,0,10">
    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -44,23 +44,22 @@
    </StackPanel>
   </ScrollViewer>
   <Border x:Name="SelectionReview" Grid.Row="2" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="0,1,0,0" Margin="0,8,0,0" Padding="0,8,0,0">
-   <StackPanel>
+   <StackPanel MaxWidth="820" HorizontalAlignment="Left">
     <WrapPanel x:Name="CurrentOptions" Margin="0,0,0,6" Visibility="{Binding HasVariants, Converter={StaticResource BooleanToVisibility}}">
      <TextBlock Text="الاختيار:" FontWeight="SemiBold" Margin="0,0,8,0"/>
      <TextBlock reception:SalesText.Value="{Binding SelectedVariant.Name}"/>
     </WrapPanel>
-    <Grid>
-     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <WrapPanel HorizontalAlignment="Left">
      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
       <TextBlock Text="الكمية" Margin="0,0,8,0" VerticalAlignment="Center"/>
       <controls:QuantityStepper x:Name="QuantityControl" Value="{Binding Quantity}"/>
      </StackPanel>
-     <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12,0">
+     <StackPanel VerticalAlignment="Center" Margin="28,0">
       <TextBlock Text="الإجمالي"/>
       <controls:AmountDisplay x:Name="LineTotal" AmountText="{Binding LineTotalLabel}" UnitText="ر.ي" UnitPlacement="After" FontSize="22" FontWeight="Bold" HorizontalAlignment="Left"/>
      </StackPanel>
-     <Button x:Name="AddButton" Grid.Column="2" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="48" VerticalAlignment="Center" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
-    </Grid>
+     <Button x:Name="AddButton" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="48" VerticalAlignment="Center" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
+    </WrapPanel>
     <TextBlock x:Name="SelectionGuidance" Text="{Binding Guidance}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0">
      <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers>
       <DataTrigger Binding="{Binding Guidance}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
