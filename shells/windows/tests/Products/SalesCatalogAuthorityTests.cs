@@ -83,9 +83,39 @@ public sealed class SalesCatalogAuthorityTests
         engine.QueryBarrier = q => { if (q.AsSalesCatalogCheck() is not null) { entered.TrySetResult(); return pending.Task; } return Task.CompletedTask; };
         selection.WidthCm = "١٣٠٫٥"; var oldCheck = model.LastCatalogOperation; await entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.IsFalse(selection.CanAdd);
+        Assert.IsTrue(selection.IsEvaluating);
         selection.WidthCm = "invalid"; await model.LastCatalogOperation; pending.SetResult(); await oldCheck;
-        Assert.IsFalse(selection.CanAdd); Assert.IsTrue(selection.Guidance.Contains("السنتيمتر"));
+        Assert.IsFalse(selection.CanAdd); Assert.IsFalse(selection.IsEvaluating); Assert.IsFalse(string.IsNullOrEmpty(selection.WidthError));
         await model.DeactivateCatalogAsync(); Assert.IsFalse(model.IsSelecting);
+    }
+    [TestMethod]
+    public async Task DimensionFormatErrorsStayWithEachInputUntilCorrected()
+    {
+        await using var engine = new FakeEngine(); var entry = Entry(true); engine.QueryHandler = q => Handle(q, entry);
+        await using var client = new SalesCatalogClient(engine); var model = Model(client); await model.ActivateCatalogAsync();
+        model.Select(model.VisibleItems[0]); await model.LastCatalogOperation;
+        var selection = model.Selection!; selection.SelectedSize = selection.Sizes[0]; await model.LastCatalogOperation;
+        selection.WidthCm = "invalid"; selection.HeightCm = ""; selection.DepthCm = "٦٠٫٠١";
+        await model.LastCatalogOperation;
+        Assert.IsFalse(string.IsNullOrEmpty(selection.WidthError));
+        Assert.IsFalse(string.IsNullOrEmpty(selection.HeightError));
+        Assert.IsFalse(string.IsNullOrEmpty(selection.DepthError));
+        Assert.AreEqual("invalid", selection.WidthCm);
+        Assert.AreEqual("", selection.Guidance);
+        Assert.IsFalse(selection.IsEvaluating); Assert.IsFalse(selection.CanAdd); Assert.AreEqual("—", selection.LineTotalLabel);
+        selection.WidthCm = "١٣٠٫٥"; selection.HeightCm = "٢٠٠";
+        Assert.AreEqual("", selection.WidthError); Assert.AreEqual("", selection.HeightError);
+        Assert.IsFalse(string.IsNullOrEmpty(selection.DepthError));
+        selection.DepthCm = "٦٠"; await model.LastCatalogOperation;
+        Assert.AreEqual("", selection.DepthError); Assert.IsTrue(selection.CanAdd);
+        Assert.AreEqual(1305, selection.Configuration!.Dimensions.WidthMm);
+        Assert.AreEqual(12777m, selection.UnitPrice); Assert.AreEqual(25554m, selection.LineTotal);
+        engine.QueryHandler = q => q.AsSalesCatalogCheck() is not null ? Failure(ProtocolIds.ErrorCodes.EitmadErrorContractInvalidV1) : Handle(q, entry);
+        selection.WidthCm = "150.1"; await model.LastCatalogOperation;
+        Assert.AreEqual("", selection.WidthError, "Rust owns dimension bounds; a parsed value is not a format error.");
+        Assert.IsFalse(selection.IsEvaluating); Assert.IsFalse(selection.CanAdd); Assert.AreEqual("—", selection.LineTotalLabel);
+        Assert.IsFalse(string.IsNullOrEmpty(selection.Guidance), "Keep the actual authority failure visible.");
+        await model.DeactivateCatalogAsync();
     }
     [TestMethod]
     public async Task EngineDisconnectionAndArchivedItemRemainExplicitAndCannotAdd()

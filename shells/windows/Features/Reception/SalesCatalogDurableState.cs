@@ -149,7 +149,7 @@ public sealed partial class SalesCatalogViewModel
         var f = Selection; var p = ProductSelection;
         var input = f?.ConfigurationInput() ?? p?.ConfigurationInput();
         if (catalogClient is null || input is null || !catalogActive) return;
-        f?.Fail("جارٍ التحقق من الاختيار..."); p?.Fail("جارٍ التحقق من الاختيار...");
+        f?.BeginEvaluation(); p?.Fail("جارٍ التحقق من الاختيار...");
         try
         {
             await Task.Delay(200, token);

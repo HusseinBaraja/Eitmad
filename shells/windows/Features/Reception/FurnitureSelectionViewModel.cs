@@ -17,11 +17,13 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
 {
     private Eitmad.Contracts.SalesConfiguration? configuration;
     private string validationMessage = "";
+    public bool IsEvaluating { get; private set; }
     private string widthCm = "", heightCm = "", depthCm = "";
     public event EventHandler? Changed;
     public Eitmad.Contracts.SalesConfiguration? Configuration => configuration;
-    public void Apply(Eitmad.Contracts.SalesConfiguration value) { configuration = value; validationMessage = SalesCatalogViewModel.Availability(value.ServerAvailable); RaiseState(); }
-    public void Fail(string message) { configuration = null; validationMessage = message; RaiseState(); }
+    public void Apply(Eitmad.Contracts.SalesConfiguration value) { IsEvaluating = false; configuration = value; validationMessage = SalesCatalogViewModel.Availability(value.ServerAvailable); RaiseState(); }
+    public void Fail(string message) { IsEvaluating = false; configuration = null; validationMessage = message; RaiseState(); }
+    public void BeginEvaluation() { configuration = null; validationMessage = ""; IsEvaluating = true; RaiseState(); }
     public bool CanCustomize => SelectedSize?.Entry?.Customization is not null;
     public string WidthCm { get => widthCm; set { if (Set(ref widthCm, value)) Refresh(); } }
     public string HeightCm { get => heightCm; set { if (Set(ref heightCm, value)) Refresh(); } }
@@ -29,13 +31,18 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     public string WidthRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.WidthMm, c.Maximum.WidthMm) : "";
     public string HeightRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.HeightMm, c.Maximum.HeightMm) : "";
     public string DepthRange => SelectedSize?.Entry?.Customization is { } c ? DimensionRange(c.Minimum.DepthMm, c.Maximum.DepthMm) : "";
+    public string WidthError => DimensionError(WidthCm);
+    public string HeightError => DimensionError(HeightCm);
+    public string DepthError => DimensionError(DepthCm);
+    private string DimensionError(string text) => CanCustomize && !Millimetres(text, out _)
+        ? "خطأ: أدخل رقمًا بمنزلة عشرية واحدة كحد أقصى." : "";
     private static string DimensionRange(long minimum, long maximum) => minimum == maximum
         ? FormattableString.Invariant($"{minimum / 10m:0.#}")
         : FormattableString.Invariant($"{minimum / 10m:0.#}–{maximum / 10m:0.#}");
     public Eitmad.Contracts.CheckSalesConfiguration? ConfigurationInput()
     {
         if (SelectedSize?.Entry is not { } e) return null;
-        if (!Millimetres(WidthCm, out var w) || !Millimetres(HeightCm, out var h) || !Millimetres(DepthCm, out var d)) { Fail("أدخل المقاسات بالسنتيمتر، بمنزلة عشرية واحدة كحد أقصى."); return null; }
+        if (!Millimetres(WidthCm, out var w) || !Millimetres(HeightCm, out var h) || !Millimetres(DepthCm, out var d)) { Fail(""); return null; }
         return new() { Selection = new() { Target = e.Price.Target, PriceRevision = e.Price.Revision, ColorId = SelectedColor?.Id, HandleId = SelectedHandle?.Id, Quantity = Quantity }, Dimensions = new() { WidthMm = w, HeightMm = h, DepthMm = d } };
     }
     /// <summary>Parses Arabic numeric centimetres into exact whole millimetres without rounding or applying domain bounds.</summary>
@@ -102,12 +109,12 @@ public sealed class FurnitureSelectionViewModel : ObservableObject
     /// <summary>Invalidates checked totals when inputs change and notifies the catalog to request Rust validation.</summary>
     private void Refresh()
     {
-        if (Item.Entry is not null) { configuration = null; validationMessage = ""; }
+        if (Item.Entry is not null) { IsEvaluating = false; configuration = null; validationMessage = ""; }
         RaiseState(); Changed?.Invoke(this, EventArgs.Empty);
     }
     private void RaiseState()
     {
-        foreach (var name in new[] { nameof(CanAdd), nameof(Guidance), nameof(BasePriceLabel), nameof(AdditionsLabel), nameof(UnitPrice), nameof(LineTotal), nameof(UnitPriceLabel), nameof(LineTotalLabel) }) Raise(name);
+        foreach (var name in new[] { nameof(CanAdd), nameof(Guidance), nameof(IsEvaluating), nameof(WidthError), nameof(HeightError), nameof(DepthError), nameof(BasePriceLabel), nameof(AdditionsLabel), nameof(UnitPrice), nameof(LineTotal), nameof(UnitPriceLabel), nameof(LineTotalLabel) }) Raise(name);
     }
 }
 

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -6,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.IO;
 using Eitmad.WindowsShell.Features.Reception;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Tests.Products;
 using Eitmad.WindowsShell.Tests.TestDoubles;
 
@@ -74,20 +76,54 @@ public sealed class SalesCatalogAuthorityRenderedTests
                 var operation = model.LastCatalogOperation;
                 Finish(entered.Task); WpfTestHost.CompleteLayout(window);
                 Assert.IsFalse(detail.AddButton.IsEnabled);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(detail.SelectionGuidance.Text));
+                Assert.IsTrue(model.Selection.IsEvaluating);
+                var status = WpfTestHost.FindByName<TextBlock>(detail, "EvaluationStatus");
+                Assert.IsTrue(status.IsVisible);
+                Assert.AreEqual(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(status));
+                Assert.AreEqual(Visibility.Collapsed, detail.SelectionGuidance.Visibility);
+                var statusBounds = status.TransformToAncestor(detail).TransformBounds(new Rect(status.RenderSize));
+                var totalBounds = detail.LineTotal.TransformToAncestor(detail).TransformBounds(new Rect(detail.LineTotal.RenderSize));
+                Assert.IsTrue(statusBounds.Top >= totalBounds.Bottom - 1 && statusBounds.Top <= totalBounds.Bottom + 8,
+                    "Pending authority status belongs directly below the total.");
+                Assert.AreEqual("—", detail.LineTotal.Text);
                 WpfTestHost.Capture(window, $"ui29-dimensions-pending-{width}x{height}");
                 pending.SetResult(); Finish(operation);
                 Assert.IsTrue(model.Selection.CanAdd);
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(status.IsVisible);
                 Assert.AreEqual(1305, model.Selection.Configuration!.Dimensions.WidthMm);
 
                 inputs[0].Text = "invalid"; Finish(model.LastCatalogOperation); WpfTestHost.CompleteLayout(window);
                 Assert.IsFalse(detail.AddButton.IsEnabled);
-                Assert.AreEqual(model.Selection.Guidance, detail.SelectionGuidance.Text);
-                var guidance = detail.SelectionGuidance.TransformToAncestor(detail)
-                    .TransformBounds(new Rect(detail.SelectionGuidance.RenderSize));
-                Assert.IsTrue(guidance.Left >= 0 && guidance.Right <= detail.ActualWidth + 1
-                    && guidance.Bottom <= detail.ActualHeight + 1, "Invalid guidance must remain visible.");
+                Assert.IsFalse(status.IsVisible);
+                Assert.AreEqual("—", detail.LineTotal.Text);
+                Assert.AreEqual(Visibility.Collapsed, detail.SelectionGuidance.Visibility);
+                var field = WpfTestHost.Ancestor<FormField>(inputs[0]);
+                var error = (TextBlock)field.Template.FindName("Error", field);
+                Assert.IsTrue(error.IsVisible);
+                Assert.AreEqual(model.Selection.WidthError, error.Text);
+                Assert.AreEqual(error.Text, AutomationProperties.GetItemStatus(inputs[0]));
+                Assert.AreEqual(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(error));
+                Assert.IsNotNull(AutomationProperties.GetLabeledBy(inputs[0]));
+                Assert.AreEqual(model.Selection.WidthRange, AutomationProperties.GetHelpText(inputs[0]));
+                Assert.AreEqual(new Thickness(2), inputs[0].BorderThickness);
+                var inputBounds = inputs[0].TransformToAncestor(options).TransformBounds(new Rect(inputs[0].RenderSize));
+                var errorBounds = error.TransformToAncestor(options).TransformBounds(new Rect(error.RenderSize));
+                Assert.IsTrue(errorBounds.Top >= inputBounds.Bottom && errorBounds.Top <= inputBounds.Bottom + 12,
+                    "The error must appear beside its input.");
+                Assert.IsTrue(errorBounds.Bottom <= options.ActualHeight + 1 && errorBounds.Left >= 0 && errorBounds.Right <= options.ActualWidth + 1,
+                    "The complete field error must be visible.");
+                foreach (var valid in inputs.Skip(1))
+                    Assert.AreEqual("", WpfTestHost.Ancestor<FormField>(valid).ErrorText);
+                inputs[0].Focus(); Assert.IsTrue(inputs[0].IsKeyboardFocusWithin);
+                Assert.IsTrue(inputs[0].MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
                 WpfTestHost.Capture(window, $"ui29-dimensions-invalid-{width}x{height}");
+                inputs[0].Text = "١٣٠٫٥"; Finish(model.LastCatalogOperation); WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual("", field.ErrorText); Assert.AreEqual("", AutomationProperties.GetItemStatus(inputs[0]));
+                Assert.IsFalse(error.IsVisible); Assert.IsFalse(status.IsVisible); Assert.IsTrue(detail.AddButton.IsEnabled);
+                Assert.AreEqual(model.Selection.LineTotalLabel, detail.LineTotal.Text);
+                if (width == 1920)
+                    WpfTestHost.Capture(window, $"ui29-dimensions-corrected-{width}x{height}");
                 if (width == 1338)
                 {
                     detail.Resources[SystemParameters.HighContrastKey] = true;

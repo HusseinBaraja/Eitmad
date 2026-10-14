@@ -5,6 +5,16 @@
   <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
   </Style>
+  <Style x:Key="DimensionInput" TargetType="TextBox" BasedOn="{StaticResource TextInput}">
+   <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
+   <Setter Property="BorderThickness" Value="2"/>
+   <Setter Property="AutomationProperties.ItemStatus" Value="{Binding ErrorText, RelativeSource={RelativeSource AncestorType=controls:FormField}}"/>
+   <Style.Triggers>
+    <DataTrigger Binding="{Binding ErrorText, RelativeSource={RelativeSource AncestorType=controls:FormField}}" Value="">
+     <Setter Property="BorderBrush" Value="#DED6CE"/><Setter Property="BorderThickness" Value="1"/>
+    </DataTrigger>
+   </Style.Triggers>
+  </Style>
  </ResourceDictionary></UserControl.Resources>
  <Grid Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
  <Grid Style="{StaticResource SelectionWorkspace}" TextBlock.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
@@ -45,22 +55,22 @@
   <StackPanel Visibility="{Binding CanCustomize, Converter={StaticResource BooleanToVisibility}}">
    <Grid Margin="0,12,0,8" MaxWidth="600" HorizontalAlignment="Left">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <controls:FormField Label="العرض (سم)">
+    <controls:FormField Label="العرض (سم)" ErrorText="{Binding WidthError}">
      <StackPanel>
      <TextBlock x:Name="WidthRange" Text="{Binding WidthRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding WidthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العرض بالسنتيمتر" AutomationProperties.HelpText="{Binding WidthRange}"/>
+     <TextBox Style="{StaticResource DimensionInput}" Text="{Binding WidthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العرض بالسنتيمتر" AutomationProperties.HelpText="{Binding WidthRange}"/>
      </StackPanel>
     </controls:FormField>
-    <controls:FormField Grid.Column="2" Label="الارتفاع (سم)">
+    <controls:FormField Grid.Column="2" Label="الارتفاع (سم)" ErrorText="{Binding HeightError}">
      <StackPanel>
      <TextBlock x:Name="HeightRange" Text="{Binding HeightRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding HeightCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="الارتفاع بالسنتيمتر" AutomationProperties.HelpText="{Binding HeightRange}"/>
+     <TextBox Style="{StaticResource DimensionInput}" Text="{Binding HeightCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="الارتفاع بالسنتيمتر" AutomationProperties.HelpText="{Binding HeightRange}"/>
      </StackPanel>
     </controls:FormField>
-    <controls:FormField Grid.Column="4" Label="العمق (سم)">
+    <controls:FormField Grid.Column="4" Label="العمق (سم)" ErrorText="{Binding DepthError}">
      <StackPanel>
      <TextBlock x:Name="DepthRange" Text="{Binding DepthRange}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,0,0,4"/>
-     <TextBox Style="{StaticResource TextInput}" Text="{Binding DepthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العمق بالسنتيمتر" AutomationProperties.HelpText="{Binding DepthRange}"/>
+     <TextBox Style="{StaticResource DimensionInput}" Text="{Binding DepthCm, UpdateSourceTrigger=PropertyChanged}" FlowDirection="LeftToRight" AutomationProperties.Name="العمق بالسنتيمتر" AutomationProperties.HelpText="{Binding DepthRange}"/>
      </StackPanel>
     </controls:FormField>
    </Grid>
@@ -142,6 +152,7 @@
      <StackPanel VerticalAlignment="Center" Margin="28,0">
       <TextBlock Text="الإجمالي"/>
       <TextBlock x:Name="LineTotal" Text="{Binding LineTotalLabel}" FlowDirection="LeftToRight" FontSize="22" FontWeight="Bold"/>
+      <TextBlock x:Name="EvaluationStatus" Text="جارٍ التحقق من الاختيار..." FontSize="12" TextWrapping="Wrap" MaxWidth="180" Visibility="{Binding IsEvaluating, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.LiveSetting="Polite"/>
      </StackPanel>
      <Button x:Name="AddButton" Content="{Binding ActionLabel}" Style="{StaticResource PrimaryButton}" MinHeight="48" VerticalAlignment="Center" IsEnabled="{Binding CanAdd}" Click="AddClick" AutomationProperties.Name="{Binding ActionLabel}"/>
     </WrapPanel>
