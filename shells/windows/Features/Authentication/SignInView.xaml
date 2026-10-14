@@ -58,12 +58,6 @@
                            FontSize="28"
                            FontWeight="Bold"
                            TextAlignment="Right" />
-                <TextBlock Text="واجهة عربية واضحة لاستقبال العملاء وإدارة أعمال صناعة الأثاث."
-                           Foreground="#F3E9DE"
-                           FontSize="14"
-                           LineHeight="25"
-                           TextAlignment="Right"
-                           Margin="0,12,0,0" />
             </StackPanel>
         </Grid>
 
@@ -100,12 +94,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,30,0,0" />
-                    <TextBlock Text="أدخل بيانات حسابك للانتقال إلى مساحة العمل."
-                               TextWrapping="Wrap"
-                               Foreground="{StaticResource MutedBrush}"
-                               FontSize="13"
-                               Margin="0,8,0,25" />
+                    <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,24,0,24" />
 
                     <controls:FormField Label="اسم المستخدم" IsRequired="True">
                         <TextBox x:Name="UsernameBox"
