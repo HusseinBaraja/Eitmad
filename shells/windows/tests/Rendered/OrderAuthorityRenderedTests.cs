@@ -181,8 +181,28 @@ public sealed class OrderAuthorityRenderedTests
         AssertPrecedes(view, identity, items);
         AssertPrecedes(view, items, production);
         AssertPrecedes(view, production, actions);
-        Assert.AreEqual(Math.Min(720, WpfTestHost.Ancestor<StackPanel>(actions).ActualWidth), actions.ActualWidth, 1,
-            "The action area must use the available width up to its reading limit.");
+        var grid = WpfTestHost.FindByName<Grid>(view, "OrderCompletionGrid");
+        if (view.ViewModel.IsReceptionist)
+        {
+            var total = WpfTestHost.FindByName<Border>(view, "OrderTotal");
+            if (Layout.ResponsiveLayout.GetMode(actions) != Layout.ResponsiveLayoutMode.Compact)
+            {
+                Assert.AreEqual(total.TranslatePoint(new Point(), view).Y, actions.TranslatePoint(new Point(), view).Y, 1,
+                    "The total and delivery form must share a top edge.");
+                Assert.AreEqual(grid.ActualWidth - total.ActualWidth - 16, actions.ActualWidth, 1,
+                    "Delivery must fill the adjacent grid column.");
+            }
+            else
+            {
+                AssertPrecedes(view, total, actions);
+                Assert.AreEqual(grid.ActualWidth, actions.ActualWidth, 1);
+            }
+        }
+        else
+        {
+            Assert.AreEqual(Math.Min(720, grid.ActualWidth), actions.ActualWidth, 1,
+                "Manager actions must retain their reading limit.");
+        }
     }
 
     private static void CaptureCompactItems(OrdersView view, Window window, string itemsName, string role, int width)
