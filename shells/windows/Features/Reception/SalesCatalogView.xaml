@@ -4,8 +4,26 @@
     </ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
     <Grid>
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <controls:PageHeader Title="المنتجات" ContainsButton="True" ButtonText="{Binding QuotationLabel}" ButtonClick="OpenQuotationClick"
-        Visibility="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}, Converter={StaticResource BooleanToVisibility}}"/>
+    <controls:PageHeader x:Name="WorkflowHeader" ButtonClick="OpenQuotationClick"
+        Visibility="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}, Converter={StaticResource BooleanToVisibility}}">
+        <controls:PageHeader.Style>
+            <Style TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+                <Setter Property="Title" Value="المنتجات"/>
+                <Setter Property="ShowSubtitle" Value="False"/>
+                <Setter Property="ContainsButton" Value="True"/>
+                <Setter Property="ButtonText" Value="{Binding QuotationLabel}"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Title" Value="اختيار الصنف"/></DataTrigger>
+                    <DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True">
+                        <Setter Property="Title" Value="{Binding QuotationHeading}"/>
+                        <Setter Property="ContainsButton" Value="False"/>
+                        <Setter Property="ShowSubtitle" Value="True"/>
+                        <Setter Property="Subtitle" Value="{Binding QuotationLines.Count, StringFormat=عدد الأصناف: {0}}"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </controls:PageHeader.Style>
+    </controls:PageHeader>
     <Grid Grid.Row="1">
     <Grid x:Name="CatalogListing" Margin="28,20">
         <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>

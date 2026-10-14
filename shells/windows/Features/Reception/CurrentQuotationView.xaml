@@ -1,11 +1,19 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Reception.CurrentQuotationView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Reception.CurrentQuotationView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
  <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
  <StackPanel Margin="28,20">
   <Button x:Name="ContinueButton" Content="متابعة اختيار المنتجات" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Click="ContinueClick" AutomationProperties.Name="متابعة اختيار المنتجات"/>
   <controls:StatusBadge Text="بانتظار موافقة المدير" Tone="Neutral" HorizontalAlignment="Right" Margin="0,12,0,0" Visibility="{Binding IsDiscountPending, Converter={StaticResource BooleanToVisibility}}"/>
-  <TextBlock Text="عرض السعر" FontSize="28" FontWeight="Bold" Margin="0,18,0,0"/>
-  <TextBlock Text="{Binding QuotationHeading}" FontSize="18" Margin="0,4,0,8"/>
+  <TextBlock Text="{Binding QuotationHeading}" FontSize="28" FontWeight="Bold" Margin="0,18,0,8">
+   <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers>
+    <DataTrigger Binding="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+   </Style.Triggers></Style></TextBlock.Style>
+  </TextBlock>
+  <TextBlock reception:SalesText.Value="{Binding QuotationNumber}" FontSize="18" Margin="0,4,0,8">
+   <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Style.Triggers>
+    <DataTrigger Binding="{Binding QuotationNumber}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+   </Style.Triggers></Style></TextBlock.Style>
+  </TextBlock>
    <TextBlock Text="{Binding QuotationEditorGuidance}" TextWrapping="Wrap" Margin="0,0,0,20"/>
   <TextBlock Text="عرض السعر فارغ. تابع اختيار المنتجات لإضافة الأصناف." TextWrapping="Wrap" FontSize="20" Margin="0,20" Visibility="{Binding IsQuotationEmpty, Converter={StaticResource BooleanToVisibility}}"/>
   <controls:FormField Label="الأصناف" ErrorText="{Binding ItemsError}"><ItemsControl ItemsSource="{Binding QuotationLines}">
