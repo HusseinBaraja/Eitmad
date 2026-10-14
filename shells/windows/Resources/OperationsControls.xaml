@@ -482,6 +482,9 @@
                         <Trigger Property="Subtitle" Value="{x:Null}">
                             <Setter TargetName="ContrastPart1" Property="Visibility" Value="Hidden" />
                         </Trigger>
+                        <Trigger Property="ShowSubtitle" Value="False">
+                            <Setter TargetName="ContrastPart1" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
                         <Trigger Property="controls:ControlOptions.HighContrast" Value="True">
                             <Setter TargetName="ContrastPart0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                             <Setter TargetName="ContrastPart1" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />

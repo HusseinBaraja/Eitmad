@@ -12,6 +12,9 @@ public class PageHeader : System.Windows.Controls.ContentControl
     public static readonly DependencyProperty SubtitleProperty = DependencyProperty.Register(nameof(Subtitle), typeof(string), typeof(PageHeader), new PropertyMetadata(string.Empty));
     public string Subtitle { get => (string)GetValue(SubtitleProperty); set => SetValue(SubtitleProperty, value); }
 
+    public static readonly DependencyProperty ShowSubtitleProperty = DependencyProperty.Register(nameof(ShowSubtitle), typeof(bool), typeof(PageHeader), new PropertyMetadata(true));
+    public bool ShowSubtitle { get => (bool)GetValue(ShowSubtitleProperty); set => SetValue(ShowSubtitleProperty, value); }
+
     public static readonly DependencyProperty IconProperty = DependencyProperty.Register(nameof(Icon), typeof(object), typeof(PageHeader), new PropertyMetadata(null));
     public object Icon { get => (object)GetValue(IconProperty); set => SetValue(IconProperty, value); }
 

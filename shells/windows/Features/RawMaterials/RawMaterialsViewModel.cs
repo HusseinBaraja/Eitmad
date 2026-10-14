@@ -39,8 +39,6 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private long referenceDenominator = 1;
 
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
-    public string DataStatusLabel => "بيانات المواد الخام";
-    public string EditorHelpLabel => "راجع البيانات قبل حفظها.";
     public event EventHandler? SearchChanged;
     public RawMaterialListItem? EditingMaterial => editingMaterial;
     public RawMaterialReferenceOption? EditingReference => editingReference;
