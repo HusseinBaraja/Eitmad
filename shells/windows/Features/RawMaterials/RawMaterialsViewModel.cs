@@ -24,6 +24,9 @@ public sealed class RawMaterialsViewModel : ObservableObject
     private Guid? editorUnitId;
     private decimal editorCost;
     private string editorError = string.Empty;
+    private string editorCategoryError = string.Empty;
+    private string editorUnitError = string.Empty;
+    private string editorCostError = string.Empty;
     private string feedbackMessage = string.Empty;
     private RawMaterialReferenceOption? editingReference;
     private bool isCategoryReference = true;
@@ -193,11 +196,31 @@ public sealed class RawMaterialsViewModel : ObservableObject
             if (Set(ref editorError, value))
             {
                 Raise(nameof(HasEditorError));
+                Raise(nameof(HasEditorSummaryError));
             }
         }
     }
 
-    public bool HasEditorError => !string.IsNullOrEmpty(EditorError);
+    public string EditorCategoryError { get => editorCategoryError; private set => Set(ref editorCategoryError, value); }
+    public string EditorUnitError { get => editorUnitError; private set => Set(ref editorUnitError, value); }
+    public string EditorCostError { get => editorCostError; private set => Set(ref editorCostError, value); }
+    public bool HasEditorSummaryError => !string.IsNullOrEmpty(EditorError);
+    public bool HasEditorError => HasEditorSummaryError || EditorCategoryError.Length > 0
+        || EditorUnitError.Length > 0 || EditorCostError.Length > 0;
+
+    public void SetEditorInputErrors(bool categoryMissing, bool unitMissing, bool costInvalid)
+    {
+        EditorCategoryError = categoryMissing ? "اختر تصنيفاً متاحاً." : string.Empty;
+        EditorUnitError = unitMissing ? "اختر وحدة متاحة." : string.Empty;
+        EditorCostError = costInvalid ? "أدخل تكلفة بالريال اليمني دون كسور، مثل 8500." : string.Empty;
+        Raise(nameof(HasEditorError));
+    }
+
+    private void ClearEditorErrors()
+    {
+        EditorError = string.Empty;
+        SetEditorInputErrors(false, false, false);
+    }
 
     public string FeedbackMessage
     {
@@ -312,9 +335,8 @@ public sealed class RawMaterialsViewModel : ObservableObject
         {
             EditorCategoryId = priorEditorCategoryId;
             EditorUnitId = priorEditorUnitId;
-            if (!EditorCategories.Any(item => item.Id == priorEditorCategoryId)
-                || !EditorUnits.Any(item => item.Id == priorEditorUnitId))
-                EditorError = "تغير التصنيف أو الوحدة. اختر مرجعاً متاحاً قبل الحفظ.";
+            SetEditorInputErrors(!EditorCategories.Any(item => item.Id == priorEditorCategoryId),
+                !EditorUnits.Any(item => item.Id == priorEditorUnitId), EditorCostError.Length > 0);
         }
         materials.Clear();
         foreach (var record in records)
@@ -332,7 +354,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
     public void Saved(string message)
     {
         IsEditorOpen = false; IsReferenceEditorOpen = false; IsReferenceManagerOpen = false;
-        EditorError = string.Empty; ReferenceError = string.Empty;
+        ClearEditorErrors(); ReferenceError = string.Empty;
         FeedbackMessage = message;
     }
 
@@ -371,7 +393,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
         EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
         EditorCost = 0m;
-        EditorError = string.Empty;
+        ClearEditorErrors();
         IsEditorOpen = true;
     }
 
@@ -387,14 +409,14 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorCategoryId = material.CategoryId;
         EditorUnitId = material.UnitId;
         EditorCost = material.CurrentCost;
-        EditorError = string.Empty;
+        ClearEditorErrors();
         IsEditorOpen = true;
     }
 
     public void CancelEditor()
     {
         IsEditorOpen = false;
-        EditorError = string.Empty;
+        ClearEditorErrors();
     }
 
     private void RefreshEditorReferences()

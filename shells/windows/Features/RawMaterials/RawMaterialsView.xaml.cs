@@ -25,9 +25,14 @@ public partial class RawMaterialsView : UserControl
         DataContext = ViewModel;
         ViewModel.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(RawMaterialsViewModel.EditorError) && ViewModel.HasEditorError)
-                Dispatcher.BeginInvoke(new Action(() => EditorCostField.BringIntoView(
-                    new Rect(0, 0, EditorCostField.ActualWidth, EditorCostField.ActualHeight + 8))), DispatcherPriority.Loaded);
+            if (args.PropertyName == nameof(RawMaterialsViewModel.HasEditorError) && ViewModel.HasEditorError)
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FrameworkElement target = ViewModel.HasEditorSummaryError ? EditorSummary
+                        : ViewModel.EditorCategoryError.Length > 0 ? EditorCategoryField
+                        : ViewModel.EditorUnitError.Length > 0 ? EditorUnitField : EditorCostField;
+                    target.BringIntoView(new Rect(0, 0, target.ActualWidth, target.ActualHeight + 8));
+                }), DispatcherPriority.Loaded);
         };
     }
 
@@ -138,9 +143,10 @@ public partial class RawMaterialsView : UserControl
 
         var category = ViewModel.EditorCategories.FirstOrDefault(item => item.Id == ViewModel.EditorCategoryId);
         var unit = ViewModel.EditorUnits.FirstOrDefault(item => item.Id == ViewModel.EditorUnitId);
-        if (category?.Id is not { } categoryId || unit?.Id is not { } unitId
-            || !TryParseWholeCost(EditorCostBox.Text, out var cost))
-        { ViewModel.Fail("اختر تصنيفاً ووحدة، وأدخل تكلفة صحيحة بالريال اليمني."); return; }
+        var costValid = TryParseWholeCost(EditorCostBox.Text, out var cost);
+        ViewModel.Fail(string.Empty);
+        ViewModel.SetEditorInputErrors(category?.Id is null, unit?.Id is null, !costValid);
+        if (category?.Id is not { } categoryId || unit?.Id is not { } unitId || !costValid) return;
         ViewModel.EditorCost = cost;
         var failure = await client.SaveAsync(new SaveMaterial
         {

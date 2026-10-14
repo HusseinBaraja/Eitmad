@@ -281,19 +281,31 @@
                                     <ColumnDefinition />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <controls:FormField Label="الفئة">
-                                        <ComboBox Tag="category" ItemsSource="{Binding EditorCategories}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                    <controls:FormField x:Name="EditorCategoryField" Label="الفئة" ErrorText="{Binding EditorCategoryError}">
+                                        <ComboBox Tag="category" ItemsSource="{Binding EditorCategories}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorCategoryId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصنيف المادة الخام" automation:AutomationProperties.ItemStatus="{Binding EditorCategoryError}" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
-                                    <controls:FormField Label="الوحدة">
-                                        <ComboBox Tag="unit" ItemsSource="{Binding EditorUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorUnitId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
+                                    <controls:FormField x:Name="EditorUnitField" Label="الوحدة" ErrorText="{Binding EditorUnitError}">
+                                        <ComboBox Tag="unit" ItemsSource="{Binding EditorUnits}" DisplayMemberPath="DisplayLabel" SelectedValuePath="Id" SelectedValue="{Binding EditorUnitId, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="وحدة المادة الخام" automation:AutomationProperties.ItemStatus="{Binding EditorUnitError}" controls:ControlOptions.FooterTemplate="{StaticResource ReferenceActionsTemplate}" />
                                     </controls:FormField>
                                 </StackPanel>
                             </Grid>
-                            <controls:FormField x:Name="EditorCostField" Label="التكلفة الحالية (ر.ي)" ErrorText="{Binding EditorError}">
-                                <TextBox x:Name="EditorCostBox" Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource TextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="التكلفة الحالية بالريال اليمني" />
+                            <controls:FormField x:Name="EditorCostField" Label="التكلفة الحالية (ر.ي)" ErrorText="{Binding EditorCostError}">
+                                <TextBox x:Name="EditorCostBox" Text="{Binding EditorCost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource TextInput}" FontFamily="Segoe UI" FlowDirection="LeftToRight" TextAlignment="Right" automation:AutomationProperties.Name="التكلفة الحالية بالريال اليمني" automation:AutomationProperties.ItemStatus="{Binding EditorCostError}" />
                             </controls:FormField>
+                            <TextBlock x:Name="EditorSummary" Text="{Binding EditorError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="14" Margin="0,12,0,0" automation:AutomationProperties.Name="خطأ في حفظ المادة الخام" automation:AutomationProperties.LiveSetting="Assertive">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasEditorSummaryError}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>
