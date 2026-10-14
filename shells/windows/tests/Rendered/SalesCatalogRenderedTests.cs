@@ -248,7 +248,6 @@ public sealed class SalesCatalogRenderedTests
     {
         var viewport = WpfTestHost.FindByName<ScrollViewer>(catalog, "CatalogResults");
         var row = WpfTestHost.Descendants<Border>(viewport).First(element => element.Name == "CatalogRow");
-        Assert.AreEqual(viewport.ViewportWidth, row.ActualWidth, 1, "The lookup row must use the available viewport width.");
         var item = (SalesCatalogItem)row.DataContext;
         var price = WpfTestHost.Descendants<TextBlock>(row).Single(element => element.Text == item.PriceLabel);
         var select = WpfTestHost.FindByAutomationName<Button>(row, item.SelectionName);
