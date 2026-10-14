@@ -212,7 +212,7 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#ECE5DE" BorderThickness="0" Background="Transparent" MinHeight="76">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding DueDateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding DueDateLabel}" Style="{StaticResource TableBody}" FlowDirection="RightToLeft" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -300,7 +300,7 @@
                             </StackPanel>
                             <StackPanel Width="220" Margin="0,0,0,8">
                                 <TextBlock Text="موعد التسليم" Style="{StaticResource MetadataLabel}" />
-                                <TextBlock Text="{Binding SelectedWorkOrder.DueDateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
+                                <TextBlock Text="{Binding SelectedWorkOrder.DueDateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="RightToLeft" />
                             </StackPanel>
                         </WrapPanel>
                     </Border>
