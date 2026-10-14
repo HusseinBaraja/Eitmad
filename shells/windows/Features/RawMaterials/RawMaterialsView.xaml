@@ -265,7 +265,10 @@
                 </StackPanel>
             </controls:PageHeader>
             <ScrollViewer x:Name="EditorScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid Margin="28,16" MaxWidth="860" HorizontalAlignment="Stretch">
+                <Grid Margin="28,16" VerticalAlignment="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MaxWidth="640" />
+                    </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Card}" Padding="20">
                         <StackPanel>
                             <controls:FormField Label="اسم المادة">
