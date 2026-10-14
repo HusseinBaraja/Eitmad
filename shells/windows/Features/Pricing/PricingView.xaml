@@ -4,13 +4,49 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <controls:PageHeader Grid.Row="0" Title="التسعير" Subtitle="{Binding AvailabilityMessage}"></controls:PageHeader>
+        <controls:PageHeader Grid.Row="0" Title="التسعير" ShowSubtitle="False">
+            <WrapPanel>
+                <TextBlock Text="{Binding AvailabilityMessage}" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,0,12,0" />
+                <Button Content="إعادة تحميل الأسعار" Click="ReloadClick" Style="{StaticResource SecondaryButton}" automation:AutomationProperties.Name="إعادة تحميل الأسعار" />
+            </WrapPanel>
+        </controls:PageHeader>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="32,24,32,30">
-                <TextBlock x:Name="CatalogSyncIssueNotice" Text="{Binding SyncIssueMessage}" TextWrapping="Wrap" Margin="0,0,0,12"
-                           Visibility="{Binding HasSyncIssues, Converter={StaticResource BooleanToVisibility}}"
-                           automation:AutomationProperties.Name="تعريفات تحتاج مراجعة المزامنة" />
-                <Button Content="إعادة تحميل الأسعار" Click="ReloadClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,12" automation:AutomationProperties.Name="إعادة تحميل الأسعار" />
+                <Expander x:Name="CatalogSyncReview" Margin="0,0,0,12" FontSize="13"
+                          Visibility="{Binding HasSyncIssues, Converter={StaticResource BooleanToVisibility}}"
+                          automation:AutomationProperties.Name="مراجعة تعريفات المزامنة">
+                    <Expander.Header>
+                        <TextBlock x:Name="CatalogSyncIssueNotice" Text="{Binding SyncIssueMessage}" Foreground="{StaticResource DangerBrush}" />
+                    </Expander.Header>
+                    <ItemsControl ItemsSource="{Binding SyncIssues}" Margin="0,8,0,0" Focusable="False" KeyboardNavigation.IsTabStop="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="780" VerticalAlignment="Center" />
+                                    <controls:StatusBadge Grid.Column="1" Margin="12,0" Tone="Danger" Focusable="False" KeyboardNavigation.IsTabStop="False">
+                                        <controls:StatusBadge.Style>
+                                            <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
+                                                <Setter Property="Text" Value="مرفوض" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Conflicted}" Value="True">
+                                                        <Setter Property="Text" Value="تعارض" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </controls:StatusBadge.Style>
+                                    </controls:StatusBadge>
+                                    <Button Grid.Column="2" Content="مراجعة التعريف" Style="{StaticResource SecondaryButton}" Click="ReviewDefinitionClick" automation:AutomationProperties.Name="{Binding Name, StringFormat=مراجعة تعريف {0}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
                 <WrapPanel Margin="0,0,0,17">
                     <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                         <TextBox x:Name="PricingSearchBox" Height="46" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن منتج أو مقاس" Style="{StaticResource SearchInput}" />
@@ -135,8 +171,8 @@
                                                                 <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
                                                                     <Setter Property="Tone" Value="Success" />
                                                                     <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                            <Setter Property="Tone" Value="Neutral" />
+                                                                        <DataTrigger Binding="{Binding NeedsPublication}" Value="True">
+                                                                            <Setter Property="Tone" Value="Warning" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -179,13 +215,13 @@
         </ScrollViewer>
         <controls:DialogHost Grid.RowSpan="2" Panel.ZIndex="20" IsOpen="{Binding IsEditorOpen}" Title="تعديل سعر البيع" PreferredWidth="440" Padding="28" FontSize="22" FooterMargin="0" FlowDirection="RightToLeft" CloseRequested="CancelPriceClick" InitialFocusTarget="{Binding ElementName=PriceInput}">
             <controls:DialogHost.Footer>
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="حفظ" Style="{StaticResource PrimaryButton}" Height="44" MinWidth="116" Click="SavePriceClick" IsEnabled="{Binding CanSave}" automation:AutomationProperties.Name="حفظ سعر البيع" />
+                <WrapPanel>
+                    <Button Content="{Binding SaveActionLabel}" Style="{StaticResource PrimaryButton}" Height="44" MinWidth="116" Click="SavePriceClick" IsEnabled="{Binding CanSave}" automation:AutomationProperties.Name="حفظ سعر البيع" />
                     <Button Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelPriceClick" IsEnabled="{Binding CanEdit}" automation:AutomationProperties.Name="إلغاء تعديل السعر" />
-                </StackPanel>
+                    <TextBlock Text="{Binding EditorPublicationState}" Foreground="{StaticResource MutedBrush}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="12,0,0,0" />
+                </WrapPanel>
             </controls:DialogHost.Footer>
             <StackPanel>
-                <TextBlock Text="النشر يتطلب تأكيد الخادم لهذا المقاس" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,5,0,21" />
                 <Grid Margin="0,0,0,9">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />

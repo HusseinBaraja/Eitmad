@@ -34,6 +34,18 @@ public partial class MainWindow : Window
         bool preview = false)
     {
         InitializeComponent();
+        PricingSurface.DefinitionReviewRequested += issue =>
+        {
+            var destination = issue.Kind switch
+            {
+                "material" or "material-category" or "unit" => "الخامات",
+                "part" or "part-category" => "القطع",
+                "product" or "product-category" => "المنتجات",
+                "furniture" or "furniture-category" => "الأثاث",
+                _ => null,
+            };
+            if (destination is not null) OpenManagerDestination(destination);
+        };
         ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
         ManagerHome.SearchCleared += () => { ManagerTitleBar.SearchBox.Clear(); ManagerTitleBar.SearchBox.Focus(); };
         if (preview && engine is null) {

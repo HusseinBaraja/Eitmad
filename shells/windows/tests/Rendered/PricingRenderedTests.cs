@@ -13,6 +13,57 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PricingRenderedTests
 {
     [TestMethod]
+    public void SyncReviewOpensDefinitionPageAndRetainsRejectedAndConflictedStates()
+    {
+        var page = PricingPresentationTests.Data();
+        page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = "فئة اختبار", Conflicted = true },
+            new CatalogSyncIssue { Kind = "furniture", Id = Guid.NewGuid(), Revision = 2, Name = "أثاث اختبار" }];
+        var engine = new FakeEngine();
+        engine.QueryHandler = _ => new QueryResponseEnvelope { Outcome = new QueryOutcome
+            { Status = CommandOutcomeStatus.Succeeded, Payload = QueryResult.ForPrices(page) } };
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            window.WindowState = WindowState.Maximized;
+            WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            VerifyDefinitionReview(window, WpfTestHost.Descendants<PricingView>(window).Single());
+        }, engine: engine);
+    }
+
+    internal static void VerifyDefinitionReview(MainWindow window, PricingView view)
+    {
+        var review = WpfTestHost.FindByName<Expander>(view, "CatalogSyncReview");
+        Assert.IsTrue(review.IsVisible);
+        review.IsExpanded = true;
+        WpfTestHost.CompleteLayout(window);
+        var issues = view.ViewModel.SyncIssues;
+        var buttons = WpfTestHost.Descendants<Button>(review).Where(button => button.DataContext is CatalogSyncIssue).ToArray();
+        Assert.HasCount(issues.Count, buttons);
+        foreach (var issue in issues)
+        {
+            var button = buttons.Single(button => ReferenceEquals(button.DataContext, issue));
+            StringAssert.Contains(AutomationProperties.GetName(button), issue.Name);
+            var badge = WpfTestHost.Descendants<StatusBadge>(review).Single(badge => ReferenceEquals(badge.DataContext, issue));
+            Assert.AreEqual(issue.Conflicted ? "تعارض" : "مرفوض", badge.Text);
+            Assert.AreEqual(PresentationTone.Danger, badge.Tone);
+        }
+        var header = WpfTestHost.Descendants<System.Windows.Controls.Primitives.ToggleButton>(review).Single();
+        Assert.IsTrue(header.Focus());
+        header.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+        Assert.IsTrue(buttons[0].IsKeyboardFocusWithin);
+        buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        WpfTestHost.CompleteLayout(window);
+        Assert.IsTrue(WpfTestHost.FindByName<FrameworkElement>(window, "ProductsSurface").IsVisible);
+        Assert.IsFalse(view.IsVisible);
+        WpfTestHost.FindByName<Button>(window, "PricingNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        WpfTestHost.CompleteLayout(window);
+        view.ViewModel.ClearSession();
+        WpfTestHost.CompleteLayout(view);
+        Assert.IsFalse(review.IsVisible);
+        Assert.IsEmpty(WpfTestHost.Descendants<Button>(review).Where(button => button.DataContext is CatalogSyncIssue));
+    }
+
+    [TestMethod]
     public void CategorySelectionMatchesVisibleFilterAfterLoadingAndReloading()
     {
         var page = PricingPresentationTests.Data();

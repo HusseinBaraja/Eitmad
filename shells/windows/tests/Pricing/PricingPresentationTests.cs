@@ -12,15 +12,74 @@ public sealed class PricingPresentationTests
     {
         var model = new PricingViewModel();
         var page = Data();
-        page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = "فئة اختبار" }];
+        page.CatalogSyncIssues = Enumerable.Range(1, 4).Select(index => new CatalogSyncIssue
+            { Kind = "product-category", Id = Guid.NewGuid(), Revision = 1, Name = $"فئة اختبار {index}", Conflicted = index == 1 }).ToArray();
         model.ApplyDurableData(page);
         Assert.IsTrue(model.HasSyncIssues);
+        CollectionAssert.AreEqual(page.CatalogSyncIssues, model.SyncIssues.ToArray());
         Assert.HasCount(2, model.VisiblePrices);
         model.ClearSession();
         Assert.IsFalse(model.HasSyncIssues);
+        Assert.IsEmpty(model.SyncIssues);
         page.CanManage = false;
         model.ApplyDurableData(page);
         Assert.IsFalse(model.HasSyncIssues);
+        Assert.IsEmpty(model.SyncIssues);
+    }
+
+    [TestMethod]
+    public void UnconfirmedPublicationRetainsProposalAndRetryStateAcrossServerChanges()
+    {
+        var model = new PricingViewModel();
+        var page = Data();
+        model.ApplyDurableData(page);
+        model.BeginEdit(model.VisiblePrices[0]);
+        var proposal = model.SaveInput()!;
+        var offlineState = model.EditorPublicationState;
+        model.IsBusy = true;
+        model.SavePending = true;
+        model.Fail(PricingClient.ArabicMessage(PricingFailure.Unconfirmed));
+        model.IsBusy = false;
+        var retryState = model.EditorPublicationState;
+        var retryLabel = model.SaveActionLabel;
+        Assert.AreNotEqual(offlineState, retryState);
+        Assert.IsFalse(model.CanEdit);
+        Assert.IsTrue(model.CanSave);
+        page.ServerAvailable = true;
+        model.ApplyDurableData(page);
+        Assert.AreEqual(retryState, model.EditorPublicationState);
+        Assert.AreEqual(retryLabel, model.SaveActionLabel);
+        Assert.AreEqual(proposal.SellingPriceYer, model.SaveInput()!.SellingPriceYer);
+        Assert.AreEqual(proposal.ExpectedRevision, model.SaveInput()!.ExpectedRevision);
+        Assert.IsTrue(model.HasEditorError);
+        model.Saved();
+        Assert.IsFalse(model.SavePending);
+        Assert.IsFalse(model.IsEditorOpen);
+        Assert.AreNotEqual(retryLabel, model.SaveActionLabel);
+    }
+
+    [TestMethod]
+    public void StalePublishedPriceKeepsConfirmedAmountAndRequiresPublication()
+    {
+        var page = Data();
+        page.Items[0].PublicationRequired = true;
+        page.Items[1].PublicationRequired = true;
+        page.Items[1].Published = null!;
+        var model = new PricingViewModel();
+        model.ApplyDurableData(page);
+        var stale = model.VisiblePrices[0];
+        var unpublished = model.VisiblePrices[1];
+        Assert.IsTrue(stale.NeedsPublication);
+        Assert.IsTrue(stale.IsActive);
+        Assert.AreEqual(200_000L, stale.SellingPrice);
+        Assert.IsFalse(unpublished.IsActive);
+        Assert.IsNull(unpublished.SellingPrice);
+        Assert.AreNotEqual(stale.StatusLabel, unpublished.StatusLabel);
+        var staleLabel = stale.StatusLabel;
+        page.Items[0].PublicationRequired = false;
+        model.ApplyDurableData(page);
+        Assert.IsFalse(model.VisiblePrices[0].NeedsPublication);
+        Assert.AreNotEqual(staleLabel, model.VisiblePrices[0].StatusLabel);
     }
 
     internal static PricePage Data(bool costs = true) => new()

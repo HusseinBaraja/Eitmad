@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Eitmad.Contracts;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
@@ -22,6 +23,7 @@ public partial class PricingView : UserControl
         ViewModel.EditorPriceChanged += (_, _) => _ = ReviewAsync();
     }
     public PricingViewModel ViewModel { get; }
+    public event Action<CatalogSyncIssue>? DefinitionReviewRequested;
     public void Attach(IEngineShellBridge bridge) { engine = bridge; CreateClient(); }
     private void CreateClient()
     {
@@ -133,4 +135,9 @@ public partial class PricingView : UserControl
     private void CancelPriceClick(object sender, RoutedEventArgs e) => ViewModel.CancelEditor();
     private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
     private async void ReloadClick(object sender, RoutedEventArgs e) => await RefreshAsync();
+    private void ReviewDefinitionClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CanManage && sender is Button { DataContext: CatalogSyncIssue issue } && ViewModel.SyncIssues.Contains(issue))
+            DefinitionReviewRequested?.Invoke(issue);
+    }
 }

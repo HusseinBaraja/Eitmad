@@ -12,26 +12,30 @@ public sealed class PricingViewModel : ObservableObject
     private PriceReview? review;
     private string searchText = "", selectedCategory = AllCategories, editorSellingPrice = "", editorError = "", feedbackMessage = "";
     private string availabilityMessage = "جار تحميل الأسعار…";
-    private string syncIssueMessage = "";
-    private bool isEditorOpen, isBusy, savePending, confirmBelowCost, canManage, canReadCosts;
+    private bool isEditorOpen, isBusy, savePending, confirmBelowCost, canManage, canReadCosts, serverAvailable;
     public event EventHandler? SearchChanged;
     public event EventHandler? EditorPriceChanged;
     public ObservableCollection<PricingListItem> VisiblePrices { get; } = [];
     public ObservableCollection<string> Categories { get; } = [AllCategories];
+    public ObservableCollection<CatalogSyncIssue> SyncIssues { get; } = [];
     public string SearchText { get => searchText; set { if (Set(ref searchText, value ?? "")) SearchChanged?.Invoke(this, EventArgs.Empty); } }
     public string SelectedCategory { get => selectedCategory; set { if (Set(ref selectedCategory, value ?? AllCategories)) RefreshVisiblePrices(); } }
     public bool IsEditorOpen { get => isEditorOpen; private set => Set(ref isEditorOpen, value); }
     public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEdit)); } }
     public bool CanReadCosts { get => canReadCosts; private set { Set(ref canReadCosts, value); Raise(nameof(CanEdit)); } }
-    public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanEdit)); Raise(nameof(CanSave)); } }
-    public bool SavePending { get => savePending; set { Set(ref savePending, value); Raise(nameof(CanEdit)); } }
+    public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanEdit)); Raise(nameof(CanSave)); Raise(nameof(EditorPublicationState)); } }
+    public bool SavePending { get => savePending; set { Set(ref savePending, value); Raise(nameof(CanEdit)); Raise(nameof(SaveActionLabel)); Raise(nameof(EditorPublicationState)); } }
     public bool CanEdit => CanManage && CanReadCosts && !IsBusy && !SavePending;
     public bool CanSave => CanManage && CanReadCosts && !IsBusy && IsEditorOpen
         && TryParsePrice(EditorSellingPrice, out var price) && price > 0
         && (!HasNegativeEditorMargin || ConfirmBelowCost);
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
-    public string SyncIssueMessage { get => syncIssueMessage; private set { Set(ref syncIssueMessage, value); Raise(nameof(HasSyncIssues)); } }
-    public bool HasSyncIssues => SyncIssueMessage.Length > 0;
+    public bool ServerAvailable { get => serverAvailable; private set { Set(ref serverAvailable, value); Raise(nameof(EditorPublicationState)); } }
+    public string SyncIssueMessage => $"مراجعة التعريفات ({SyncIssues.Count})";
+    public bool HasSyncIssues => SyncIssues.Count > 0;
+    public string EditorPublicationState => SavePending ? "النشر غير مؤكد" : IsBusy ? "جار النشر…"
+        : ServerAvailable ? "تأكيد الخادم مطلوب" : "النشر يحتاج اتصالاً";
+    public string SaveActionLabel => SavePending ? "إعادة المحاولة" : "نشر السعر";
     public string EditorProduct => editingPrice?.Product ?? "";
     public string EditorVariant => editingPrice?.Variant ?? "";
     public string EditorCost => PricingListItem.FormatMoney(review?.CostYer ?? editingPrice?.Cost);
@@ -74,11 +78,12 @@ public sealed class PricingViewModel : ObservableObject
         foreach (var category in Categories.Where(category => !categories.Contains(category)).ToArray()) Categories.Remove(category);
         foreach (var category in categories.Where(category => !Categories.Contains(category))) Categories.Add(category);
         Raise(nameof(SelectedCategory));
-        AvailabilityMessage = page.ServerAvailable ? "أسعار مؤكدة من الخادم — القيم الداخلية حسب الصلاحية" : "الخادم غير متاح — عرض آخر أسعار مؤكدة، والنشر يحتاج اتصالاً.";
-        SyncIssueMessage = CanManage && page.CatalogSyncIssues is { Length: > 0 } issues
-            ? "تحتاج مزامنة هذه التعريفات إلى مراجعة: " + string.Join("، ", issues.Take(3).Select(issue => issue.Name))
-                + (issues.Length > 3 ? " وغيرها" : "") + ". صحّح التعريف واحفظ إصداراً جديداً؛ تبقى التعريفات التي تعتمد على الإصدار المرفوض معلّقة."
-            : "";
+        ServerAvailable = page.ServerAvailable;
+        AvailabilityMessage = ServerAvailable ? "الخادم متصل" : "الخادم غير متاح · آخر أسعار مؤكدة";
+        SyncIssues.Clear();
+        if (CanManage)
+            foreach (var issue in page.CatalogSyncIssues ?? []) SyncIssues.Add(issue);
+        Raise(nameof(SyncIssueMessage)); Raise(nameof(HasSyncIssues));
         RefreshVisiblePrices();
     }
     public void ClearSession()
@@ -87,7 +92,7 @@ public sealed class PricingViewModel : ObservableObject
         foreach (var category in Categories.Where(category => category != AllCategories).ToArray()) Categories.Remove(category);
         Raise(nameof(SelectedCategory));
         CanManage = false; CanReadCosts = false; SavePending = false; IsBusy = false; FeedbackMessage = "";
-        SyncIssueMessage = "";
+        ServerAvailable = false; SyncIssues.Clear(); Raise(nameof(SyncIssueMessage)); Raise(nameof(HasSyncIssues));
         AvailabilityMessage = "بيانات الأسعار غير متاحة."; Raise(nameof(VisibleCountLabel));
     }
     public void Unavailable(string message) { ClearSession(); AvailabilityMessage = message; }
