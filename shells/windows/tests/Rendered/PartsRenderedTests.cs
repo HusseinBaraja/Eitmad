@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -41,6 +43,7 @@ public sealed class PartsRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.IsTrue(editorName.IsKeyboardFocusWithin);
             Assert.AreEqual(1, view.ViewModel.CurrentStep);
+            AssertFooterVisible(view);
             var geometry = $"Requested: {width}x{height}; actual window: {window.ActualWidth}x{window.ActualHeight} DIP; "
                 + $"display scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; "
                 + $"available display: {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.";
@@ -58,6 +61,7 @@ public sealed class PartsRenderedTests
             WpfTestHost.CompleteLayout(view);
             Assert.AreEqual(2, view.ViewModel.CurrentStep);
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Border>(view, "MaterialsStep").Visibility);
+            AssertFooterVisible(view);
 
             WpfTestHost.FindByAutomationName<Button>(view, "إضافة مادة خام")
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -118,6 +122,7 @@ public sealed class PartsRenderedTests
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(view);
             Assert.AreEqual(3, view.ViewModel.CurrentStep);
+            AssertFooterVisible(view);
             Assert.AreEqual("9,450",view.ViewModel.TotalPartCostLabel);
             AssertCostPresentation(WpfTestHost.FindByName<Border>(view, "ReviewStep"), pending: false);
             WpfTestHost.Capture(window,$"part-review-{width}x{height}");
@@ -184,6 +189,88 @@ public sealed class PartsRenderedTests
             Assert.HasCount(2,view.ViewModel.SelectedMaterials);
             Assert.AreEqual("1.2",view.ViewModel.SelectedMaterials[0].Quantity);
         }, engine: engine);
+    }
+
+    [TestMethod]
+    public void CategoryDisclosurePreservesDraftAndFixedNavigation()
+    {
+        var fixture = new PartFixtures();
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "PartsNavButton")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<PartsView>(window).Single();
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة جزء")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+
+            var name = WpfTestHost.FindByName<TextBox>(view, "EditorNameBox");
+            Assert.IsTrue(name.IsKeyboardFocusWithin);
+            var next = WpfTestHost.FindByAutomationName<Button>(view, "التالي إلى المواد الخام");
+
+            name.Text = "جانب خزانة";
+            var notes = WpfTestHost.FindByAutomationName<TextBox>(view, "وصف الجزء أو ملاحظاته");
+            notes.Text = "جانب خزانة تجريبي";
+            var category = view.ViewModel.EditorCategory;
+            var disclosure = WpfTestHost.FindByName<Expander>(view, "CategoryCreation");
+            var peer = new ExpanderAutomationPeer(disclosure);
+            Assert.AreEqual("إظهار فئة جزء جديدة", peer.GetName());
+            var provider = (IExpandCollapseProvider)peer.GetPattern(PatternInterface.ExpandCollapse);
+            Assert.AreEqual(ExpandCollapseState.Collapsed, provider.ExpandCollapseState);
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, "part-information-filled");
+            var footer = WpfTestHost.FindByName<Border>(view, "EditorFooter");
+            var footerY = footer.TranslatePoint(new Point(), view).Y;
+
+            provider.Expand();
+            WpfTestHost.CompleteLayout(window);
+            var header = WpfTestHost.Descendants<ToggleButton>(disclosure).Single();
+            Assert.IsTrue(header.Focus());
+            Assert.IsNotNull(header.FocusVisualStyle);
+            Assert.IsTrue(header.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            var newCategory = WpfTestHost.FindByName<TextBox>(view, "NewCategoryNameBox");
+            Assert.IsTrue(newCategory.IsKeyboardFocusWithin, $"Focused after category header: {Keyboard.FocusedElement}");
+            newCategory.Text = "أجزاء خزانة";
+            provider.Collapse();
+            provider.Expand();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("أجزاء خزانة", newCategory.Text);
+            Assert.AreEqual("جانب خزانة", name.Text);
+            Assert.AreEqual("جانب خزانة تجريبي", notes.Text);
+            Assert.AreSame(category, view.ViewModel.EditorCategory);
+            AssertFooterVisible(view);
+            WpfTestHost.Capture(window, "part-information-category-expanded");
+
+            var scroll = WpfTestHost.FindByName<ScrollViewer>(view, "EditorScroll");
+            scroll.ScrollToEnd();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(footerY, footer.TranslatePoint(new Point(), view).Y, 0.1);
+            AssertFooterVisible(view);
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByAutomationName<Button>(view, "السابق إلى المعلومات")
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("أجزاء خزانة", view.ViewModel.NewCategoryName);
+            Assert.AreEqual("جانب خزانة تجريبي", view.ViewModel.EditorDescription);
+            AssertFooterVisible(view);
+            name.Text = "";
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.AreEqual(1, view.ViewModel.CurrentStep);
+            Assert.IsTrue(name.IsKeyboardFocusWithin);
+        }, engine: fixture.Engine());
+    }
+
+    private static void AssertFooterVisible(PartsView view)
+    {
+        var footer = WpfTestHost.FindByName<Border>(view, "EditorFooter");
+        foreach (var button in WpfTestHost.Descendants<Button>(footer).Where(button => button.IsVisible))
+        {
+            var bounds = button.TransformToAncestor(view).TransformBounds(new Rect(button.RenderSize));
+            Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= view.ActualHeight + 0.1);
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= view.ActualWidth + 0.1);
+        }
     }
 
     private static void AssertCostPresentation(Border step, bool pending)
