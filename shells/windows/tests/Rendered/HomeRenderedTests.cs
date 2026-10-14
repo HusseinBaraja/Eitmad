@@ -114,13 +114,16 @@ public sealed class HomeRenderedTests
                         var activity = WpfTestHost.FindByName<TextBlock>(home, "ActivityMessage");
                         var ready = WpfTestHost.FindByName<TextBlock>(home, "ReadyOrdersMessage");
                         Assert.AreEqual(model.ActivityMessage, activity.Text); Assert.AreEqual(model.ReadyOrdersMessage, ready.Text);
+                        Assert.AreEqual(result == "empty", activity.IsVisible);
+                        Assert.AreEqual(result == "empty", ready.IsVisible);
+                        Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(home).Any(t => t.IsVisible && t.Text == model.Notice));
                         Assert.AreEqual(result == "empty", activity.Text.Contains("لا توجد"));
                         Assert.AreEqual(result == "empty", ready.Text.Contains("لا توجد"));
                         Assert.AreEqual(result == "partial-denied" ? 1 : 0, model.ReadyOrders.Count);
                         Assert.IsTrue(WpfTestHost.Descendants<Button>(home).Any(b => Equals(b.Content, "إعادة تحميل البيانات") && b.IsVisible));
-                        ready.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                        WpfTestHost.FindByName<Border>(home, "ReadyOrdersPanel").BringIntoView(); WpfTestHost.CompleteLayout(window);
                         WpfTestHost.Capture(window, $"ui12-home-{role}-{result}-{width}-ready");
-                        activity.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                        WpfTestHost.Ancestor<Border>(activity).BringIntoView(); WpfTestHost.CompleteLayout(window);
                         WpfTestHost.Capture(window, $"ui12-home-{role}-{result}-{width}-activity");
                     }
                 }

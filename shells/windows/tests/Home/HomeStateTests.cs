@@ -38,7 +38,8 @@ public sealed class HomeStateTests
         model.Search(" عميل "); var search = model.LastLoad;
         Assert.AreEqual("عميل", model.SearchTerm); Assert.IsTrue(model.HasSearchTerm);
         Assert.AreEqual("نتائج البحث", model.ActivityTitle); Assert.HasCount(0, model.Activity);
-        Assert.AreEqual("جارٍ تحميل النشاط...", model.ActivityMessage);
+        Assert.AreEqual("", model.ActivityMessage);
+        Assert.AreEqual("جارٍ تحميل البيانات...", model.Notice);
         CollectionAssert.Contains(changed, nameof(HomeViewModel.SearchTerm));
         CollectionAssert.Contains(changed, nameof(HomeViewModel.HasSearchTerm));
         model.Search(""); await model.LastLoad;
@@ -92,7 +93,8 @@ public sealed class HomeStateTests
         engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable"); model.Refresh(); await model.LastLoad;
         Assert.AreEqual("—", model.OpenCount); Assert.HasCount(0, model.ReadyOrders); Assert.HasCount(0, model.Activity);
         Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
-        Assert.IsTrue(model.ActivityMessage.Contains("تعذر تحميل")); Assert.IsTrue(model.ReadyOrdersMessage.Contains("تعذر تحميل"));
+        Assert.IsTrue(model.Notice.Contains("غير متاحة"));
+        Assert.AreEqual("", model.ActivityMessage); Assert.AreEqual("", model.ReadyOrdersMessage);
     }
     [TestMethod]
     public async Task EmptyMessagesRequireObtainedCompleteCurrentSectionsAndRetryRestoresThem()
@@ -105,14 +107,15 @@ public sealed class HomeStateTests
         data.Approvals.Availability = HomeAvailability.Denied; data.Customers.Availability = HomeAvailability.Unavailable;
         model.Refresh(); await model.LastLoad; Assert.IsTrue(model.IsEmpty);
         model.Search("عميل"); await model.LastLoad;
-        Assert.IsFalse(model.IsEmpty); Assert.IsTrue(model.ActivityMessage.Contains("العملاء: غير متاح"));
+        Assert.IsFalse(model.IsEmpty); Assert.IsTrue(model.Notice.Contains("العملاء: غير متاح"));
         model.Search(""); await model.LastLoad;
         data.Orders.Complete = false; model.Refresh(); await model.LastLoad;
         Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
-        Assert.IsTrue(model.ActivityMessage.Contains("نتائج جزئية")); Assert.IsTrue(model.ReadyOrdersMessage.Contains("نتائج جزئية"));
+        Assert.IsTrue(model.Notice.Contains("الطلبات: نتائج جزئية"));
+        Assert.AreEqual("", model.ActivityMessage); Assert.AreEqual("", model.ReadyOrdersMessage);
         data.Orders.Complete = true; data.Orders.ServerAvailable = false; model.Refresh(); await model.LastLoad;
         Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
-        Assert.IsTrue(model.ReadyOrdersMessage.Contains("آخر بيانات محفوظة"));
+        Assert.IsTrue(model.Notice.Contains("آخر بيانات محفوظة"));
         engine.QueryHandler = _ => throw new System.IO.IOException("Synthetic unavailable"); model.Refresh(); await model.LastLoad;
         Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
         data.Orders.ServerAvailable = true;
@@ -129,9 +132,10 @@ public sealed class HomeStateTests
         await model.ActivateAsync();
         Assert.HasCount(1, model.Activity); Assert.HasCount(0, model.ReadyOrders);
         Assert.IsFalse(model.IsEmpty); Assert.IsFalse(model.HasNoReadyOrders);
-        Assert.IsTrue(model.ActivityMessage.Contains(message)); Assert.IsTrue(model.ReadyOrdersMessage.Contains(message));
+        Assert.IsTrue(model.Notice.Contains("الطلبات: " + message));
+        Assert.AreEqual("", model.ActivityMessage); Assert.AreEqual("", model.ReadyOrdersMessage);
         data.Quotations.Availability = availability; model.Refresh(); await model.LastLoad;
         Assert.HasCount(0, model.Activity); Assert.IsFalse(model.IsEmpty);
-        Assert.IsTrue(model.ActivityMessage.Contains(message));
+        Assert.IsTrue(model.Notice.Contains("عروض الأسعار: " + message));
     }
 }

@@ -41,7 +41,7 @@ public sealed class HomeSearchRenderedTests
                     titleBar.SearchBox.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(titleBar.SearchBox), 0, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
                     Finish(model.LastLoad); WpfTestHost.CompleteLayout(window);
                     var context = WpfTestHost.FindByName<StackPanel>(home, "SearchContext");
-                    var term = WpfTestHost.FindByName<TextBlock>(home, "ActiveSearchTerm");
+                    var term = titleBar.SearchBox;
                     var clear = WpfTestHost.FindByName<Button>(home, "ClearSearchButton");
                     Assert.AreEqual("عميل", queries[^1]); Assert.AreEqual(model.SearchTerm, term.Text);
                     Assert.IsTrue(context.IsVisible);
@@ -53,9 +53,11 @@ public sealed class HomeSearchRenderedTests
                     var bounds = context.TransformToAncestor(window).TransformBounds(new Rect(context.RenderSize));
                     Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= window.ActualHeight && bounds.Left >= 0 && bounds.Right <= window.ActualWidth, $"Search context is clipped: {bounds}.");
                     WpfTestHost.Capture(window, $"ui13-home-search-{role}-{width}");
-                    model.Search("عميل QT-2026-00001"); Finish(model.LastLoad); WpfTestHost.CompleteLayout(window);
+                    term.Text = "عميل QT-2026-00001";
+                    term.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(term), 0, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
+                    Finish(model.LastLoad); WpfTestHost.CompleteLayout(window);
                     Assert.AreEqual("عميل QT-2026-00001", term.Text);
-                    Assert.AreEqual(FlowDirection.LeftToRight, term.FlowDirection);
+                    Assert.AreEqual(model.SearchTerm, term.Text);
                     if (width == 720)
                     {
                         WpfTestHost.Capture(window, $"ui13-home-search-mixed-{role}-{width}");

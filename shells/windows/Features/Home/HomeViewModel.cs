@@ -26,7 +26,6 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? load;
     private SynchronizationContext? context;
     private bool active;
-    private bool loading;
     private long generation;
     private long sessionGeneration;
     private HomeSnapshot? snapshot;
@@ -53,12 +52,8 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public string ActivityTitle => term.Length == 0 ? "آخر نشاط" : "نتائج البحث";
     public bool IsEmpty => snapshot is not null && Activity.Count == 0 && ActivitySections().All(s => Confirmed(s.Section));
     public bool HasNoReadyOrders => ReadyOrders.Count == 0 && Confirmed(snapshot?.Orders);
-    public string ActivityMessage => snapshot is null ? loading ? "جارٍ تحميل النشاط..." : "تعذر تحميل النشاط. أعد تحميل البيانات."
-        : IsEmpty ? "لا توجد سجلات ضمن النتائج المتاحة"
-        : string.Join(" ", ActivitySections().Select(s => SectionNotice(s.Name, s.Section)).Where(m => m.Length > 0));
-    public string ReadyOrdersMessage => snapshot is null ? loading ? "جارٍ تحميل الطلبات الجاهزة..." : "تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات."
-        : HasNoReadyOrders ? "لا توجد طلبات جاهزة ضمن النتائج المتاحة"
-        : SectionNotice("الطلبات الجاهزة", snapshot.Orders);
+    public string ActivityMessage => IsEmpty ? "لا توجد سجلات ضمن النتائج المتاحة" : "";
+    public string ReadyOrdersMessage => HasNoReadyOrders ? "لا توجد طلبات جاهزة ضمن النتائج المتاحة" : "";
     public string OpenCount => Count(snapshot?.Quotations);
     public string OrderCount => Count(snapshot?.Orders);
     public string ApprovalCount => Count(snapshot?.Approvals);
@@ -80,11 +75,11 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     private static string SectionNotice(string name, HomeSection section)
     {
         if (section.Availability == HomeAvailability.Denied) return name + ": ليس لديك صلاحية.";
-        if (section.Availability != HomeAvailability.Available) return name + ": غير متاح. أعد تحميل البيانات.";
+        if (section.Availability != HomeAvailability.Available) return name + ": غير متاح.";
         var messages = new List<string>();
-        if (!section.Complete) messages.Add(name + ": نتائج جزئية؛ الأعداد حد أدنى. افتح القائمة للمتابعة.");
-        if (!section.ServerAvailable) messages.Add(name + ": غير متصل — آخر بيانات محفوظة، وليست حالة حالية مؤكدة.");
-        return string.Join(" ", messages);
+        if (!section.Complete) messages.Add("نتائج جزئية");
+        if (!section.ServerAvailable) messages.Add("غير متصل؛ آخر بيانات محفوظة");
+        return messages.Count == 0 ? "" : name + ": " + string.Join("، ", messages) + ".";
     }
 
     public async Task ActivateAsync()
@@ -105,7 +100,6 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     {
         load?.Cancel(); load?.Dispose(); load = new();
         var token = load.Token; var version = ++generation;
-        loading = true;
         Notice = "جارٍ تحميل البيانات...";
         Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
         try
@@ -121,9 +115,8 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     }
     private void Apply(HomeSnapshot? value)
     {
-        loading = false;
         snapshot = value; Activity.Clear(); ReadyOrders.Clear();
-        if (value is null) Notice = "بيانات الرئيسية غير متاحة. تحقق من الاتصال ثم أعد التحميل.";
+        if (value is null) Notice = "بيانات الرئيسية غير متاحة.";
         else
         {
             var sections = new[] { ("عروض الأسعار", value.Quotations), ("الطلبات", value.Orders), ("الموافقات", value.Approvals) };
@@ -137,7 +130,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
             foreach (var item in sections.Where(s => s.Item2.Availability == HomeAvailability.Available)
                 .SelectMany(s => s.Item2.Items).OrderByDescending(item => item.ChangedAt).ThenBy(item => item.Id)) Activity.Add(new(item));
             if (value.Orders.Availability == HomeAvailability.Available) foreach (var item in value.ReadyOrders) ReadyOrders.Add(new(item));
-            Notice = messages.Count == 0 ? "بيانات ضمن صلاحيات الحساب الحالي. آخر ٨ سجلات لكل قائمة." : string.Join(" ", messages);
+            Notice = messages.Count == 0 ? "حتى ٨ سجلات لكل قائمة" : string.Join(" ", messages);
         }
         Raise(nameof(OpenCount)); Raise(nameof(OrderCount)); Raise(nameof(ApprovalCount)); Raise(nameof(ReadyCount));
         Raise(nameof(IsEmpty)); Raise(nameof(HasNoReadyOrders)); Raise(nameof(ActivityTitle));
