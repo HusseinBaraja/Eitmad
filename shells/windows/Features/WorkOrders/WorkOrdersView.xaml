@@ -306,15 +306,17 @@
                     </Border>
                     <Border Style="{StaticResource Card}" Margin="0,16,0,0" Padding="22">
                         <StackPanel>
-                            <Grid FlowDirection="LeftToRight" Margin="0,0,0,17">
+                            <Grid FlowDirection="RightToLeft" Margin="0,0,0,17">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="12" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#F2E4D6" CornerRadius="9" Padding="10,5">
+                                <TextBlock Grid.Column="0" Text="الأثاث المطلوب" FontSize="19" FontWeight="Bold" TextAlignment="Right" />
+                                <Border Grid.Column="2" Background="#F2E4D6" CornerRadius="9" Padding="10,5" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding SelectedWorkOrder.FurnitureCountLabel}" Foreground="#76400F" FontSize="9" FontWeight="SemiBold" FlowDirection="RightToLeft" />
                                 </Border>
-                                <TextBlock Grid.Column="1" Text="الأثاث المطلوب" FontSize="19" FontWeight="Bold" TextAlignment="Right" FlowDirection="RightToLeft" />
                             </Grid>
                             <ItemsControl ItemsSource="{Binding SelectedWorkOrder.Furniture}">
                                 <ItemsControl.ItemTemplate>
@@ -403,11 +405,11 @@
                             <StackPanel Grid.Row="1">
                                 <controls:OperationsTable ItemsSource="{Binding SelectedWorkOrder.Parts}" MaxHeight="460" automation:AutomationProperties.Name="القطعة">
                                     <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="القطعة" Width="*" MinWidth="120" SortMemberPath="Name">
+                                        <DataGridTemplateColumn Header="القطعة" Width="3*" MinWidth="120" SortMemberPath="Name">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="48">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" Style="{StaticResource TableBody}" TextAlignment="Right" Margin="20,0" FontWeight="SemiBold" />
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Name}" Style="{StaticResource TableBody}" Margin="20,0" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -417,7 +419,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="الكمية" Width="180" MinWidth="80" SortMemberPath="Quantity">
+                                        <DataGridTemplateColumn Header="الكمية" Width="*" MinWidth="80" SortMemberPath="Quantity">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="48">
