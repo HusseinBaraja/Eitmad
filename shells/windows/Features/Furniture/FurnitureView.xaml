@@ -1002,14 +1002,14 @@
                                 <CheckBox Style="{StaticResource FormCheckBox}" Content="أؤكد السعر المقترح الأقل من التكلفة عند وجود خسارة متوقعة" IsChecked="{Binding ConfirmBelowCost}" IsEnabled="{Binding CanEditFields}" automation:AutomationProperties.Name="تأكيد السعر الأقل من التكلفة" />
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,18">
+                        <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
                             <Grid FlowDirection="LeftToRight">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="220" />
-                                    <ColumnDefinition Width="28" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="96" />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Height="168" Background="#F2E7DB" CornerRadius="11" ClipToBounds="True">
+                                <Border Grid.Column="2" Height="96" VerticalAlignment="Top" Background="#F2E7DB" CornerRadius="8" ClipToBounds="True">
                                     <Grid>
                                         <Image Source="{Binding ProductImage}" Stretch="UniformToFill" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
                                             <Image.Style>
@@ -1023,22 +1023,30 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <Canvas Width="112" Height="112" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Rectangle Canvas.Left="14" Canvas.Top="8" Width="84" Height="88" RadiusX="6" Fill="#9A6237" />
-                                            <Rectangle Canvas.Left="20" Canvas.Top="14" Width="34" Height="76" RadiusX="3" Fill="#B97D46" />
-                                            <Rectangle Canvas.Left="58" Canvas.Top="14" Width="34" Height="76" RadiusX="3" Fill="#8B5026" />
-                                            <Ellipse Canvas.Left="49" Canvas.Top="52" Width="5" Height="5" Fill="#4B260B" />
-                                            <Ellipse Canvas.Left="59" Canvas.Top="52" Width="5" Height="5" Fill="#4B260B" />
-                                        </Canvas>
+                                        <Viewbox Width="72" Height="72" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasProductImage}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Viewbox.Style>
+                                            <Canvas Width="112" Height="112">
+                                                <Rectangle Canvas.Left="14" Canvas.Top="8" Width="84" Height="88" RadiusX="6" Fill="#9A6237" />
+                                                <Rectangle Canvas.Left="20" Canvas.Top="14" Width="34" Height="76" RadiusX="3" Fill="#B97D46" />
+                                                <Rectangle Canvas.Left="58" Canvas.Top="14" Width="34" Height="76" RadiusX="3" Fill="#8B5026" />
+                                                <Ellipse Canvas.Left="49" Canvas.Top="52" Width="5" Height="5" Fill="#4B260B" />
+                                                <Ellipse Canvas.Left="59" Canvas.Top="52" Width="5" Height="5" Fill="#4B260B" />
+                                            </Canvas>
+                                        </Viewbox>
                                     </Grid>
                                 </Border>
-                                <StackPanel Grid.Column="2" FlowDirection="RightToLeft" VerticalAlignment="Center">
-                                    <TextBlock Text="المنتج" Foreground="#8B4D17" FontSize="14" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding EditorName}" TextWrapping="Wrap" FontSize="23" FontWeight="Bold" Margin="0,7,0,0" />
-                                    <Border Background="#F3ECE5" CornerRadius="9" Padding="10,4" HorizontalAlignment="Right" Margin="0,8,0,0">
-                                        <TextBlock Text="{Binding EditorCategory}" FontSize="14" FontWeight="SemiBold" />
-                                    </Border>
-                                    <TextBlock Text="{Binding ReviewDescription}" Foreground="#5D554E" FontSize="13" TextWrapping="Wrap" LineHeight="20" Margin="0,14,0,0" MaxWidth="570" />
+                                <StackPanel Grid.Column="0" FlowDirection="RightToLeft" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding EditorName}" TextWrapping="Wrap" FontSize="20" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding EditorCategory}" Foreground="{DynamicResource MutedBrush}" FontSize="14" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding ReviewDescription}" Foreground="{DynamicResource MutedBrush}" FontSize="13" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,0" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -1046,16 +1054,16 @@
                         <ItemsControl ItemsSource="{Binding Variants}" Margin="0,0,0,8">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel FlowDirection="RightToLeft" />
+                                    <layout:AdaptiveFieldsPanel MinItemWidth="240" Spacing="14" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Width="274" MinHeight="128" Style="{StaticResource Card}" Padding="16" Margin="0,0,14,10">
+                                    <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,10">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" />
                                             <TextBlock Text="{Binding DimensionsLabel}" FlowDirection="LeftToRight" TextAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,7,0,0" />
-                                            <Separator Margin="0,12,0,9" Background="{StaticResource LineBrush}" />
+                                            <Separator Margin="0,8,0,8" Background="{StaticResource LineBrush}" />
                                             <controls:AmountDisplay HorizontalAlignment="Right" FontSize="17" FontWeight="Bold" Foreground="#6F3B0D" AmountText="{Binding SellingPriceLabel}" UnitText="ر.ي" UnitPlacement="After"></controls:AmountDisplay>
                                         </StackPanel>
                                     </Border>
