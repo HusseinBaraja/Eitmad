@@ -230,187 +230,214 @@
                         </WrapPanel>
                     </Border>
                     <controls:FeedbackNotice x:Name="DraftNotice" Message="{Binding SelectedQuotation.DraftNotice}" Visibility="{Binding SelectedQuotation.HasDraft, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
-                    <Border x:Name="QuotationItems" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,0,0,16">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1">
-                                <TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" />
+                    <Grid x:Name="DiscountWorkspace">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <Border x:Name="QuotationItems" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,0,0,16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1">
+                                        <TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" />
+                                    </Border>
+                                    <Grid Grid.Row="1" FlowDirection="LeftToRight">
+                                        <StackPanel FlowDirection="RightToLeft">
+                                            <controls:OperationsTable ItemsSource="{Binding SelectedQuotation.Items}" MaxHeight="460" automation:AutomationProperties.Name="الأثاث">
+                                                <DataGrid.Columns>
+                                                    <DataGridTemplateColumn Header="الأثاث" Width="1.4*" MinWidth="160" SortMemberPath="FurnitureName">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureName}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="المقاس" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="اللون" controls:OperationsTable.IsCompactDetail="True" Width="0.85*" MinWidth="160" SortMemberPath="Color">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="المقبض" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Handle">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="الكمية" Width="0.62*" MinWidth="80" SortMemberPath="Quantity">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding QuantityLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="سعر الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="UnitPrice">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding UnitPriceLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                    <DataGridTemplateColumn Header="الإجمالي" Width="1.12*" MinWidth="120" SortMemberPath="Total">
+                                                        <DataGridTemplateColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                    <TextBlock x:Name="ContrastCell0" Text="{Binding TotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
+                                                                        <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </DataGridTemplateColumn.CellTemplate>
+                                                    </DataGridTemplateColumn>
+                                                </DataGrid.Columns>
+                                            </controls:OperationsTable>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
                             </Border>
-                            <Grid Grid.Row="1" FlowDirection="LeftToRight">
-                                <StackPanel FlowDirection="RightToLeft">
-                                    <controls:OperationsTable ItemsSource="{Binding SelectedQuotation.Items}" MaxHeight="460" automation:AutomationProperties.Name="الأثاث">
-                                        <DataGrid.Columns>
-
-                                            <DataGridTemplateColumn Header="الأثاث" Width="1.4*" MinWidth="160" SortMemberPath="FurnitureName">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureName}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="المقاس" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="اللون" controls:OperationsTable.IsCompactDetail="True" Width="0.85*" MinWidth="160" SortMemberPath="Color">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="المقبض" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Handle">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الكمية" Width="0.62*" MinWidth="80" SortMemberPath="Quantity">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding QuantityLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="سعر الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="UnitPrice">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding UnitPriceLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الإجمالي" Width="1.12*" MinWidth="120" SortMemberPath="Total">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding TotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
-                                                        </Border>
-                                                        <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
-                                                                <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
-                                                            </DataTrigger>
-                                                        </DataTemplate.Triggers>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                        </DataGrid.Columns>
-                                    </controls:OperationsTable>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </Border>
-                    <Border x:Name="QuotationSummary" Style="{StaticResource Card}" Width="430" HorizontalAlignment="Left" Padding="22" Margin="0,0,0,16">
-                        <StackPanel>
-                            <TextBlock Text="ملخص عرض السعر" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,15" />
-                            <Grid Margin="0,0,0,11">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition Width="190" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="المجموع الفرعي" Style="{StaticResource SummaryLabel}" />
-                                <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.SubtotalLabel}" Style="{StaticResource SummaryValue}" />
-                            </Grid>
-                            <Grid Margin="0,0,0,13">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition Width="190" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="الخصم" Style="{StaticResource SummaryLabel}" />
-                                <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.DiscountLabel}" Style="{StaticResource SummaryValue}" Foreground="#9A382B" />
-                            </Grid>
-                            <Separator Background="#DED8D2" Margin="0,1,0,14" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition Width="210" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="الإجمالي النهائي" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="#6E3A0D" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                    <Border x:Name="ApprovalSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Text="مراجعة طلب الخصم" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
-                            <WrapPanel>
-                                <StackPanel Width="180" Margin="0,0,0,12">
-                                    <TextBlock Text="نسبة الخصم المطلوبة" Style="{StaticResource MetadataLabel}"/>
-                                    <TextBlock Text="{Binding SelectedQuotation.DiscountPercentLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                <StackPanel Width="200" Margin="0,0,0,12">
-                                    <TextBlock Text="قيمة الخصم" Style="{StaticResource MetadataLabel}"/>
-                                    <controls:AmountDisplay AmountText="{Binding SelectedQuotation.DiscountAmountLabel}" UnitText="ر.ي" HorizontalAlignment="Left" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </WrapPanel>
-                            <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" Style="{StaticResource MetadataLabel}" Margin="0,0,0,16"/>
-                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,16,0,0">
+                            <Border x:Name="QuotationSummary" Style="{StaticResource Card}" Width="430" HorizontalAlignment="Left" Padding="22" Margin="0,0,0,16">
                                 <StackPanel>
-                                    <TextBlock Text="قرار المدير" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                                    <StackPanel IsEnabled="{Binding CanDecideApproval}" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
-                                        <Button Content="موافقة على الخصم" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر"/>
-                                        <Expander x:Name="DiscountRejection" Header="رفض الخصم" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="14" Margin="0,16,0,0" automation:AutomationProperties.Name="إظهار سبب رفض الخصم">
-                                            <StackPanel Margin="0,12,0,0">
-                                                <controls:FormField Label="سبب الرفض" IsRequired="True">
-                                                    <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MinHeight="90" MaxHeight="160" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم"/>
-                                                </controls:FormField>
-                                                <Button Content="تأكيد الرفض" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="0,12,0,0"/>
-                                            </StackPanel>
-                                        </Expander>
-                                    </StackPanel>
-                                    <controls:FeedbackNotice Message="{Binding DecisionNotice}" Margin="0,12,0,0"/>
+                                    <TextBlock Text="ملخص عرض السعر" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,15" />
+                                    <Grid Margin="0,0,0,11">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="190" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="المجموع الفرعي" Style="{StaticResource SummaryLabel}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.SubtotalLabel}" Style="{StaticResource SummaryValue}" />
+                                    </Grid>
+                                    <Grid Margin="0,0,0,13">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="190" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="الخصم" Style="{StaticResource SummaryLabel}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.DiscountLabel}" Style="{StaticResource SummaryValue}" Foreground="#9A382B" />
+                                    </Grid>
+                                    <Separator Background="#DED8D2" Margin="0,1,0,14" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="210" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="الإجمالي النهائي" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="#6E3A0D" />
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                    </Border>
+                        <Border x:Name="ApprovalSection" Padding="20" VerticalAlignment="Top" Visibility="{Binding ShowManagerApproval, Converter={StaticResource BooleanToVisibility}}">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                    <Setter Property="Grid.Column" Value="1" />
+                                    <Setter Property="Width" Value="370" />
+                                    <Setter Property="Margin" Value="16,0,0,16" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource Self}}" Value="Compact">
+                                            <Setter Property="Grid.Column" Value="0" />
+                                            <Setter Property="Grid.Row" Value="1" />
+                                            <Setter Property="Width" Value="Auto" />
+                                            <Setter Property="MaxWidth" Value="430" />
+                                            <Setter Property="HorizontalAlignment" Value="Left" />
+                                            <Setter Property="Margin" Value="0,0,0,16" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <TextBlock Text="مراجعة طلب الخصم" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                                <WrapPanel>
+                                    <StackPanel Width="145" Margin="0,0,0,12">
+                                        <TextBlock Text="نسبة الخصم المطلوبة" Style="{StaticResource MetadataLabel}"/>
+                                        <TextBlock Text="{Binding SelectedQuotation.DiscountPercentLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Width="180" Margin="0,0,0,12">
+                                        <TextBlock Text="قيمة الخصم" Style="{StaticResource MetadataLabel}"/>
+                                        <controls:AmountDisplay AmountText="{Binding SelectedQuotation.DiscountAmountLabel}" UnitText="ر.ي" HorizontalAlignment="Left" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </WrapPanel>
+                                <TextBlock Text="{Binding SelectedQuotation.ApprovalDecisionLabel}" Style="{StaticResource MetadataLabel}" Margin="0,0,0,16"/>
+                                <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,16,0,0">
+                                    <StackPanel>
+                                        <StackPanel IsEnabled="{Binding CanDecideApproval}" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
+                                            <Button Content="موافقة على الخصم" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر"/>
+                                            <Expander x:Name="DiscountRejection" Header="رفض الخصم" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="14" Margin="0,16,0,0" automation:AutomationProperties.Name="إظهار سبب رفض الخصم">
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <controls:FormField Label="سبب الرفض" IsRequired="True">
+                                                        <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MinHeight="72" MaxHeight="120" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم"/>
+                                                    </controls:FormField>
+                                                    <Button Content="تأكيد الرفض" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="RejectDiscountClick" automation:AutomationProperties.Name="رفض خصم عرض السعر" Margin="0,12,0,0"/>
+                                                </StackPanel>
+                                            </Expander>
+                                        </StackPanel>
+                                        <controls:FeedbackNotice Message="{Binding DecisionNotice}" Margin="0,12,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                     <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
                     <controls:FeedbackNotice Message="{Binding LifecycleNotice}" Margin="0,0,0,12"/>
                     <Button Content="إعادة محاولة العملية" Click="RetryLifecycleClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" Visibility="{Binding CanRetryLifecycle, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إعادة محاولة عملية عرض السعر السابقة"/>
