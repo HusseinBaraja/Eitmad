@@ -510,17 +510,18 @@
                             Margin="8,0,0,8" Click="CancelConversionClick" automation:AutomationProperties.Name="إلغاء"/>
                 </WrapPanel>
             </controls:DialogHost.Footer>
-            <StackPanel>
-                <controls:FormField Label="العميل" Margin="0,0,0,12">
+            <StackPanel TextElement.FontSize="14" Margin="0,12,0,0">
+                <controls:FormField Label="العميل" Margin="0,0,0,8">
                     <TextBlock Text="{Binding Customer}" TextWrapping="Wrap" FontSize="17" FontWeight="SemiBold"/>
                 </controls:FormField>
-                <controls:FormField Label="عدد البنود" Margin="0,0,0,12">
-                    <TextBlock Text="{Binding Items.Count}" FlowDirection="LeftToRight" HorizontalAlignment="Left" FontSize="17"/>
+                <controls:FormField Label="عدد البنود" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding Items.Count}" FlowDirection="LeftToRight" HorizontalAlignment="Left"/>
                 </controls:FormField>
-                <controls:FormField Label="الإجمالي النهائي" Margin="0,0,0,16">
+                <controls:FormField Label="الإجمالي النهائي" Margin="0,0,0,12">
                     <controls:AmountDisplay AmountText="{Binding FinalTotalLabel}" FontSize="24" FontWeight="Bold"/>
                 </controls:FormField>
-                <controls:FeedbackNotice Message="معاينة فقط" Tone="Information" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}"/>
+                <TextBlock Text="يُنشأ الطلب بعد تأكيد الخادم، مع الحفاظ على الأسعار المعتمدة." TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <controls:FeedbackNotice Message="معاينة فقط — لا يُحفظ طلب ولا يتغير عرض السعر." Tone="Information" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}"/>
             </StackPanel>
         </controls:DialogHost>
     </Grid>

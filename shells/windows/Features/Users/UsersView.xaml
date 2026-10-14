@@ -97,8 +97,8 @@
   </ScrollViewer>
  </Grid>
   <controls:DialogHost Grid.RowSpan="2" IsOpen="{Binding IsDeactivationOpen}" Title="تعطيل المستخدم" PreferredWidth="460" Padding="28" CloseRequested="CancelDeactivateClick" InitialFocusTarget="{Binding ElementName=CancelDeactivateButton}">
-   <StackPanel>
-    <TextBlock Text="{Binding DeactivationName}" FontWeight="SemiBold"/>
+   <StackPanel TextElement.FontSize="14" Margin="0,12,0,0">
+    <TextBlock Text="{Binding DeactivationName}" FontSize="17" FontWeight="SemiBold"/>
     <TextBlock Text="{Binding DeactivationUsername}" FontSize="12" Foreground="{DynamicResource MutedBrush}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,0,0,12"/>
     <TextBlock Text="سيُمنع هذا المستخدم من تسجيل الدخول، وستنتهي جلساته المفتوحة. سيبقى الحساب في القائمة بحالة غير نشط." TextWrapping="Wrap"/>
    </StackPanel>

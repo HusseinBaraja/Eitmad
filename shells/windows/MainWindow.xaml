@@ -103,8 +103,8 @@
                              PreferredWidth="460" FlowDirection="RightToLeft"
                              InitialFocusTarget="{Binding ElementName=CancelAccountSwitchButton}"
                              CloseRequested="CancelAccountSwitchClick">
-            <StackPanel>
-                <TextBlock Text="احفظ تعديلاتك قبل تبديل الحساب. ستُمسح الحقول غير المحفوظة، وتبقى الأعمال المحفوظة."
+            <StackPanel TextElement.FontSize="14" Margin="0,12,0,0">
+                <TextBlock Text="احفظ تعديلاتك قبل تبديل الحساب. ستنتهي جلستك وتُمسح الحقول غير المحفوظة، وتبقى الأعمال المحفوظة."
                            TextWrapping="Wrap" />
                 <WrapPanel Margin="0,20,0,0">
                     <Button x:Name="CancelAccountSwitchButton" Content="إلغاء" Click="CancelAccountSwitchClick"
