@@ -6,8 +6,8 @@
              xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
              FlowDirection="RightToLeft"
              Language="ar-YE">
-    <Border Height="{StaticResource PageHeaderHeight}" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-        <Grid x:Name="ToolbarLayout" Margin="28,16" VerticalAlignment="Center" FlowDirection="LeftToRight">
+    <Border Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+        <Grid x:Name="ToolbarLayout" Margin="28,12" VerticalAlignment="Center" FlowDirection="LeftToRight">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -34,7 +34,7 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-            <Border Height="43" HorizontalAlignment="Stretch" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
+            <Border Height="44" HorizontalAlignment="Stretch" CornerRadius="8" Background="#FEFDFC" BorderBrush="#E9E4DF" BorderThickness="1">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Grid.Column" Value="2" />
@@ -49,7 +49,7 @@
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
-                <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" MinHeight="0" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Padding="10,11,0,8" TextAlignment="Left" FlowDirection="RightToLeft" controls:ControlOptions.Placeholder="{Binding SearchPlaceholder, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" automation:AutomationProperties.Name="البحث في الاعتماد" KeyDown="SearchKeyDown" />
+                <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" MinHeight="0" Background="Transparent" BorderThickness="0" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="13" Padding="10,0,0,0" VerticalContentAlignment="Center" TextAlignment="Left" FlowDirection="RightToLeft" controls:ControlOptions.Placeholder="{Binding SearchPlaceholder, RelativeSource={RelativeSource AncestorType=controls:ShellTitleBar}}" automation:AutomationProperties.Name="البحث في الاعتماد" KeyDown="SearchKeyDown" />
             </Border>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
                 <Grid Margin="0,0,12,0">
