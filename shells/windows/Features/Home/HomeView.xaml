@@ -37,6 +37,24 @@
    <Setter Property="Margin" Value="0,8"/><Setter Property="TextWrapping" Value="Wrap"/>
    <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
   </Style>
+  <Style x:Key="HomeRecordButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+   <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+   <Setter Property="Margin" Value="0,4"/><Setter Property="Padding" Value="8"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+  </Style>
+  <DataTemplate x:Key="HomeRecordContent">
+   <StackPanel>
+    <WrapPanel>
+     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,16,0"/>
+     <TextBlock Text="{Binding State}" TextWrapping="Wrap"/>
+    </WrapPanel>
+    <WrapPanel Margin="0,4,0,0">
+     <TextBlock Text="{Binding Kind}" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
+     <TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" Margin="0,0,16,0"/>
+     <TextBlock Text="{Binding Date}" FlowDirection="LeftToRight" Foreground="{StaticResource MutedBrush}"/>
+    </WrapPanel>
+   </StackPanel>
+  </DataTemplate>
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -102,7 +120,7 @@
       <TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource HomeCount}" Visibility="{Binding IsManagerDashboard, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BooleanToVisibility}}"/>
       <TextBlock x:Name="ReadyOrdersMessage" Text="{Binding ReadyOrdersMessage, FallbackValue=تعذر تحميل الطلبات الجاهزة. أعد تحميل البيانات.}" Style="{StaticResource HomeSectionMessage}"/>
       <ItemsControl ItemsSource="{Binding ReadyOrders}"><ItemsControl.ItemTemplate><DataTemplate>
-       <Button Style="{StaticResource LinkButton}" Margin="0,8,0,0" Click="OpenClick" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding OpenName}"><StackPanel><TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" HorizontalAlignment="Right"/><TextBlock Text="{Binding Title}" TextWrapping="Wrap"/></StackPanel></Button>
+       <Button Style="{StaticResource HomeRecordButton}" Content="{Binding}" ContentTemplate="{StaticResource HomeRecordContent}" Click="OpenClick" AutomationProperties.Name="{Binding OpenName}"/>
       </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
      </StackPanel>
     </Border>
@@ -121,9 +139,7 @@
    </StackPanel>
    <TextBlock x:Name="ActivityMessage" Text="{Binding ActivityMessage, FallbackValue=تعذر تحميل النشاط. أعد تحميل البيانات.}" Style="{StaticResource HomeSectionMessage}"/>
    <ItemsControl ItemsSource="{Binding Activity}"><ItemsControl.ItemTemplate><DataTemplate>
-    <Button Style="{StaticResource ActionButton}" Margin="0,5" Padding="12" Click="OpenClick" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding OpenName}">
-     <StackPanel><TextBlock Text="{Binding Kind}" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Number}" FlowDirection="LeftToRight" HorizontalAlignment="Right"/><TextBlock Text="{Binding State}" TextWrapping="Wrap"/><TextBlock Text="{Binding Date}" FlowDirection="LeftToRight" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}"/></StackPanel>
-    </Button>
+    <Button Style="{StaticResource HomeRecordButton}" Content="{Binding}" ContentTemplate="{StaticResource HomeRecordContent}" Click="OpenClick" AutomationProperties.Name="{Binding OpenName}"/>
    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
   </StackPanel></Border>
  </Grid>
