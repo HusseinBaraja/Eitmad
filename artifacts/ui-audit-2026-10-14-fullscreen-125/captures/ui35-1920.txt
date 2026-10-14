@@ -1,1 +1,0 @@
-Order requested 1920x1080; actual 1550.4x830.4 DIP; display 1920x1080 px; scale 125%; WPF RenderTargetBitmap at 96 DPI; synthetic Rust responses.

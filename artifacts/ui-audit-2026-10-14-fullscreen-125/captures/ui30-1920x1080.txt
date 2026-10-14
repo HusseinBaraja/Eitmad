@@ -1,1 +1,0 @@
-Requested 1920x1080; actual window 1550.4x830.4 DIP; primary display 1536x864 DIP; scaling 125%; WPF RenderTargetBitmap at 96 DPI; synthetic customer search response; customer section scrolled into view.

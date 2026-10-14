@@ -1,1 +1,0 @@
-Requested: 1920 x 1080; actual outer window: 1550.4 x 830.4 DIP; scaling: 125%; display: 1536 x 864 DIP.

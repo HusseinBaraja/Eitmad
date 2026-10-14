@@ -1,1 +1,0 @@
-Requested: 1920x1080; actual window: 1550.4x830.4 DIP; display scaling: 125%; available displays: 1920x1080 pixels; capture: off-screen WPF RenderTargetBitmap at 96 DPI; synthetic engine responses.

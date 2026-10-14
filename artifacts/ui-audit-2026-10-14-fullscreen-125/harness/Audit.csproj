@@ -1,4 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>Eitmad.WindowsShell.Tests</AssemblyName><EnableDefaultCompileItems>false</EnableDefaultCompileItems><StartupObject>AuditProgram</StartupObject></PropertyGroup>
-<ItemGroup><PackageReference Include="MSTest.TestFramework" Version="4.3.3"/><ProjectReference Include="../../../shells/windows/Eitmad.WindowsShell.csproj" AdditionalProperties="PreviewAccounts=true"/><Compile Include="../../../shells/windows/tests/**/*.cs" Exclude="../../../shells/windows/tests/obj/**/*.cs;../../../shells/windows/tests/bin/**/*.cs;../../../shells/windows/tests/Rendered/WpfTestHost.cs"/><Compile Include="WpfTestHost.cs"/><Compile Include="Program.cs"/><Compile Include="Supplement.cs"/></ItemGroup>
-</Project>
