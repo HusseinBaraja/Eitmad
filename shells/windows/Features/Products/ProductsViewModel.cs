@@ -24,8 +24,7 @@ public sealed class ProductsViewModel : ObservableObject
     public bool CanInteract => !IsBusy;
     public bool CanEdit => !IsBusy && !SavePending && CanManage;
     private string availabilityMessage = "جار تحميل المنتجات…";
-    public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
-    public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
+    public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
     public long ImageEditVersion { get; private set; }
     /// <summary>Prevents an earlier image read from restoring a changed editor reference.</summary>
     public void InvalidateImageLoad() => ++ImageEditVersion;
