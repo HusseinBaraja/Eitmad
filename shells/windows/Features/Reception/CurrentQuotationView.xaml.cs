@@ -8,6 +8,15 @@ namespace Eitmad.WindowsShell.Features.Reception;
 public partial class CurrentQuotationView : UserControl
 {
     public CurrentQuotationView() => InitializeComponent();
+    private void DetailsSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var stacked = e.NewSize.Width < 900;
+        QuotationDetailsLayout.ColumnDefinitions[1].Width = new GridLength(stacked ? 0 : 24);
+        QuotationDetailsLayout.ColumnDefinitions[2].Width = new GridLength(stacked ? 0 : 480);
+        System.Windows.Controls.Grid.SetColumn(QuotationSummarySection, stacked ? 0 : 2);
+        System.Windows.Controls.Grid.SetRow(QuotationSummarySection, stacked ? 1 : 0);
+        QuotationSummarySection.Margin = stacked ? new Thickness(0, 16, 0, 0) : new Thickness(0);
+    }
     private SalesCatalogViewModel Model => (SalesCatalogViewModel)DataContext;
     private void ContinueClick(object sender, RoutedEventArgs e)
     {

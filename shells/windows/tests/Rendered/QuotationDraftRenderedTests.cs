@@ -85,8 +85,9 @@ public sealed class QuotationDraftRenderedTests
                 Assert.IsTrue(failure.IsVisible); Assert.IsTrue(save.IsEnabled); Assert.AreEqual("إعادة محاولة الحفظ", save.Content);
                 Assert.IsFalse(model.CanIssueQuotation); Assert.IsTrue(WpfTestHost.FindByName<Button>(review, "PrintPreviewButton").IsEnabled);
                 foreach (var element in new FrameworkElement[] { failure, save }) {
-                    var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
-                    Assert.IsTrue(new Rect(scroll.RenderSize).Contains(bounds), $"{element.Name} is outside the save viewport: {bounds}");
+                    var saveScroll = WpfTestHost.Ancestor<ScrollViewer>(save);
+                    var bounds = element.TransformToAncestor(saveScroll).TransformBounds(new Rect(element.RenderSize));
+                    Assert.IsTrue(new Rect(saveScroll.RenderSize).Contains(bounds), $"{element.Name} is outside the save viewport: {bounds}");
                 }
                 WpfTestHost.Capture(window, $"quotation-draft-failed-save-{width}");
                 if (width == 720) {

@@ -24,11 +24,10 @@ public sealed partial class SalesCatalogViewModel
     public bool CanReloadDraft => savedDraft is not null && !IsDraftBusy;
     public string DraftState => savedDraft is null ? "لم يُؤكد حفظ مسودة" : "آخر نسخة مؤكدة الحفظ: " + QuotationDraftClient.SyncLabel(savedDraft);
     public string DraftEditState => uncertainSave
-        ? "لم يُؤكد حفظ التعديلات الحالية. احتُفظ بها في هذه النافذة؛ أعد المحاولة لتأكيد النتيجة." + SavedDocumentNotice
-        : hasUnsavedEdits ? "التعديلات الحالية غير محفوظة. احتُفظ بها في هذه النافذة." + SavedDocumentNotice : "";
-    private string SavedDocumentNotice => savedDraft is not null ? " معاينة المستند تعتمد على النسخة المحفوظة من المحرك، لا على التعديلات في هذه النافذة." : "";
+        ? "لم يُؤكد الحفظ. احتُفظ بالتعديلات هنا؛ أعد المحاولة."
+        : hasUnsavedEdits ? "تعديلات غير محفوظة؛ احتُفظ بها هنا." : "";
     public string FutureActionsNotice => IsLiveQuotation ? "احفظ المسودة ثم أصدر العرض بعد تأكيد الشروط. تحويل العرض إلى طلب غير متاح بعد." : "";
-    public string QuotationEditorGuidance => IsLiveQuotation ? "التعديلات محلية حتى تأكيد حفظ المسودة. اختر عميلاً محفوظاً؛ الأسعار والإجمالي من المحرك." : "معاينة عرض السعر — بيانات العميل تُحفظ في محرك الاعتماد";
+    public string QuotationEditorGuidance => IsLiveQuotation ? "احفظ المسودة قبل الإصدار. معاينة المستند تعرض النسخة المحفوظة." : "معاينة عرض السعر — بيانات العميل تُحفظ في محرك الاعتماد";
     public void AttachDraftClient(QuotationDraftClient client)
     {
         draftClient = client; PublishPreview = null;
@@ -109,7 +108,7 @@ public sealed partial class SalesCatalogViewModel
         QuotationNumber = "مسودة بدون رقم رسمي"; IsReviewingQuotation = true;
         applyingDraft = false;
         Raise(nameof(DiscountInput)); Raise(nameof(IsQuotationEmpty)); Raise(nameof(QuotationLabel)); RaiseEvaluation(); RaiseDraftState();
-        QuotationNotice = DraftState + " — الأسعار المحفوظة؛ راجع أحدث الأسعار قبل حفظ أي تعديل.";
+        QuotationNotice = "الأسعار من النسخة المحفوظة؛ راجعها قبل حفظ أي تعديل.";
     }
     public Task<bool> ReloadDraftAsync() => savedDraft is { } current ? OpenDraftAsync(current.Snapshot.Id) : Task.FromResult(false);
     public async Task DisposeEditorAsync()
