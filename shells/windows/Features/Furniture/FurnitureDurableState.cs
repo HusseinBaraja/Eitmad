@@ -119,6 +119,7 @@ public sealed partial class FurnitureViewModel
 
     public void ApplyPartChoices(IReadOnlyList<Part> parts)
     {
+        partChoicesStatus = string.Empty;
         availableParts.Clear();
         availableParts.AddRange(parts.Where(p => !p.Archived).Select(PartOption));
         RefreshPartOptions();
@@ -129,6 +130,7 @@ public sealed partial class FurnitureViewModel
         IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         availableParts.Clear();
+        SetPartChoicesStatus("بيانات الأجزاء غير متاحة.");
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         SelectedParts.Clear(); Variants.Clear(); Colors.Clear(); Handles.Clear(); FilteredParts.Clear(); VisibleFurniture.Clear();
         ++ImageEditVersion; SetImportedImage(null,null);

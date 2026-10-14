@@ -1218,15 +1218,10 @@
             <controls:DialogHost.Footer>
                 <Button Content="إغلاق" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="ClosePartPickerClick" />
             </controls:DialogHost.Footer>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <TextBox x:Name="PartSearchBox" Text="{Binding PartSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن جزء متاح" Grid.Row="0" Margin="0,0,0,12" Style="{StaticResource SearchInput}" />
-                <Border Grid.Row="1">
-                    <ItemsControl ItemsSource="{Binding FilteredParts}">
+            <StackPanel>
+                <TextBox x:Name="PartSearchBox" Text="{Binding PartSearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="البحث عن جزء متاح" Margin="0,12,0,12" Style="{StaticResource SearchInput}" />
+                <TextBlock Text="{Binding PartPickerStateText}" Visibility="{Binding HasPartPickerState, Converter={StaticResource BooleanToVisibility}}" Foreground="{StaticResource MutedBrush}" FontSize="14" TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Polite" />
+                <ItemsControl ItemsSource="{Binding FilteredParts}" Visibility="{Binding HasPartChoices, Converter={StaticResource BooleanToVisibility}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Button Margin="0,0,0,8" Padding="14,11" Background="#FBF8F5" BorderBrush="#E4D9CF" BorderThickness="1" HorizontalContentAlignment="Stretch" Cursor="Hand" Style="{StaticResource ActionButton}" Click="SelectPartClick" automation:AutomationProperties.Name="اختيار الجزء">
@@ -1244,9 +1239,8 @@
                                 </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Border>
-            </Grid>
+                </ItemsControl>
+            </StackPanel>
         </controls:DialogHost>
         <controls:DialogHost x:Name="VariantDialog" IsEnabled="{Binding CanEditFields}" Panel.ZIndex="31" IsOpen="{Binding IsVariantEditorOpen}" Title="{Binding VariantEditorTitle}" PreferredWidth="640" Padding="20" FooterMargin="0,12,0,0" FlowDirection="RightToLeft" CloseRequested="CancelVariantClick" InitialFocusTarget="{Binding ElementName=VariantNameBox}">
             <controls:DialogHost.Footer>

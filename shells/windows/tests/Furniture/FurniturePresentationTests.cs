@@ -8,6 +8,55 @@ namespace Eitmad.WindowsShell.Tests.Furniture;
 public sealed class FurniturePresentationTests
 {
     [TestMethod]
+    public void PartPickerDistinguishesLoadedEmptySearchLoadingAndUnavailableWithoutOfferingSelectedParts()
+    {
+        var fixture = new FurnitureFixtures(); fixture.Seed(); var model = fixture.Model();
+        Assert.IsTrue(model.BeginEdit(model.VisibleFurniture.Single()));
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        model.OpenPartPicker();
+        Assert.IsEmpty(model.FilteredParts, "The only part is already in the composition.");
+        var loadedEmpty = model.PartPickerStateText;
+        Assert.IsTrue(model.HasPartPickerState);
+        Assert.IsFalse(model.HasPartChoices);
+
+        model.PartSearchText = "غير موجود";
+        model.BeginPartChoicesLoad();
+        var loading = model.PartPickerStateText;
+        Assert.AreNotEqual(loadedEmpty, loading);
+        model.ApplyPartChoices([]);
+        var noMatch = model.PartPickerStateText;
+        Assert.IsTrue(model.HasPartPickerState);
+        Assert.IsFalse(model.HasPartChoices);
+        Assert.AreNotEqual(loadedEmpty, noMatch);
+        Assert.AreNotEqual(loading, noMatch);
+        model.PartChoicesUnavailable("تعذر تحميل الأجزاء.");
+        Assert.AreEqual("تعذر تحميل الأجزاء.", model.PartPickerStateText);
+        Assert.IsFalse(model.HasPartChoices);
+
+        model.PartSearchText = "";
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        Assert.AreEqual(loadedEmpty, model.PartPickerStateText);
+        model.RemovePart(model.SelectedParts.Single());
+        Assert.AreEqual(fixture.Parts.Parts.Single().Id, model.FilteredParts.Single().Id);
+        Assert.IsTrue(model.HasPartChoices);
+        Assert.IsFalse(model.HasPartPickerState);
+        model.BeginPartChoicesLoad();
+        Assert.IsFalse(model.HasPartChoices, "Cached rows must not be offered while a new search loads.");
+        model.PartChoicesUnavailable("تعذر تحميل الأجزاء.");
+        Assert.IsFalse(model.HasPartChoices, "A failed search must not offer stale rows.");
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        model.AddPart(model.FilteredParts.Single());
+        Assert.HasCount(1, model.SelectedParts);
+        Assert.IsEmpty(model.FilteredParts);
+        Assert.IsFalse(model.IsPartPickerOpen);
+        model.OpenPartPicker(); model.ClosePartPicker();
+        Assert.IsFalse(model.IsPartPickerOpen);
+        model.ClearSession();
+        Assert.AreNotEqual(loadedEmpty, model.PartPickerStateText, "Cleared authority must not look like a loaded empty set.");
+        Assert.IsFalse(model.HasPartChoices);
+    }
+
+    [TestMethod]
     public void MissingPartRevisionKeepsEditAndDuplicateClosed()
     {
         var fixture = new FurnitureFixtures();

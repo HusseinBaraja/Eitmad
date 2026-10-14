@@ -53,6 +53,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     private string feedbackMessage = string.Empty;
     private bool isPartPickerOpen;
     private string partSearchText = string.Empty;
+    private string partChoicesStatus = "بيانات الأجزاء غير متاحة.";
     private bool isVariantEditorOpen;
     private string variantName = string.Empty;
     private decimal variantWidth = 120m;
@@ -311,6 +312,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
             if (Set(ref partSearchText, value ?? string.Empty))
             {
                 PartSearchChanged?.Invoke(this, EventArgs.Empty);
+                RefreshPartPickerState();
             }
         }
     }
@@ -318,6 +320,31 @@ public sealed partial class FurnitureViewModel : ObservableObject
     public bool HasSelectedParts => SelectedParts.Count > 0;
 
     public bool HasNoPartOptions => FilteredParts.Count == 0;
+
+    public string PartPickerStateText => partChoicesStatus.Length > 0 ? partChoicesStatus
+        : !HasNoPartOptions ? string.Empty
+        : string.IsNullOrWhiteSpace(PartSearchText) ? "لا توجد أجزاء متاحة للإضافة." : "لا توجد أجزاء مطابقة للبحث.";
+
+    public bool HasPartPickerState => PartPickerStateText.Length > 0;
+
+    public bool HasPartChoices => partChoicesStatus.Length == 0 && !HasNoPartOptions;
+
+    internal void BeginPartChoicesLoad() => SetPartChoicesStatus("جار تحميل الأجزاء...");
+
+    internal void PartChoicesUnavailable(string text) => SetPartChoicesStatus(text);
+
+    private void SetPartChoicesStatus(string text)
+    {
+        partChoicesStatus = text;
+        RefreshPartPickerState();
+    }
+
+    private void RefreshPartPickerState()
+    {
+        Raise(nameof(PartPickerStateText));
+        Raise(nameof(HasPartPickerState));
+        Raise(nameof(HasPartChoices));
+    }
 
     public decimal CurrentPartsCost => reviewedCost;
 
@@ -859,6 +886,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         }
 
         Raise(nameof(HasNoPartOptions));
+        RefreshPartPickerState();
     }
 
     private void RefreshVisibleFurniture()
