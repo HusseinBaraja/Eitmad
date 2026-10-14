@@ -37,8 +37,9 @@ public sealed class ReceptionOrdersRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "BackToOrdersButton").IsKeyboardFocusWithin);
             Assert.AreEqual("تفاصيل الطلب", titleBar.Title);
-            Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
-            Assert.AreEqual("الطلب جاهز", WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").Message);
+            var readyBadge = WpfTestHost.Descendants<StatusBadge>(WpfTestHost.FindByName<Border>(view, "OrderIdentity")).Single();
+            Assert.IsTrue(readyBadge.IsVisible);
+            Assert.AreEqual(ready.StatusLabel, readyBadge.Text);
             WpfTestHost.Capture(window, "reception-orders-ready");
             InspectDocument(WpfTestHost.FindByName<Button>(view, "PrintOrderButton"), ready.Number, "معاينة الطلب");
             InspectDocument(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton"), ready.OriginalQuotation!.Number, "عرض السعر الأصلي — بيانات تجريبية");
@@ -52,7 +53,7 @@ public sealed class ReceptionOrdersRenderedTests
             var mixed = view.ViewModel.VisibleOrders.Single();
             view.ViewModel.OpenOrder(mixed);
             WpfTestHost.CompleteLayout(window);
-            Assert.IsFalse(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
+            Assert.AreEqual(mixed.StatusLabel, readyBadge.Text);
             Assert.IsTrue(mixed.Items.Any(item => !item.IsFurniture));
             WpfTestHost.Capture(window, "reception-orders-mixed-items");
             var printed = OrderCustomerDocument.Create(mixed);
@@ -129,7 +130,9 @@ public sealed class ReceptionOrdersRenderedTests
             window.Content = view;
             view.ViewModel.OpenOrder(view.ViewModel.VisibleOrders.Single(row => row.IsReady));
             WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "ReadyOrderNotice").IsVisible);
+            var badge = WpfTestHost.Descendants<StatusBadge>(WpfTestHost.FindByName<Border>(view, "OrderIdentity")).Single();
+            Assert.IsTrue(badge.IsVisible);
+            Assert.AreEqual(view.ViewModel.SelectedOrder!.StatusLabel, badge.Text);
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "PrintOrderButton").Focus());
             Assert.IsTrue(WpfTestHost.FindByName<Button>(view, "OriginalQuotationButton").IsEnabled);
             WpfTestHost.Capture(window, "reception-orders-compact-ready");

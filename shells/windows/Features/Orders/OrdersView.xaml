@@ -214,10 +214,6 @@
                                     <TextBlock Text="{Binding SelectedOrder.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
                                 </StackPanel>
                             </layout:AdaptiveFieldsPanel>
-                            <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" Padding="12,8" Margin="0,12,0,0" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
-                            <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,12,0,0">
-                                <TextBlock Text="الأسعار وبيانات العميل محفوظة كما اعتُمدت في عرض السعر" Foreground="#745A43" FontSize="13" />
-                            </Border>
                             <WrapPanel Margin="0,12,0,0">
                                 <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,0"/>
                                 <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي"/>
@@ -416,7 +412,6 @@
                                 <StackPanel>
                                     <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
                                     <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
-                                    <TextBlock Text="راجع تصنيع الأثاث المرتبط بهذا الطلب. المنتجات الجاهزة لا تحتاج إلى أمر عمل." TextWrapping="Wrap" Margin="0,6,0,10"/>
                                     <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
                                 </StackPanel>
                             </Border>

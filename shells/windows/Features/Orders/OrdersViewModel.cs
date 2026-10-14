@@ -140,9 +140,9 @@ public sealed partial class OrdersViewModel : ObservableObject
 
     public bool IsReceptionist { get; }
     public bool IsManager => !IsReceptionist;
-    public string ListSubtitle => IsLive ? ListState : IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "راجع طلبات العملاء وتقدمها من مكان واحد";
+    public string ListSubtitle => IsLive ? ListState : "بيانات تجريبية للمعاينة فقط";
     public string SearchName => IsReceptionist ? "البحث برقم الطلب أو العميل أو رقم الهاتف" : "البحث برقم الطلب أو العميل";
-    public string DetailSubtitle => IsLive ? "بيانات الطلب المؤكدة من الخادم" : IsReceptionist ? "بيانات تجريبية للمعاينة فقط" : "مراجعة بيانات الطلب وبنود الأثاث";
+    public string DetailSubtitle => IsLive ? "" : "بيانات تجريبية للمعاينة فقط";
 
     public IReadOnlyList<string> StatusOptions { get; }
 

@@ -100,7 +100,7 @@ public sealed partial class OrdersViewModel
         orders.Clear(); foreach (var item in items) orders.Add(item);
         SelectedOrder = items.FirstOrDefault(i => i.Id == selected);
         pending = requests; RaiseActions(); RefreshVisibleOrders();
-        ListState = available ? "الطلبات المؤكدة" : "غير متصل — آخر حالة مؤكدة. العمليات تحتاج تأكيد الخادم.";
+        ListState = available ? "" : "غير متصل — آخر حالة مؤكدة. العمليات تحتاج تأكيد الخادم.";
     }
     public void CancelOrder() => LastAction = ActAsync(OrderPermittedAction.Cancel);
     public void SaveFulfillment() => LastAction = ActAsync(OrderPermittedAction.EditFulfillment);
