@@ -141,4 +141,17 @@ internal static class CustomerDocumentLayout
         table.RowGroups.Add(new TableRowGroup());
         return table;
     }
+
+    internal static void FitTables(FlowDocument document)
+    {
+        // WPF table columns need absolute widths. Retain their proportions when
+        // the selected printer changes the content width; keep text at native size.
+        var contentWidth = document.PageWidth - document.PagePadding.Left - document.PagePadding.Right;
+        foreach (var table in document.Blocks.OfType<Table>()) {
+            var availableWidth = contentWidth - table.Margin.Left - table.Margin.Right;
+            var totalWidth = table.Columns.Sum(column => column.Width.Value);
+            foreach (var column in table.Columns)
+                column.Width = new GridLength(availableWidth * column.Width.Value / totalWidth);
+        }
+    }
 }

@@ -162,6 +162,38 @@ public sealed class CustomerDocumentsRenderedTests
     }
 
     [TestMethod]
+    [DataRow(false, 793.7)]
+    [DataRow(false, 745.7)]
+    [DataRow(false, 697.7)]
+    [DataRow(true, 745.7)]
+    [DataRow(true, 697.7)]
+    public void PrintableWidthPreservesCompleteValuesAndContinuationColumns(bool order, double pageWidth)
+    {
+        WpfTestHost.Run(1338, 753, _ => {
+            var saved = MultiPageSaved(order);
+            foreach (var line in saved.Lines) { line.UnitPriceYer = 1234567; line.TotalYer = 1234567; }
+            saved.SubtotalYer = 44444412; saved.DiscountBasisPoints = 0; saved.DiscountYer = 0; saved.TotalYer = 44444412;
+            var document = order ? OrderCustomerDocument.CreateSaved(saved) : QuotationCustomerDocument.CreateSaved(saved);
+            // The native print route changes PageWidth after the preview has already paginated.
+            new CustomerDocumentPages(document);
+            document.PageWidth = pageWidth;
+            var pages = new CustomerDocumentPages(document);
+            Assert.IsTrue(pages.PageCount > 1);
+            var paginator = (DynamicDocumentPaginator)((IDocumentPaginatorSource)document).DocumentPaginator;
+            var rows = document.Blocks.OfType<Table>().Single(table => Equals(table.Tag, CustomerDocumentLayout.ItemsTag)).RowGroups[0].Rows;
+            foreach (var row in rows.Skip(1)) {
+                var firstPage = paginator.GetPageNumber(row.Cells[0].Blocks.FirstBlock.ContentStart);
+                foreach (var paragraph in row.Cells.SelectMany(cell => cell.Blocks.OfType<Paragraph>())) {
+                    Assert.AreEqual(firstPage, paginator.GetPageNumber(paragraph.ContentStart), "A narrow page must retain row grouping.");
+                    Assert.AreEqual(firstPage, paginator.GetPageNumber(paragraph.ContentEnd), "A narrow page must retain row grouping.");
+                }
+            }
+            ExportPages(document, $"printable-{(order ? "order" : "quotation")}-{pageWidth:0.0}", true, "44,444,412", "خزانة تجريبية",
+                Enumerable.Range(0, saved.Lines.Length).Select(index => $"A-{index}").ToArray(), checkBounds: true);
+        });
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void NormalLineRowsStayTogetherAcrossPages(bool order)
@@ -273,7 +305,7 @@ public sealed class CustomerDocumentsRenderedTests
         }
     }
 
-    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null, string[]? lineIdentifiers = null)
+    private static void ExportPages(FlowDocument document, string name, bool capture, string expectedTotal, string? expectedArabic = null, string[]? lineIdentifiers = null, bool checkBounds = false)
     {
         if (!capture) return;
         var captureDirectory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
@@ -292,6 +324,10 @@ public sealed class CustomerDocumentsRenderedTests
             var glyphText = WpfTestHost.Descendants<Glyphs>(page.Visual).Select(glyph => glyph.UnicodeString).ToArray();
             var pageText = string.Concat(glyphText);
             exportedText += pageText;
+            if (checkBounds) {
+                Assert.IsTrue(pageText.Contains($"{index + 1} / {paginator.PageCount}"), "Every printed page must retain its number.");
+                AssertGlyphsWithinPrintableWidth(page, document.PagePadding);
+            }
             if (lineIdentifiers is not null) {
                 var identifiers = System.Text.RegularExpressions.Regex.Matches(pageText, @"A-\d+")
                     .Select(match => match.Value).ToArray();
@@ -312,7 +348,38 @@ public sealed class CustomerDocumentsRenderedTests
         Assert.IsTrue(exportedText.Contains(expectedTotal), "Native export must retain the saved final total, not only the page decorations.");
         if (lineIdentifiers is not null) CollectionAssert.AreEquivalent(lineIdentifiers, exportedIdentifiers.ToArray(), "Every saved line must appear exactly once in native export.");
         if (expectedArabic is not null) Assert.IsTrue(exportedText.Contains(expectedArabic), "Native export must retain Arabic text.");
+        if (checkBounds) {
+            Assert.AreEqual(72, System.Text.RegularExpressions.Regex.Matches(exportedText, "1,234,567").Count,
+                "Every unit price and line total must retain all digits.");
+            var number = ((ValueTuple<string, string?>)document.Tag).Item2!;
+            Assert.AreEqual(paginator.PageCount + 1, System.Text.RegularExpressions.Regex.Matches(exportedText, number).Count,
+                "The complete identity must appear in the body and every page heading.");
+        }
         output.Close();
         if (string.IsNullOrEmpty(captureDirectory)) { File.Delete(path); Directory.Delete(directory); }
+    }
+
+    private static void AssertGlyphsWithinPrintableWidth(DocumentPage page, Thickness padding)
+    {
+        foreach (var glyph in WpfTestHost.Descendants<Glyphs>(page.Visual)) {
+            var alignment = glyph.ToGlyphRun().ComputeAlignmentBox();
+            alignment.Offset(glyph.OriginX, glyph.OriginY);
+            var transform = glyph.TransformToAncestor(page.Visual);
+            var bounds = transform.TransformBounds(alignment);
+            Assert.AreEqual(1.0, (transform.Transform(new Point(1, 0)) - transform.Transform(new Point(0, 0))).Length, 0.001,
+                "Printing must wrap cells without scaling the complete document.");
+            Assert.IsTrue(bounds.Left >= padding.Left - 1 && bounds.Right <= page.Size.Width - padding.Right + 1,
+                $"Printed text '{glyph.UnicodeString}' exceeds the content width: {bounds} on {page.Size.Width} DIP paper.");
+            DependencyObject? ancestor = glyph;
+            while (ancestor is Visual visual) {
+                if (VisualTreeHelper.GetClip(visual) is { } clip) {
+                    var clipBounds = visual.TransformToAncestor(page.Visual).TransformBounds(clip.Bounds);
+                    Assert.IsTrue(bounds.Left >= clipBounds.Left - 1 && bounds.Right <= clipBounds.Right + 1,
+                        $"Printed text '{glyph.UnicodeString}' is clipped: {bounds}; clip {clipBounds}.");
+                }
+                if (ancestor == page.Visual) break;
+                ancestor = VisualTreeHelper.GetParent(ancestor);
+            }
+        }
     }
 }

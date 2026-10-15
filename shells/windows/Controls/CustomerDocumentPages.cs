@@ -18,6 +18,7 @@ public sealed class CustomerDocumentPages : DocumentPaginator, IDocumentPaginato
     public CustomerDocumentPages(FlowDocument document)
     {
         this.document = document;
+        CustomerDocumentLayout.FitTables(document);
         inner = ((IDocumentPaginatorSource)document).DocumentPaginator;
         table = document.Blocks.OfType<Table>().SingleOrDefault(candidate => Equals(candidate.Tag, CustomerDocumentLayout.ItemsTag));
         inner.ComputePageCount();

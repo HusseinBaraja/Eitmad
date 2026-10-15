@@ -155,6 +155,7 @@ public partial class PrintPreview : System.Windows.Controls.UserControl
             }
             finally {
                 Document.PageWidth = width; Document.PageHeight = height;
+                CustomerDocumentLayout.FitTables(Document);
             }
         }
         catch (Exception error) when (error is System.Printing.PrintSystemException or System.IO.IOException or InvalidOperationException)
