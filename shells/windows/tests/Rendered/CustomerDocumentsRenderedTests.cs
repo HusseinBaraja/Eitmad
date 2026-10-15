@@ -20,6 +20,47 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class CustomerDocumentsRenderedTests
 {
+    [TestMethod]
+    [DataRow(false, 793.7)]
+    [DataRow(true, 793.7)]
+    [DataRow(false, 745.7)]
+    [DataRow(true, 745.7)]
+    public void WrappedPrintedTotalsKeepEachAmountBesideItsLabel(bool order, double pageWidth)
+    {
+        WpfTestHost.Run(1338, 753, _ => {
+            var saved = Saved(order);
+            saved.SubtotalYer = 1_234_567_890_123; saved.DiscountBasisPoints = 0; saved.DiscountYer = 0; saved.TotalYer = saved.SubtotalYer;
+            var document = order ? OrderCustomerDocument.CreateSaved(saved) : QuotationCustomerDocument.CreateSaved(saved);
+            document.PageWidth = pageWidth;
+            var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
+            var path = Path.Combine(directory ?? Path.GetTempPath(), $"paired-totals-{order}-{pageWidth:0.0}.xps");
+            if (directory is not null) Directory.CreateDirectory(directory);
+            try {
+                File.Delete(path);
+                using (var output = new XpsDocument(path, FileAccess.ReadWrite))
+                    XpsDocument.CreateXpsDocumentWriter(output).Write(new CustomerDocumentPages(document));
+                using var input = new XpsDocument(path, FileAccess.Read);
+                var paginator = input.GetFixedDocumentSequence().DocumentPaginator;
+                paginator.ComputePageCount();
+                var page = paginator.GetPage(paginator.PageCount - 1);
+                var glyphs = WpfTestHost.Descendants<Glyphs>(page.Visual).ToArray();
+                double Baseline(Glyphs glyph) => glyph.TransformToAncestor(page.Visual).Transform(new Point(glyph.OriginX, glyph.OriginY)).Y;
+                foreach (var label in new[] { "المجموع الفرعي", "نسبة الخصم", "الخصم", "الإجمالي النهائي" }) {
+                    var heading = glyphs.Single(glyph => glyph.UnicodeString == label);
+                    Assert.IsTrue(glyphs.Any(glyph => glyph.UnicodeString.Any(char.IsDigit) &&
+                        Math.Abs(Baseline(glyph) - Baseline(heading)) < 0.1), $"Printed total {label} has no amount on its first line.");
+                }
+                if (directory is not null) {
+                    var bitmap = new RenderTargetBitmap((int)Math.Ceiling(page.Size.Width), (int)Math.Ceiling(page.Size.Height), 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(page.Visual);
+                    var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    using var stream = File.Create(Path.ChangeExtension(path, ".png")); encoder.Save(stream);
+                }
+            }
+            finally { if (directory is null && File.Exists(path)) File.Delete(path); }
+        });
+    }
+
     internal static CustomerDocument Saved(bool order = false) => new() {
         Number = order ? "OR-2026-00001" : "QT-2026-00001", DocumentRevision = 2, Status = order ? "جاهز" : "مقبول", CanPrint = true,
         SavedAt = 1791417600000, IssuedAt = 1791417600000, ValidUntil = order ? null : 1794085199999, ValidityDays = order ? null : 30,

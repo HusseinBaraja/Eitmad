@@ -88,22 +88,21 @@ internal static class CustomerDocumentLayout
     {
         var table = Columns(347.7, 210, 140);
         table.Margin = new Thickness(0, 0, 0, 8);
-        var row = new TableRow(); table.RowGroups[0].Rows.Add(row);
-        row.Cells.Add(new TableCell(new Paragraph()) { Padding = new Thickness(0) });
-        var labels = new TableCell { Padding = new Thickness(0) };
-        var amounts = new TableCell { Padding = new Thickness(0) };
-        row.Cells.Add(labels); row.Cells.Add(amounts);
         for (var index = 0; index < values.Length; index++) {
             var final = index == values.Length - 1;
             var label = Text(values[index].Label); var amount = Text(values[index].Value, true);
+            var row = new TableRow(); table.RowGroups[0].Rows.Add(row);
+            row.Cells.Add(new TableCell(new Paragraph()) { Padding = new Thickness(0) });
             foreach (var paragraph in new[] { label, amount }) {
+                paragraph.KeepTogether = true;
                 paragraph.KeepWithNext = !final;
-                paragraph.Padding = new Thickness(8, final ? 12 : 5, 8, final ? 12 : 5);
-                paragraph.BorderThickness = final ? new Thickness(0, 1, 0, 0) : new Thickness(0);
-                paragraph.BorderBrush = Accent;
-                if (final) { paragraph.Background = Tint; paragraph.FontSize = 18; paragraph.FontWeight = FontWeights.Bold; }
+                var cell = new TableCell(paragraph) {
+                    Padding = new Thickness(8, final ? 12 : 5, 8, final ? 12 : 5),
+                    BorderThickness = final ? new Thickness(0, 1, 0, 0) : new Thickness(0), BorderBrush = Accent,
+                };
+                if (final) { cell.Background = Tint; paragraph.FontSize = 18; paragraph.FontWeight = FontWeights.Bold; }
+                row.Cells.Add(cell);
             }
-            labels.Blocks.Add(label); amounts.Blocks.Add(amount);
         }
         document.Blocks.Add(table);
     }
