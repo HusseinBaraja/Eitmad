@@ -15,6 +15,7 @@ public sealed class OperationsTableRenderedTests
     [TestMethod]
     [DataRow(1338d, 753d)]
     [DataRow(720d, 560d)]
+    [DataRow(1044d, 753d)]
     [DataRow(1536d, 864d)]
     public void MigratedTablesUseExistingTypedPropertiesAtBaselineWidths(double width, double height)
     {
