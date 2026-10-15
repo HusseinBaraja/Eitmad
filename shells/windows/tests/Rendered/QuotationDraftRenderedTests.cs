@@ -29,11 +29,25 @@ public sealed class QuotationDraftRenderedTests
                 window.Content = view; model.IsReviewingQuotation = true;
                 if (width == 1920) window.WindowState = WindowState.Maximized;
                 WpfTestHost.CompleteLayout(window);
-                var dpi = VisualTreeHelper.GetDpi(window);
-                Console.WriteLine($"Draft requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
                 WpfTestHost.Capture(window, $"quotation-draft-lines-{width}");
                 var review = WpfTestHost.Descendants<CurrentQuotationView>(view).Single();
+                var header = WpfTestHost.FindByName<Controls.PageHeader>(view, "WorkflowHeader");
+                Assert.AreEqual(model.QuotationHeading, header.Title);
+                Assert.IsFalse(header.ContainsButton);
+                Assert.IsTrue(header.ShowSubtitle);
+                view.RestoreQuotationFocus(); WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(review.ContinueButton.IsKeyboardFocused);
+                review.ContinueButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(model.IsReviewingQuotation);
+                Assert.IsTrue(header.ContainsButton);
+                Assert.AreEqual(model.QuotationLabel, header.ButtonText);
+                WpfTestHost.FindByName<Button>(header, "HeaderButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(model.IsReviewingQuotation);
+                Assert.AreEqual(model.QuotationHeading, header.Title);
+                Assert.IsFalse(header.ContainsButton);
                 var scroll = WpfTestHost.Descendants<ScrollViewer>(review).First(); scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
                 var save = WpfTestHost.FindByName<Button>(review, "SaveDraftButton");
                 Assert.IsTrue(save.IsEnabled); Assert.AreEqual("حفظ كمسودة", AutomationProperties.GetName(save));
@@ -58,9 +72,26 @@ public sealed class QuotationDraftRenderedTests
                 model.DiscountInput = "4"; Finish(model.LastQuotationEvaluation);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(QuotationDraftTests.WaitFor(() => !model.IsDraftBusy));
                 Assert.AreEqual("4", model.DiscountInput); Assert.AreEqual(500, snapshot.Intent.DiscountBasisPoints);
-                Assert.IsTrue(model.QuotationNotice.Contains("احتُفظ")); WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(model.HasDraftSaveFailure); Assert.IsTrue(model.DraftEditState.Contains("احتُفظ")); WpfTestHost.CompleteLayout(window);
+                scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
+                var failure = WpfTestHost.FindByName<Controls.FeedbackNotice>(review, "DraftSaveFailureNotice");
+                Assert.IsTrue(failure.IsVisible); Assert.IsTrue(save.IsEnabled); Assert.AreEqual("إعادة محاولة الحفظ", save.Content);
+                Assert.IsFalse(model.CanIssueQuotation); Assert.IsTrue(WpfTestHost.FindByName<Button>(review, "PrintPreviewButton").IsEnabled);
+                foreach (var element in new FrameworkElement[] { failure, save }) {
+                    var saveScroll = WpfTestHost.Ancestor<ScrollViewer>(save);
+                    var bounds = element.TransformToAncestor(saveScroll).TransformBounds(new Rect(element.RenderSize));
+                    Assert.IsTrue(new Rect(saveScroll.RenderSize).Contains(bounds), $"{element.Name} is outside the save viewport: {bounds}");
+                }
                 WpfTestHost.Capture(window, $"quotation-draft-failed-save-{width}");
+                if (width == 720) {
+                    review.Resources[SystemParameters.HighContrastKey] = true; WpfTestHost.CompleteLayout(window);
+                    WpfTestHost.Capture(window, "quotation-draft-failed-save-high-contrast-720");
+                    review.Resources.Remove(SystemParameters.HighContrastKey);
+                }
                 engine.CommandHandler = commandHandler;
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(QuotationDraftTests.WaitFor(() => !model.IsDraftBusy));
+                Assert.IsFalse(model.HasDraftSaveFailure); Assert.AreEqual("4", model.DiscountInput);
+                Assert.AreEqual(400, authority.Draft!.Snapshot.Intent.DiscountBasisPoints);
                 var manager = new QuotationsView(); manager.ViewModel.AttachDraftClient(drafts); Finish(manager.ViewModel.ActivateDraftsAsync());
                 window.Content = manager; WpfTestHost.CompleteLayout(window);
                 Assert.AreEqual(snapshot.Id, manager.ViewModel.VisibleQuotations.Single().Id);

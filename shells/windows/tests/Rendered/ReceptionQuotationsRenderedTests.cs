@@ -130,8 +130,10 @@ public sealed class ReceptionQuotationsRenderedTests
             WpfTestHost.FindByName<Button>(reception, "QuotationsAction").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.FindByName<QuotationsView>(reception, "ReceptionQuotations");
+            var titleBar = WpfTestHost.FindByName<Controls.ShellTitleBar>(reception, "ReceptionistTitleBar");
             Assert.IsTrue(view.IsVisible);
             Assert.IsTrue(view.ViewModel.IsReceptionist);
+            Assert.AreEqual(view.ViewModel.ListTitle, titleBar.Title);
             WpfTestHost.Capture(window, "quotation-list");
             var rows = view.ViewModel.VisibleQuotations.ToArray();
             view.ViewModel.SearchText = "٠٠٠٠٠٠٠٤٣";
@@ -141,12 +143,16 @@ public sealed class ReceptionQuotationsRenderedTests
             {
                 view.ViewModel.OpenQuotation(row);
                 WpfTestHost.CompleteLayout(view);
+                Assert.AreEqual("تفاصيل عرض السعر", titleBar.Title);
                 Assert.AreEqual(row.CanEdit, WpfTestHost.FindByAutomationName<Button>(view, "تعديل عرض السعر").IsVisible);
                 Assert.AreEqual(row.CanPrint, WpfTestHost.FindByAutomationName<Button>(view, "طباعة عرض السعر").IsVisible);
                 Assert.AreEqual(row.IsConverted, WpfTestHost.FindByAutomationName<Button>(view, "فتح الطلب").IsVisible);
                 Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Border>(view, "ApprovalSection").Visibility);
                 if (row.IsConverted || row.IsWaitingApproval || row.IsActive) WpfTestHost.Capture(window, "quotation-" + row.Status);
             }
+            view.BackToQuotationsButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(view.ViewModel.ListTitle, titleBar.Title);
         });
     }
 }

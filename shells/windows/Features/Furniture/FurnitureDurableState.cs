@@ -36,6 +36,15 @@ public sealed partial class FurnitureViewModel
     public bool CanSubmit => CanManage && !IsBusy;
     public bool CanEditFields => CanManage && !IsBusy && pendingSave is null;
     public bool ConfirmBelowCost { get => confirmBelowCost; set => Set(ref confirmBelowCost, value); }
+    public IReadOnlyList<FurnitureVariant> BelowCostVariants => Variants.Where(v => !v.IsArchived && v.HasNegativeMargin).ToArray();
+    public bool HasBelowCostVariants => BelowCostVariants.Count > 0;
+
+    private void RefreshBelowCostState()
+    {
+        if (!HasBelowCostVariants) ConfirmBelowCost = false;
+        Raise(nameof(BelowCostVariants));
+        Raise(nameof(HasBelowCostVariants));
+    }
     private bool allowCustomization;
     public bool AllowCustomization { get => allowCustomization; set => Set(ref allowCustomization,value); }
     public decimal MinWidth { get; set; } = 120m;
@@ -46,6 +55,30 @@ public sealed partial class FurnitureViewModel
     public decimal MaxDepth { get; set; } = 55m;
     public ObservableCollection<FurnitureOptionChoice> VariantColorChoices { get; } = [];
     public ObservableCollection<FurnitureOptionChoice> VariantHandleChoices { get; } = [];
+    private bool restrictVariantColors, restrictVariantHandles;
+    public bool RestrictVariantColors
+    {
+        get => restrictVariantColors;
+        set { if (Set(ref restrictVariantColors, value)) { Raise(nameof(AllowAllVariantColors)); RefreshVariantOptionState(); } }
+    }
+    public bool AllowAllVariantColors { get => !RestrictVariantColors; set => RestrictVariantColors = !value; }
+    public bool RestrictVariantHandles
+    {
+        get => restrictVariantHandles;
+        set { if (Set(ref restrictVariantHandles, value)) { Raise(nameof(AllowAllVariantHandles)); RefreshVariantOptionState(); } }
+    }
+    public bool AllowAllVariantHandles { get => !RestrictVariantHandles; set => RestrictVariantHandles = !value; }
+    public bool NeedsVariantColorSelection => RestrictVariantColors && !VariantColorChoices.Any(c => c.Selected);
+    public bool NeedsVariantHandleSelection => RestrictVariantHandles && !VariantHandleChoices.Any(c => c.Selected);
+    public bool CanSaveVariantOptions => !NeedsVariantColorSelection && !NeedsVariantHandleSelection;
+
+    private void VariantOptionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => RefreshVariantOptionState();
+    private void RefreshVariantOptionState()
+    {
+        Raise(nameof(NeedsVariantColorSelection));
+        Raise(nameof(NeedsVariantHandleSelection));
+        Raise(nameof(CanSaveVariantOptions));
+    }
     public event EventHandler? SearchChanged;
     public event EventHandler? PartSearchChanged;
     public event EventHandler? ReviewRequested;
@@ -56,8 +89,13 @@ public sealed partial class FurnitureViewModel
         IsLoading=false; DataStateText=""; CanManage = snapshot.CanManage;
         categories = snapshot.Categories.Items; partCategories = snapshot.PartCategories;
         var stagedCategory = EditorCategory;
-        EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
-        foreach (var c in categories.Where(c => !c.Archived)) { EditorCategoryOptions.Add(c.Name); CategoryOptions.Add(c.Name); }
+        EditorCategoryOptions.Clear();
+        foreach (var c in categories.Where(c => !c.Archived)) EditorCategoryOptions.Add(c.Name);
+        // Select the fallback before replacing choices so WPF never loses the active item.
+        if (!EditorCategoryOptions.Contains(SelectedCategory)) SelectedCategory = AllCategories;
+        CategoryOptions = [AllCategories, .. EditorCategoryOptions];
+        Raise(nameof(CategoryOptions));
+        Raise(nameof(SelectedCategory));
         if (IsEditorOpen) EditorCategory = stagedCategory;
         records.Clear(); furniture.Clear(); availableParts.Clear(); compositions.Clear();
         foreach (var part in snapshot.Parts.Concat(snapshot.Compositions)) compositions[(part.Id, part.Revision)] = part;
@@ -86,6 +124,7 @@ public sealed partial class FurnitureViewModel
 
     public void ApplyPartChoices(IReadOnlyList<Part> parts)
     {
+        partChoicesStatus = string.Empty;
         availableParts.Clear();
         availableParts.AddRange(parts.Where(p => !p.Archived).Select(PartOption));
         RefreshPartOptions();
@@ -96,6 +135,7 @@ public sealed partial class FurnitureViewModel
         IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         availableParts.Clear();
+        SetPartChoicesStatus("بيانات الأجزاء غير متاحة.");
         EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         SelectedParts.Clear(); Variants.Clear(); Colors.Clear(); Handles.Clear(); FilteredParts.Clear(); VisibleFurniture.Clear();
         ++ImageEditVersion; SetImportedImage(null,null);
@@ -146,6 +186,8 @@ public sealed partial class FurnitureViewModel
     }
     public void ApplyReview(FurnitureReview review)
     {
+        if (reviewedCost != review.PartsCostYer || Variants.Where((v, i) => i < review.MarginsYer.Length && v.Margin != review.MarginsYer[i]).Any())
+            ConfirmBelowCost = false;
         reviewedCost = review.PartsCostYer;
         for (var i = 0; i < SelectedParts.Count && i < review.RowCostsYer.Length; i++) SelectedParts[i].ApplyRowCost(review.RowCostsYer[i]);
         for (var i = 0; i < Variants.Count && i < review.MarginsYer.Length; i++) Variants[i].ApplyReview(review.PartsCostYer, review.MarginsYer[i]);
@@ -160,9 +202,14 @@ public sealed partial class FurnitureViewModel
         MaxWidth = v?.Customization?.Maximum.WidthMm / 10m ?? MinWidth;
         MaxHeight = v?.Customization?.Maximum.HeightMm / 10m ?? MinHeight;
         MaxDepth = v?.Customization?.Maximum.DepthMm / 10m ?? MinDepth;
+        foreach (var choice in VariantColorChoices.Concat(VariantHandleChoices)) choice.PropertyChanged -= VariantOptionChanged;
         VariantColorChoices.Clear(); VariantHandleChoices.Clear();
         foreach (var c in Colors.Where(c => c.IsActive)) VariantColorChoices.Add(new(c.Id, c.Name, v?.ColorIds.Contains(c.Id) == true));
         foreach (var h in Handles.Where(h => h.IsActive)) VariantHandleChoices.Add(new(h.Id, h.Name, v?.HandleIds.Contains(h.Id) == true));
+        foreach (var choice in VariantColorChoices.Concat(VariantHandleChoices)) choice.PropertyChanged += VariantOptionChanged;
+        RestrictVariantColors = v?.ColorIds.Length > 0;
+        RestrictVariantHandles = v?.HandleIds.Length > 0;
+        RefreshVariantOptionState();
         foreach (var name in new[] { nameof(AllowCustomization), nameof(MinWidth), nameof(MinHeight), nameof(MinDepth), nameof(MaxWidth), nameof(MaxHeight), nameof(MaxDepth) }) Raise(name);
     }
 }

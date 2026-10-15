@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Eitmad.Contracts;
 using Eitmad.Platform.Windows.Shell;
 using Eitmad.WindowsShell.Controls;
 using Button = System.Windows.Controls.Button;
@@ -22,6 +23,7 @@ public partial class PricingView : UserControl
         ViewModel.EditorPriceChanged += (_, _) => _ = ReviewAsync();
     }
     public PricingViewModel ViewModel { get; }
+    public event Action<CatalogSyncIssue>? DefinitionReviewRequested;
     public void Attach(IEngineShellBridge bridge) { engine = bridge; CreateClient(); }
     private void CreateClient()
     {
@@ -77,9 +79,9 @@ public partial class PricingView : UserControl
     }
     private void UpdateColumns()
     {
-        PricingRows.Columns[2].Visibility = ViewModel.CanReadCosts ? Visibility.Visible : Visibility.Collapsed;
-        PricingRows.Columns[4].Visibility = ViewModel.CanReadCosts ? Visibility.Visible : Visibility.Collapsed;
-        PricingRows.Columns[6].Visibility = ViewModel.CanManage ? Visibility.Visible : Visibility.Collapsed;
+        PricingRows.SetColumnAvailable(PricingRows.Columns[2], ViewModel.CanReadCosts);
+        PricingRows.SetColumnAvailable(PricingRows.Columns[4], ViewModel.CanReadCosts);
+        PricingRows.SetColumnAvailable(PricingRows.Columns[6], ViewModel.CanManage);
         PricingRows.IsRowInvocationEnabled = ViewModel.CanManage && ViewModel.CanReadCosts;
     }
     private async Task ReviewAsync()
@@ -95,7 +97,7 @@ public partial class PricingView : UserControl
             await Task.Delay(150, cancellation.Token);
             var result = await client.ReviewAsync(input, cancellation.Token);
             if (version != reviewVersion || editor != ViewModel.EditorVersion || session != sessionVersion || !ViewModel.IsEditorOpen) return;
-            if (result.Succeeded) ViewModel.ApplyReview(result.Value!);
+            if (result.Succeeded) ViewModel.ApplyReview(input.SellingPriceYer, result.Value!);
             else if (result.Failure == PricingFailure.Denied) { ClearProjection(); _ = RefreshAsync(); }
             else ViewModel.Fail(PricingClient.ArabicMessage(result.Failure));
         }
@@ -133,4 +135,9 @@ public partial class PricingView : UserControl
     private void CancelPriceClick(object sender, RoutedEventArgs e) => ViewModel.CancelEditor();
     private void FeedbackDismissed(object sender, RoutedEventArgs e) => ViewModel.ClearFeedback();
     private async void ReloadClick(object sender, RoutedEventArgs e) => await RefreshAsync();
+    private void ReviewDefinitionClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CanManage && sender is Button { DataContext: CatalogSyncIssue issue } && ViewModel.SyncIssues.Contains(issue))
+            DefinitionReviewRequested?.Invoke(issue);
+    }
 }

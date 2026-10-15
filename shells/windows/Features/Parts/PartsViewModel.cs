@@ -65,7 +65,7 @@ public sealed class PartsViewModel : ObservableObject
     public string MaterialOptionsMessage => materialSearchMessage.Length > 0 ? materialSearchMessage : HasNoMaterialOptions ? "لا توجد مواد خام مطابقة" : "";
     public bool HasMaterialOptionsMessage => MaterialOptionsMessage.Length > 0;
     public string TotalPartCostLabel => totalCost?.ToString("N0",CultureInfo.InvariantCulture) ?? "—";
-    public bool HasNoVisibleParts => VisibleParts.Count == 0 && !HasAvailabilityMessage;
+    public bool HasCalculatedCost => totalCost.HasValue;
     public string VisibleCountLabel => $"{VisibleParts.Count} أجزاء";
 
     /// <summary>Replaces Rust projections while retaining unsaved editor fields and selected category identity.</summary>
@@ -113,7 +113,7 @@ public sealed class PartsViewModel : ObservableObject
         matchingMaterials = []; materialSearchMessage = message; RefreshMaterialOptions();
     }
     /// <summary>Clears visible records when scoped data cannot be loaded without discarding unsaved input.</summary>
-    public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); Raise(nameof(HasNoVisibleParts)); }
+    public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); }
     public void ClearSession()
     {
         SavePending = false; CancelEditor(); records.Clear(); currentCosts.Clear(); categories.Clear(); materials.Clear(); VisibleParts.Clear();
@@ -144,7 +144,7 @@ public sealed class PartsViewModel : ObservableObject
             var usage = new PartMaterialUsage(new PartMaterialOption(r.Material,r.CostUnit,options),r.Usage.Quantity,r.Unit.Id);
             usage.SetCost(r.CostYer); return usage;
         }));
-        totalCost = currentCosts[part.Id].TotalCostYer; Raise(nameof(TotalPartCostLabel)); OpenEditor();
+        totalCost = currentCosts[part.Id].TotalCostYer; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost)); OpenEditor();
     }
     private void OpenEditor() { EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
     public void BeginArchive(PartListItem row)
@@ -162,7 +162,7 @@ public sealed class PartsViewModel : ObservableObject
     public void ApplyCost(PartCost cost, bool review = false)
     {
         foreach (var row in cost.Rows) SelectedMaterials.FirstOrDefault(u => u.Material.Id == row.Usage.MaterialId)?.SetCost(row.CostYer);
-        totalCost = cost.TotalCostYer; Raise(nameof(TotalPartCostLabel));
+        totalCost = cost.TotalCostYer; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost));
         EditorError = ""; if (review) { CurrentStep = 3; Raise(nameof(EditorCategoryLabel)); }
     }
     /// <summary>Refreshes selected material references before review without discarding their selected usage units.</summary>
@@ -193,11 +193,11 @@ public sealed class PartsViewModel : ObservableObject
     private void ReplaceMaterials(IEnumerable<PartMaterialUsage> rows)
     {
         foreach (var row in SelectedMaterials) row.PropertyChanged -= UsageChanged;
-        SelectedMaterials.Clear(); foreach (var row in rows) AddUsage(row); totalCost = null; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasSelectedMaterials)); RefreshMaterialOptions();
+        SelectedMaterials.Clear(); foreach (var row in rows) AddUsage(row); totalCost = null; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost)); Raise(nameof(HasSelectedMaterials)); RefreshMaterialOptions();
     }
     private void AddUsage(PartMaterialUsage row) { row.PropertyChanged += UsageChanged; SelectedMaterials.Add(row); }
     private void UsageChanged(object? sender,PropertyChangedEventArgs e) { if (e.PropertyName is nameof(PartMaterialUsage.Quantity) or nameof(PartMaterialUsage.SelectedUnit)) InvalidateCost(); }
-    private void InvalidateCost() { totalCost = null; foreach (var row in SelectedMaterials) row.SetCost(null); Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasSelectedMaterials)); }
+    private void InvalidateCost() { totalCost = null; foreach (var row in SelectedMaterials) row.SetCost(null); Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost)); Raise(nameof(HasSelectedMaterials)); }
     private void RefreshMaterialOptions()
     {
         FilteredMaterials.Clear(); foreach (var m in materials.Where(m => !SelectedMaterials.Any(u => u.Material.Id == m.Id) && (matchingMaterials is not null ? matchingMaterials.Contains(m.Id) : MaterialSearchText.Length == 0 && materialSearchMessage.Length == 0))) FilteredMaterials.Add(m);
@@ -212,6 +212,6 @@ public sealed class PartsViewModel : ObservableObject
             if (SelectedCategory != AllCategories && category != SelectedCategory || SelectedStatus == ActiveStatus && p.Archived || SelectedStatus == ArchivedStatus && !p.Archived) continue;
             VisibleParts.Add(new PartListItem(p.Id,p.Name,category,currentCosts[p.Id].TotalCostYer,p.Archived));
         }
-        Raise(nameof(HasNoVisibleParts)); Raise(nameof(VisibleCountLabel));
+        Raise(nameof(VisibleCountLabel));
     }
 }

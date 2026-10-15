@@ -8,30 +8,43 @@
  <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <controls:PageHeader Title="المستخدمون">
-   <Button Content="+ إضافة مستخدم" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
+   <Button Content="+ إضافة مستخدم" IsEnabled="{Binding CanManageAccounts}" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
   </controls:PageHeader>
   <Grid Grid.Row="1" Margin="28,22,28,28">
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <StackPanel Margin="0,0,0,16"><TextBlock Text="تدار الحسابات والصلاحيات من محرك الاعتماد." Foreground="{DynamicResource MutedBrush}" FontSize="12"/><TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
-   <layout:AdaptiveFieldsPanel Grid.Row="1" MinItemWidth="210" Margin="0,0,0,18">
-    <controls:FormField Label="البحث"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
-    <controls:FormField Label="الدور"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
-    <controls:FormField Label="الحالة"><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الحالة"/></controls:FormField>
-   </layout:AdaptiveFieldsPanel>
-   <controls:OperationsTable x:Name="UsersTable" Grid.Row="2" ItemsSource="{Binding VisibleUsers}" AutomationProperties.Name="قائمة المستخدمين" VerticalAlignment="Top" RowHeight="68">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16">
+    <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding EditorError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+   </TextBlock>
+   <WrapPanel Grid.Row="1" Margin="0,0,0,18">
+    <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
+    <controls:FormField Label="الدور" Width="240" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>
+    <controls:FormField Label="الحالة" Width="180" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الحالة"/></controls:FormField>
+   </WrapPanel>
+   <DockPanel Grid.Row="2" Margin="0,0,0,12" Visibility="{Binding HasLoadFailure, Converter={StaticResource BooleanToVisibility}}">
+    <Button x:Name="RetryUsersButton" DockPanel.Dock="Left" Content="إعادة التحميل" Style="{StaticResource SecondaryButton}" Click="RetryClick" IsEnabled="{Binding CanRetry}" VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="إعادة تحميل المستخدمين"/>
+    <controls:FeedbackNotice x:Name="UsersLoadNotice" Message="{Binding LoadNotice}" Tone="Warning"/>
+   </DockPanel>
+   <controls:OperationsTable x:Name="UsersTable" Grid.Row="3" ItemsSource="{Binding VisibleUsers}" Visibility="{Binding ShowTable, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="قائمة المستخدمين" VerticalAlignment="Top" RowHeight="68">
     <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا يوجد مستخدمون مطابقون" Description="جرّب تغيير البحث أو عوامل التصفية."/></controls:OperationsTable.EmptyContent>
     <DataGrid.Columns>
-     <DataGridTextColumn Header="المستخدم" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
-     <DataGridTextColumn Header="الدور" Binding="{Binding Role}" Width="*" MinWidth="160" ElementStyle="{StaticResource TableBody}"/>
+     <DataGridTemplateColumn Header="المستخدم" SortMemberPath="Name" Width="2*" MinWidth="180">
+      <DataGridTemplateColumn.CellTemplate><DataTemplate>
+       <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="{Binding Name}" Style="{StaticResource TableBody}"/>
+        <TextBlock Text="{Binding Username}" Style="{StaticResource TableBody}" FontSize="12" Foreground="{DynamicResource MutedBrush}" FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis" ToolTip="{Binding Username}"/>
+       </StackPanel>
+      </DataTemplate></DataGridTemplateColumn.CellTemplate>
+     </DataGridTemplateColumn>
+     <DataGridTextColumn Header="الدور" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Role}" Width="*" MinWidth="160" ElementStyle="{StaticResource TableBody}"/>
      <DataGridTemplateColumn Header="الحالة" Width="*" MinWidth="115" SortMemberPath="Status">
       <DataGridTemplateColumn.CellTemplate><DataTemplate>
-       <controls:StatusBadge Text="{Binding Status}" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <controls:StatusBadge.Style><Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Setter Property="Tone" Value="Neutral"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger></Style.Triggers></Style></controls:StatusBadge.Style>
+       <controls:StatusBadge HorizontalAlignment="Center" VerticalAlignment="Center">
+        <controls:StatusBadge.Style><Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}"><Setter Property="Text" Value="{Binding Status}"/><Setter Property="Tone" Value="Neutral"/><Style.Triggers><DataTrigger Binding="{Binding IsActive}" Value="True"><Setter Property="Tone" Value="Success"/></DataTrigger><DataTrigger Binding="{Binding DataContext.HasLoadFailure, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"><Setter Property="Text" Value="غير مؤكد"/><Setter Property="Tone" Value="Neutral"/></DataTrigger></Style.Triggers></Style></controls:StatusBadge.Style>
        </controls:StatusBadge>
       </DataTemplate></DataGridTemplateColumn.CellTemplate>
      </DataGridTemplateColumn>
      <DataGridTemplateColumn Header="الإجراءات" Width="*" MinWidth="175" CanUserSort="False">
-      <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding DataContext.CanManageAccounts, RelativeSource={RelativeSource AncestorType=UserControl}}">
        <Button Content="تعديل" Style="{StaticResource InlineActionButton}" Click="EditClick" AutomationProperties.Name="{Binding Name, StringFormat=تعديل المستخدم {0}}"/>
        <Button Content="تعطيل" Style="{StaticResource InlineActionButton}" Margin="12,0,0,0" Click="DeactivateClick" IsEnabled="{Binding IsActive}" AutomationProperties.Name="{Binding Name, StringFormat=تعطيل المستخدم {0}}"/>
       </StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
@@ -45,14 +58,20 @@
   <Grid.Resources>
    <Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}"><Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/></Style>
   </Grid.Resources>
-  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,28,28,32" HorizontalContentAlignment="Stretch" Grid.RowSpan="2">
-   <StackPanel x:Name="EditorContent" MaxWidth="640" HorizontalAlignment="Stretch">
-    <controls:PageHeader Title="{Binding EditorTitle}" Height="Auto" MinHeight="64" Padding="0,0,0,16" Background="Transparent" BorderThickness="0"/>
-    <TextBlock Text="يسري تغيير الدور أو التعطيل على الجلسات المفتوحة فورًا." Foreground="{DynamicResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,20"/>
+  <controls:PageHeader Title="{Binding EditorTitle}" ShowSubtitle="False" Height="Auto" MinHeight="96">
+   <StackPanel Orientation="Horizontal">
+    <Button Content="حفظ" MinWidth="104" Style="{StaticResource PrimaryButton}" Click="ApplyClick" AutomationProperties.Name="حفظ"/>
+    <Button Content="إلغاء" MinWidth="88" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelEditClick" AutomationProperties.Name="إلغاء تعديل المستخدم"/>
+   </StackPanel>
+  </controls:PageHeader>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,22,28,28" HorizontalContentAlignment="Stretch">
+   <Grid VerticalAlignment="Top">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="640"/></Grid.ColumnDefinitions>
+    <StackPanel x:Name="EditorContent" MaxWidth="640" HorizontalAlignment="Stretch">
     <Border Style="{StaticResource Card}" Padding="24">
      <StackPanel>
-      <controls:FormField Label="الاسم" ErrorText="{Binding EditorError}"><TextBox x:Name="UserNameInput" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="الاسم"/></controls:FormField>
-      <controls:FormField Margin="0,20,0,0">
+      <controls:FormField Label="الاسم" ErrorText="{Binding EditorNameError}"><TextBox x:Name="UserNameInput" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" AutomationProperties.Name="الاسم"/></controls:FormField>
+      <controls:FormField Margin="0,20,0,0" ErrorText="{Binding EditorUsernameError}">
        <controls:FormField.Style>
         <Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}">
          <Setter Property="Label" Value="اسم المستخدم"/>
@@ -61,26 +80,28 @@
        </controls:FormField.Style>
        <TextBox x:Name="UsernameInput" Text="{Binding EditorUsername, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsEditing}" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم المستخدم"/>
       </controls:FormField>
-      <controls:FormField Label="كلمة المرور المؤقتة" Margin="0,20,0,0">
+      <controls:FormField Label="كلمة المرور المؤقتة (12 حرفًا على الأقل)" Margin="0,20,0,0" ErrorText="{Binding EditorPasswordError}">
        <controls:FormField.Style><Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}"><Style.Triggers><DataTrigger Binding="{Binding IsEditing}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></controls:FormField.Style>
-       <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
+       <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" PasswordChanged="PasswordChanged" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
       </controls:FormField>
       <layout:AdaptiveFieldsPanel MinItemWidth="260" Spacing="20" Margin="0,20,0,0">
-       <controls:FormField Label="الدور"><ComboBox x:Name="UserRoleInput" ItemsSource="{Binding Roles}" SelectedItem="{Binding EditorRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="دور المستخدم"/></controls:FormField>
+       <controls:FormField Label="الدور" ErrorText="{Binding EditorRoleError}"><ComboBox x:Name="UserRoleInput" ItemsSource="{Binding Roles}" SelectedItem="{Binding EditorRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="دور المستخدم"/></controls:FormField>
       </layout:AdaptiveFieldsPanel>
-      <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,24,0,0" Padding="0,20,0,0">
-       <StackPanel Orientation="Horizontal">
-        <Button Content="حفظ" MinWidth="104" Style="{StaticResource PrimaryButton}" Click="ApplyClick" AutomationProperties.Name="حفظ"/>
-        <Button Content="إلغاء" MinWidth="88" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelEditClick" AutomationProperties.Name="إلغاء تعديل المستخدم"/>
-       </StackPanel>
-      </Border>
+      <TextBlock x:Name="EditorFailureSummary" Text="{Binding EditorError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="14" Margin="0,20,0,0">
+       <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding EditorError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+      </TextBlock>
      </StackPanel>
     </Border>
-   </StackPanel>
+    </StackPanel>
+   </Grid>
   </ScrollViewer>
  </Grid>
   <controls:DialogHost Grid.RowSpan="2" IsOpen="{Binding IsDeactivationOpen}" Title="تعطيل المستخدم" PreferredWidth="460" Padding="28" CloseRequested="CancelDeactivateClick" InitialFocusTarget="{Binding ElementName=CancelDeactivateButton}">
-   <StackPanel><TextBlock Text="{Binding DeactivationName}" FontWeight="SemiBold" Margin="0,0,0,12"/><TextBlock Text="سيُمنع هذا المستخدم من تسجيل الدخول، وستنتهي جلساته المفتوحة. سيبقى الحساب في القائمة بحالة غير نشط." TextWrapping="Wrap"/></StackPanel>
+   <StackPanel TextElement.FontSize="14" Margin="0,12,0,0">
+    <TextBlock Text="{Binding DeactivationName}" FontSize="17" FontWeight="SemiBold"/>
+    <TextBlock Text="{Binding DeactivationUsername}" FontSize="12" Foreground="{DynamicResource MutedBrush}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,0,0,12"/>
+    <TextBlock Text="سيُمنع هذا المستخدم من تسجيل الدخول، وستنتهي جلساته المفتوحة. سيبقى الحساب في القائمة بحالة غير نشط." TextWrapping="Wrap"/>
+   </StackPanel>
    <controls:DialogHost.Footer><StackPanel Orientation="Horizontal">
     <Button Content="تعطيل المستخدم" Style="{StaticResource PrimaryButton}" Click="ConfirmDeactivateClick" AutomationProperties.Name="تأكيد تعطيل المستخدم"/>
     <Button x:Name="CancelDeactivateButton" Content="إلغاء" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Click="CancelDeactivateClick" AutomationProperties.Name="إلغاء تعطيل المستخدم"/>

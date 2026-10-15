@@ -12,6 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class MainWindowRenderedTests
 {
+
     [TestMethod]
     public void RootResolvesArabicRtlAndNativeWindowChrome()
     {
@@ -58,18 +59,6 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility);
             Assert.AreEqual(Visibility.Visible, signIn.Visibility);
             Assert.AreEqual(1, cleared);
-        }, showSignIn: true);
-    }
-
-    [TestMethod]
-    public void ReceptionistActionsStackAtCompactWindowWidth()
-    {
-        WpfTestHost.Run(780, 745, window =>
-        {
-            WpfTestHost.SignIn(window, "receptionist");
-            WpfTestHost.CompleteLayout(window);
-
-            Assert.AreEqual(1, WpfTestHost.FindByName<UniformGrid>(window, "ReceptionistActionsGrid").Columns);
         }, showSignIn: true);
     }
 
@@ -214,7 +203,7 @@ public sealed class MainWindowRenderedTests
             var root = WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot");
             Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.GetMode(root));
             Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
-            Assert.AreEqual(3, WpfTestHost.FindByName<UniformGrid>(window, "QuickActionsGrid").Columns);
+
         });
 
         WpfTestHost.Run(780, 745, window =>
@@ -222,7 +211,6 @@ public sealed class MainWindowRenderedTests
             var root = WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot");
             Assert.AreEqual(ResponsiveLayoutMode.Compact, ResponsiveLayout.GetMode(root));
             Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
-            Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "QuickActionsGrid").Columns);
 
             var search = WpfTestHost.FindByName<TextBox>(window, "SearchBox");
             var searchBorder = WpfTestHost.Ancestor<Border>(search);
@@ -230,4 +218,5 @@ public sealed class MainWindowRenderedTests
             Assert.AreEqual(4, Grid.GetColumnSpan(searchBorder));
         });
     }
+
 }

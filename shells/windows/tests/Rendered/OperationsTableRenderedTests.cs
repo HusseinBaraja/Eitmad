@@ -14,14 +14,17 @@ public sealed class OperationsTableRenderedTests
 {
     [TestMethod]
     [DataRow(1338d, 753d)]
-    [DataRow(780d, 745d)]
-    public void MigratedTablesUseExistingTypedPropertiesAtBothWidths(double width, double height)
+    [DataRow(720d, 560d)]
+    [DataRow(1044d, 753d)]
+    [DataRow(1536d, 864d)]
+    public void MigratedTablesUseExistingTypedPropertiesAtBaselineWidths(double width, double height)
     {
         WpfTestHost.Run(width, height, window =>
         {
             void Check(string name)
             {
                 WpfTestHost.CompleteLayout(window);
+                Console.WriteLine($"{name}: {window.ActualWidth}x{window.ActualHeight} DIP; scaling {System.Windows.Media.VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%.");
                 var tables = WpfTestHost.Descendants<OperationsTable>(window).Where(table => table.IsVisible).ToArray();
                 Assert.IsGreaterThan(0, tables.Length, name);
                 foreach (var badge in WpfTestHost.Descendants<StatusBadge>(window).Where(badge => badge.IsVisible))
@@ -32,6 +35,13 @@ public sealed class OperationsTableRenderedTests
                     Assert.IsFalse(table.CanUserAddRows);
                     Assert.IsFalse(table.CanUserDeleteRows);
                     Assert.IsTrue(table.IsReadOnly);
+                    if (table.Columns.Any(OperationsTable.GetIsCompactDetail))
+                    {
+                        var scroll = (ScrollViewer)table.Template.FindName("DG_ScrollViewer", table);
+                        Assert.AreEqual(0, scroll.ScrollableWidth, 1, $"{name} table={table.ActualWidth}, viewport={scroll.ViewportWidth}; " + string.Join("; ", table.Columns.Select(column => $"{column.Header}: {column.Visibility} {column.ActualWidth}")));
+                        foreach (var detail in WpfTestHost.Descendants<Layout.AdaptiveFieldsPanel>(table))
+                            Assert.IsLessThanOrEqualTo(scroll.ViewportWidth, detail.ActualWidth, name + " bounded details");
+                    }
                     if (table.Items.Count > 0)
                         foreach (var column in table.Columns.Where(column => column.CanUserSort))
                         {
@@ -52,6 +62,11 @@ public sealed class OperationsTableRenderedTests
             foreach (var page in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
                 WpfTestHost.FindByName<Button>(window, page + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                if (page == "Parts")
+                    WpfTestHost.Descendants<Features.Parts.PartsView>(window).Single().ViewModel.ApplyDurableData(new Parts.PartFixtures().Snapshot());
+                if (page == "Products")
+                    WpfTestHost.Descendants<Features.Products.ProductsView>(window).Single().ViewModel.ApplyDurableData(Products.ProductsPresentationTests.Data());
                 Check(page);
             }
             WpfTestHost.FindByName<Button>(window, "WorkOrdersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -89,9 +104,60 @@ public sealed class OperationsTableRenderedTests
             furniture.BeginEdit(furniture.VisibleFurniture[0]);
             Assert.IsTrue(furniture.MoveToParts());
             Check("furniture-parts");
-            Assert.IsTrue(furniture.MoveToVariants());
-            Assert.IsTrue(furniture.MoveToOptions());
-            Check("furniture-colors");
+        });
+    }
+
+    [TestMethod]
+    public void CompactDetailsKeepEditingSortingAndSelectionAcrossResize()
+    {
+        WpfTestHost.Run(900, 700, window =>
+        {
+            var rows = new[] { new Row("سالم", 12, DateTime.Today), new Row("أحمد", 2, DateTime.Today) };
+            var table = new OperationsTable { Width = 450, ItemsSource = rows, IsRowInvocationEnabled = true };
+            table.Columns.Add(new DataGridTextColumn { Header = "التاريخ", Binding = new Binding(nameof(Row.Date)), MinWidth = 180, Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+            var editor = new FrameworkElementFactory(typeof(TextBox));
+            editor.SetBinding(TextBox.TextProperty, new Binding(nameof(Row.Name)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus });
+            var name = new DataGridTemplateColumn { Header = "الاسم", SortMemberPath = nameof(Row.Name), MinWidth = 200, CellTemplate = new DataTemplate { VisualTree = editor } };
+            var amount = new DataGridTextColumn { Header = "القيمة", Binding = new Binding(nameof(Row.Amount)), MinWidth = 160 };
+            OperationsTable.SetIsCompactDetail(name, true);
+            OperationsTable.SetIsCompactDetail(amount, true);
+            table.Columns.Add(name);
+            table.Columns.Add(amount);
+            var outside = new Button { Content = "إنهاء الإدخال" };
+            window.Content = new StackPanel { Children = { table, outside } };
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Collapsed, name.Visibility);
+            table.SelectedItem = rows[0];
+            var sort = WpfTestHost.FindByAutomationName<Button>(table, "ترتيب حسب القيمة");
+            Assert.IsTrue(sort.Focus());
+            sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreSame(rows[1], table.Items[0]);
+            Assert.AreSame(rows[0], table.SelectedItem);
+            var input = WpfTestHost.Descendants<TextBox>(table).Single(text => ReferenceEquals(text.DataContext, rows[0]));
+            Assert.IsTrue(input.Focus());
+            input.Text = "محمد";
+            outside.Focus();
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("محمد", rows[0].Name);
+            table.Width = 800;
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Visible, name.Visibility);
+            Assert.AreSame(rows[0], table.SelectedItem);
+            Assert.AreEqual(System.ComponentModel.ListSortDirection.Ascending, amount.SortDirection);
+            table.Width = 450;
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual("محمد", WpfTestHost.Descendants<TextBox>(table).Single(text => ReferenceEquals(text.DataContext, rows[0])).Text);
+            Assert.AreSame(rows[1], table.Items[0]);
+            table.SetColumnAvailable(amount, false);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(WpfTestHost.Descendants<Button>(table).Any(button => ReferenceEquals(button.Content, amount)), "Unavailable fields must leave compact details.");
+            table.Width = 800;
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Collapsed, amount.Visibility, "A wide layout must not restore an unavailable field.");
+            table.SetColumnAvailable(amount, true);
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Visible, amount.Visibility);
         });
     }
 

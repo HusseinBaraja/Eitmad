@@ -71,11 +71,12 @@ public sealed partial class SalesCatalogViewModel
     private bool isCustomerSaveBusy;
     private string customerOperationError = string.Empty;
     private IReadOnlySet<string> invalidCustomerFields = new HashSet<string>();
-    public PreviewCustomer? SelectedCustomer { get; private set; }
+    private PreviewCustomer? selectedCustomer;
+    public PreviewCustomer? SelectedCustomer { get => selectedCustomer; private set => Set(ref selectedCustomer, value); }
     public ObservableCollection<PreviewCustomer> CustomerMatches { get; } = [];
     private string quotationNumber = "";
     public string QuotationNumber { get => quotationNumber; set { if (Set(ref quotationNumber, value)) Raise(nameof(QuotationHeading)); } }
-    public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : QuotationNumber;
+    public string QuotationHeading => string.IsNullOrWhiteSpace(QuotationNumber) ? "عرض سعر جديد" : "عرض السعر";
     public bool IsQuotationEmpty => QuotationLines.Count == 0;
     public decimal Subtotal => catalogClient is not null ? evaluation?.Totals?.SubtotalYer ?? 0 : QuotationLines.Sum(line => line.LineTotal);
     public decimal Discount => catalogClient is not null ? evaluation?.Totals?.DiscountYer ?? 0

@@ -18,8 +18,9 @@ public sealed class CustomerDocumentPages : DocumentPaginator, IDocumentPaginato
     public CustomerDocumentPages(FlowDocument document)
     {
         this.document = document;
+        CustomerDocumentLayout.FitTables(document);
         inner = ((IDocumentPaginatorSource)document).DocumentPaginator;
-        table = document.Blocks.OfType<Table>().FirstOrDefault();
+        table = document.Blocks.OfType<Table>().SingleOrDefault(candidate => Equals(candidate.Tag, CustomerDocumentLayout.ItemsTag));
         inner.ComputePageCount();
     }
     public DocumentPaginator DocumentPaginator => this;
@@ -46,8 +47,8 @@ public sealed class CustomerDocumentPages : DocumentPaginator, IDocumentPaginato
                 var headers = table.RowGroups[0].Rows[0].Cells;
                 for (var index = 0; index < table.Columns.Count; index++) {
                     var width = table.Columns[index].Width.Value;
-                    drawing.DrawRectangle(Brushes.Gainsboro, null, new Rect(right - width, 60, width, 30));
-                    DrawText(drawing, new TextRange(headers[index].ContentStart, headers[index].ContentEnd).Text.Trim(), new Point(right - 6, 66), 12);
+                    drawing.DrawRectangle(table.RowGroups[0].Rows[0].Background, null, new Rect(right - width, 60, width, 30));
+                    DrawText(drawing, new TextRange(headers[index].ContentStart, headers[index].ContentEnd).Text.Trim(), new Point(right - 8, 66), 12);
                     right -= width;
                 }
             }

@@ -35,6 +35,8 @@ public sealed class DiscountApprovalRenderedTests
                 WpfTestHost.CompleteLayout(window); Assert.HasCount(1, view.ViewModel.VisibleQuotations); WpfTestHost.Capture(window, $"discount-inbox-manager-{width}");
                 view.ViewModel.OpenQuotation(view.ViewModel.VisibleQuotations.Single()); WpfTestHost.CompleteLayout(window);
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
+                WpfTestHost.FindByName<Expander>(view, "DiscountRejection").IsExpanded = true;
+                WpfTestHost.CompleteLayout(window);
                 var reason = WpfTestHost.Descendants<TextBox>(view).Single(t => AutomationProperties.GetName(t) == "سبب رفض الخصم");
                 reason.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(reason.Focus()); reason.Text = "الخصم مرتفع";
                 var reject = WpfTestHost.FindByAutomationName<Button>(view, "رفض خصم عرض السعر"); reject.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(reject.Focus()); Assert.IsTrue(reject.IsKeyboardFocusWithin); Assert.IsTrue(reject.IsEnabled);

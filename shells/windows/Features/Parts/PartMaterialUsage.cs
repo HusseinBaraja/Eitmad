@@ -34,8 +34,9 @@ public sealed class PartMaterialUsage : ObservableObject
     public PartUnitOption? SelectedUnit { get => selectedUnit; set { if (Set(ref selectedUnit, value)) SetCost(null); } }
     public string UnitCostLabel => Material.UnitCostLabel;
     public long? TotalCost => cost;
+    public bool HasCalculatedCost => cost.HasValue;
     public string TotalCostLabel => cost?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
-    public void SetCost(long? value) { cost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); }
+    public void SetCost(long? value) { cost = value; Raise(nameof(TotalCost)); Raise(nameof(TotalCostLabel)); Raise(nameof(HasCalculatedCost)); }
     /// <summary>Uses a matching current unit revision while retaining a selected saved unit omitted from active choices.</summary>
     public void RefreshReference(PartMaterialOption material)
     {

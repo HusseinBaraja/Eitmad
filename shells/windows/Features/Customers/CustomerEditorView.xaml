@@ -5,7 +5,6 @@
  FlowDirection="RightToLeft" Language="ar-YE">
  <controls:DialogHost x:Name="Dialog" PreferredWidth="560" ShowCloseButton="True" CloseRequested="CancelClick" InitialFocusTarget="{Binding ElementName=NameInput}">
   <StackPanel>
-   <TextBlock Text="تُحفظ التغييرات في محرك الاعتماد بعد التحقق من البيانات." FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,20"/>
    <controls:FormField x:Name="NameField" Label="الاسم"><TextBox x:Name="NameInput" Style="{StaticResource TextInput}" TextChanged="NameChanged" AutomationProperties.Name="اسم العميل"/></controls:FormField>
    <controls:FormField x:Name="PhoneField" Label="رقم الهاتف" Margin="0,16,0,0"><TextBox x:Name="PhoneInput" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="رقم هاتف العميل"/></controls:FormField>
    <controls:FormField Label="العنوان" Margin="0,16,0,0"><TextBox x:Name="AddressInput" Style="{StaticResource TextInput}" AutomationProperties.Name="عنوان العميل"/></controls:FormField>

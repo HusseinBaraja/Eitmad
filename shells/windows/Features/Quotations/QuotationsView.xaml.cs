@@ -47,7 +47,7 @@ public partial class QuotationsView : UserControl
     {
         createPreview = factory;
         DetailStatusBadge.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
-        QuotationTable.Columns.Single(column => (string)column.Header == "الخصم").Visibility = Visibility.Collapsed;
+        QuotationTable.SetColumnAvailable(QuotationTable.Columns.Single(column => (string)column.Header == "الخصم"), false);
         ViewModel = new QuotationsViewModel(true, preview: factory is not null);
         ViewModel.DocumentsInvalidated += (_, _) => CloseEditors();
         DataContext = ViewModel;

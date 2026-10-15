@@ -6,6 +6,7 @@ using Eitmad.WindowsShell.Features.Pricing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Documents;
 using Eitmad.WindowsShell.Controls;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -13,6 +14,86 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class DialogHostRenderedTests
 {
+    [TestMethod]
+    public void WholeShellScrimBlocksNavigationAndRestoresFocus()
+    {
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            var materials = Navigate<RawMaterialsView>(window, "MaterialsNavButton");
+            var invoker = WpfTestHost.FindByName<Button>(window, "ProductsNavButton");
+            invoker.Focus();
+            materials.ViewModel.BeginAddUnit();
+            WpfTestHost.CompleteLayout(window);
+            var dialog = OpenDialog(window);
+            AssertShellScrim(window, dialog, invoker);
+            RaiseKey(dialog, Key.Escape);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(dialog.IsOpen);
+            Assert.IsTrue(invoker.IsKeyboardFocused);
+            var root = (UIElement)window.Content;
+            Assert.IsNull(AdornerLayer.GetAdornerLayer(root).GetAdorners(root));
+            invoker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(window.ProductsSurface.IsVisible, "Navigation resumes after the modal closes.");
+        });
+    }
+
+    [TestMethod]
+    public void WholeShellScrimCoversReceptionNavigationAndStacksOnce()
+    {
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            WpfTestHost.SignIn(window, "receptionist");
+            Assert.IsTrue(MainWindow.SwitchAccountCommand.CanExecute(null, window));
+            WpfTestHost.FindByName<Button>(window, "QuotationsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var quotations = WpfTestHost.Descendants<Features.Quotations.QuotationsView>(window).Single(view => view.IsVisible);
+            var invoker = WpfTestHost.FindByName<Button>(window, "ProductsNavButton");
+            invoker.Focus();
+            var dialog = WpfTestHost.FindByName<DialogHost>(quotations, "ConversionDialog");
+            dialog.IsOpen = true;
+            WpfTestHost.CompleteLayout(window);
+            AssertShellScrim(window, dialog, invoker);
+            Assert.IsFalse(MainWindow.SwitchAccountCommand.CanExecute(null, window), "The shell shortcut cannot open a second action behind the modal.");
+            var confirmation = WpfTestHost.FindByName<DialogHost>(window, "AccountSwitchDialog");
+            confirmation.IsOpen = true;
+            WpfTestHost.CompleteLayout(window);
+            AssertShellScrim(window, confirmation, invoker);
+            RaiseKey(confirmation, Key.Escape);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(confirmation.IsOpen);
+            AssertShellScrim(window, dialog, invoker);
+            dialog.IsOpen = false;
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(invoker.IsKeyboardFocused);
+            Assert.IsTrue(MainWindow.SwitchAccountCommand.CanExecute(null, window));
+            var root = (UIElement)window.Content;
+            Assert.IsNull(AdornerLayer.GetAdornerLayer(root).GetAdorners(root));
+        }, showSignIn: true);
+    }
+
+    private static void AssertShellScrim(MainWindow window, DialogHost dialog, Button navigation)
+    {
+        var root = (UIElement)window.Content;
+        var scrim = AdornerLayer.GetAdornerLayer(root).GetAdorners(root).Single();
+        Assert.AreEqual(root.RenderSize, scrim.RenderSize, "One scrim covers the complete shell.");
+        var point = navigation.TranslatePoint(new Point(navigation.ActualWidth / 2, navigation.ActualHeight / 2), window);
+        var hit = window.InputHitTest(point);
+        Assert.AreSame(scrim, hit, "The scrim receives pointer input over the real sidebar.");
+        var pointer = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = Mouse.PreviewMouseDownEvent };
+        scrim.RaiseEvent(pointer);
+        Assert.IsTrue(pointer.Handled);
+        var key = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(navigation), 0, Key.Enter) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+        navigation.RaiseEvent(key);
+        Assert.IsTrue(key.Handled);
+        navigation.Focus();
+        WpfTestHost.PumpDispatcher();
+        Assert.IsTrue(dialog.IsKeyboardFocusWithin);
+        var surface = (Border)dialog.Template.FindName("DialogSurface", dialog);
+        var surfacePoint = surface.TranslatePoint(new Point(surface.ActualWidth / 2, surface.ActualHeight / 2), window);
+        Assert.AreNotSame(scrim, window.InputHitTest(surfacePoint), "Dialog content remains interactive.");
+    }
+
     [TestMethod]
     public void DialogContainsFocusAndReturnsToInvokerWithoutConfirmingOnEnter()
     {

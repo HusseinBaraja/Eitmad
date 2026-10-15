@@ -29,7 +29,14 @@ public sealed class QuotationLifecycleRenderedTests
                 Assert.IsTrue(issue.IsVisible); Assert.IsTrue(issue.IsEnabled); Assert.IsTrue(issue.Focus()); Assert.IsTrue(issue.IsKeyboardFocusWithin);
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
                 WpfTestHost.Capture(window, $"quotation-issue-reception-{width}");
-                issue.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(view.ViewModel.LastLifecycleAction);
+                var confirmation = new TaskCompletionSource();
+                fixture.Engine.CommandBarrier = _ => confirmation.Task;
+                issue.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsFalse(issue.IsEnabled);
+                Assert.IsTrue(WpfTestHost.FindByName<Eitmad.WindowsShell.Controls.FeedbackNotice>(view, "DocumentBusyNotice").IsVisible);
+                if (width == 720) { issue.BringIntoView(); WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "quotation-issue-pending-720"); }
+                confirmation.SetResult(); Finish(view.ViewModel.LastLifecycleAction);
                 Assert.AreEqual("QT-2026-00001", view.ViewModel.SelectedQuotation!.Number); Assert.IsFalse(view.ViewModel.SelectedQuotation.CanConvert);
                 Finish(view.ViewModel.DeactivateDraftsAsync());
                 fixture.Record.PermittedActions = [QuotationPermittedAction.Accept, QuotationPermittedAction.Print];
@@ -41,6 +48,8 @@ public sealed class QuotationLifecycleRenderedTests
                 var acceptanceNote = WpfTestHost.FindByAutomationName<TextBox>(view, "ملاحظة قبول العميل"); Assert.IsTrue(acceptanceNote.Focus());
                 var accept = WpfTestHost.FindByAutomationName<Button>(view, "تأكيد قبول العميل لعرض السعر");
                 accept.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(accept.IsVisible); Assert.IsTrue(accept.Focus());
+                Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Border>(view, "CancellationSection").Visibility);
+                WpfTestHost.Capture(window, $"quotation-accept-reception-actions-{width}");
                 WpfTestHost.Capture(window, $"quotation-accept-reception-{width}");
                 Finish(view.ViewModel.DeactivateDraftsAsync());
                 fixture.Record.PermittedActions = [QuotationPermittedAction.Revise, QuotationPermittedAction.Cancel, QuotationPermittedAction.Print];
@@ -49,6 +58,12 @@ public sealed class QuotationLifecycleRenderedTests
                 var revise = WpfTestHost.FindByAutomationName<Button>(view, "إنشاء إصدار جديد من عرض السعر"); revise.BringIntoView(); WpfTestHost.CompleteLayout(window);
                 Assert.IsTrue(revise.IsVisible); Assert.IsTrue(revise.Focus()); Assert.IsTrue(revise.IsKeyboardFocusWithin);
                 var reason = WpfTestHost.FindByAutomationName<TextBox>(view, "سبب إلغاء عرض السعر"); Assert.IsTrue(reason.IsVisible); Assert.IsTrue(reason.Focus()); reason.Text = "إلغاء تجريبي مع حفظ سجل العرض";
+                var documentActions = WpfTestHost.FindByName<Border>(view, "DocumentActionsSection");
+                var cancellation = WpfTestHost.FindByName<Border>(view, "CancellationSection");
+                Assert.IsFalse(WpfTestHost.Descendants<Button>(documentActions).Any(button => AutomationProperties.GetName(button) == "إلغاء عرض السعر مع حفظ السجل"));
+                Assert.IsTrue(WpfTestHost.Descendants<TextBox>(cancellation).Contains(reason));
+                cancellation.BringIntoView(); WpfTestHost.CompleteLayout(window);
+                WpfTestHost.Capture(window, $"quotation-cancellation-manager-{width}");
                 var dpi = VisualTreeHelper.GetDpi(window); Console.WriteLine($"Quotation requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
                 WpfTestHost.Capture(window, $"quotation-issued-manager-{width}");
                 if (width == 720) { foreach (var control in WpfTestHost.Descendants<Control>(view)) Eitmad.WindowsShell.Controls.ControlOptions.SetHighContrast(control, true); WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "quotation-issued-manager-high-contrast-720"); }

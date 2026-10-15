@@ -16,10 +16,11 @@ public sealed class PricingListItem(PriceItem record)
     public long? Margin => Record.MarginYer;
     public bool HasNegativeMargin => Margin < 0;
     public bool IsActive => Record.Published is not null;
+    public bool NeedsPublication => Record.PublicationRequired;
     public string CostLabel => FormatMoney(Cost);
     public string SellingPriceLabel => FormatMoney(SellingPrice);
     public string MarginLabel => FormatMoney(Margin);
-    public string StatusLabel => Record.PublicationRequired ? "بانتظار النشر" : "منشور";
+    public string StatusLabel => NeedsPublication ? IsActive ? "يحتاج إعادة نشر" : "بانتظار النشر" : "منشور";
     public static string FormatMoney(long? value) => value.HasValue ? $"{value.Value.ToString("N0", CultureInfo.InvariantCulture)} ر.ي" : "—";
     private static Guid TargetId(PriceItem item)
     {

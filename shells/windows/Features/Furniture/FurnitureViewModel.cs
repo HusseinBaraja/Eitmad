@@ -53,6 +53,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     private string feedbackMessage = string.Empty;
     private bool isPartPickerOpen;
     private string partSearchText = string.Empty;
+    private string partChoicesStatus = "بيانات الأجزاء غير متاحة.";
     private bool isVariantEditorOpen;
     private string variantName = string.Empty;
     private decimal variantWidth = 120m;
@@ -77,7 +78,14 @@ public sealed partial class FurnitureViewModel : ObservableObject
         SelectedParts = [];
         FilteredParts = [];
         Variants = [];
-        Variants.CollectionChanged += (_, e) => { if (e.NewItems is not null) foreach (FurnitureVariant v in e.NewItems) v.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(FurnitureVariant.SellingPrice)) ReviewRequested?.Invoke(this, EventArgs.Empty); }; };
+        Variants.CollectionChanged += (_, e) =>
+        {
+            if (e.OldItems is not null) foreach (FurnitureVariant v in e.OldItems) v.PropertyChanged -= VariantReviewChanged;
+            if (e.NewItems is not null) foreach (FurnitureVariant v in e.NewItems) v.PropertyChanged += VariantReviewChanged;
+            ConfirmBelowCost = false;
+            RefreshBelowCostState();
+        };
+        ReviewRequested += (_, _) => ConfirmBelowCost = false;
         Colors = [];
         Handles = [];
 
@@ -85,7 +93,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         RefreshPartOptions();
     }
 
-    public ObservableCollection<string> CategoryOptions { get; }
+    public ObservableCollection<string> CategoryOptions { get; private set; }
 
     internal bool FixtureSalesCatalog { get; set; }
 
@@ -126,13 +134,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public ObservableCollection<FurnitureHandleOption> Handles { get; }
 
-    public IReadOnlyList<string> ColorSwatchOptions { get; } =
+    public IReadOnlyList<FurnitureColorSwatch> ColorSwatchOptions { get; } =
     [
-        "#F7F4EF",
-        "#8B5A3C",
-        "#4F2C1D",
-        "#2E596B",
-        "#B89A72",
+        new("#F7F4EF", "أبيض عاجي"),
+        new("#8B5A3C", "بني"),
+        new("#4F2C1D", "بني داكن"),
+        new("#2E596B", "أزرق داكن"),
+        new("#B89A72", "بيج"),
     ];
 
     public string SearchText
@@ -212,7 +220,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
                 Raise(nameof(IsStepFour));
                 Raise(nameof(IsStepFive));
                 Raise(nameof(IsStepSix));
-                Raise(nameof(EditorStepDescription));
             }
         }
     }
@@ -228,16 +235,6 @@ public sealed partial class FurnitureViewModel : ObservableObject
     public bool IsStepFive => CurrentStep == 5;
 
     public bool IsStepSix => CurrentStep == 6;
-
-    public string EditorStepDescription => CurrentStep switch
-    {
-        2 => "اختر الأجزاء، واضبط الكمية، وشاهد التكلفة المحدثة.",
-        3 => "أضف المقاسات الثابتة التي يحددها المدير.",
-        4 => "حدّد الألوان والمقابض التي يمكن اختيارها لاحقاً.",
-        5 => "حدّد سعر بيع كل مقاس وقارن هامش الربح مباشرة.",
-        6 => "راجع الأثاث كاملاً قبل حفظ المسودة أو التعريف.",
-        _ => "أنشئ معلومات المنتج الأساسية قبل المتابعة.",
-    };
 
     public string EditorName { get => editorName; set => Set(ref editorName, value ?? string.Empty); }
 
@@ -315,6 +312,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
             if (Set(ref partSearchText, value ?? string.Empty))
             {
                 PartSearchChanged?.Invoke(this, EventArgs.Empty);
+                RefreshPartPickerState();
             }
         }
     }
@@ -322,6 +320,31 @@ public sealed partial class FurnitureViewModel : ObservableObject
     public bool HasSelectedParts => SelectedParts.Count > 0;
 
     public bool HasNoPartOptions => FilteredParts.Count == 0;
+
+    public string PartPickerStateText => partChoicesStatus.Length > 0 ? partChoicesStatus
+        : !HasNoPartOptions ? string.Empty
+        : string.IsNullOrWhiteSpace(PartSearchText) ? "لا توجد أجزاء متاحة للإضافة." : "لا توجد أجزاء مطابقة للبحث.";
+
+    public bool HasPartPickerState => PartPickerStateText.Length > 0;
+
+    public bool HasPartChoices => partChoicesStatus.Length == 0 && !HasNoPartOptions;
+
+    internal void BeginPartChoicesLoad() => SetPartChoicesStatus("جار تحميل الأجزاء...");
+
+    internal void PartChoicesUnavailable(string text) => SetPartChoicesStatus(text);
+
+    private void SetPartChoicesStatus(string text)
+    {
+        partChoicesStatus = text;
+        RefreshPartPickerState();
+    }
+
+    private void RefreshPartPickerState()
+    {
+        Raise(nameof(PartPickerStateText));
+        Raise(nameof(HasPartPickerState));
+        Raise(nameof(HasPartChoices));
+    }
 
     public decimal CurrentPartsCost => reviewedCost;
 
@@ -582,6 +605,13 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public bool SaveVariant()
     {
+        // Empty contract lists mean unrestricted; an unfinished selected-options choice cannot encode that intent.
+        if (!CanSaveVariantOptions)
+        {
+            EditorError = NeedsVariantColorSelection ? "اختر لوناً واحداً على الأقل." : "اختر مقبضاً واحداً على الأقل.";
+            return false;
+        }
+
         if (VariantName.Trim().Length == 0)
         {
             EditorError = "أدخل اسم المقاس.";
@@ -619,8 +649,8 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
         var savedVariant = editingVariant is null ? Variants[^1] : Variants.First(v => v.Id == editingVariant.Id);
         savedVariant.Customization = customization;
-        savedVariant.ColorIds = VariantColorChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
-        savedVariant.HandleIds = VariantHandleChoices.Where(c => c.Selected).Select(c => c.Id).ToArray();
+        savedVariant.ColorIds = RestrictVariantColors ? VariantColorChoices.Where(c => c.Selected).Select(c => c.Id).ToArray() : [];
+        savedVariant.HandleIds = RestrictVariantHandles ? VariantHandleChoices.Where(c => c.Selected).Select(c => c.Id).ToArray() : [];
         ReviewRequested?.Invoke(this, EventArgs.Empty);
         IsVariantEditorOpen = false;
         EditorError = string.Empty;
@@ -656,7 +686,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     {
         ColorName = string.Empty;
         ColorPriceAdjustment = 0m;
-        ColorSwatchHex = ColorSwatchOptions[0];
+        ColorSwatchHex = ColorSwatchOptions[0].Hex;
         EditorError = string.Empty;
         IsColorEditorOpen = true;
     }
@@ -807,6 +837,12 @@ public sealed partial class FurnitureViewModel : ObservableObject
         Raise(nameof(CurrentPartsCostLabel));
     }
 
+    private void VariantReviewChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(FurnitureVariant.SellingPrice)) ReviewRequested?.Invoke(this, EventArgs.Empty);
+        if (args.PropertyName == nameof(FurnitureVariant.HasNegativeMargin)) RefreshBelowCostState();
+    }
+
     private void ReplaceVariants(IEnumerable<FurnitureVariant> variants)
     {
         Variants.Clear();
@@ -850,6 +886,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         }
 
         Raise(nameof(HasNoPartOptions));
+        RefreshPartPickerState();
     }
 
     private void RefreshVisibleFurniture()

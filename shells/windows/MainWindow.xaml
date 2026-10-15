@@ -6,19 +6,6 @@
         <CommandBinding Command="{x:Static local:MainWindow.SwitchAccountCommand}" Executed="SwitchAccountExecuted" CanExecute="CanSwitchAccount" />
     </Window.CommandBindings>
     <Window.Resources>
-        <Style x:Key="MetricLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style x:Key="MetricValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="27" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,5,0,0" />
-        </Style>
-        <Style x:Key="SmallMuted" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-        </Style>
         <Style x:Key="TableCell" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -36,28 +23,19 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="ResponsiveMetricsGrid" TargetType="UniformGrid">
-            <Setter Property="Columns" Value="4" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}">
-                    <Setter Property="Columns" Value="2" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Columns" Value="2" />
-                </DataTrigger>
-            </Style.Triggers>
+        <Style x:Key="HomeQuickRoute" TargetType="Button" BasedOn="{StaticResource QuickActionButton}">
+            <Setter Property="Width" Value="156" />
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
-        <Style x:Key="ResponsiveQuickActionsGrid" TargetType="UniformGrid">
-            <Setter Property="Columns" Value="6" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}">
-                    <Setter Property="Columns" Value="3" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Columns" Value="2" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <WrapPanel x:Key="ManagerQuickRoutes" x:Name="QuickRoutesPanel" Margin="-4,0">
+            <Button Content="الطلبات" Style="{StaticResource HomeQuickRoute}" Tag="الطلبات" Click="HomeActionClick"/>
+            <Button Content="قائمة الأسعار" Style="{StaticResource HomeQuickRoute}" Tag="التسعير" Click="HomeActionClick"/>
+            <Button Content="الأثاث" Style="{StaticResource HomeQuickRoute}" Tag="الأثاث" Click="HomeActionClick"/>
+            <Button Content="إدارة القطع" Style="{StaticResource HomeQuickRoute}" Tag="القطع" Click="HomeActionClick"/>
+            <Button Content="إدارة الخامات" Style="{StaticResource HomeQuickRoute}" Tag="الخامات" Click="HomeActionClick"/>
+        </WrapPanel>
     </Window.Resources>
     <Grid x:Name="ShellHost">
     <Grid x:Name="ResponsiveRoot" FlowDirection="LeftToRight" layout:ResponsiveLayout.IsEnabled="True">
@@ -67,25 +45,13 @@
         </Grid.ColumnDefinitions>
         <Grid x:Name="DashboardSurface" Grid.Column="0" FlowDirection="RightToLeft">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <controls:ShellTitleBar x:Name="ManagerTitleBar" Title="لوحة التحكم" PrimaryActionLabel="الموافقات"
+            <controls:ShellTitleBar x:Name="ManagerTitleBar" Title="لوحة التحكم" PrimaryActionLabel="الموافقات" PrimaryActionIcon="{StaticResource IconTasks}"
                 SearchPlaceholder="ابحث عن عرض سعر أو طلب أو عميل أو صنف..."
                 SwitchAccountHint="تسجيل الخروج وتبديل الحساب · Alt+K"
                 AccountSwitchRequested="ManagerTitleBarAccountSwitchRequested"
                 ActionRequested="ManagerTitleBarActionRequested" SearchSubmitted="ManagerTitleBarSearchSubmitted"/>
             <ScrollViewer Grid.Row="1" Style="{StaticResource ResponsivePageMargin}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel>
-                    <TextBlock Text="لوحة التحكم" FontSize="25" FontWeight="Bold" Margin="0,0,0,16"/>
-                    <UniformGrid x:Name="QuickActionsGrid" Style="{StaticResource ResponsiveQuickActionsGrid}" Margin="-6,0">
-                        <Button Content="الموافقات" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="الموافقات" Click="HomeActionClick" AutomationProperties.Name="فتح موافقات الخصم"/>
-                        <Button Content="قائمة الأسعار" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="التسعير" Click="HomeActionClick"/>
-                        <Button Content="الأثاث" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="الأثاث" Click="HomeActionClick"/>
-                        <Button Content="الطلبات" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="الطلبات" Click="HomeActionClick"/>
-                        <Button Content="إدارة القطع" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="القطع" Click="HomeActionClick"/>
-                        <Button Content="إدارة الخامات" Style="{StaticResource QuickActionButton}" Margin="6" Padding="12" Tag="الخامات" Click="HomeActionClick"/>
-                    </UniformGrid>
-                    <home:HomeView x:Name="ManagerHome" Margin="0,16,0,0"/>
-                    <TextBlock Text="غير متاح: البحث الشامل في عملاء المؤسسة وتحصيل المدفوعات والمخزون والتركيبات والرسائل وتقارير الأقسام." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0"/>
-                </StackPanel>
+                <home:HomeView x:Name="ManagerHome" IsManagerDashboard="True" QuickRoutes="{StaticResource ManagerQuickRoutes}"/>
             </ScrollViewer>
             <controls:FeedbackNotice x:Name="InteractionToast" Grid.Row="1" Margin="30" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="40" Tone="Information" IsFloating="True" DisplayDuration="00:00:02.5" Dismissed="DismissToast"/>
         </Grid>
@@ -100,7 +66,6 @@
         <workOrders:WorkOrdersView x:Name="WorkOrdersSurface" Grid.Column="0" Visibility="Collapsed" />
         <!-- Right navigation -->
         <controls:ShellSidebar x:Name="ManagerSidebar" Grid.Column="1" NavigationRequested="ManagerSidebarNavigationRequested" />
-        <TextBlock Visibility="Collapsed" Text="CNC-04 · Windows / Rust · مرجع REF-١٢" />
     </Grid>
         <reception:ReceptionistHomeView x:Name="ReceptionistSurface"
                                         Panel.ZIndex="20"
@@ -113,8 +78,8 @@
                              PreferredWidth="460" FlowDirection="RightToLeft"
                              InitialFocusTarget="{Binding ElementName=CancelAccountSwitchButton}"
                              CloseRequested="CancelAccountSwitchClick">
-            <StackPanel>
-                <TextBlock Text="احفظ تعديلاتك قبل تبديل الحساب. ستُمسح الحقول غير المحفوظة، وتبقى الأعمال المحفوظة."
+            <StackPanel TextElement.FontSize="14" Margin="0,12,0,0">
+                <TextBlock Text="احفظ تعديلاتك قبل تبديل الحساب. ستنتهي جلستك وتُمسح الحقول غير المحفوظة، وتبقى الأعمال المحفوظة."
                            TextWrapping="Wrap" />
                 <WrapPanel Margin="0,20,0,0">
                     <Button x:Name="CancelAccountSwitchButton" Content="إلغاء" Click="CancelAccountSwitchClick"

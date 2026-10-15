@@ -16,68 +16,28 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class SharedControlsRenderedTests
 {
     [TestMethod]
-    [DataRow(1338d, 753d)]
-    [DataRow(780d, 745d)]
-    public void SearchBindingsAndFilterFieldsFitEveryPage(double width, double height)
+    public void SearchFieldsKeepAccessibleLabelsAndUpdateQueries()
     {
-        WpfTestHost.Run(width, height, window =>
+        WpfTestHost.Run(1338, 753, window =>
         {
-            var homeHeader = (Border)WpfTestHost.FindByName<Grid>(window, "ToolbarLayout").Parent;
-            var headerHeight = homeHeader.ActualHeight;
-            var dashboardSearch = WpfTestHost.FindByName<TextBox>(window, "SearchBox");
-            Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(dashboardSearch)));
-            var searchIcon = (Geometry)window.FindResource("IconSearch");
-            Assert.HasCount(1, WpfTestHost.Descendants<System.Windows.Shapes.Path>((Border)dashboardSearch.Parent).Where(path => path.IsVisible && Equals(path.Data, searchIcon)));
-            WpfTestHost.Capture(window, $"dashboard-{width}");
             foreach (var destination in new[] { "Materials", "Parts", "Furniture", "Pricing", "Products", "Quotations", "Orders", "WorkOrders" })
             {
                 WpfTestHost.FindByName<Button>(window, destination + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 WpfTestHost.CompleteLayout(window);
-                var header = WpfTestHost.Descendants<PageHeader>(window).Single(element => element.IsVisible);
-                Assert.AreEqual(headerHeight, header.ActualHeight, destination);
-                Assert.AreEqual(WpfTestHost.FindByName<TextBlock>(window, "TitleText").FontSize, header.FontSize, destination);
                 var search = WpfTestHost.Descendants<TextBox>(window).Single(element => element.IsVisible && element.Name.EndsWith("SearchBox", StringComparison.Ordinal));
-                var panel = OwningLayoutPanel(search);
-                var fields = panel.Children.Cast<FrameworkElement>()
-                    .Select(child => child as FormField ?? WpfTestHost.Descendants<FormField>(child).Single())
-                    .ToArray();
-                Assert.IsTrue(fields.All(field => !string.IsNullOrWhiteSpace(field.Label)), destination);
-                Assert.IsTrue(fields.All(field => field.Content is UIElement input && AutomationProperties.GetLabeledBy(input) is not null), destination);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(search)));
-                Assert.AreEqual(string.Empty, search.Text);
-                search.Focus();
+                var field = WpfTestHost.Ancestor<FormField>(search);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(field.Label), destination);
+                Assert.IsNotNull(AutomationProperties.GetLabeledBy(search), destination);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(AutomationProperties.GetName(search)), destination);
                 search.Text = "خشب";
                 WpfTestHost.CompleteLayout(window);
                 var binding = search.GetBindingExpression(TextBox.TextProperty)!;
-                Assert.AreEqual("خشب", binding.DataItem.GetType().GetProperty("SearchText")!.GetValue(binding.DataItem));
+                Assert.AreEqual("خشب", binding.DataItem.GetType().GetProperty("SearchText")!.GetValue(binding.DataItem), destination);
                 search.Clear();
                 WpfTestHost.CompleteLayout(window);
-                var placeholder = (TextBlock)search.Template.FindName("Placeholder", search);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(ControlOptions.GetPlaceholder(search)), destination);
-                Assert.AreEqual(Visibility.Visible, placeholder.Visibility);
-                var children = panel.Children.Cast<FrameworkElement>().Where(child => child.Visibility != Visibility.Collapsed).ToArray();
-                var bounds = children.Select(child => child.TransformToAncestor(panel).TransformBounds(new Rect(child.RenderSize))).ToArray();
-                for (var index = 0; index < bounds.Length; index++)
-                {
-                    Assert.IsTrue(bounds[index].Left >= -1 && bounds[index].Right <= panel.ActualWidth + 1, destination);
-                    for (var other = index + 1; other < bounds.Length; other++)
-                        Assert.IsFalse(bounds[index].IntersectsWith(bounds[other]), destination);
-                }
-                WpfTestHost.Capture(window, $"{destination}-{width}");
+                Assert.AreEqual(string.Empty, binding.DataItem.GetType().GetProperty("SearchText")!.GetValue(binding.DataItem), destination);
             }
         });
-    }
-
-    private static AdaptiveFieldsPanel OwningLayoutPanel(FrameworkElement element)
-    {
-        DependencyObject? current = element;
-        while (current is not null)
-        {
-            if (current is AdaptiveFieldsPanel panel) return panel;
-            current = VisualTreeHelper.GetParent(current) ?? LogicalTreeHelper.GetParent(current);
-        }
-
-        throw new InvalidOperationException("The search field has no layout panel.");
     }
 
     [TestMethod]

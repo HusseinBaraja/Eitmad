@@ -23,6 +23,17 @@ public partial class RawMaterialsView : UserControl
         InitializeComponent();
         ViewModel = new RawMaterialsViewModel();
         DataContext = ViewModel;
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(RawMaterialsViewModel.HasEditorError) && ViewModel.HasEditorError)
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FrameworkElement target = ViewModel.HasEditorSummaryError ? EditorSummary
+                        : ViewModel.EditorCategoryError.Length > 0 ? EditorCategoryField
+                        : ViewModel.EditorUnitError.Length > 0 ? EditorUnitField : EditorCostField;
+                    target.BringIntoView(new Rect(0, 0, target.ActualWidth, target.ActualHeight + 8));
+                }), DispatcherPriority.Loaded);
+        };
     }
 
     public RawMaterialsViewModel ViewModel { get; }
@@ -132,9 +143,10 @@ public partial class RawMaterialsView : UserControl
 
         var category = ViewModel.EditorCategories.FirstOrDefault(item => item.Id == ViewModel.EditorCategoryId);
         var unit = ViewModel.EditorUnits.FirstOrDefault(item => item.Id == ViewModel.EditorUnitId);
-        if (category?.Id is not { } categoryId || unit?.Id is not { } unitId
-            || !TryParseWholeCost(EditorCostBox.Text, out var cost))
-        { ViewModel.Fail("اختر تصنيفاً ووحدة، وأدخل تكلفة صحيحة بالريال اليمني."); return; }
+        var costValid = TryParseWholeCost(EditorCostBox.Text, out var cost);
+        ViewModel.Fail(string.Empty);
+        ViewModel.SetEditorInputErrors(category?.Id is null, unit?.Id is null, !costValid);
+        if (category?.Id is not { } categoryId || unit?.Id is not { } unitId || !costValid) return;
         ViewModel.EditorCost = cost;
         var failure = await client.SaveAsync(new SaveMaterial
         {
@@ -258,7 +270,7 @@ public partial class RawMaterialsView : UserControl
             if (!long.TryParse(UnitNumeratorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var numerator)
                 || !long.TryParse(UnitDenominatorBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var denominator)
                 || numerator <= 0 || denominator <= 0)
-            { ViewModel.Fail("أدخل بسطاً ومقاماً صحيحين أكبر من صفر.", reference: true); return; }
+            { ViewModel.Fail("أدخل كميتين صحيحتين أكبر من صفر.", reference: true); return; }
             failure = await client.SaveAsync(new SaveMaterialUnit
                 { Id = selected?.Id, ExpectedRevision = selected?.Revision,
                   Name = ViewModel.ReferenceName.Trim(), Symbol = ViewModel.ReferenceShortName.Trim(),

@@ -32,7 +32,6 @@ public sealed class ProductSelectionViewModel : ObservableObject
     public string ActionLabel => IsEditing ? "حفظ التعديلات" : "إضافة إلى عرض السعر";
     public string BackLabel => IsEditing ? "إلغاء" : "العودة إلى المنتجات";
     public SalesCatalogItem Item { get; }
-    public string PersistenceNotice => Item.Entry is null ? "الاختيار وعرض السعر مؤقتان ولا يتم حفظهما" : "الاختيار محلي. راجع عرض السعر ثم استخدم حفظ كمسودة لتأكيد الحفظ.";
     public IReadOnlyList<SalesProductVariant> Variants { get; }
     public bool HasVariants => Variants.Count > 0;
     public bool HasNoVariants => !HasVariants;
@@ -51,7 +50,7 @@ public sealed class ProductSelectionViewModel : ObservableObject
     public bool CanAdd => Item.Entry is not null ? configuration is not null : (!HasVariants || SelectedVariant is not null) && TryTotal(out _);
     public string UnitPriceLabel => CanAdd ? UnitPrice.ToString("N0", CultureInfo.InvariantCulture) : "—";
     public string LineTotalLabel => CanAdd ? LineTotal.ToString("N0", CultureInfo.InvariantCulture) : "—";
-    public string Guidance => Item.Entry is not null ? validationMessage : HasVariants && SelectedVariant is null ? "اختر النوع / المقاس لإضافة المنتج" : CanAdd ? string.Empty : "السعر غير متاح";
+    public string Guidance => Item.Entry is not null ? validationMessage : (HasVariants && SelectedVariant is null) || CanAdd ? string.Empty : "السعر غير متاح";
     private bool TryTotal(out decimal total)
     {
         total = 0;
@@ -61,7 +60,7 @@ public sealed class ProductSelectionViewModel : ObservableObject
     /// <summary>Invalidates checked totals after input changes and requests a new Rust validation result.</summary>
     private void Refresh()
     {
-        if (Item.Entry is not null) { configuration = null; validationMessage = "اختر النوع / المقاس للتحقق من المنتج."; }
+        if (Item.Entry is not null) { configuration = null; validationMessage = ""; }
         RaiseState(); Changed?.Invoke(this, EventArgs.Empty);
     }
     private void RaiseState()

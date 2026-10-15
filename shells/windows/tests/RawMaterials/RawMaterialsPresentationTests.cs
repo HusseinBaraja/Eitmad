@@ -9,6 +9,24 @@ namespace Eitmad.WindowsShell.Tests.RawMaterials;
 public sealed class RawMaterialsPresentationTests
 {
     [TestMethod]
+    public void UnitEditorPreservesExactFactorAcrossDimensionChanges()
+    {
+        var model = new RawMaterialsViewModel();
+        var scope = new ScopeRef { Kind = "organization", Id = Guid.NewGuid() };
+        var unit = new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "وحدة مخصصة",
+            Dimension = UnitDimension.Length, Numerator = 9_007_199_254_740_993, Denominator = 7, Revision = 1 };
+        model.ApplyDurableData(new MaterialReferences { Categories = [], Units = [unit] }, []);
+        model.BeginManageUnits();
+        model.BeginEditReference(model.Units.Single());
+
+        Assert.AreEqual(unit.Numerator, model.ReferenceNumerator);
+        Assert.AreEqual(unit.Denominator, model.ReferenceDenominator);
+        model.ReferenceDimension = UnitDimension.Mass;
+        Assert.AreEqual(unit.Numerator, model.ReferenceNumerator);
+        Assert.AreEqual(unit.Denominator, model.ReferenceDenominator);
+    }
+
+    [TestMethod]
     public void DurableProjectionKeepsArchivedReferenceNamesWithoutOfferingThemForNewMaterials()
     {
         var model = new RawMaterialsViewModel();

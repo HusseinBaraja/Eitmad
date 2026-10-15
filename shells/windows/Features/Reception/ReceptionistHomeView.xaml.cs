@@ -73,6 +73,7 @@ public partial class ReceptionistHomeView : UserControl
     public ReceptionistHomeView()
     {
         InitializeComponent();
+        ReceptionHome.SearchCleared += () => { ReceptionistTitleBar.SearchBox.Clear(); ReceptionistTitleBar.SearchBox.Focus(); };
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
         ReceptionQuotations.CustomerRequested += id => _ = OpenQuotationCustomerAsync(id);
     }
@@ -113,10 +114,9 @@ public partial class ReceptionistHomeView : UserControl
         PreviewOrders.ConfigureReceptionist(preview);
         PreviewOrders.CustomerRequested += id => _ = OpenOrderCustomerAsync(id);
         ReceptionOrders.Content = PreviewOrders;
-        ReceptionistTitleBar.PrimaryActionButton.Width = 220;
         System.Windows.Automation.AutomationProperties.SetName(ReceptionistTitleBar.PrimaryActionButton, "فتح عرض السعر");
-        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionLabelProperty,
-            new System.Windows.Data.Binding(nameof(SalesCatalogViewModel.QuotationLabel)) { Source = catalog });
+        ReceptionistTitleBar.SetBinding(Controls.ShellTitleBar.PrimaryActionCountProperty,
+            new System.Windows.Data.Binding("QuotationLines.Count") { Source = catalog });
     }
 
     private async Task OpenHomeItemAsync(Features.Home.HomeRow row)
@@ -187,7 +187,7 @@ public partial class ReceptionistHomeView : UserControl
         ReceptionQuotations.Visibility = destination == "عروض الأسعار" ? Visibility.Visible : Visibility.Collapsed;
         ReceptionOrders.Visibility = destination == "الطلبات" ? Visibility.Visible : Visibility.Collapsed;
         HomeContent.Visibility = destination == "الرئيسية" ? Visibility.Visible : Visibility.Collapsed;
-        ReceptionistTitleBar.Title = destination;
+        ReceptionistTitleBar.Tag = destination;
         ReceptionistSidebar.SelectDestination(destination);
         if (destination == "الرئيسية") home?.Search("");
     }
@@ -240,7 +240,7 @@ public partial class ReceptionistHomeView : UserControl
         CatalogContent.Visibility = Visibility.Collapsed;
         CustomerDetail.DataContext = customer;
         CustomerDetail.Visibility = Visibility.Visible;
-        ReceptionistTitleBar.Title = "تفاصيل العميل";
+        ReceptionistTitleBar.Tag = "تفاصيل العميل";
         await Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
     }
 

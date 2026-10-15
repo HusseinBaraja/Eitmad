@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.WindowsShell.Features.Authentication;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Tests.TestDoubles;
 
 namespace Eitmad.WindowsShell.Tests.Rendered;
@@ -91,15 +92,20 @@ public sealed class AccountSwitchRenderedTests
     }
 
     [TestMethod]
-    [DataRow(1920, 1080)]
-    [DataRow(1338, 753)]
-    [DataRow(720, 560)]
-    public void CancelKeepsTheAccountAndDialogFitsTheWindow(int width, int height)
+    [DataRow(1920, 1080, "manager")]
+    [DataRow(1338, 753, "manager")]
+    [DataRow(720, 560, "manager")]
+    [DataRow(1920, 1080, "receptionist")]
+    [DataRow(1338, 753, "receptionist")]
+    [DataRow(720, 560, "receptionist")]
+    public void ToolbarOpensTheDialogAndCancelKeepsTheAccount(int width, int height, string account)
     {
         WpfTestHost.Run(width, height, window =>
         {
-            WpfTestHost.SignIn(window, "manager");
-            MainWindow.SwitchAccountCommand.Execute(null, window);
+            WpfTestHost.SignIn(window, account);
+            var toolbar = account == "manager" ? window.ManagerTitleBar : window.ReceptionistSurface.ReceptionistTitleBar;
+            var accountButton = toolbar.SwitchAccountButton;
+            accountButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var dialog = window.AccountSwitchDialog;
             var cancel = window.CancelAccountSwitchButton;
@@ -114,13 +120,12 @@ public sealed class AccountSwitchRenderedTests
                 var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
                 Assert.IsTrue(bounds.Left >= 0 && bounds.Top >= 0 && bounds.Right <= window.ActualWidth && bounds.Bottom <= window.ActualHeight);
             }
-            var dpi = VisualTreeHelper.GetDpi(window);
-            Console.WriteLine($"Switch dialog: window {window.ActualWidth} x {window.ActualHeight}, scaling {dpi.DpiScaleX * 100}%, display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight} DIPs.");
-            WpfTestHost.Capture(window, $"account-switch-{width}x{height}");
+            WpfTestHost.Capture(window, $"ui-09-dialog-{account}-{width}");
             dialog.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(window), 0, Key.Escape) { RoutedEvent = Keyboard.KeyDownEvent });
             WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(dialog.IsOpen);
             Assert.AreEqual(Visibility.Collapsed, window.SignInSurface.Visibility);
         }, showSignIn: true);
     }
+
 }

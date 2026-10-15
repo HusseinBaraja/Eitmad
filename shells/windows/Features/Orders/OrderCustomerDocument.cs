@@ -1,8 +1,7 @@
-using FlowDirection = System.Windows.FlowDirection;
-using System.Windows;
 using System.Windows.Documents;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Quotations;
-using Brushes = System.Windows.Media.Brushes;
+using static Eitmad.WindowsShell.Controls.CustomerDocumentLayout;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
@@ -24,47 +23,26 @@ public static class OrderCustomerDocument
     private static FlowDocument Build(OrderListItem order, string title, bool showStatus)
     {
         if (order.Record is not null) throw new InvalidOperationException("A saved Rust document is required.");
-        var document = new FlowDocument
-        {
-            FlowDirection = FlowDirection.RightToLeft,
-            Language = System.Windows.Markup.XmlLanguage.GetLanguage("ar-YE"),
-            FontFamily = new System.Windows.Media.FontFamily("Segoe UI"), FontSize = 14,
-            Foreground = Brushes.Black, Background = Brushes.White,
-            PageWidth = 793.7, PageHeight = 1122.5, PagePadding = new Thickness(48),
-            ColumnWidth = double.PositiveInfinity,
-        };
-        document.Blocks.Add(new Paragraph(new Run(title)) { FontSize = 28, FontWeight = FontWeights.Bold });
-        Add("بيانات تجريبية للمعاينة فقط", "");
-        Add("الرقم", order.Number, true);
-        Add("العميل", order.Customer);
-        Add("التاريخ", order.DateLabel, true);
-        if (showStatus) Add("الحالة", order.IsReady ? "الطلب جاهز" : order.StatusLabel);
-        foreach (var line in order.Items)
-        {
-            document.Blocks.Add(new Paragraph(new Run(line.Product))
-                { FontSize = 19, FontWeight = FontWeights.SemiBold, KeepWithNext = true });
-            Add("الخيار", line.Variant);
-            if (line.IsFurniture)
-            {
-                if (line.Dimensions.Length > 0) Add("المقاسات", line.Dimensions, true);
-                Add("اللون", line.Color);
-                Add("المقبض", line.Handle);
+        var document = CustomerDocumentLayout.Create(title, order.Number);
+        AddIdentity(document, title, order.Number, true, "بيانات تجريبية للمعاينة فقط");
+        var terms = new List<Paragraph> { Pair("التاريخ", order.DateLabel, true) };
+        if (showStatus) terms.Add(Pair("الحالة", order.IsReady ? "الطلب جاهز" : order.StatusLabel));
+        AddDetails(document, [Pair("العميل", order.Customer)], terms);
+        var table = Items();
+        foreach (var line in order.Items) {
+            var row = new TableRow(); row.Cells.Add(Cell(line.Product));
+            var options = Cell(line.Variant);
+            if (line.IsFurniture) {
+                if (line.Color.Length > 0) options.Blocks.Add(Text(line.Color));
+                if (line.Handle.Length > 0) options.Blocks.Add(Text(line.Handle));
+                if (line.Dimensions.Length > 0) options.Blocks.Add(Text(line.Dimensions, true));
             }
-            Add("الكمية", line.QuantityLabel, true);
-            Add("سعر البيع", line.SellingPriceLabel, true);
+            row.Cells.Add(options); row.Cells.Add(Cell(line.QuantityLabel, true));
+            row.Cells.Add(Cell(line.SellingPriceLabel, true)); row.Cells.Add(Cell(line.Total.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " ر.ي", true));
+            AddItem(table, row);
         }
-        Add("المجموع الفرعي", order.SubtotalLabel, true);
-        Add("الخصم", order.DiscountLabel, true);
-        Add("الإجمالي النهائي", order.FinalTotalLabel, true);
+        document.Blocks.Add(table);
+        AddTotals(document, ("المجموع الفرعي", order.SubtotalLabel), ("الخصم", order.DiscountLabel), ("الإجمالي النهائي", order.FinalTotalLabel));
         return document;
-
-        void Add(string label, string value, bool ltr = false)
-        {
-            var paragraph = new Paragraph { Margin = new Thickness(0, 4, 0, 4) };
-            paragraph.Inlines.Add(new Run(label + "  ") { FontWeight = FontWeights.SemiBold });
-            paragraph.Inlines.Add(new Span(new Run(value))
-                { FlowDirection = ltr ? FlowDirection.LeftToRight : FlowDirection.RightToLeft });
-            document.Blocks.Add(paragraph);
-        }
     }
 }

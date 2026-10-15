@@ -64,7 +64,7 @@ public sealed partial class SalesCatalogViewModel
     public bool CanRequestDiscountApproval => draftClient?.SupportsApprovals == true && LifecycleEditable && !IsDraftBusy && !draftConflict && RequiresDiscountApproval && !IsQuotationEmpty && (hasUnsavedEdits || !IsDiscountPending && !IsDiscountApproved);
     public bool CanSaveDraft => LifecycleEditable && !IsDraftBusy && !draftConflict && IsDiscountValid && !IsQuotationEmpty && (catalogClient is null || catalogActive && (uncertainSave || evaluation?.Totals is not null));
     public string DiscountStatus => hasUnsavedEdits && serverApproval is not null ? "تغييرات غير محفوظة — أعد حفظ الشروط" : Features.Quotations.QuotationDraftClient.ApprovalLabel(serverApproval) is { Length: > 0 } status ? status : RequiresDiscountApproval ? "يتطلب موافقة المدير" : "";
-    public string DiscountGuidance => IsLiveQuotation ? serverApproval?.State == Eitmad.Contracts.DiscountApprovalState.Rejected ? "سبب الرفض: " + serverApproval.Reason : "احفظ الشروط ثم أرسل طلب الموافقة. أصدر العرض بعد تأكيد الموافقة والشروط." : IsDiscountApproved ? "يمكنك الآن إكمال عرض السعر في المعاينة" : IsDiscountRejected ? "خفّض الخصم أو عدّل العرض ثم اطلب الموافقة مجدداً" : "يمكنك مراجعة العرض وحفظه كمسودة حتى الموافقة على الخصم";
+    public string DiscountRejectionReason => IsDiscountRejected ? "سبب الرفض: " + serverApproval!.Reason : "";
     public string TotalHeading => RequiresDiscountApproval && !IsDiscountApproved ? "الإجمالي بعد الخصم المطلوب" : "الإجمالي النهائي";
 
     public void RequestDiscountApproval() => LastApprovalRequest = RequestDiscountApprovalAsync();
@@ -115,7 +115,7 @@ public sealed partial class SalesCatalogViewModel
     private void InvalidateDiscountRequest()
     {
         if (applyingDraft) return;
-        hasUnsavedEdits = true; Raise(nameof(DraftState));
+        hasUnsavedEdits = true; Raise(nameof(DraftState)); Raise(nameof(DraftEditState));
         if (approvalPreview is not null) System.ComponentModel.PropertyChangedEventManager.RemoveHandler(approvalPreview, ApprovalChanged, "");
         approvalPreview = null;
         previewDiscountOverride = null;
@@ -130,6 +130,6 @@ public sealed partial class SalesCatalogViewModel
         foreach (var property in new[] { nameof(IsDiscountValid), nameof(DiscountError), nameof(Discount),
             nameof(DiscountAmountLabel), nameof(FinalTotal), nameof(FinalTotalLabel), nameof(RequiresDiscountApproval),
             nameof(IsDiscountPending), nameof(IsDiscountApproved), nameof(IsDiscountRejected), nameof(CanRequestDiscountApproval), nameof(CanIssueQuotation),
-            nameof(CanSaveDraft), nameof(DiscountStatus), nameof(DiscountGuidance), nameof(TotalHeading), nameof(CanPreviewCustomer) }) Raise(property);
+            nameof(CanSaveDraft), nameof(DiscountStatus), nameof(DiscountRejectionReason), nameof(TotalHeading), nameof(CanPreviewCustomer) }) Raise(property);
     }
 }

@@ -24,16 +24,16 @@ public sealed class ProductsViewModel : ObservableObject
     public bool CanInteract => !IsBusy;
     public bool CanEdit => !IsBusy && !SavePending && CanManage;
     private string availabilityMessage = "جار تحميل المنتجات…";
-    public string AvailabilityMessage { get => availabilityMessage; private set { Set(ref availabilityMessage, value); Raise(nameof(PageSubtitle)); } }
-    public string PageSubtitle => AvailabilityMessage.Length > 0 ? AvailabilityMessage : "المنتجات محفوظة محلياً — سعر البيع من التسعير";
+    public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
     public long ImageEditVersion { get; private set; }
     /// <summary>Prevents an earlier image read from restoring a changed editor reference.</summary>
     public void InvalidateImageLoad() => ++ImageEditVersion;
     private CatalogImageRef? editorImageReference;
     public CatalogImageRef? EditorImageReference => editorImageReference;
+    public bool HasEditorImage => editorImageReference is not null;
     private System.Windows.Media.ImageSource? productImage;
     public System.Windows.Media.ImageSource? ProductImage { get => productImage; private set => Set(ref productImage,value); }
-    public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; }
+    public void SetImportedImage(CatalogImageRef? reference, System.Windows.Media.ImageSource? image) { editorImageReference = reference; ProductImage = image; Raise(nameof(HasEditorImage)); }
     public void ApplyImage(Guid id, System.Windows.Media.ImageSource? image) { var row=products.FirstOrDefault(p=>p.Id==id); if(row is not null) row.Image=image; }
     private ProductListItem? editingProduct;
     private Product? editingRecord, pendingArchiveRecord;
@@ -269,8 +269,6 @@ public sealed class ProductsViewModel : ObservableObject
 
     public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
 
-    public bool HasNoVisibleProducts => VisibleProducts.Count == 0;
-
     public string VisibleCountLabel => $"{VisibleProducts.Count} من {products.Count} منتجات";
 
     public bool IsArchiveConfirmationOpen
@@ -302,16 +300,8 @@ public sealed class ProductsViewModel : ObservableObject
     public string CategoryError
     {
         get => categoryError;
-        private set
-        {
-            if (Set(ref categoryError, value))
-            {
-                Raise(nameof(HasCategoryError));
-            }
-        }
+        private set => Set(ref categoryError, value);
     }
-
-    public bool HasCategoryError => !string.IsNullOrEmpty(CategoryError);
 
     public void BeginCreate()
     {
@@ -518,7 +508,6 @@ public sealed class ProductsViewModel : ObservableObject
             VisibleProducts.Add(product);
         }
 
-        Raise(nameof(HasNoVisibleProducts));
         Raise(nameof(VisibleCountLabel));
     }
 

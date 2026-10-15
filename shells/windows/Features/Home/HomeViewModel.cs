@@ -47,9 +47,13 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<HomeRow> Activity { get; } = [];
     public ObservableCollection<HomeRow> ReadyOrders { get; } = [];
     public string Notice { get => notice; private set => Set(ref notice, value); }
+    public string SearchTerm => term;
+    public bool HasSearchTerm => term.Length > 0;
     public string ActivityTitle => term.Length == 0 ? "آخر نشاط" : "نتائج البحث";
-    public bool IsEmpty => Activity.Count == 0;
-    public bool HasNoReadyOrders => ReadyOrders.Count == 0;
+    public bool IsEmpty => snapshot is not null && Activity.Count == 0 && ActivitySections().All(s => Confirmed(s.Section));
+    public bool HasNoReadyOrders => ReadyOrders.Count == 0 && Confirmed(snapshot?.Orders);
+    public string ActivityMessage => IsEmpty ? "لا توجد سجلات ضمن النتائج المتاحة" : "";
+    public string ReadyOrdersMessage => HasNoReadyOrders ? "لا توجد طلبات جاهزة ضمن النتائج المتاحة" : "";
     public string OpenCount => Count(snapshot?.Quotations);
     public string OrderCount => Count(snapshot?.Orders);
     public string ApprovalCount => Count(snapshot?.Approvals);
@@ -58,6 +62,25 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     public event EventHandler? Invalidated;
     private static string Count(HomeSection? section, bool secondary = false) => section?.Availability != HomeAvailability.Available ? "—"
         : (section.Complete ? "" : "≥ ") + (secondary ? section.SecondaryCount : section.Count).ToString("N0", CultureInfo.InvariantCulture);
+    private static bool Confirmed(HomeSection? section) => section is { Availability: HomeAvailability.Available, Complete: true, ServerAvailable: true };
+    private IEnumerable<(string Name, HomeSection Section)> ActivitySections()
+    {
+        if (snapshot is null) yield break;
+        yield return ("عروض الأسعار", snapshot.Quotations);
+        yield return ("الطلبات", snapshot.Orders);
+        if (term.Length == 0) yield break;
+        yield return ("العملاء", snapshot.Customers);
+        yield return ("الكتالوج", snapshot.Catalog);
+    }
+    private static string SectionNotice(string name, HomeSection section)
+    {
+        if (section.Availability == HomeAvailability.Denied) return name + ": ليس لديك صلاحية.";
+        if (section.Availability != HomeAvailability.Available) return name + ": غير متاح.";
+        var messages = new List<string>();
+        if (!section.Complete) messages.Add("نتائج جزئية");
+        if (!section.ServerAvailable) messages.Add("غير متصل؛ آخر بيانات محفوظة");
+        return messages.Count == 0 ? "" : name + ": " + string.Join("، ", messages) + ".";
+    }
 
     public async Task ActivateAsync()
     {
@@ -66,13 +89,19 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         foreach (var feed in feeds) { await feed.ActivateAsync(); if (!active || session != sessionGeneration) return; }
         Refresh(); await LastLoad;
     }
-    public void Search(string query) { term = query.Trim(); Refresh(); }
+    public void Search(string query)
+    {
+        var next = query.Trim();
+        if (term != next) { term = next; Apply(null); }
+        Refresh();
+    }
     public void Refresh() { if (active) LastLoad = LoadAsync(); }
     private async Task LoadAsync()
     {
         load?.Cancel(); load?.Dispose(); load = new();
         var token = load.Token; var version = ++generation;
         Notice = "جارٍ تحميل البيانات...";
+        Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
         try
         {
             if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityHomeV1)) { Apply(null); return; }
@@ -87,7 +116,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     private void Apply(HomeSnapshot? value)
     {
         snapshot = value; Activity.Clear(); ReadyOrders.Clear();
-        if (value is null) Notice = "بيانات الرئيسية غير متاحة. تحقق من الاتصال ثم أعد التحميل.";
+        if (value is null) Notice = "بيانات الرئيسية غير متاحة.";
         else
         {
             var sections = new[] { ("عروض الأسعار", value.Quotations), ("الطلبات", value.Orders), ("الموافقات", value.Approvals) };
@@ -95,20 +124,18 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
             var messages = new List<string>();
             foreach (var (name, section) in sections)
             {
-                if (section.Availability != HomeAvailability.Available) messages.Add(name + (section.Availability == HomeAvailability.Denied ? ": ليس لديك صلاحية." : ": غير متاح."));
-                else
-                {
-                    if (!section.Complete) messages.Add(name + ": نتائج جزئية؛ الأعداد حد أدنى. افتح القائمة للمتابعة.");
-                    if (!section.ServerAvailable) messages.Add(name + ": غير متصل — آخر بيانات محفوظة، وليست حالة حالية مؤكدة.");
-                }
+                var message = SectionNotice(name, section);
+                if (message.Length > 0) messages.Add(message);
             }
             foreach (var item in sections.Where(s => s.Item2.Availability == HomeAvailability.Available)
                 .SelectMany(s => s.Item2.Items).OrderByDescending(item => item.ChangedAt).ThenBy(item => item.Id)) Activity.Add(new(item));
             if (value.Orders.Availability == HomeAvailability.Available) foreach (var item in value.ReadyOrders) ReadyOrders.Add(new(item));
-            Notice = messages.Count == 0 ? "بيانات ضمن صلاحيات الحساب الحالي. آخر ٨ سجلات لكل قائمة." : string.Join(" ", messages);
+            Notice = messages.Count == 0 ? "حتى ٨ سجلات لكل قائمة" : string.Join(" ", messages);
         }
         Raise(nameof(OpenCount)); Raise(nameof(OrderCount)); Raise(nameof(ApprovalCount)); Raise(nameof(ReadyCount));
         Raise(nameof(IsEmpty)); Raise(nameof(HasNoReadyOrders)); Raise(nameof(ActivityTitle));
+        Raise(nameof(SearchTerm)); Raise(nameof(HasSearchTerm));
+        Raise(nameof(ActivityMessage)); Raise(nameof(ReadyOrdersMessage));
     }
     private void Invalidate()
     {

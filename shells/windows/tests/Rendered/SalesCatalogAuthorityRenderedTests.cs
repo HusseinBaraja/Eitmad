@@ -1,9 +1,11 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Eitmad.WindowsShell.Features.Reception;
+using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Tests.Products;
 using Eitmad.WindowsShell.Tests.TestDoubles;
 
@@ -12,6 +14,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class SalesCatalogAuthorityRenderedTests
 {
+
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -32,7 +35,7 @@ public sealed class SalesCatalogAuthorityRenderedTests
             {
                 Finish(model.ActivateCatalogAsync()); WpfTestHost.CompleteLayout(window);
                 var dpi = VisualTreeHelper.GetDpi(window);
-                Console.WriteLine($"Catalog requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
+                Console.WriteLine($"Catalog requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight}; scale {dpi.DpiScaleX * 100:0}%");
                 Assert.AreEqual(FlowDirection.RightToLeft, catalog.FlowDirection);
                 var search = WpfTestHost.FindByName<TextBox>(catalog, "CatalogSearch"); search.Focus(); Assert.IsTrue(search.IsKeyboardFocusWithin);
                 Assert.IsTrue(search.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));

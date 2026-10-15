@@ -17,3 +17,6 @@ node_modules/
 # Local IDE state belongs to each developer.
 .idea/
 .vscode/
+
+# Keep local audit evidence, reports, and capture outputs out of Git.
+/artifacts/

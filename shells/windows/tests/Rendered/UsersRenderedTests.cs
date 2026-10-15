@@ -19,6 +19,54 @@ public sealed class UsersRenderedTests
     }
 
     [TestMethod]
+    public void FailedRefreshDisablesRowActionsUntilTheRetryButtonReloads()
+    {
+        var engine = Engine();
+        WpfTestHost.Run(1338, 753, window => {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = window.UsersSurface;
+            engine.ThrowQueries = true;
+            Assert.IsFalse(view.ViewModel.LoadAsync().GetAwaiter().GetResult());
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(WpfTestHost.FindByName<FeedbackNotice>(view, "UsersLoadNotice").IsVisible);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByAutomationName<Button>(view, "تعطيل المستخدم محمد سالم").IsEnabled);
+            engine.ThrowQueries = false;
+            var retry = WpfTestHost.FindByName<Button>(view, "RetryUsersButton");
+            retry.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(retry.IsVisible);
+            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "تعديل المستخدم محمد سالم").IsEnabled);
+        }, engine: engine);
+    }
+
+    [TestMethod]
+    public void InvalidPasswordFocusesItsFieldAndTypingClearsItsError()
+    {
+        var engine = Engine();
+        WpfTestHost.Run(1338, 753, window => {
+            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = window.UsersSurface;
+            WpfTestHost.FindByAutomationName<Button>(view, "إضافة مستخدم").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.FindByName<TextBox>(view, "UserNameInput").Text = "مستخدم تجريبي";
+            WpfTestHost.FindByName<TextBox>(view, "UsernameInput").Text = "synthetic.user";
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var password = WpfTestHost.FindByName<PasswordBox>(view, "UserPasswordInput");
+            var field = WpfTestHost.Ancestor<FormField>(password);
+            Assert.IsTrue(password.IsKeyboardFocusWithin);
+            Assert.IsTrue(field.ErrorText.Length > 0);
+            Assert.IsNull(engine.LastCommand);
+            password.Password = "synthetic-password";
+            Assert.AreEqual("", field.ErrorText);
+        }, engine: engine);
+    }
+
+    [TestMethod]
     [DataRow(720d)]
     [DataRow(1338d)]
     public void EditorUsesAvailableWidthAndKeepsEnlargedControlsReachable(double width)
@@ -44,6 +92,7 @@ public sealed class UsersRenderedTests
             WpfTestHost.Capture(window, $"user-editor-{width}");
         }, engine: Engine());
     }
+
     [TestMethod]
     public void UsersNavigationFiltersAndEditorPageWorkInTheRenderedShell()
     {

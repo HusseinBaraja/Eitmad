@@ -8,6 +8,55 @@ namespace Eitmad.WindowsShell.Tests.Furniture;
 public sealed class FurniturePresentationTests
 {
     [TestMethod]
+    public void PartPickerDistinguishesLoadedEmptySearchLoadingAndUnavailableWithoutOfferingSelectedParts()
+    {
+        var fixture = new FurnitureFixtures(); fixture.Seed(); var model = fixture.Model();
+        Assert.IsTrue(model.BeginEdit(model.VisibleFurniture.Single()));
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        model.OpenPartPicker();
+        Assert.IsEmpty(model.FilteredParts, "The only part is already in the composition.");
+        var loadedEmpty = model.PartPickerStateText;
+        Assert.IsTrue(model.HasPartPickerState);
+        Assert.IsFalse(model.HasPartChoices);
+
+        model.PartSearchText = "غير موجود";
+        model.BeginPartChoicesLoad();
+        var loading = model.PartPickerStateText;
+        Assert.AreNotEqual(loadedEmpty, loading);
+        model.ApplyPartChoices([]);
+        var noMatch = model.PartPickerStateText;
+        Assert.IsTrue(model.HasPartPickerState);
+        Assert.IsFalse(model.HasPartChoices);
+        Assert.AreNotEqual(loadedEmpty, noMatch);
+        Assert.AreNotEqual(loading, noMatch);
+        model.PartChoicesUnavailable("تعذر تحميل الأجزاء.");
+        Assert.AreEqual("تعذر تحميل الأجزاء.", model.PartPickerStateText);
+        Assert.IsFalse(model.HasPartChoices);
+
+        model.PartSearchText = "";
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        Assert.AreEqual(loadedEmpty, model.PartPickerStateText);
+        model.RemovePart(model.SelectedParts.Single());
+        Assert.AreEqual(fixture.Parts.Parts.Single().Id, model.FilteredParts.Single().Id);
+        Assert.IsTrue(model.HasPartChoices);
+        Assert.IsFalse(model.HasPartPickerState);
+        model.BeginPartChoicesLoad();
+        Assert.IsFalse(model.HasPartChoices, "Cached rows must not be offered while a new search loads.");
+        model.PartChoicesUnavailable("تعذر تحميل الأجزاء.");
+        Assert.IsFalse(model.HasPartChoices, "A failed search must not offer stale rows.");
+        model.ApplyPartChoices(fixture.Parts.Parts);
+        model.AddPart(model.FilteredParts.Single());
+        Assert.HasCount(1, model.SelectedParts);
+        Assert.IsEmpty(model.FilteredParts);
+        Assert.IsFalse(model.IsPartPickerOpen);
+        model.OpenPartPicker(); model.ClosePartPicker();
+        Assert.IsFalse(model.IsPartPickerOpen);
+        model.ClearSession();
+        Assert.AreNotEqual(loadedEmpty, model.PartPickerStateText, "Cleared authority must not look like a loaded empty set.");
+        Assert.IsFalse(model.HasPartChoices);
+    }
+
+    [TestMethod]
     public void MissingPartRevisionKeepsEditAndDuplicateClosed()
     {
         var fixture = new FurnitureFixtures();
@@ -98,10 +147,92 @@ public sealed class FurniturePresentationTests
     public void CustomizationAndCompatibilityRoundTripWithoutShellCostFormula()
     {
         var f = new FurnitureFixtures(); f.Seed(); var model = f.Model(); model.BeginEdit(model.VisibleFurniture.Single());
-        model.BeginEditVariant(model.Variants[0]); model.AllowCustomization = true; model.MinWidth = 100; model.MaxWidth = 160; model.VariantColorChoices[0].Selected = true;
+        model.BeginEditVariant(model.Variants[0]); model.AllowCustomization = true; model.MinWidth = 100; model.MaxWidth = 160; model.RestrictVariantColors = true; model.VariantColorChoices[0].Selected = true;
         Assert.IsTrue(model.SaveVariant()); var input = model.SaveInput(FurnitureState.Draft); Assert.AreEqual(1000L, input.Variants[0].Customization.Minimum.WidthMm); Assert.HasCount(1, input.Variants[0].ColorIds);
         model.ApplyReview(f.Review); Assert.AreEqual(18900m, model.CurrentPartsCost); Assert.AreEqual("181,100", model.Variants[0].MarginLabel);
     }
+    [TestMethod]
+    public void ExplicitOptionModesPreserveRestrictedAndUnrestrictedContractSets()
+    {
+        var fixture = new FurnitureFixtures(); fixture.Seed(); var model = fixture.Model();
+        model.BeginEdit(model.VisibleFurniture.Single());
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
+        model.RestrictVariantColors = true;
+        Assert.IsFalse(model.CanSaveVariantOptions);
+        Assert.IsFalse(model.SaveVariant(), "An unfinished restriction must not become an unrestricted contract set.");
+        Assert.IsTrue(model.IsVariantEditorOpen);
+        model.VariantColorChoices[0].Selected = true;
+        Assert.IsTrue(model.CanSaveVariantOptions);
+        model.RestrictVariantHandles = true;
+        Assert.IsFalse(model.CanSaveVariantOptions);
+        model.VariantHandleChoices[0].Selected = true;
+        Assert.IsTrue(model.SaveVariant());
+        var restricted = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        CollectionAssert.AreEqual(new[] { model.Colors[0].Id }, restricted.ColorIds);
+        CollectionAssert.AreEqual(new[] { model.Handles[0].Id }, restricted.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.RestrictVariantColors); Assert.IsTrue(model.RestrictVariantHandles);
+        model.VariantColorChoices[0].Selected = false;
+        Assert.IsFalse(model.CanSaveVariantOptions, "Clearing the last color must retain selected-options mode.");
+        model.AllowAllVariantColors = true;
+        Assert.IsTrue(model.CanSaveVariantOptions);
+        Assert.IsTrue(model.SaveVariant());
+        var mixed = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        Assert.IsEmpty(mixed.ColorIds);
+        CollectionAssert.AreEqual(restricted.HandleIds, mixed.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.RestrictVariantHandles);
+        model.AllowAllVariantHandles = true;
+        model.RestrictVariantHandles = true;
+        Assert.IsTrue(model.VariantHandleChoices[0].Selected, "Mode changes retain staged choices until save.");
+        model.AllowAllVariantHandles = true;
+        Assert.IsTrue(model.SaveVariant());
+        var unrestricted = model.SaveInput(FurnitureState.Draft).Variants.Single();
+        Assert.IsEmpty(unrestricted.ColorIds); Assert.IsEmpty(unrestricted.HandleIds);
+        model.BeginEditVariant(model.Variants.Single());
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
+        model.BeginAddVariant();
+        Assert.IsTrue(model.AllowAllVariantColors); Assert.IsTrue(model.AllowAllVariantHandles);
+    }
+    [TestMethod]
+    public void BelowCostAcknowledgementTracksReturnedReviewAndResetsForChangedInput()
+    {
+        var fixture = new FurnitureFixtures(); fixture.Seed(); var model = fixture.Model();
+        model.BeginEdit(model.VisibleFurniture.Single());
+        model.ApplyReview(fixture.Review);
+        Assert.IsFalse(model.HasBelowCostVariants);
+        model.Variants[0].SellingPrice = 15000;
+        Assert.IsFalse(model.HasBelowCostVariants, "Unreviewed input must not invent a loss.");
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [-3900] });
+        Assert.AreSame(model.Variants[0], model.BelowCostVariants.Single());
+        model.ConfirmBelowCost = true;
+        Assert.IsTrue(model.SaveInput(FurnitureState.Active).ConfirmBelowCost);
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [-3900] });
+        Assert.IsTrue(model.ConfirmBelowCost, "An unchanged review retains its acknowledgement.");
+        model.SelectedParts[0].Quantity = 3;
+        Assert.IsFalse(model.ConfirmBelowCost);
+        model.ConfirmBelowCost = true;
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 20000, RowCostsYer = [20000], MarginsYer = [-5000] });
+        Assert.IsFalse(model.ConfirmBelowCost, "A changed returned loss needs a new acknowledgement.");
+        model.ConfirmBelowCost = true;
+        model.Variants[0].SellingPrice = 200000;
+        Assert.IsFalse(model.ConfirmBelowCost);
+        model.ApplyReview(fixture.Review);
+        Assert.IsFalse(model.HasBelowCostVariants);
+        Assert.IsFalse(model.SaveInput(FurnitureState.Active).ConfirmBelowCost);
+        model.DuplicateVariant(model.Variants[0]);
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [-3900, 181100] });
+        Assert.AreSame(model.Variants[0], model.BelowCostVariants.Single());
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [181100, -3900] });
+        Assert.AreSame(model.Variants[1], model.BelowCostVariants.Single(), "Only the size with a returned loss needs acknowledgement.");
+        model.RemoveVariant(model.Variants[1]);
+        Assert.IsFalse(model.HasBelowCostVariants);
+        model.ApplyReview(new FurnitureReview { PartsCostYer = 18900, RowCostsYer = [18900], MarginsYer = [-3900] });
+        model.BeginEdit(model.VisibleFurniture.Single());
+        Assert.IsFalse(model.HasBelowCostVariants, "Opening another review must not retain the previous loss.");
+    }
+
     [TestMethod]
     public async Task UnknownSaveRetriesExactKeyAndRefusesDifferentPayload()
     {

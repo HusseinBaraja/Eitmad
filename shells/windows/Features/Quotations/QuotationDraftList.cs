@@ -34,7 +34,7 @@ public sealed partial class QuotationsViewModel
         client.ApprovalChanged += DraftsChanged;
         client.LifecycleChanged += DraftsChanged;
         client.Invalidated += DraftsInvalidated;
-        Raise(nameof(ListSubtitle)); Raise(nameof(EmptyDescription));
+        Raise(nameof(ListSubtitle));
     }
     private void DraftsChanged(object? sender, EventArgs e) { if (draftsActive) LastDraftLoad = LoadDraftsAsync(); }
     private void DraftsInvalidated(object? sender, EventArgs e) => ClearDrafts();

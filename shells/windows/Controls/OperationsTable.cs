@@ -15,12 +15,24 @@ using KeyEventHandler = System.Windows.Input.KeyEventHandler;
 using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using TextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
 using ComboBox = System.Windows.Controls.ComboBox;
+using TextBox = System.Windows.Controls.TextBox;
 
 namespace Eitmad.WindowsShell.Controls;
 
 /// <summary>A native, read-only row table with an independent presentation view.</summary>
 public class OperationsTable : DataGrid
 {
+    // Opt in per column: the same binding or cell template is rendered below the
+    // record when the complete set of columns cannot fit in the table viewport.
+    public static readonly DependencyProperty IsCompactDetailProperty = DependencyProperty.RegisterAttached(
+        "IsCompactDetail", typeof(bool), typeof(OperationsTable), new PropertyMetadata(false));
+    private bool compactDetails;
+    private readonly HashSet<DataGridColumn> unavailableColumns = [];
+    private readonly HashSet<Layout.AdaptiveFieldsPanel> detailPanels = [];
+
+    public static bool GetIsCompactDetail(DependencyObject element) => (bool)element.GetValue(IsCompactDetailProperty);
+    public static void SetIsCompactDetail(DependencyObject element, bool value) => element.SetValue(IsCompactDetailProperty, value);
+
     public static readonly DependencyProperty EmptyContentProperty = DependencyProperty.Register(
         nameof(EmptyContent), typeof(object), typeof(OperationsTable));
     public static readonly DependencyProperty IsRowInvocationEnabledProperty = DependencyProperty.Register(
@@ -61,11 +73,28 @@ public class OperationsTable : DataGrid
         AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnPreviewKeyDown), true);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        SizeChanged += (_, e) => { if (e.WidthChanged) UpdateCompactDetails(); };
+        LoadingRowDetails += PopulateCompactDetails;
+        UnloadingRowDetails += (_, e) =>
+        {
+            if (e.DetailsElement is Border { Child: Layout.AdaptiveFieldsPanel panel }) detailPanels.Remove(panel);
+        };
     }
 
     public object? EmptyContent { get => GetValue(EmptyContentProperty); set => SetValue(EmptyContentProperty, value); }
     public bool IsRowInvocationEnabled { get => (bool)GetValue(IsRowInvocationEnabledProperty); set => SetValue(IsRowInvocationEnabledProperty, value); }
     public event EventHandler<RowInvokedEventArgs> RowInvoked { add => AddHandler(RowInvokedEvent, value); remove => RemoveHandler(RowInvokedEvent, value); }
+
+    private static bool CommitPendingInput(DependencyObject element)
+    {
+        // Template-provided Text bindings are not local values on the editor.
+        var binding = element is TextBox ? BindingOperations.GetBindingExpressionBase(element, TextBox.TextProperty) : null;
+        if (binding is { IsDirty: true }) binding.UpdateSource();
+        var valid = binding is not { HasValidationError: true };
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
+            valid &= CommitPendingInput(VisualTreeHelper.GetChild(element, index));
+        return valid;
+    }
 
     private void OnPreviewMouseUp(object sender, MouseButtonEventArgs eventArgs)
     {
@@ -128,12 +157,90 @@ public class OperationsTable : DataGrid
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateCompactDetails();
         if (observableSource is not null)
         {
             CollectionChangedEventManager.RemoveHandler(observableSource, OnSourceChanged);
             CollectionChangedEventManager.AddHandler(observableSource, OnSourceChanged);
         }
         ReplaceRows();
+    }
+
+    /// <summary>Maps feature-provided field availability without exposing it in compact details.</summary>
+    public void SetColumnAvailable(DataGridColumn column, bool available)
+    {
+        var changed = available ? unavailableColumns.Remove(column) : unavailableColumns.Add(column);
+        if (!changed) return;
+        column.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        UpdateCompactDetails(force: true);
+        foreach (var panel in detailPanels.ToArray()) PopulateCompactDetails(panel);
+    }
+
+    private void UpdateCompactDetails(bool force = false)
+    {
+        if (ActualWidth <= 0 || !Columns.Any(GetIsCompactDetail)) return;
+        var requiredWidth = Columns.Where(column => !unavailableColumns.Contains(column)).Sum(column => Math.Max(column.MinWidth,
+            column.Width.IsAbsolute ? column.Width.Value : 0)) + SystemParameters.VerticalScrollBarWidth + 2;
+        var compact = ActualWidth < requiredWidth;
+        if (compact == compactDetails && !force) return;
+        // Collapsing columns or row details can detach an editor before LostFocus
+        // writes its value. Commit pending input while the original bindings exist.
+        if (!CommitPendingInput(this)) return;
+        compactDetails = compact;
+        foreach (var column in Columns)
+            column.Visibility = unavailableColumns.Contains(column) || compact && GetIsCompactDetail(column)
+                ? Visibility.Collapsed : Visibility.Visible;
+        SetCurrentValue(AreRowDetailsFrozenProperty, true);
+        SetCurrentValue(RowDetailsVisibilityModeProperty,
+            compact ? DataGridRowDetailsVisibilityMode.Visible : DataGridRowDetailsVisibilityMode.Collapsed);
+    }
+
+    private void PopulateCompactDetails(object? sender, DataGridRowDetailsEventArgs e)
+    {
+        if (e.DetailsElement is not Border { Child: Layout.AdaptiveFieldsPanel panel }) return;
+        detailPanels.Add(panel);
+        PopulateCompactDetails(panel);
+    }
+
+    private void PopulateCompactDetails(Layout.AdaptiveFieldsPanel panel)
+    {
+        panel.Children.Clear();
+        foreach (var column in Columns.Where(column => GetIsCompactDetail(column) && !unavailableColumns.Contains(column)))
+        {
+            FrameworkElement value;
+            if (column is DataGridTemplateColumn templateColumn && templateColumn.CellTemplate is { } template)
+            {
+                value = (FrameworkElement)template.LoadContent();
+            }
+            else if (column is DataGridTextColumn textColumn)
+            {
+                var text = new TextBlock { Style = textColumn.ElementStyle, TextWrapping = TextWrapping.Wrap };
+                if (textColumn.Binding is { } binding) BindingOperations.SetBinding(text, TextBlock.TextProperty, binding);
+                value = text;
+            }
+            else continue;
+
+            var field = new StackPanel();
+            if (column.CanUserSort && !string.IsNullOrWhiteSpace(column.SortMemberPath))
+            {
+                var sort = new System.Windows.Controls.Button
+                {
+                    Style = (Style)FindResource("CompactDetailSortButton"),
+                };
+                sort.Content = column;
+                System.Windows.Automation.AutomationProperties.SetName(sort, $"ترتيب حسب {column.Header}");
+                sort.Click += (_, _) => OnSorting(new DataGridSortingEventArgs(column));
+                field.Children.Add(sort);
+            }
+            else
+            {
+                var label = new TextBlock { Text = column.Header?.ToString(), Margin = new Thickness(0, 0, 0, 4) };
+                label.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush");
+                field.Children.Add(label);
+            }
+            field.Children.Add(value);
+            panel.Children.Add(field);
+        }
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)

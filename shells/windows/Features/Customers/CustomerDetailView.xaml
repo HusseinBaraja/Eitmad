@@ -19,21 +19,32 @@
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-  <controls:PageHeader Title="تفاصيل العميل" Subtitle="بيانات الاتصال محفوظة في محرك الاعتماد">
+  <controls:PageHeader Title="تفاصيل العميل">
    <Button x:Name="BackButton" Content="العودة" Style="{StaticResource InlineActionButton}" Click="BackClick" AutomationProperties.Name="العودة من تفاصيل العميل"/>
   </controls:PageHeader>
   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
    <StackPanel Margin="28,20,28,28">
-    <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,24">
+    <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,24" MaxWidth="760" HorizontalAlignment="Left">
      <StackPanel>
-      <Grid Margin="0,0,0,20" FlowDirection="LeftToRight">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button x:Name="EditButton" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" Margin="0,0,20,0"/>
-       <StackPanel Grid.Column="1" FlowDirection="RightToLeft">
+      <Grid Margin="0,0,0,20" HorizontalAlignment="Left">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <StackPanel>
         <TextBlock Text="{Binding Name}" FontSize="23" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" TextWrapping="Wrap"/>
-        <TextBlock Text="{Binding SyncStateLabel}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0"/>
+        <TextBlock Text="{Binding SyncStateLabel}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0">
+         <TextBlock.Style>
+          <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+           <Style.Triggers><DataTrigger Binding="{Binding HasSyncConflict}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+          </Style>
+         </TextBlock.Style>
+        </TextBlock>
+        <controls:StatusBadge x:Name="ConflictStatus" Text="{Binding SyncStateLabel}" Tone="Warning" HorizontalAlignment="Left" Margin="0,8,0,0" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}">
+         <controls:StatusBadge.Icon><Path Data="{StaticResource IconAlert}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,8,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=controls:StatusBadge}}"/></controls:StatusBadge.Icon>
+        </controls:StatusBadge>
        </StackPanel>
+       <Button x:Name="EditButton" Grid.Column="1" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" VerticalAlignment="Top" Margin="24,0,0,0"/>
       </Grid>
+      <controls:FeedbackNotice x:Name="ConflictNotice" Tone="Warning" Margin="0,0,0,18" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}"
+       Message="التعديل متوقف بسبب تعارض في المزامنة. حل التعارض غير متاح في هذا الإصدار."/>
       <layout:AdaptiveFieldsPanel MinItemWidth="240">
        <controls:FormField Label="رقم الهاتف"><TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Style="{StaticResource ContactValue}"/></controls:FormField>
        <controls:FormField Label="العنوان"><TextBlock Text="{Binding Address}" Style="{StaticResource ContactValue}"/></controls:FormField>
@@ -46,8 +57,8 @@
      <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد عروض أسعار لهذا العميل"/></controls:OperationsTable.EmptyContent>
      <DataGrid.Columns>
       <DataGridTextColumn Header="رقم العرض" Binding="{Binding Number}" Width="1.2*" MinWidth="140" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="التاريخ" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="الأصناف" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
+      <DataGridTextColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
+      <DataGridTextColumn Header="الأصناف" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="*" MinWidth="110" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الإجمالي" Binding="{Binding Total}" Width="*" MinWidth="130" ElementStyle="{StaticResource HistoryValue}" CanUserSort="False"/>
      </DataGrid.Columns>
@@ -57,8 +68,8 @@
      <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد طلبات لهذا العميل"/></controls:OperationsTable.EmptyContent>
      <DataGrid.Columns>
       <DataGridTextColumn Header="رقم الطلب" Binding="{Binding Number}" Width="1.2*" MinWidth="140" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="التاريخ" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
-      <DataGridTextColumn Header="الأصناف" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
+      <DataGridTextColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding DateLabel}" SortMemberPath="Date" Width="*" MinWidth="110" ElementStyle="{StaticResource HistoryValue}"/>
+      <DataGridTextColumn Header="الأصناف" controls:OperationsTable.IsCompactDetail="True" Binding="{Binding Items}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="*" MinWidth="110" ElementStyle="{StaticResource TableBody}"/>
       <DataGridTextColumn Header="الإجمالي" Binding="{Binding Total}" Width="*" MinWidth="130" ElementStyle="{StaticResource HistoryValue}" CanUserSort="False"/>
      </DataGrid.Columns>

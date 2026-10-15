@@ -1,11 +1,29 @@
-<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" x:Class="Eitmad.WindowsShell.Features.Reception.SalesCatalogView" FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" x:Class="Eitmad.WindowsShell.Features.Reception.SalesCatalogView" FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
     <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/>
     </ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
     <Grid>
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <controls:PageHeader Title="المنتجات" ContainsButton="True" ButtonText="{Binding QuotationLabel}" ButtonClick="OpenQuotationClick"
-        Visibility="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}, Converter={StaticResource BooleanToVisibility}}"/>
+    <controls:PageHeader x:Name="WorkflowHeader" ButtonClick="OpenQuotationClick"
+        Visibility="{Binding ShowQuotationHeader, RelativeSource={RelativeSource AncestorType=reception:SalesCatalogView}, Converter={StaticResource BooleanToVisibility}}">
+        <controls:PageHeader.Style>
+            <Style TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+                <Setter Property="Title" Value="المنتجات"/>
+                <Setter Property="ShowSubtitle" Value="False"/>
+                <Setter Property="ContainsButton" Value="True"/>
+                <Setter Property="ButtonText" Value="{Binding QuotationLabel}"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Title" Value="اختيار الصنف"/></DataTrigger>
+                    <DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True">
+                        <Setter Property="Title" Value="{Binding QuotationHeading}"/>
+                        <Setter Property="ContainsButton" Value="False"/>
+                        <Setter Property="ShowSubtitle" Value="True"/>
+                        <Setter Property="Subtitle" Value="{Binding QuotationLines.Count, StringFormat=عدد الأصناف: {0}}"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </controls:PageHeader.Style>
+    </controls:PageHeader>
     <Grid Grid.Row="1">
     <Grid x:Name="CatalogListing" Margin="28,20">
         <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding IsReviewingQuotation}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger><DataTrigger Binding="{Binding IsSelecting}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
@@ -16,10 +34,11 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <StackPanel>
-            <TextBlock Text="المنتجات" FontSize="28" FontWeight="Bold" Style="{StaticResource CatalogText}"/>
-            <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,4,0,16" Style="{StaticResource CatalogText}" AutomationProperties.LiveSetting="Polite"/>
-        </StackPanel>
+        <TextBlock Text="{Binding CatalogStatus}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,16" AutomationProperties.LiveSetting="Polite">
+            <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource CatalogText}"><Style.Triggers>
+                <DataTrigger Binding="{Binding CatalogStatus}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+            </Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
         <TextBox Grid.Row="1" x:Name="CatalogSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث عن منتج..." AutomationProperties.Name="ابحث عن منتج"/>
         <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" BorderThickness="0" Background="Transparent" Margin="0,14,0,16" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="فئات المنتجات">
             <ListBox.ItemsPanel>
@@ -33,34 +52,41 @@
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>
-        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding VisibleItems}">
+        <ScrollViewer Grid.Row="3" x:Name="CatalogResults" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding VisibleItems}" HorizontalContentAlignment="Stretch">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel/>
+                        <layout:AdaptiveFieldsPanel MinItemWidth="360" Spacing="12"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Style="{StaticResource Card}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" Width="290" Margin="0,0,16,18" Padding="0" Effect="{x:Null}">
-                            <StackPanel>
-                                <Grid Height="188" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
-                                    <ContentControl Content="{Binding}" Focusable="False" IsHitTestVisible="False" Style="{StaticResource CatalogIllustration}">
-
-                                    </ContentControl>
-                                    <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight"/>
+                        <Border x:Name="CatalogRow" Style="{StaticResource Card}" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" Padding="12" Effect="{x:Null}">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid Height="88" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+                                    <Grid.Resources>
+                                        <Thickness x:Key="CatalogFurnitureVisualInset">12</Thickness>
+                                        <Thickness x:Key="CatalogProductVisualInset">12</Thickness>
+                                    </Grid.Resources>
+                                    <ContentControl Content="{Binding}" Focusable="False" IsHitTestVisible="False" Style="{StaticResource CatalogIllustration}"/>
+                                    <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" Margin="4"/>
                                 </Grid>
-                                <StackPanel Margin="18,14,18,18">
-                                    <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="20" FontWeight="SemiBold" MinHeight="36" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock reception:SalesText.Value="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="12" MinHeight="50" Margin="0,5,0,6" Style="{StaticResource CatalogText}"/>
-                                    <TextBlock reception:SalesText.Value="{Binding VariantSummary}" FontSize="14" Margin="0,0,0,10" Style="{StaticResource CatalogText}"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                        <TextBlock Text="{Binding PricePrefix}" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource CatalogText}"/>
-                                        <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="18" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
-                                    </StackPanel>
-                                    <Button Content="اختيار" Style="{StaticResource PrimaryButton}" MinHeight="44" Click="SelectClick" AutomationProperties.Name="{Binding SelectionName}"/>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock reception:SalesText.Value="{Binding Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding VariantSummary}" FontSize="14" Margin="0,2,0,4" Style="{StaticResource CatalogText}"/>
+                                    <TextBlock reception:SalesText.Value="{Binding Description}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="14" TextWrapping="Wrap" Style="{StaticResource CatalogText}"/>
                                 </StackPanel>
-                            </StackPanel>
+                                <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding PricePrefix}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource CatalogText}"/>
+                                        <TextBlock Text="{Binding PriceLabel}" FlowDirection="LeftToRight" FontSize="16" FontWeight="SemiBold" Style="{StaticResource CatalogText}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="اختيار" Style="{StaticResource PrimaryButton}" MinHeight="44" MinWidth="96" Margin="12,0,0,0" Click="SelectClick" AutomationProperties.Name="{Binding SelectionName}"/>
+                                </Grid>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -71,7 +97,11 @@
             <Button Content="مسح الفلاتر" Style="{StaticResource SecondaryButton}" Click="ClearClick" AutomationProperties.Name="مسح الفلاتر"/>
         </StackPanel>
         <StackPanel Grid.Row="4">
-            <TextBlock Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource CatalogText}"/>
+            <TextBlock Text="{Binding SelectionNotice}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite">
+                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource CatalogText}"><Style.Triggers>
+                    <DataTrigger Binding="{Binding SelectionNotice}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                </Style.Triggers></Style></TextBlock.Style>
+            </TextBlock>
             <WrapPanel>
                 <Button Content="تحديث الكتالوج" Click="ReloadClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تحديث الكتالوج"/>
                 <Button Content="الصفحة التالية" Click="NextClick" Style="{StaticResource SecondaryButton}" Margin="8,0" Visibility="{Binding HasNextPage, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="الصفحة التالية"/>

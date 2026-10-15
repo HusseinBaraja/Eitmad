@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Media;
+using Eitmad.WindowsShell.Controls;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -12,6 +14,112 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class RawMaterialsRenderedTests
 {
+    [TestMethod]
+    public void InputErrorsStayWithTheirFieldsAndAuthorityFailuresUseSummary()
+    {
+        var data = RawMaterials.MaterialFixtures.Snapshot();
+        var submissions = 0;
+        var engine = new FakeEngine
+        {
+            QueryHandler = query => new QueryResponseEnvelope
+            {
+                Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+                    Payload = query.Kind == Query.MaterialReferenceListKind
+                        ? QueryResult.ForMaterialReferences(data.References)
+                        : QueryResult.ForMaterials(new MaterialPage { Items = data.Materials.ToArray() }) },
+            },
+            CommandHandler = _ =>
+            {
+                submissions++;
+                return new CommandResponseEnvelope
+                {
+                    Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Failed,
+                        Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } },
+                };
+            },
+        };
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            Console.WriteLine($"Materials validation: {window.ActualWidth}x{window.ActualHeight} DIP; scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
+            WpfTestHost.FindByName<Button>(window, "MaterialsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<RawMaterialsView>(window).Single();
+            var model = view.ViewModel;
+            var material = model.VisibleMaterials.First();
+            model.BeginEdit(material);
+            model.EditorCost = 8.5m;
+            WpfTestHost.CompleteLayout(window);
+            var cost = WpfTestHost.FindByName<TextBox>(view, "EditorCostBox");
+            var category = WpfTestHost.FindByAutomationName<ComboBox>(view, "تصنيف المادة الخام");
+            var unit = WpfTestHost.FindByAutomationName<ComboBox>(view, "وحدة المادة الخام");
+            var save = WpfTestHost.FindByName<Button>(view, "SaveEditorButton");
+            var summary = WpfTestHost.FindByName<TextBlock>(view, "EditorSummary");
+            void Submit() { save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window); }
+            cost.Text = "8.5";
+            Submit();
+            Assert.AreEqual(0, submissions);
+            Assert.AreEqual("8.5", cost.Text);
+            Assert.AreEqual(material.CategoryId, category.SelectedValue);
+            Assert.AreEqual(material.UnitId, unit.SelectedValue);
+            Assert.AreEqual(string.Empty, model.EditorCategoryError);
+            Assert.AreEqual(string.Empty, model.EditorUnitError);
+            Assert.AreEqual(Visibility.Collapsed, summary.Visibility);
+            CheckError("EditorCostField", cost, model.EditorCostError);
+            WpfTestHost.Capture(window, "material-field-error");
+
+            foreach (var invalid in new[] { "", "8,5", "٨٫٥", "1e3", "9223372036854775808" })
+            {
+                cost.Text = invalid;
+                Submit();
+                Assert.AreEqual(0, submissions, invalid);
+                Assert.AreEqual(invalid, cost.Text);
+                Assert.IsFalse(string.IsNullOrEmpty(model.EditorCostError));
+            }
+            cost.Text = "8500";
+            category.SelectedIndex = -1;
+            unit.SelectedIndex = -1;
+            Submit();
+            Assert.AreEqual(0, submissions);
+            Assert.AreEqual(string.Empty, model.EditorCostError);
+            CheckError("EditorCategoryField", category, model.EditorCategoryError);
+            CheckError("EditorUnitField", unit, model.EditorUnitError);
+
+            category.SelectedValue = material.CategoryId;
+            Submit();
+            Assert.AreEqual(0, submissions);
+            Assert.AreEqual(string.Empty, model.EditorCategoryError);
+            Assert.IsFalse(string.IsNullOrEmpty(model.EditorUnitError));
+            unit.SelectedValue = material.UnitId;
+            foreach (var (input, expected) in new[] { ("٨٥٠٠", 8500L), ("۰", 0L), ("9223372036854775807", long.MaxValue) })
+            {
+                cost.Text = input;
+                Submit();
+                Assert.AreEqual(expected, engine.LastCommand!.AsMaterialSave()!.CurrentCostYer);
+                Assert.IsTrue(model.IsEditorOpen);
+                Assert.IsTrue(model.HasEditorSummaryError);
+                Assert.AreEqual(Visibility.Visible, summary.Visibility);
+                Assert.AreEqual(MaterialClient.ArabicMessage(MaterialFailureKind.Denied), summary.Text);
+                Assert.AreEqual(string.Empty, model.EditorCategoryError);
+                Assert.AreEqual(string.Empty, model.EditorUnitError);
+                Assert.AreEqual(string.Empty, model.EditorCostError);
+            }
+            Assert.AreEqual(3, submissions);
+            model.BeginEdit(material);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(model.HasEditorError);
+
+            void CheckError(string fieldName, Control input, string error)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(error));
+                var field = WpfTestHost.FindByName<FormField>(view, fieldName);
+                Assert.AreEqual(error, field.ErrorText);
+                Assert.AreEqual(error, AutomationProperties.GetItemStatus(input));
+                Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(input)));
+                Assert.IsNotNull(AutomationProperties.GetLabeledBy(input));
+            }
+        }, engine: engine);
+    }
+
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]

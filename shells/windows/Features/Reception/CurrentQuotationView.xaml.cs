@@ -7,7 +7,23 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class CurrentQuotationView : UserControl
 {
+    private static readonly DependencyPropertyKey CompactItemsPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(CompactItems), typeof(bool), typeof(CurrentQuotationView), new PropertyMetadata(false));
+    public static readonly DependencyProperty CompactItemsProperty = CompactItemsPropertyKey.DependencyProperty;
+    public bool CompactItems => (bool)GetValue(CompactItemsProperty);
+
     public CurrentQuotationView() => InitializeComponent();
+    private void ItemsSizeChanged(object sender, SizeChangedEventArgs e) =>
+        SetValue(CompactItemsPropertyKey, e.NewSize.Width < 1050);
+    private void DetailsSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var stacked = e.NewSize.Width < 900;
+        QuotationDetailsLayout.ColumnDefinitions[1].Width = new GridLength(stacked ? 0 : 24);
+        QuotationDetailsLayout.ColumnDefinitions[2].Width = new GridLength(stacked ? 0 : 480);
+        System.Windows.Controls.Grid.SetColumn(QuotationSummarySection, stacked ? 0 : 2);
+        System.Windows.Controls.Grid.SetRow(QuotationSummarySection, stacked ? 1 : 0);
+        QuotationSummarySection.Margin = stacked ? new Thickness(0, 16, 0, 0) : new Thickness(0);
+    }
     private SalesCatalogViewModel Model => (SalesCatalogViewModel)DataContext;
     private void ContinueClick(object sender, RoutedEventArgs e)
     {
@@ -35,7 +51,12 @@ public partial class CurrentQuotationView : UserControl
     }
     private void CancelCustomerClick(object sender, RoutedEventArgs e) { Model.CancelNewCustomer(); CustomerNameInput.Focus(); }
     private async void RequestApprovalClick(object sender, RoutedEventArgs e) { Model.RequestDiscountApproval(); await Model.LastApprovalRequest; if (Model.IsDiscountPending) SaveDraftButton.Focus(); else FocusMissingField(); }
-    private async void SaveDraftClick(object sender, RoutedEventArgs e) { if (!await Model.SaveDraftAsync()) FocusMissingField(); }
+    private async void SaveDraftClick(object sender, RoutedEventArgs e)
+    {
+        if (await Model.SaveDraftAsync()) return;
+        if (Model.HasDraftSaveFailure) { DraftSaveFailureNotice.BringIntoView(); SaveDraftButton.Focus(); }
+        else FocusMissingField();
+    }
     private async void ReloadDraftClick(object sender, RoutedEventArgs e)
     {
         if (System.Windows.MessageBox.Show(Window.GetWindow(this), "ستُستبدل التعديلات غير المحفوظة بالنسخة المحفوظة. هل تريد المتابعة؟", "إعادة فتح المسودة", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;

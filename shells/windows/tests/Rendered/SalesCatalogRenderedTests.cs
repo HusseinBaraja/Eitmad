@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Eitmad.WindowsShell.Features.Reception;
@@ -9,6 +10,59 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class SalesCatalogRenderedTests
 {
+    [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void QuotationItemsRemainReadableAndEditableAboveScrollableDetails(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window => {
+            if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
+            var model = new SalesCatalogViewModel(Furniture.FurnitureFixtures.SalesModel(), new Features.Products.ProductsViewModel());
+            model.Select(model.VisibleItems.First());
+            model.Selection!.SelectedSize = model.Selection.Sizes[0];
+            model.Selection.SelectedColor = model.Selection.Colors[0];
+            model.Selection.SelectedHandle = model.Selection.Handles[0];
+            model.AddSelection(); model.CloseSelection();
+            model.IsReviewingQuotation = true;
+            var catalog = new SalesCatalogView { DataContext = model, ShowQuotationHeader = true };
+            window.Content = catalog;
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.FindByName<CurrentQuotationView>(catalog, "QuotationView");
+            var scroll = WpfTestHost.FindByName<ScrollViewer>(view, "QuotationItemsScroll");
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Quotation: window {window.ActualWidth} x {window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth} x {SystemParameters.PrimaryScreenHeight} DIP; scale {dpi.DpiScaleX * 100}%; high contrast {SystemParameters.HighContrast}; items viewport {scroll.ViewportWidth} x {scroll.ViewportHeight}.");
+            Assert.IsTrue(scroll.ViewportHeight >= 160, "Details must not consume the item viewport at the minimum window size.");
+            var name = WpfTestHost.Descendants<TextBlock>(scroll).Single(text =>
+                new TextRange(text.ContentStart, text.ContentEnd).Text == model.QuotationLines[0].Name);
+            Assert.IsTrue(name.ActualWidth >= 200, "The item name must have room for Arabic text and options.");
+            var nameBounds = name.TransformToAncestor(scroll).TransformBounds(new Rect(name.RenderSize));
+            Assert.IsTrue(nameBounds.Top >= 0 && nameBounds.Top < scroll.ViewportHeight, "The first item must be visible without scrolling past details.");
+            Assert.IsTrue(nameBounds.Left >= 0 && nameBounds.Right <= scroll.ViewportWidth + 1);
+            WpfTestHost.Capture(window, $"quotation-items-{width}");
+
+            var edit = WpfTestHost.FindByAutomationName<Button>(view, "تعديل " + model.QuotationLines[0].Name);
+            Assert.IsTrue(edit.Focus());
+            WpfTestHost.CompleteLayout(window);
+            foreach (var action in new[] { "تعديل ", "تكرار ", "إزالة " }) {
+                var button = WpfTestHost.FindByAutomationName<Button>(view, action + model.QuotationLines[0].Name);
+                var bounds = button.TransformToAncestor(scroll).TransformBounds(new Rect(button.RenderSize));
+                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ViewportWidth + 1 && bounds.Top >= 0 && bounds.Bottom <= scroll.ViewportHeight + 1,
+                    $"{action}: item actions must fit inside the visible viewport: {bounds}.");
+                if (action != "إزالة ") Assert.IsTrue(button.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            }
+            var discount = WpfTestHost.FindByName<TextBox>(view, "DiscountInput");
+            discount.BringIntoView(); Assert.IsTrue(discount.Focus()); WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(discount.IsKeyboardFocusWithin);
+            WpfTestHost.Capture(window, $"quotation-details-{width}");
+            edit.BringIntoView(); Assert.IsTrue(edit.Focus()); WpfTestHost.CompleteLayout(window);
+            edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(model.IsReviewingQuotation);
+            Assert.IsTrue(WpfTestHost.FindByName<FurnitureSelectionView>(catalog, "SelectionView").IsVisible);
+        });
+    }
+
     [TestMethod]
     public void HomeStartsWithCatalogAndReviewRestoresSelectionFocus()
     {
@@ -124,7 +178,7 @@ public sealed class SalesCatalogRenderedTests
     [TestMethod]
     public void FurnitureOptionRowsScrollThePageOverCardsAndEmptySpace()
     {
-        WpfTestHost.Run(1338, 900, window =>
+        WpfTestHost.Run(720, 560, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             reception.Visibility = Visibility.Visible;
@@ -154,7 +208,9 @@ public sealed class SalesCatalogRenderedTests
                     Assert.IsNotNull(target);
                     if (point == emptyPoint)
                         Assert.IsFalse(WpfTestHost.Descendants<ListBoxItem>(list).Any(item => item.IsAncestorOf(target) || item == target), "The regression must cover empty row space.");
-                    var source = target as UIElement ?? WpfTestHost.Ancestor<UIElement>(target);
+                    var source = target as UIElement
+                        ?? (target is FrameworkContentElement content ? content.Parent as UIElement : null)
+                        ?? WpfTestHost.Ancestor<UIElement>(target);
                     foreach (var delta in new[] { -120, 120 })
                     {
                         page.ScrollToVerticalOffset(page.ScrollableHeight / 2);
@@ -178,7 +234,7 @@ public sealed class SalesCatalogRenderedTests
     [TestMethod]
     public void ReceptionCatalogSupportsNavigationSearchClearAndKeyboardSelection()
     {
-        WpfTestHost.Run(1338, 900, window =>
+        WpfTestHost.Run(1338, 753, window =>
         {
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             reception.Visibility = Visibility.Visible;
@@ -281,7 +337,7 @@ public sealed class SalesCatalogRenderedTests
             var model = (SalesCatalogViewModel)catalog.DataContext;
             Assert.HasCount(1, model.QuotationLines);
             var title = WpfTestHost.FindByName<Eitmad.WindowsShell.Controls.ShellTitleBar>(reception, "ReceptionistTitleBar");
-            Assert.AreEqual(model.QuotationLabel, title.PrimaryActionLabel);
+            Assert.AreEqual(model.QuotationLines.Count.ToString(System.Globalization.CultureInfo.InvariantCulture), title.PrimaryActionCount);
             WpfTestHost.Capture(window, "catalog-selection-total");
             WpfTestHost.FindByAutomationName<Button>(reception, "فتح عرض السعر").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);

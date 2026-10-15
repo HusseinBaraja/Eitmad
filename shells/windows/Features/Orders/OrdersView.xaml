@@ -1,7 +1,71 @@
-<UserControl x:Class="Eitmad.WindowsShell.Features.Orders.OrdersView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Language="ar-YE" Background="{StaticResource CanvasBrush}">
+<UserControl x:Class="Eitmad.WindowsShell.Features.Orders.OrdersView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:system="clr-namespace:System;assembly=System.Runtime" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Language="ar-YE" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
       <ResourceDictionary>
         <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../../Resources/SalesCatalogVisuals.xaml"/></ResourceDictionary.MergedDictionaries>
+        <Style x:Key="OrderTotalCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Width" Value="430"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReceptionist}" Value="True">
+                    <Setter Property="Width" Value="380"/>
+                    <Setter Property="Grid.ColumnSpan" Value="1"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource Self}}" Value="Compact">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="Grid.ColumnSpan" Value="2"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="OrderActionLayout" TargetType="StackPanel">
+            <Setter Property="Grid.Row" Value="1"/>
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
+            <Setter Property="MaxWidth" Value="720"/>
+            <Setter Property="Margin" Value="0,16,0,0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReceptionist}" Value="True">
+                    <Setter Property="Grid.Row" Value="0"/>
+                    <Setter Property="Grid.Column" Value="1"/>
+                    <Setter Property="Grid.ColumnSpan" Value="1"/>
+                    <Setter Property="MaxWidth" Value="{x:Static system:Double.PositiveInfinity}"/>
+                    <Setter Property="Margin" Value="16,0,0,0"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Path=(layout:ResponsiveLayout.Mode), RelativeSource={RelativeSource Self}}" Value="Compact">
+                    <Setter Property="Grid.Row" Value="1"/>
+                    <Setter Property="Grid.Column" Value="0"/>
+                    <Setter Property="Grid.ColumnSpan" Value="2"/>
+                    <Setter Property="Margin" Value="0,16,0,0"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="OrderAuthorityText" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Style.Triggers>
+                <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DocumentHeader" TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsVisible, RelativeSource={RelativeSource AncestorType={x:Type reception:ReceptionistHomeView}}}" Value="True">
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Padding" Value="32,12,32,0" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="controls:PageHeader">
+                                <Grid Margin="{TemplateBinding Padding}" FlowDirection="LeftToRight">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <ContentPresenter Content="{TemplateBinding Content}" FlowDirection="RightToLeft" />
+                                    <TextBlock Grid.Column="1" Text="{TemplateBinding Subtitle}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                               FlowDirection="RightToLeft" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="OrderStatusBadge" TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsNew}" Value="True">
@@ -31,24 +95,24 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="الطلبات" Subtitle="{Binding ListSubtitle}"></controls:PageHeader>
+            <controls:PageHeader Grid.Row="0" Style="{StaticResource DocumentHeader}" Title="الطلبات" Subtitle="{Binding ListSubtitle}"></controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
+                    <StackPanel Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12">
                         <controls:FeedbackNotice Message="{Binding PendingNotice}" Visibility="{Binding HasPending, Converter={StaticResource BooleanToVisibility}}"/>
-                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
+                        <Button Content="إعادة محاولة العملية" Click="RetryOrderClick" Visibility="{Binding HasUnresolvedOperation, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
                     </StackPanel>
-                    <layout:AdaptiveFieldsPanel MinItemWidth="220" Margin="0,0,0,16">
-                        <controls:FormField Label="البحث">
+                    <WrapPanel Margin="0,0,0,16">
+                        <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8">
                             <TextBox x:Name="OrderSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" automation:AutomationProperties.Name="{Binding SearchName}" controls:ControlOptions.Placeholder="{Binding SearchName}" Style="{StaticResource SearchInput}" />
                         </controls:FormField>
-                        <controls:FormField Label="الحالة">
+                        <controls:FormField Label="الحالة" Width="240" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding SelectedStatus}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الطلبات حسب الحالة" />
                         </controls:FormField>
-                        <controls:FormField Label="التاريخ">
+                        <controls:FormField Label="التاريخ" Width="220" Margin="0,0,12,8">
                             <ComboBox ItemsSource="{Binding DateOptions}" SelectedItem="{Binding SelectedDate}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="تصفية الطلبات حسب التاريخ" />
                         </controls:FormField>
-                    </layout:AdaptiveFieldsPanel>
+                    </WrapPanel>
                     <Border Style="{StaticResource Card}" ClipToBounds="True">
                         <Grid FlowDirection="LeftToRight">
                             <StackPanel FlowDirection="RightToLeft">
@@ -60,7 +124,7 @@
                                         <DataGridTemplateColumn Header="رقم الطلب" Width="1.2*" MinWidth="120" SortMemberPath="Number">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Number}" Style="{StaticResource TableBody}" FontWeight="SemiBold" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -72,11 +136,11 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="العميل" Width="1.65*" MinWidth="160" SortMemberPath="Customer">
+                                        <DataGridTemplateColumn Header="العميل" controls:OperationsTable.IsCompactDetail="True" Width="1.65*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
-                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" />
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                        <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -87,10 +151,10 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="التاريخ" Width="1.05*" MinWidth="120" SortMemberPath="Date">
+                                        <DataGridTemplateColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Date">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding DateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -105,7 +169,7 @@
                                         <DataGridTemplateColumn Header="الإجمالي" Width="1.3*" MinWidth="120" SortMemberPath="FinalTotal">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding FinalTotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -120,7 +184,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="1.05*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -134,7 +198,7 @@
                                         <DataGridTemplateColumn Header="فتح" Width="0.72*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="65">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <Button Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenOrderClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح الطلب" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -147,7 +211,7 @@
                                         </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </controls:OperationsTable>
-                                <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="18,11" />
+                                <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="18,11" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -159,20 +223,13 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Title="تفاصيل الطلب" Subtitle="{Binding DetailSubtitle}">
+            <controls:PageHeader Style="{StaticResource DocumentHeader}" Title="تفاصيل الطلب" Subtitle="{Binding DetailSubtitle}">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="BackToOrdersButton" Content="العودة إلى الطلبات" Style="{StaticResource InlineActionButton}" Height="38" Click="BackToListClick" automation:AutomationProperties.Name="العودة إلى قائمة الطلبات" />
                 </StackPanel>
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
                 <StackPanel Margin="32,22,32,30">
-                    <StackPanel>
-                        <controls:FeedbackNotice x:Name="ReadyOrderNotice" Message="الطلب جاهز" Tone="Success" FontSize="26" FontWeight="Bold" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedOrder.IsReady, Converter={StaticResource BooleanToVisibility}}" />
-                        <WrapPanel Margin="0,0,0,16">
-                            <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,8"/>
-                            <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي" Margin="0,0,0,8"/>
-                        </WrapPanel>
-                    </StackPanel>
                     <StackPanel Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}">
                         <StackPanel Visibility="{Binding SelectedOrder.IsNewlyReady, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
                             <controls:FeedbackNotice Message="{Binding SelectedOrder.ReadyNotice}" Tone="Success"/>
@@ -180,81 +237,51 @@
                             <Button Content="تمت مراجعة التنبيه" Click="AcknowledgeReadyClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="تمت مراجعة تنبيه جاهزية الطلب"/>
                         </StackPanel>
                     </StackPanel>
-                    <Border Style="{StaticResource Card}" Padding="20">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <WrapPanel>
-                                <StackPanel Width="220" Margin="0,0,0,9">
+                    <Border x:Name="OrderIdentity" Style="{StaticResource Card}" Padding="20">
+                        <StackPanel>
+                            <layout:AdaptiveFieldsPanel MinItemWidth="180">
+                                <StackPanel>
                                     <TextBlock Text="رقم الطلب" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.Number}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
                                 </StackPanel>
-                                <StackPanel Width="180" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="الحالة الحالية" Style="{StaticResource MetadataLabel}" />
                                     <controls:StatusBadge DataContext="{Binding SelectedOrder}" Margin="0,5,0,0" Padding="12,3" HorizontalAlignment="Left" Text="{Binding StatusLabel}" Style="{StaticResource OrderStatusBadge}"></controls:StatusBadge>
                                 </StackPanel>
-                                <StackPanel Width="250" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="العميل" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.Customer}" Style="{StaticResource MetadataValue}" />
                                     <Button Content="تفاصيل العميل" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Click="CustomerClick" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="فتح تفاصيل عميل الطلب"/>
                                 </StackPanel>
-                                <StackPanel Width="160" Margin="0,0,0,9">
+                                <StackPanel>
                                     <TextBlock Text="التاريخ" Style="{StaticResource MetadataLabel}" />
                                     <TextBlock Text="{Binding SelectedOrder.DateLabel}" Style="{StaticResource MetadataValue}" FlowDirection="LeftToRight" TextAlignment="Right" />
                                 </StackPanel>
+                            </layout:AdaptiveFieldsPanel>
+                            <WrapPanel Margin="0,12,0,0">
+                                <Button x:Name="PrintOrderButton" Content="طباعة" Style="{StaticResource SecondaryButton}" Click="PrintOrderClick" AutomationProperties.Name="طباعة الطلب" Margin="0,0,8,0"/>
+                                <Button x:Name="OriginalQuotationButton" Content="عرض السعر الأصلي" Style="{StaticResource SecondaryButton}" Click="OriginalQuotationClick" IsEnabled="{Binding SelectedOrder.HasOriginalQuotation}" AutomationProperties.Name="عرض السعر الأصلي"/>
                             </WrapPanel>
-                            <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Grid.Row="1" Background="#F7F3EF" CornerRadius="7" Padding="12,8" Margin="0,8,0,0">
-                                <TextBlock Text="الأسعار وبيانات العميل محفوظة كما اعتُمدت في عرض السعر" Foreground="#745A43" FontSize="10" />
-                            </Border>
-                        </Grid>
+                        </StackPanel>
                     </Border>
-                    <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding ActionsAvailable}" Margin="0,0,0,16">
-                        <controls:FeedbackNotice Message="{Binding ActionNotice}"/>
-                        <TextBlock Text="{Binding SelectedOrder.WorkSummary}" FlowDirection="LeftToRight" TextAlignment="Right" TextWrapping="Wrap" Margin="0,8,0,8"/>
-                        <TextBlock Text="{Binding SelectedOrder.FulfillmentLabel}" TextWrapping="Wrap"/>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanEditFulfillment, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="ملاحظات التنفيذ" Margin="0,8,0,4"/>
-                            <TextBox Text="{Binding FulfillmentNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تنفيذ الطلب"/>
-                            <Button Content="حفظ ملاحظات التنفيذ" Click="SaveFulfillmentClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="حفظ ملاحظات تنفيذ الطلب"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="سبب إلغاء الطلب"/><TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="سبب إلغاء الطلب"/>
-                            <Button Content="إلغاء الطلب" Click="CancelOrderClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="إلغاء الطلب قبل التسليم"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanDeliver, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="اسم المستلم"/><TextBox Text="{Binding Recipient, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم مستلم الطلب"/>
-                            <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DeliveryMethod}" Style="{StaticResource SelectInput}" Margin="0,8,0,0" AutomationProperties.Name="طريقة قبول التسليم"/>
-                            <TextBlock Text="ملاحظات التسليم" Margin="0,8,0,4"/><TextBox Text="{Binding DeliveryNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تسليم الطلب"/>
-                            <Button Content="تسجيل التسليم" Click="DeliverOrderClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد تسليم الطلب"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding SelectedOrder.CanStartWork, Converter={StaticResource BooleanToVisibility}}">
-                            <TextBlock Text="موعد إنجاز أمر العمل"/><DatePicker SelectedDate="{Binding DueDate}" AutomationProperties.Name="موعد إنجاز أمر العمل"/>
-                            <TextBlock Text="إسناد أمر العمل"/><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="إسناد أمر العمل"/>
-                            <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
-                        </StackPanel>
-                        <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,8" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
-                        <Button Content="تأكيد العملية المعلقة" Click="RetryOrderClick" IsEnabled="{Binding CanRetry}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" AutomationProperties.Name="تأكيد نتيجة عملية الطلب"/>
-                    </StackPanel>
-                    <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
-                        <Border Style="{StaticResource Card}" Padding="16" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
-                            <StackPanel>
-                                <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
-                                <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
-                                <TextBlock Text="راجع تصنيع الأثاث المرتبط بهذا الطلب. المنتجات الجاهزة لا تحتاج إلى أمر عمل." TextWrapping="Wrap" Margin="0,6,0,10"/>
-                                <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                    <Border Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
+                    <controls:FeedbackNotice Message="{Binding ActionNotice}" Margin="0,12,0,0">
+                        <controls:FeedbackNotice.Style>
+                            <Style TargetType="controls:FeedbackNotice" BasedOn="{StaticResource {x:Type controls:FeedbackNotice}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLive}" Value="False"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                    <Trigger Property="Message" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:FeedbackNotice.Style>
+                    </controls:FeedbackNotice>
+                    <Border x:Name="ManagerOrderItems" Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource Card}" ClipToBounds="True" Margin="0,16,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1">
-                                <TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="بنود الطلب" FontSize="17" FontWeight="SemiBold" />
                             </Border>
                             <Grid Grid.Row="1" FlowDirection="LeftToRight">
                                 <StackPanel FlowDirection="RightToLeft">
@@ -264,7 +291,7 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="SemiBold" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -274,11 +301,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="التنويعة" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
+                                            <DataGridTemplateColumn Header="التنويعة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -288,7 +315,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="الأبعاد" Width="1.28*" MinWidth="120" SortMemberPath="Dimensions">
+                                            <DataGridTemplateColumn Header="الأبعاد" controls:OperationsTable.IsCompactDetail="True" Width="1.28*" MinWidth="120" SortMemberPath="Dimensions">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
@@ -302,11 +329,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="اللون" Width="0.82*" MinWidth="160" SortMemberPath="Color">
+                                            <DataGridTemplateColumn Header="اللون" controls:OperationsTable.IsCompactDetail="True" Width="0.82*" MinWidth="160" SortMemberPath="Color">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -316,11 +343,11 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTemplateColumn Header="المقبض" Width="1.02*" MinWidth="120" SortMemberPath="Handle">
+                                            <DataGridTemplateColumn Header="المقبض" controls:OperationsTable.IsCompactDetail="True" Width="1.02*" MinWidth="120" SortMemberPath="Handle">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="62">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" />
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                         </Border>
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
@@ -364,41 +391,76 @@
                             </Grid>
                         </Grid>
                     </Border>
-                    <ItemsControl ItemsSource="{Binding SelectedOrder.Items}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
+                    <TextBlock Text="بنود الطلب" Style="{StaticResource SectionTitle}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0"/>
+                    <ItemsControl x:Name="ReceptionOrderItems" ItemsSource="{Binding SelectedOrder.Items}" Visibility="{Binding IsReceptionist, Converter={StaticResource BooleanToVisibility}}" Margin="0,12,0,0">
                         <ItemsControl.ItemTemplate><DataTemplate>
-                            <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,12" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" TextElement.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <Grid Width="84" Height="84" VerticalAlignment="Top">
-                                        <ContentControl Content="{Binding}" Style="{StaticResource CatalogIllustration}" Width="188" Height="188" Focusable="False" IsHitTestVisible="False">
-                                            <ContentControl.LayoutTransform><ScaleTransform ScaleX="0.44" ScaleY="0.44"/></ContentControl.LayoutTransform>
-                                        </ContentControl>
-                                        <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" AutomationProperties.Name="{Binding Product}"/>
+                            <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,8" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" TextElement.Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
+                                <layout:AdaptiveFieldsPanel MinItemWidth="300" Spacing="24">
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid Width="84" Height="84">
+                                            <ContentControl Content="{Binding}" Style="{StaticResource CatalogIllustration}" Width="188" Height="188" Focusable="False" IsHitTestVisible="False">
+                                                <ContentControl.LayoutTransform><ScaleTransform ScaleX="0.44" ScaleY="0.44"/></ContentControl.LayoutTransform>
+                                            </ContentControl>
+                                            <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" AutomationProperties.Name="{Binding Product}"/>
+                                        </Grid>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Product}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding Variant}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </Grid>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Product}" FontSize="21" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding Variant}" Margin="0,4,0,12" TextWrapping="Wrap"/>
-                                        <WrapPanel Visibility="{Binding IsFurniture, Converter={StaticResource BooleanToVisibility}}">
-                                            <StackPanel MinWidth="210" Margin="0,0,12,12"><TextBlock Text="المقاسات"/><TextBlock Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="16"/></StackPanel>
-                                            <StackPanel MinWidth="110" Margin="0,0,12,12"><TextBlock Text="اللون"/><TextBlock Text="{Binding Color}" FontSize="16"/></StackPanel>
-                                            <StackPanel MinWidth="110" Margin="0,0,12,12"><TextBlock Text="المقبض"/><TextBlock Text="{Binding Handle}" FontSize="16"/></StackPanel>
-                                        </WrapPanel>
-                                        <WrapPanel>
-                                            <StackPanel MinWidth="100" Margin="0,0,12,0"><TextBlock Text="الكمية"/><TextBlock Text="{Binding QuantityLabel}" FontSize="18" FlowDirection="LeftToRight" TextAlignment="Right"/></StackPanel>
-                                            <StackPanel MinWidth="150"><TextBlock Text="سعر البيع"/><controls:AmountDisplay AmountText="{Binding SellingPrice, StringFormat=N0}" UnitText="ر.ي" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"/></StackPanel>
-                                        </WrapPanel>
-                                    </StackPanel>
-                                </Grid>
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid Visibility="{Binding IsFurniture, Converter={StaticResource BooleanToVisibility}}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                            <TextBlock Text="المقاسات" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Dimensions}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="16"/>
+                                            <TextBlock Grid.Row="1" Text="اللون" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Color}" FontSize="16"/>
+                                            <TextBlock Grid.Row="2" Text="المقبض" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Handle}" FontSize="16"/>
+                                        </Grid>
+                                    </Grid>
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <StackPanel Margin="0,0,20,0"><TextBlock Text="الكمية"/><TextBlock Text="{Binding QuantityLabel}" FontSize="18" FlowDirection="LeftToRight" TextAlignment="Right"/></StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Right"><TextBlock Text="سعر الوحدة"/><controls:AmountDisplay AmountText="{Binding SellingPrice, StringFormat=N0}" UnitText="ر.ي" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Right"/></StackPanel>
+                                    </Grid>
+                                </layout:AdaptiveFieldsPanel>
                             </Border>
                         </DataTemplate></ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Border Style="{StaticResource Card}" Width="430" HorizontalAlignment="Left" Padding="22" Margin="0,16,0,0">
+                    <StackPanel x:Name="OrderProductionContext">
+                        <StackPanel Visibility="{Binding IsManager, Converter={StaticResource BooleanToVisibility}}" Margin="0,16,0,0">
+                            <Border Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanShowProduction, Converter={StaticResource BooleanToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="أوامر العمل" FontSize="18" FontWeight="SemiBold"/>
+                                    <WrapPanel Margin="0,6,0,0"><TextBlock Text="{Binding ProductionNumber}" FlowDirection="LeftToRight"/><TextBlock Text="{Binding ProductionSummary}" Margin="10,0,0,0"/></WrapPanel>
+                                    <Button Content="{Binding ProductionAction}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ProductionClick" AutomationProperties.Name="فتح تصنيع الطلب"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}">
+                            <TextBlock Text="{Binding SelectedOrder.WorkSummary}" FlowDirection="LeftToRight" TextAlignment="Right" Margin="0,8,0,8">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource OrderAuthorityText}">
+                                        <Style.Triggers><DataTrigger Binding="{Binding IsManager}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding SelectedOrder.FulfillmentLabel}" Style="{StaticResource OrderAuthorityText}" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid x:Name="OrderCompletionGrid" Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Border x:Name="OrderTotal" Style="{StaticResource OrderTotalCard}" Padding="22">
                         <StackPanel>
                             <TextBlock Text="ملخص الطلب" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,15" />
                             <Grid Margin="0,0,0,11">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
-                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="المجموع الفرعي" Style="{StaticResource SummaryLabel}" />
                                 <TextBlock Grid.Column="1" Text="{Binding SelectedOrder.SubtotalLabel}" Style="{StaticResource SummaryValue}" />
@@ -406,7 +468,7 @@
                             <Grid Margin="0,0,0,13">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
-                                    <ColumnDefinition Width="190" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="الخصم" Style="{StaticResource SummaryLabel}" />
                                 <TextBlock Grid.Column="1" Text="{Binding SelectedOrder.DiscountLabel}" Style="{StaticResource SummaryValue}" Foreground="#9A382B" />
@@ -415,13 +477,61 @@
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition />
-                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="الإجمالي النهائي" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{Binding SelectedOrder.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="#6E3A0D" />
                             </Grid>
                         </StackPanel>
                     </Border>
+                    <StackPanel x:Name="OrderActions" Style="{StaticResource OrderActionLayout}" Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding ActionsAvailable}">
+                        <Border x:Name="DeliverySection" Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanDeliver, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="تسجيل التسليم" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                                <layout:AdaptiveFieldsPanel MinItemWidth="240">
+                                    <controls:FormField Label="اسم المستلم">
+                                        <TextBox Text="{Binding Recipient, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم مستلم الطلب"/>
+                                    </controls:FormField>
+                                    <controls:FormField Label="طريقة قبول التسليم">
+                                        <ComboBox ItemsSource="{Binding Methods}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DeliveryMethod}" Style="{StaticResource SelectInput}" AutomationProperties.Name="طريقة قبول التسليم"/>
+                                    </controls:FormField>
+                                </layout:AdaptiveFieldsPanel>
+                                <controls:FormField Label="ملاحظات التسليم" Margin="0,12,0,0">
+                                    <TextBox Text="{Binding DeliveryNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تسليم الطلب"/>
+                                </controls:FormField>
+                                <Button Content="تسجيل التسليم" Click="DeliverOrderClick" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="تأكيد تسليم الطلب"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="FulfillmentSection" Style="{StaticResource Card}" Padding="20" Visibility="{Binding SelectedOrder.CanEditFulfillment, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="ملاحظات التنفيذ" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                                <TextBox Text="{Binding FulfillmentNote, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="ملاحظات تنفيذ الطلب"/>
+                                <Button Content="حفظ ملاحظات التنفيذ" Click="SaveFulfillmentClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="حفظ ملاحظات تنفيذ الطلب"/>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Visibility="{Binding SelectedOrder.CanStartWork, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,16">
+                            <TextBlock Text="بدء أمر العمل" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+                            <layout:AdaptiveFieldsPanel MinItemWidth="240">
+                                <controls:FormField Label="موعد إنجاز أمر العمل"><DatePicker SelectedDate="{Binding DueDate}" AutomationProperties.Name="موعد إنجاز أمر العمل"/></controls:FormField>
+                                <controls:FormField Label="إسناد أمر العمل"><TextBox Text="{Binding Assignment, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="إسناد أمر العمل"/></controls:FormField>
+                            </layout:AdaptiveFieldsPanel>
+                            <Button Content="بدء أمر العمل" Click="StartWorkClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="بدء أمر العمل المؤكد"/>
+                        </StackPanel>
+                        <Button Content="إكمال أمر العمل" Click="CompleteWorkClick" Visibility="{Binding SelectedOrder.CanCompleteWork, Converter={StaticResource BooleanToVisibility}}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" AutomationProperties.Name="تأكيد اكتمال أمر العمل"/>
+                        <StackPanel x:Name="OrderRecovery" Visibility="{Binding HasOrderPending, Converter={StaticResource BooleanToVisibility}}">
+                            <controls:FeedbackNotice Message="{Binding OrderPendingNotice}"/>
+                            <Button x:Name="RetrySelectedOrderButton" Content="إعادة محاولة العملية" Click="RetrySelectedOrderClick" Visibility="{Binding HasOrderRetry, Converter={StaticResource BooleanToVisibility}}" IsEnabled="{Binding CanRetryOrder}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,8,0,0" AutomationProperties.Name="إعادة محاولة عملية الطلب المعلقة"/>
+                        </StackPanel>
+                        <Border x:Name="CancellationSection" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="0,1,0,0" Padding="20" Margin="0,24,0,0" Visibility="{Binding SelectedOrder.CanCancel, Converter={StaticResource BooleanToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="إلغاء الطلب" Style="{StaticResource SectionTitle}" Foreground="{DynamicResource DangerBrush}"/>
+                                <TextBlock Text="يوقف الإلغاء تنفيذ الطلب مع الاحتفاظ بسجله." Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,12"/>
+                                <controls:FormField Label="سبب إلغاء الطلب"><TextBox Text="{Binding CancellationReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="240" Style="{StaticResource TextInput}" AutomationProperties.Name="سبب إلغاء الطلب"/></controls:FormField>
+                                <Button Content="إلغاء الطلب" Click="CancelOrderClick" Style="{StaticResource SecondaryButton}" Foreground="{DynamicResource DangerBrush}" BorderBrush="{DynamicResource DangerBrush}" HorizontalAlignment="Right" Margin="0,12,0,0" AutomationProperties.Name="إلغاء الطلب قبل التسليم"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

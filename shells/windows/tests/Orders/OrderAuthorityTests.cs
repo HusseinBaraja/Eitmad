@@ -56,14 +56,16 @@ public sealed class OrderAuthorityTests
     {
         var fixture = new Fixture(true); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
         var model = new OrdersViewModel(); model.Attach(client); Assert.HasCount(0, model.VisibleOrders); await model.ActivateAsync(); model.OpenOrder(model.VisibleOrders.Single());
+        Assert.AreEqual("", model.ListSubtitle);
         Assert.IsTrue(model.SelectedOrder!.CanCancel); Assert.IsTrue(model.SelectedOrder.CanEditFulfillment); Assert.IsFalse(model.SelectedOrder.CanDeliver);
         fixture.Page.ServerAvailable = false; fixture.Order.PermittedActions = [];
         await model.ActivateAsync(); model.OpenOrder(model.VisibleOrders.Single());
-        Assert.IsTrue(model.ListState.Contains("غير متصل")); Assert.IsFalse(model.SelectedOrder!.CanCancel);
+        Assert.IsTrue(model.ListSubtitle.Contains("غير متصل")); Assert.IsFalse(model.SelectedOrder!.CanCancel);
         fixture.Page.Pending = [new() { Request = new() { Scope = fixture.Order.Scope, IdempotencyKey = Guid.NewGuid(), Action = [] } }];
         await model.ActivateAsync(); Assert.IsTrue(model.CanRetry);
         engine.QueryHandler = _ => new() { Outcome = new() { Status = CommandOutcomeStatus.Failed, Payload = new() { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } } };
         await model.ActivateAsync(); Assert.HasCount(0, model.VisibleOrders); Assert.IsFalse(model.IsDetailVisible);
+        Assert.IsTrue(model.ListSubtitle.Contains("صلاحية"));
         Assert.IsFalse(model.CanRetry); Assert.IsFalse(model.HasPending);
         await model.DeactivateAsync();
     }

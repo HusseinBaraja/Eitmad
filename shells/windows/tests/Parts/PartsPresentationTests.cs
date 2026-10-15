@@ -91,13 +91,22 @@ public sealed class PartsPresentationTests
         model.AddMaterial(model.FilteredMaterials.First()); model.SelectedMaterials[0].Quantity = "1.200000";
         model.AddMaterial(model.FilteredMaterials.First()); model.SelectedMaterials[1].Quantity = "3";
         Assert.AreEqual("—",model.TotalPartCostLabel);
+        Assert.IsFalse(model.HasCalculatedCost);
+        Assert.IsTrue(model.SelectedMaterials.All(row => !row.HasCalculatedCost));
         model.ApplyCost(fixture.Cost,review:true);
         Assert.AreEqual("9,450",model.TotalPartCostLabel);
+        Assert.IsTrue(model.HasCalculatedCost);
+        Assert.IsTrue(model.SelectedMaterials.All(row => row.HasCalculatedCost));
         var input = model.SaveInput(); Assert.AreEqual("1.200000",input.Usages[0].Quantity);
         Assert.AreEqual(fixture.Category.Id,input.CategoryId); Assert.IsNull(input.Id);
         model.MoveToPreviousStep(); model.SelectedMaterials[0].Quantity = "0.0000001";
         Assert.AreEqual("—",model.TotalPartCostLabel);
+        Assert.IsFalse(model.HasCalculatedCost);
+        Assert.IsTrue(model.SelectedMaterials.All(row => !row.HasCalculatedCost));
         Assert.AreEqual("0.0000001",model.SaveInput().Usages[0].Quantity);
+        model.ApplyCost(new PartCost { TotalCostYer = 0, Rows = [] });
+        Assert.IsTrue(model.HasCalculatedCost);
+        Assert.AreEqual("0",model.TotalPartCostLabel);
     }
 
     [TestMethod]

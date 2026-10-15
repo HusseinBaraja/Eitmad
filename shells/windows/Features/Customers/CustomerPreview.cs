@@ -22,6 +22,7 @@ public sealed class CustomerPreview(Customer customer, IReadOnlyList<CustomerHis
         _ => "حالة المزامنة غير متاحة",
     };
     public bool CanEdit => Customer.SyncState is not (SyncState.Rejected or SyncState.Conflicted);
+    public bool HasSyncConflict => Customer.SyncState == SyncState.Conflicted;
     public IReadOnlyList<CustomerHistoryItem> Quotations { get; } = quotations;
     public IReadOnlyList<CustomerHistoryItem> Orders { get; } = orders;
 
@@ -35,6 +36,7 @@ public sealed class CustomerPreview(Customer customer, IReadOnlyList<CustomerHis
         Raise(nameof(Notes));
         Raise(nameof(SyncStateLabel));
         Raise(nameof(CanEdit));
+        Raise(nameof(HasSyncConflict));
     }
 }
 

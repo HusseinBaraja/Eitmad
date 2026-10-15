@@ -120,7 +120,18 @@ public sealed class CustomersRenderedTests
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<TextBox>(catalog, "CustomerNameInput").Text = "الاعتماد";
             WpfTestHost.CompleteLayout(window);
-            Assert.IsNotNull(WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث"));
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var selected = model.SelectedCustomer;
+            Assert.IsNotNull(selected);
+            WpfTestHost.FindByAutomationName<Button>(catalog, "عميل جديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(model.IsNewCustomer);
+            Assert.IsNull(model.SelectedCustomer);
+            WpfTestHost.FindByAutomationName<Button>(catalog, "إلغاء العميل الجديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(selected, model.SelectedCustomer);
             WpfTestHost.Capture(window, $"customers-selection-{width}x{height}");
         }, engine: engine);
     }

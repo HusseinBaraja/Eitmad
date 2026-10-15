@@ -88,12 +88,14 @@ public partial class FurnitureView
         editorCancellation?.Cancel(); editorCancellation?.Dispose();
         var cancel = new CancellationTokenSource(); editorCancellation = cancel; var version = ++editorVersion; var session = sessionVersion;
         ViewModel.IsBusy = true;
+        ViewModel.BeginPartChoicesLoad();
         try
         {
             var result = await client.LoadEditorAsync(ViewModel.RecordFor(item), cancel.Token);
             if (session != sessionVersion || version != editorVersion) return false;
             if (result.Succeeded) { ViewModel.ApplyEditorReferences(result.Value!); return true; }
             if (result.Failure == FurnitureFailureKind.Denied) ClearRestrictedData();
+            ViewModel.PartChoicesUnavailable(FurnitureClient.ArabicMessage(result.Failure));
             ViewModel.Fail(FurnitureClient.ArabicMessage(result.Failure));
             return false;
         }
@@ -105,12 +107,13 @@ public partial class FurnitureView
     {
         if (client is null || !activated) return;
         partSearchCancellation?.Cancel();partSearchCancellation?.Dispose();var cancel=new CancellationTokenSource();partSearchCancellation=cancel;var version=++partSearchVersion;
+        ViewModel.BeginPartChoicesLoad();
         try {
             await Task.Delay(250, cancel.Token);
             var result=await client.SearchPartsAsync(ViewModel.PartSearchText.Trim(),cancel.Token);
             if (version!=partSearchVersion) return;
             if (result.Succeeded) ViewModel.ApplyPartChoices(result.Value!);
-            else { if (result.Failure==FurnitureFailureKind.Denied) ClearRestrictedData(); ViewModel.Fail(FurnitureClient.ArabicMessage(result.Failure)); }
+            else { if (result.Failure==FurnitureFailureKind.Denied) ClearRestrictedData(); ViewModel.PartChoicesUnavailable(FurnitureClient.ArabicMessage(result.Failure)); ViewModel.Fail(FurnitureClient.ArabicMessage(result.Failure)); }
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { }
     }
