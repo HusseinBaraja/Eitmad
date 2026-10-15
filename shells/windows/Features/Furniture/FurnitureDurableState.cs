@@ -132,7 +132,7 @@ public sealed partial class FurnitureViewModel
     /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
     public void ClearSession()
     {
-        IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
+        IsLoading=false; DataStateText=""; IsPreview=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         availableParts.Clear();
         SetPartChoicesStatus("بيانات الأجزاء غير متاحة.");

@@ -29,7 +29,7 @@ The Windows Furniture editor uses six steps: `المعلومات`, `الأجزا
 
 ## Ready-made Products manager
 
-The Windows **المنتجات** page manages ready-made items that the company purchases and sells as-is. Its compact table and short **إضافة منتج** / **تعديل المنتج** page support images, shared category interaction, purchase and selling prices, calculated margins, optional supplier variants, notes, duplicate, and confirmed archive. The current workflow uses in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for Products yet.
+The Windows **المنتجات** page manages ready-made items through Rust-owned authorization, audit, durable definitions, supplier variants, images, and catalog transfer. Managers can add, edit, duplicate, and archive definitions. Commercial selling prices use the separate [Pricing capability](docs/developer/subsystems/pricing.md); see [Products](docs/developer/subsystems/products.md) for the storage and public catalog boundaries.
 
 ## Server-confirmed pricing
 
@@ -37,15 +37,15 @@ The separate Windows **التسعير** page lets a manager search product varia
 
 ## Manager quotation review
 
-The Windows **عروض الأسعار** page lets a manager search and filter quotations, open a read-only furniture-item detail, and review subtotal, discount, and final total. **موافقة** and **رفض** appear only when the synthetic fixture requires discount approval. These actions update preview state only; Rust quotation authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **عروض الأسعار** page reads Rust-owned drafts and server-confirmed quotation state. Managers review and decide discount approval requests; Receptionists compose, issue, record acceptance, and convert quotations under Rust authorization. See [Quotations](docs/developer/subsystems/quotations.md) for persistence, approval, and retry behavior.
 
 ## Manager order review
 
-The Windows **الطلبات** page lets a manager search and filter orders, review the five preview statuses, and open a read-only order detail with furniture specifications and totals. It does not expose carpenter actions or change order state. The rows are synthetic presentation fixtures; Rust order authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **الطلبات** page reads server-confirmed orders with immutable commercial snapshots. Rust authorizes conversion, fulfillment changes, manufacturing transitions, and delivery; each role receives its permitted actions. See [Orders](docs/developer/subsystems/orders.md) for state, audit, and replay behavior.
 
 ## Manager work orders
 
-The Windows **أوامر العمل** page separates furniture that must be manufactured from ready-made Products. One Work order can contain multiple Furniture items, and the list shows both the item summary and total quantity. Managers can search and filter the scan-first list, open **أمر عمل #024**, review the assigned carpenter, due date, every furniture specification, required Parts, and customer notes, then move the local preview through **جديد** → **قيد التنفيذ** → **مكتمل**. It never shows selling price, cost, profit, or margin. The status action is transient; Rust work-order authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **أوامر العمل** page separates manufactured Furniture from ready-made Products. Managers inspect production specifications, assign work and due dates, and start or complete manufacturing through Rust-owned server-confirmed transitions. The page omits commercial prices and margins. See [Work Orders](docs/developer/subsystems/work-orders.md) for the production boundary.
 
 For routine changes, use the [focused check selection table](docs/developer/index.md#choose-the-smallest-normal-proof). Keep the full workspace and platform gates for [release-candidate validation](docs/operations/validate-release-candidate.md).
 

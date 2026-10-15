@@ -369,7 +369,7 @@
             <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Padding="0">
                 <StackPanel>
                     <controls:PageHeader Title="{Binding EditorTitle}" ShowSubtitle="False" Height="Auto" MinHeight="96">
-                        <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" />
+                        <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}" />
                     </controls:PageHeader>
                     <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}" Margin="24,12,24,14">
                         <controls:StepIndicator.ItemsSource>
@@ -1265,17 +1265,17 @@
                     </controls:FormField>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
                         <controls:FormField Label="العرض (سم)">
-                            <TextBox Text="{Binding VariantWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
+                            <TextBox Text="{Binding VariantWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,8,0">
                         <controls:FormField Label="الارتفاع (سم)">
-                            <TextBox Text="{Binding VariantHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
+                            <TextBox Text="{Binding VariantHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
                     <StackPanel Grid.Column="3">
                         <controls:FormField Label="العمق (سم)">
-                            <TextBox Text="{Binding VariantDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
+                            <TextBox Text="{Binding VariantDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Center" />
                         </controls:FormField>
                     </StackPanel>
                 </Grid>
@@ -1290,15 +1290,15 @@
                     </UniformGrid>
                     <TextBlock Text="الحد الأدنى (سم)" />
                     <UniformGrid Columns="3" Margin="-4,4,-4,8">
-                        <TextBox Text="{Binding MinWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عرض" />
-                        <TextBox Text="{Binding MinHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل ارتفاع" />
-                        <TextBox Text="{Binding MinDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عمق" />
+                        <TextBox Text="{Binding MinWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عرض" />
+                        <TextBox Text="{Binding MinHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل ارتفاع" />
+                        <TextBox Text="{Binding MinDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أقل عمق" />
                     </UniformGrid>
                     <TextBlock Text="الحد الأقصى (سم)" />
                     <UniformGrid Columns="3" Margin="-4,4,-4,8">
-                        <TextBox Text="{Binding MaxWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عرض" />
-                        <TextBox Text="{Binding MaxHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر ارتفاع" />
-                        <TextBox Text="{Binding MaxDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عمق" />
+                        <TextBox Text="{Binding MaxWidth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عرض" />
+                        <TextBox Text="{Binding MaxHeight, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر ارتفاع" />
+                        <TextBox Text="{Binding MaxDepth, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, ConverterCulture=en-US}" Style="{StaticResource TextInput}" Margin="4,0" FlowDirection="LeftToRight" TextAlignment="Center" automation:AutomationProperties.Name="أكبر عمق" />
                     </UniformGrid>
                 </StackPanel>
                 <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,10,0,0">

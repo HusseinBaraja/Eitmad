@@ -20,6 +20,7 @@ public sealed class PartsViewModel : ObservableObject
     private string editorName = "", editorDescription = "", editorError = "", materialSearchText = "", feedbackMessage = "";
     private string availabilityMessage = "جار تحميل الأجزاء…", newCategoryName = "";
     private PartCategory? editorCategory;
+    private string? savedCategoryName;
     private bool isEditorOpen, isCreating, isMaterialPickerOpen, isBusy, savePending, archiveRequested;
     private int currentStep = 1;
     private long? totalCost;
@@ -84,7 +85,8 @@ public sealed class PartsViewModel : ObservableObject
             if (!category.Archived || editingPart?.CategoryId == category.Id) EditorCategoryOptions.Add(category);
         }
         // Retain the unsaved category identity across reference renames.
-        if (selectedEditorCategory is { } selected) EditorCategory = EditorCategoryOptions.FirstOrDefault(c => c.Id == selected.Id) ?? selected;
+        if (!SelectSavedCategory() && selectedEditorCategory is { } selected)
+            EditorCategory = EditorCategoryOptions.FirstOrDefault(c => c.Id == selected.Id) ?? selected;
         SelectedCategory = CategoryOptions.Contains(filter) ? filter : AllCategories;
         Raise(nameof(SelectedCategory));
         materials.Clear();
@@ -116,6 +118,7 @@ public sealed class PartsViewModel : ObservableObject
     public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); }
     public void ClearSession()
     {
+        savedCategoryName = null;
         SavePending = false; CancelEditor(); records.Clear(); currentCosts.Clear(); categories.Clear(); materials.Clear(); VisibleParts.Clear();
         ReplaceMaterials([]); EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         EditorName = ""; EditorDescription = ""; NewCategoryName = ""; EditorCategory = null; editingPart = null;
@@ -124,6 +127,21 @@ public sealed class PartsViewModel : ObservableObject
         AvailabilityMessage = "جار تحميل الأجزاء…";
     }
     public void Fail(string message) => EditorError = message;
+    /// <summary>Retains a confirmed category selection until a competing refresh includes it.</summary>
+    public void CategorySaved(string name)
+    {
+        savedCategoryName = name;
+        NewCategoryName = "";
+        SelectSavedCategory();
+    }
+    private bool SelectSavedCategory()
+    {
+        if (savedCategoryName is null || EditorCategoryOptions.FirstOrDefault(c => c.Name == savedCategoryName) is not { } category)
+            return false;
+        EditorCategory = category;
+        savedCategoryName = null;
+        return true;
+    }
     public void BeginCreate()
     {
         archiveRequested = false; editingPart = null; IsCreating = true; EditorName = ""; EditorDescription = "";

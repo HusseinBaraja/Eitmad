@@ -13,6 +13,37 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class FurnitureRenderedTests
 {
     [TestMethod]
+    public void FractionalCentimetresReachTheSavedVariantFromArabicEditor()
+    {
+        var fixture = new FurnitureFixtures();
+        fixture.Seed();
+        WpfTestHost.Run(1338, 753, window =>
+        {
+            WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
+            view.ViewModel.BeginCreate();
+            view.ViewModel.BeginAddVariant();
+            view.ViewModel.VariantName = "مقاس تجريبي";
+            view.ViewModel.AllowCustomization = true;
+            WpfTestHost.CompleteLayout(window);
+            foreach (var path in new[] { "VariantWidth", "VariantHeight", "VariantDepth", "MinWidth", "MinHeight", "MinDepth", "MaxWidth", "MaxHeight", "MaxDepth" })
+            {
+                var input = WpfTestHost.Descendants<TextBox>(view).Single(box => box.IsVisible
+                    && box.GetBindingExpression(TextBox.TextProperty)?.ParentBinding.Path?.Path == path);
+                input.Text = "123.4";
+                input.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+                Assert.IsFalse(Validation.GetHasError(input), $"Fractional centimetres rejected by {path}.");
+            }
+            WpfTestHost.FindByAutomationName<Button>(view, "حفظ المقاس").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsFalse(view.ViewModel.IsVariantEditorOpen, view.ViewModel.EditorError);
+            var saved = view.ViewModel.Variants.Single();
+            Assert.AreEqual(123.4m, saved.Width);
+            Assert.AreEqual(1234U, saved.Customization!.Minimum.WidthMm);
+            Assert.AreEqual(1234U, saved.Customization.Maximum.DepthMm);
+        }, engine: fixture.Engine());
+    }
+
+    [TestMethod]
     public void CategoryFilterRestoresValidSelectionAndFallsBackWhenRemoved()
     {
         var fixture = new FurnitureFixtures();

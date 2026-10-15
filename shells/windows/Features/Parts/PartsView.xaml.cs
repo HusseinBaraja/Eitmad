@@ -178,9 +178,8 @@ public partial class PartsView : UserControl
             var failure = await client.SaveAsync(new SavePartCategory { Name = name });
             if (failure == MaterialFailureKind.None)
             {
+                ViewModel.CategorySaved(name);
                 await RefreshAsync();
-                ViewModel.EditorCategory = ViewModel.EditorCategoryOptions.FirstOrDefault(c => c.Name == name);
-                ViewModel.NewCategoryName = "";
             }
             else ViewModel.Fail(PartClient.ArabicMessage(failure));
         }

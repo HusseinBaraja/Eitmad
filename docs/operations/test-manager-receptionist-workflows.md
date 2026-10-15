@@ -51,6 +51,8 @@ Rust provisions catalog definitions and publishes them through authenticated ope
 
 No physical print job, baseline-size visual review, keyboard/accessibility review, or full manual editor journey is claimed by this automation.
 
+The extended database audit also drives the real field bindings and save handlers listed in [the environment guide](run-workflow-test-environment.md). Its private evidence is under `tests/engine-integration/artifacts/database-audit-20261016/`. It compares prior form receipts after restart, checks SQLite integrity and foreign keys directly, and captures entry screens, saved tables, the shared quotation on the other role, and native document previews. Captures record 125% Windows scaling; they do not establish the required 100% visual baseline. Department reports and unimplemented customer lifecycle actions have no testable save path.
+
 ## Focused integration scenarios
 
 Run one Cargo command at a time against the stable toolchain cache. Each scenario requires a **fresh** database; do not reuse a populated database or remove `--ignored`. The filter must select one test (the summary must report `1 passed`, not zero).
@@ -100,6 +102,8 @@ Stop preserves databases, outboxes, audits, and proof files. On another run, `sa
 Private local evidence is under `tests/engine-integration/artifacts/workflow-readiness-20261016-run/`; it is intentionally ignored by Git. `wpf-smoke.log` records a complete initial pass (2 m 4 s). `wpf-diagnostics.log` records the latest complete restart pass (3 m 37 s), including retained delivery, both native previews, and three rounds of account switching. The stage and proof files identify the last completed commercial journey. The integration target also passes Rust 1.85.1 formatting and Clippy with `-D warnings`. The full documentation audit passes (103 pages).
 
 `wpf-restart-current.log` completed the retained-order check, mixed journey, and both native document previews, then failed during a later Manager activation: the engine remained `Running` with IPC `Connecting`, and the Manager surface was hidden. This repeated an earlier activation failure. The later pass does not establish its cause or fix it. Temporary diagnostics on the passing run captured only an end-of-stream at shutdown; no causal fix is claimed. Keep intermittent activation as a readiness blocker.
+
+The database audit confirmed and fixed a separate transport defect: cancelling a write under named-pipe backpressure could truncate its frame and block the next request. The adapter regression failed before the fix and passed afterward; see [IPC cancellation semantics](../developer/subsystems/windows-process-supervision.md#restart-and-stale-event-invariants). The earlier activation log did not identify its transport cause, so do not assume this fix resolves every intermittent activation failure. Recheck that blocker with connection-loss diagnostics if it recurs.
 
 Test repairs in this run correct actor/device pairing, use independent credential routes for actual concurrent server requests, establish approval streams before decisions, compose new drafts with current price revisions, and remove exact native credentials created by disposable integrations. Commercial assertions remain active. The smoke retries unavailable or unknown outcomes only with the same intent and key; Rust checks the retained pricing receipt before resubmission. Retained workflow credentials and databases are preserved.
 

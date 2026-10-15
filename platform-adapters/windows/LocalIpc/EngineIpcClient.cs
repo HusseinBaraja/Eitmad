@@ -425,9 +425,11 @@ public sealed class EngineIpcClient : IAsyncDisposable
             {
                 var header = new byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32LittleEndian(header, (uint)bytes.Length);
-                await pipe.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-                await pipe.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-                await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);
+                // Once a frame starts, caller cancellation must not truncate it and corrupt
+                // the next request. Transport shutdown can still cancel a blocked write.
+                await pipe.WriteAsync(header, lifetime.Token).ConfigureAwait(false);
+                await pipe.WriteAsync(bytes, lifetime.Token).ConfigureAwait(false);
+                await pipe.FlushAsync(lifetime.Token).ConfigureAwait(false);
             }
             finally
             {

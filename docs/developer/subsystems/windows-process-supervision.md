@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-10-03"
+last_verified: "2026-10-16"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -79,6 +79,8 @@ Every process launch increments `Generation`. Output is accepted only from that 
 The supervisor also owns IPC subscription continuity. It advertises protocol `1.13`; offers config and permissions capabilities; and offers and requires `eitmad.capability.authorization-scopes.v1`. `SupportsCapability` exposes only the negotiated intersection, so the shell does not send requests for an absent optional vertical. `WindowsEngineBridge` is the platform bootstrap boundary. It resolves only the packaged or explicitly supplied engine path and selects the local runtime directory. The launcher passes a random bootstrap token through inherited standard input. It never constructs an identity or permission assertion. Rust returns the verified installation authorization context. The supervisor retains generated subscription descriptors and only the cursor acknowledged by the consumer. Connection loss makes `IpcHealth` `Connecting` and permits at most the restart policy's three default reconnect attempts after 100 ms, 500 ms, and two seconds while the current generation remains `Ready`. Exhaustion sets `ReconnectExhausted`, so callers can distinguish a live process from a usable IPC channel. Same-generation reconnect resumes replay; engine replacement raises `ResyncRequired`, opens a fresh stream, and leaves the owning feature responsible for an authoritative query before applying buffered events.
 
 An engine subscription close mapped to `EngineIpcFailureKind.SessionChanged` completes the supervised consumer with that error. The feature must discard its protected projection and query Rust again if access remains. This includes `projectionInvalidated` after a Product policy change and `authorizationRevoked`; neither requires transport loss. Transport failures still allow the supervisor to attach a replacement stream.
+
+Caller cancellation can stop waiting for the write lock or response. After the first frame byte is written, the adapter finishes the header and body under the transport lifetime token. Cancelling a superseded query must not truncate a frame and make the next request unreadable. Transport disposal still cancels blocked writes. `IpcCancellationScenario.CancelledWritePreservesTheNextFrame` cancels a large frame under named-pipe backpressure and verifies the complete body and a successful following request.
 
 `Shell/EngineChangeFeed.cs` owns the common feature event reader for Customers, Materials, Parts, Furniture, and Products. It gates subscriptions on negotiated capabilities, dispatches typed notices to the captured UI context, and drops notifications from a deactivated lifetime. The supervisor reattaches transport streams. The reader replaces a failed consumer with bounded retries and calls the owning feature to invalidate protected projections after `SessionChanged`. Feature clients retain their typed queries, mutations, retry payloads, and projection rules. A notice is acknowledged after dispatch to the feature, before its queued UI callback runs.
 

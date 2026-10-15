@@ -12,6 +12,7 @@ try
 
     var tests = new SupervisionScenarios();
     await tests.UnavailableEngineIsTyped();
+    await IpcCancellationScenario.CancelledWritePreservesTheNextFrame();
     await tests.TypedRequestsRequireConnectedEngine();
     await tests.ConfigurationPatchRequiresIdempotency();
     tests.SubscriptionQueueIsBounded();

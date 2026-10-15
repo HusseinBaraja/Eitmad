@@ -37,6 +37,7 @@ public sealed partial class WorkflowEnvironmentTests
         }
 
         Login("manager");
+        RunDatabaseFieldJourney(window, bridge, root);
         var proofPath = Path.Combine(root, "sales-smoke-proof.json");
         if (File.Exists(proofPath))
         {
@@ -62,10 +63,7 @@ public sealed partial class WorkflowEnvironmentTests
         }
 
         Change("receptionist");
-        var customer = Send(Command.ForCustomerCreate(new()
-        {
-            Name = "عميل رحلة الاختبار", Phone = "777123456", Address = "عدن", Notes = null!,
-        })).AsCustomerCreated()!.Customer;
+        var customer = CreateCustomerThroughFields(window, bridge);
         Finish(WaitForCustomerConfirmation(bridge, customer));
         var lines = new[] { furniture, product }.Select(item => new QuotationLineIntent
         {
@@ -88,6 +86,11 @@ public sealed partial class WorkflowEnvironmentTests
         })).AsDiscountApproval()!;
         Assert.AreEqual(DiscountApprovalState.Pending, approval.State);
         Change("manager");
+        var sharedCustomer = Read(Query.ForCustomerGet(new() { CustomerId = customer.Id })).AsCustomer()!;
+        Assert.AreEqual(customer.Name, sharedCustomer.Name);
+        Assert.AreEqual(customer.Address, sharedCustomer.Address);
+        Assert.AreEqual(customer.Notes, sharedCustomer.Notes);
+        ShowSharedQuotationToManager(window, customer);
         approval = Send(Command.ForQuotationApprovalDecide(new()
         {
             DraftId = draft.Snapshot.Id, RequestId = approval.RequestId, ExpectedRevision = approval.Revision,
@@ -158,7 +161,11 @@ public sealed partial class WorkflowEnvironmentTests
 
     private static void ShowSmokeDocument(MainWindow owner, IEngineShellBridge bridge, Query query, CustomerDocument document)
     {
-        var preview = new PrintPreview { Document = OrderCustomerDocument.CreateSaved(document), CanPrint = document.CanPrint };
+        var preview = new PrintPreview
+        {
+            Document = OrderCustomerDocument.CreateSaved(document, query.Kind == Query.OrderQuotationDocumentKind),
+            CanPrint = document.CanPrint,
+        };
         preview.AuthorizePrint = async () =>
         {
             var response = await bridge.QueryAsync(query);
@@ -173,6 +180,8 @@ public sealed partial class WorkflowEnvironmentTests
             window.Show();
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(WpfTestHost.Descendants<DocumentViewer>(preview).Single().PageCount > 0);
+            WpfTestHost.Capture(preview, query.Kind == Query.OrderCustomerDocumentKind
+                ? "database-18-order-document" : "database-19-source-quotation-document");
             var authorized = preview.AuthorizePrint(); Finish(authorized);
             Assert.IsTrue(authorized.Result, "Printing must be reauthorized by real Rust state.");
             preview.BackButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

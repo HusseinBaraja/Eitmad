@@ -37,7 +37,7 @@ internal sealed class FurnitureFixtures
         };
         Definitions.Add(value); return value;
     }
-    public static FurnitureViewModel SalesModel() { var model = new FurnitureViewModel(); model.ApplyDurableData(SalesSnapshot()); model.FixtureSalesCatalog = true; return model; }
+    public static FurnitureViewModel SalesModel() { var model = new FurnitureViewModel(); model.ApplyDurableData(SalesSnapshot()); model.IsPreview = true; return model; }
     public static FurnitureSnapshot SalesSnapshot()
     {
         var f = new FurnitureFixtures(); var p = f.Seed(); p.Id = Guid.Parse("3fc526b4-2b79-45fd-984c-49258f55951d");

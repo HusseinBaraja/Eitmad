@@ -95,11 +95,12 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public ObservableCollection<string> CategoryOptions { get; private set; }
 
-    internal bool FixtureSalesCatalog { get; set; }
+    private bool isPreview;
+    public bool IsPreview { get => isPreview; internal set => Set(ref isPreview, value); }
 
     /// <summary>Exposes explicit synthetic sales fixtures; private live definitions remain excluded.</summary>
     public IEnumerable<Reception.SalesCatalogItem> GetSalesCatalogItems() =>
-        furniture.Where(item => FixtureSalesCatalog && !item.IsArchived && !item.IsDraft).Select(item =>
+        furniture.Where(item => IsPreview && !item.IsArchived && !item.IsDraft).Select(item =>
             new Reception.SalesCatalogItem(item.Id, item.Name, item.Category, records[item.Id].Description,
                 item.VariantCountLabel, item.SellingPrice, true, item.ThumbnailKind, null));
 
