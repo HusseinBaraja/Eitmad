@@ -23,10 +23,9 @@
                             <DataTemplate>
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="780" VerticalAlignment="Center" />
                                     <controls:StatusBadge Grid.Column="1" Margin="12,0" Tone="Danger" Focusable="False" KeyboardNavigation.IsTabStop="False">

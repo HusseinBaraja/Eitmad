@@ -13,6 +13,51 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class PricingRenderedTests
 {
     [TestMethod]
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void LongSyncIssueNamesKeepRecoveryActionsInsideTheViewport(int width, int height)
+    {
+        WpfTestHost.Run(width, height, window =>
+        {
+            if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
+            var view = new PricingView();
+            window.Content = view;
+            var page = PricingPresentationTests.Data();
+            page.CatalogSyncIssues = [new CatalogSyncIssue { Kind = "furniture", Id = Guid.NewGuid(), Revision = 1,
+                Conflicted = true, Name = "خزانة ملابس كبيرة بأبواب متعددة وأدراج داخلية وتشطيب خشبي للاستخدام في غرف النوم الرئيسية" }];
+            view.ViewModel.ApplyDurableData(page);
+            WpfTestHost.CompleteLayout(window);
+            var review = WpfTestHost.FindByName<Expander>(view, "CatalogSyncReview");
+            review.IsExpanded = true;
+            WpfTestHost.CompleteLayout(window);
+            var button = WpfTestHost.Descendants<Button>(review).Single(control => control.DataContext is CatalogSyncIssue);
+            var viewport = WpfTestHost.Ancestor<ScrollContentPresenter>(review);
+            var bounds = button.TransformToAncestor(viewport).TransformBounds(new Rect(button.RenderSize));
+            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= viewport.ActualWidth && bounds.Top >= 0 && bounds.Bottom <= viewport.ActualHeight,
+                $"Recovery action {bounds} must fit the viewport {viewport.RenderSize}.");
+            StringAssert.Contains(AutomationProperties.GetName(button), page.CatalogSyncIssues[0].Name);
+            var header = WpfTestHost.Descendants<System.Windows.Controls.Primitives.ToggleButton>(review).Single();
+            Assert.IsTrue(header.Focus());
+            Assert.IsTrue(header.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next)));
+            Assert.IsTrue(button.IsKeyboardFocusWithin);
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Pricing recovery: display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} px; actual window {window.ActualWidth}x{window.ActualHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
+            WpfTestHost.Capture(window, $"pricing-recovery-{width}x{height}");
+            if (width == 720)
+            {
+                review.FontSize *= 1.5;
+                button.FontSize *= 1.5;
+                WpfTestHost.CompleteLayout(window);
+                bounds = button.TransformToAncestor(viewport).TransformBounds(new Rect(button.RenderSize));
+                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= viewport.ActualWidth && bounds.Top >= 0 && bounds.Bottom <= viewport.ActualHeight,
+                    $"Enlarged recovery action {bounds} must fit the viewport {viewport.RenderSize}.");
+                WpfTestHost.Capture(window, "pricing-recovery-enlarged-text-720x560");
+            }
+        });
+    }
+
+    [TestMethod]
     public void SyncReviewOpensDefinitionPageAndRetainsRejectedAndConflictedStates()
     {
         var page = PricingPresentationTests.Data();
