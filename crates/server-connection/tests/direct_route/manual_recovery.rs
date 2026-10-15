@@ -17,6 +17,7 @@ struct RecoveryFixture {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires isolated PostgreSQL, pg_dump/pg_restore, private artifacts and TLS certificates"]
 async fn manual_two_client_recovery_retains_pending_work_and_accepted_receipts() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;

@@ -12,7 +12,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class WorkflowEnvironmentTests
+public sealed partial class WorkflowEnvironmentTests
 {
     [TestMethod]
     [TestCategory("WorkflowEnvironment")]
@@ -36,6 +36,7 @@ public sealed class WorkflowEnvironmentTests
                 Finish(sessions.StartAsync());
                 Finish(WaitForConnection(bridge));
                 var generation = bridge.Snapshot.Generation;
+                RunSalesSmoke(window, bridge, secrets.RootElement, root!);
                 Dictionary<Guid, string>? retainedDrafts = null;
                 var customerVerified = false;
                 foreach (var (name, expected) in Enumerable.Range(0, 3).SelectMany(_ => new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) }))
@@ -83,9 +84,17 @@ public sealed class WorkflowEnvironmentTests
         customer = updated.Outcome.Payload.AsCustomerUpdated()!.Customer;
         await WaitForCustomerConfirmation(bridge, customer);
 
-        var drafts = await bridge.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, drafts.Outcome.Status);
-        var lines = drafts.Outcome.Payload.AsQuotationDrafts()!.Items.First(d => d.Snapshot.Cancelled != true).Snapshot.Intent.Lines;
+        var catalog = await bridge.QueryAsync(Query.ForSalesCatalogList(new() { Term = "", Limit = 100 }));
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, catalog.Outcome.Status);
+        var item = catalog.Outcome.Payload.AsSalesCatalog()!.Items.First(entry => entry.Dimensions is null);
+        QuotationLineIntent[] lines = [new()
+        {
+            Id = Guid.NewGuid(), Configuration = new()
+            {
+                Dimensions = item.Dimensions,
+                Selection = new() { Target = item.Price.Target, PriceRevision = item.Price.Revision, Quantity = 1 },
+            },
+        }];
         foreach (var discount in new[] { 0L, 600L })
         {
             var saved = await bridge.SubmitCommandAsync(Command.ForQuotationDraftCreate(new()
@@ -93,7 +102,7 @@ public sealed class WorkflowEnvironmentTests
                 Intent = new() { Customer = new() { Id = customer.Id, Revision = customer.Revision },
                     Lines = lines, DiscountBasisPoints = discount },
             }), Guid.NewGuid());
-            Assert.AreEqual(CommandOutcomeStatus.Succeeded, saved.Outcome.Status);
+            Assert.AreEqual(CommandOutcomeStatus.Succeeded, saved.Outcome.Status, saved.Outcome.Payload.Code);
             var draft = saved.Outcome.Payload.AsQuotationDraftCreated()!;
             var command = discount == 0
                 ? Command.ForQuotationIssue(new() { DraftId = draft.Snapshot.Id, ExpectedRevision = 1,

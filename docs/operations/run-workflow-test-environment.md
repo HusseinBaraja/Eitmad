@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-16"
 review_triggers:
   - "account provisioning, desktop startup, server routes, workflow seeding, or test prerequisites change"
 keywords:
@@ -61,6 +61,8 @@ The default state is explicitly identified as disposable test state by `disposab
 The PostgreSQL application role is `NOSUPERUSER NOBYPASSRLS`. Rust applies the normal migrations and tenant isolation. The launcher clears server database credentials and token keys before it starts the shells.
 
 ## Seeded work and authority
+
+Use the [workflow test runbook](test-manager-receptionist-workflows.md) for the mixed-sales smoke, focused failure scenarios, evidence, and current readiness blockers. `-VerifySignIn` also runs the mixed journey through approval, issue, conversion, manufacturing, native document preview, and delivery, with exact-key retries and retained-order checks on later starts.
 
 `crates/server-connection/examples/workflow_environment.rs` calls the supported Rust identity, authentication, storage-import, and product operations. Account activation and subsequent logins use the control-plane authentication service with real registered devices and signed device proof. The WPF sign-in uses the existing imported-account credential verifier; it does not implement an online login dialog. Catalog transfer, customer sync, price publication, quotation approval, issuance, acceptance, and conversion use the actual authenticated TLS routes. The test does not write business rows with SQL or disable authentication, RLS, authorization, audit, or server confirmation.
 

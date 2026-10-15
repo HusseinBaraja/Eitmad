@@ -10,6 +10,7 @@ mod manual_recovery;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn orders_cross_client_conversion_transitions_and_restart() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;
@@ -611,7 +612,13 @@ fn start_production(clients: &ApprovalClients, order: &OrderRecord) -> (OrderRec
     };
     let (first, second) = std::thread::scope(|threads| {
         let first = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &start));
-        let second = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &competing));
+        let second = threads.spawn(|| {
+            send(
+                &*clients.competing_manager,
+                &clients.manager_actor,
+                &competing,
+            )
+        });
         (first.join().unwrap(), second.join().unwrap())
     });
     assert!(matches!(

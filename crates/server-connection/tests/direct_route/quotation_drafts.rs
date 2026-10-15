@@ -134,6 +134,7 @@ fn server_change(mut change: ChangeRecord, branch: &ScopeRef, catalog: &ScopeRef
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_server() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;
@@ -633,6 +634,7 @@ async fn verify_postgres_history(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn discount_approval_cross_client_live_replay_invalidation_and_rejection() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;
@@ -727,8 +729,11 @@ async fn lifecycle_clients(
     let manager_auth = approval_manager(scenario).await;
     let manager_connection =
         approval_connection(manager_directory, manager_auth.clone(), [12; 32], scenario);
+    let competing_manager =
+        approval_connection(manager_directory, manager_auth.clone(), [12; 32], scenario);
     let mut manager_actor = reception.actor.clone();
     manager_actor.identity.principal_id = PrincipalId::new(manager_auth.session.user_id.value());
+    manager_actor.identity.device_id = Some(manager_auth.session.device_id);
     manager_actor.scope = ScopeRef {
         kind: ScopeKind::parse("organization").unwrap(),
         id: ScopeId::new(tenant.value()),
@@ -742,9 +747,11 @@ async fn lifecycle_clients(
     let mut pure_actor = reception.actor.clone();
     pure_actor.identity.principal_id =
         PrincipalId::new(scenario.reception_auth.session.user_id.value());
+    pure_actor.identity.device_id = Some(scenario.reception_auth.session.device_id);
     ApprovalClients {
         reception: reception_connection,
         manager: manager_connection,
+        competing_manager,
         manager_actor,
         manager_auth,
         pure_reception,
@@ -760,6 +767,7 @@ struct ApprovalClients {
     pricing_actor: AuthorizationContext,
     reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
+    competing_manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager_actor: AuthorizationContext,
     pure_reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     pure_actor: AuthorizationContext,
@@ -786,10 +794,6 @@ fn run_approval_workflow(
         .unwrap();
     // Promotion must independently validate and persist a saved draft, without a prior draft WAN cycle.
     let reception_actor = reception.client.actor.clone();
-    let (manager_events, manager_cancel, manager_watch) =
-        watch_approvals(clients.manager.clone(), clients.manager_actor.clone());
-    let (reception_events, reception_cancel, reception_watch) =
-        watch_approvals(clients.reception.clone(), reception_actor.clone());
     let request = ConfirmDiscountApproval {
         scope: reception_actor.scope.clone(),
         idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
@@ -808,10 +812,22 @@ fn run_approval_workflow(
             .unwrap(),
         Some(pending.clone())
     );
+    // Establish both real streams after receipt replay, before testing live decisions.
+    let (manager_events, manager_cancel, manager_watch) =
+        watch_approvals(clients.manager.clone(), clients.manager_actor.clone());
+    let (reception_events, reception_cancel, reception_watch) =
+        watch_approvals(clients.reception.clone(), reception_actor.clone());
     wait_approval(
         &manager_events,
         &*clients.manager,
         &clients.manager_actor,
+        pending.quotation.id,
+        DiscountApprovalState::Pending,
+    );
+    wait_approval(
+        &reception_events,
+        &*clients.reception,
+        &reception_actor,
         pending.quotation.id,
         DiscountApprovalState::Pending,
     );
@@ -1103,8 +1119,7 @@ fn approval_connection(
         SecretKind::parse("approval-test-session").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
-        .unwrap();
+    store_account_session(&secrets, &credential, authentication, seed).unwrap();
     let config = DirectServerConfig::new(
         &scenario.endpoint,
         scenario.server.scope.clone(),
@@ -1135,9 +1150,11 @@ fn watch_approvals(
     let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let stopping = cancel.clone();
     let thread = std::thread::spawn(move || {
-        client.watch(&actor, &stopping, &mut |notice| {
+        let result = client.watch(&actor, &stopping, &mut |notice| {
             send.send(notice).unwrap();
-        })
+        });
+        assert!(result.is_ok(), "approval watch ended: {result:?}");
+        result
     });
     (receive, cancel, thread)
 }
