@@ -7,7 +7,14 @@ namespace Eitmad.WindowsShell.Features.Reception;
 
 public partial class CurrentQuotationView : UserControl
 {
+    private static readonly DependencyPropertyKey CompactItemsPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(CompactItems), typeof(bool), typeof(CurrentQuotationView), new PropertyMetadata(false));
+    public static readonly DependencyProperty CompactItemsProperty = CompactItemsPropertyKey.DependencyProperty;
+    public bool CompactItems => (bool)GetValue(CompactItemsProperty);
+
     public CurrentQuotationView() => InitializeComponent();
+    private void ItemsSizeChanged(object sender, SizeChangedEventArgs e) =>
+        SetValue(CompactItemsPropertyKey, e.NewSize.Width < 1050);
     private void DetailsSizeChanged(object sender, SizeChangedEventArgs e)
     {
         var stacked = e.NewSize.Width < 900;
