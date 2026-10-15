@@ -14,6 +14,56 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class ProductsRenderedTests
 {
     [TestMethod]
+    public void PendingVariantCostSurvivesLayoutChangesInTheSavePayload()
+    {
+        WpfTestHost.Run(1920, 1080, window =>
+        {
+            window.Left = 0;
+            window.WindowState = WindowState.Maximized;
+            var view = new ProductsView();
+            window.Content = view;
+            view.ViewModel.ApplyDurableData(ProductsPresentationTests.Data());
+            view.ViewModel.BeginEdit(view.ViewModel.VisibleProducts.Single());
+            WpfTestHost.CompleteLayout(window);
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Product editor: display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} px; actual window {window.ActualWidth}x{window.ActualHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
+            WpfTestHost.Capture(window, "product-pending-cost-maximized");
+            window.WindowState = WindowState.Normal;
+            window.Width = 1338; window.Height = 753;
+            WpfTestHost.CompleteLayout(window);
+            var table = WpfTestHost.Descendants<OperationsTable>(view).Single(control => control.IsVisible);
+            table.Columns[0].Width = new DataGridLength(400);
+            WpfTestHost.CompleteLayout(window);
+
+            foreach (var (width, height, value) in new[] { (720, 560, 99000L), (1338, 753, 110000L) })
+            {
+                var cost = WpfTestHost.Descendants<TextBox>(table).Single(input => input.IsVisible &&
+                    AutomationProperties.GetName(input) == "تكلفة شراء الخيار" && ReferenceEquals(input.DataContext, view.ViewModel.Variants[0]));
+                cost.BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                Assert.IsTrue(cost.Focus());
+                var previous = view.ViewModel.SaveInput().Variants[0].PurchaseCostYer;
+                cost.Text = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Assert.AreEqual(previous, view.ViewModel.SaveInput().Variants[0].PurchaseCostYer, "Typing retains LostFocus binding timing.");
+                window.Width = width;
+                window.Height = height;
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(width == 720 ? Visibility.Collapsed : Visibility.Visible, table.Columns[1].Visibility);
+                WpfTestHost.FindByName<TextBox>(view, "ProductNameBox").Focus();
+                WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(value, view.ViewModel.SaveInput().Variants[0].PurchaseCostYer, "A replaced editor must not submit the previous cost.");
+                var replacement = WpfTestHost.Descendants<TextBox>(table).Single(input => input.IsVisible &&
+                    AutomationProperties.GetName(input) == "تكلفة شراء الخيار" && ReferenceEquals(input.DataContext, view.ViewModel.Variants[0]));
+                Assert.AreEqual(value.ToString(System.Globalization.CultureInfo.InvariantCulture), replacement.Text);
+                replacement.BringIntoView();
+                WpfTestHost.CompleteLayout(window);
+                Console.WriteLine($"Product editor resize: actual window {window.ActualWidth}x{window.ActualHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
+                WpfTestHost.Capture(window, $"product-pending-cost-{width}x{height}");
+            }
+        });
+    }
+
+    [TestMethod]
     public void PolicyClosureClearsThePageBeforeBlockedRefreshAndRejectsLateSave()
     {
         var data = ProductsPresentationTests.Data();
@@ -96,7 +146,15 @@ public sealed class ProductsRenderedTests
             view.ViewModel.BeginEdit(view.ViewModel.VisibleProducts.Single()); WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<StackPanel>(view, "VariantsPricing").BringIntoView(); WpfTestHost.CompleteLayout(window);
             var cost = WpfTestHost.FindByAutomationName<TextBox>(view, "تكلفة شراء الخيار");
-            cost.Text = "invalid"; cost.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+            var table = WpfTestHost.Ancestor<OperationsTable>(cost);
+            table.Columns[0].Width = new DataGridLength(400);
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(cost.Focus());
+            cost.Text = "invalid";
+            window.Width = 720; window.Height = 560;
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(Validation.GetHasError(cost), "Resizing must preserve the invalid editor and its validation state.");
+            Assert.AreEqual(Visibility.Visible, table.Columns[1].Visibility);
             var save = WpfTestHost.FindByAutomationName<Button>(view, "حفظ المنتج");
             save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsNull(engine.LastCommand);

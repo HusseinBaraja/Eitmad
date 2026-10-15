@@ -15,6 +15,7 @@ using KeyEventHandler = System.Windows.Input.KeyEventHandler;
 using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using TextBoxBase = System.Windows.Controls.Primitives.TextBoxBase;
 using ComboBox = System.Windows.Controls.ComboBox;
+using TextBox = System.Windows.Controls.TextBox;
 
 namespace Eitmad.WindowsShell.Controls;
 
@@ -83,6 +84,17 @@ public class OperationsTable : DataGrid
     public object? EmptyContent { get => GetValue(EmptyContentProperty); set => SetValue(EmptyContentProperty, value); }
     public bool IsRowInvocationEnabled { get => (bool)GetValue(IsRowInvocationEnabledProperty); set => SetValue(IsRowInvocationEnabledProperty, value); }
     public event EventHandler<RowInvokedEventArgs> RowInvoked { add => AddHandler(RowInvokedEvent, value); remove => RemoveHandler(RowInvokedEvent, value); }
+
+    private static bool CommitPendingInput(DependencyObject element)
+    {
+        // Template-provided Text bindings are not local values on the editor.
+        var binding = element is TextBox ? BindingOperations.GetBindingExpressionBase(element, TextBox.TextProperty) : null;
+        if (binding is { IsDirty: true }) binding.UpdateSource();
+        var valid = binding is not { HasValidationError: true };
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
+            valid &= CommitPendingInput(VisualTreeHelper.GetChild(element, index));
+        return valid;
+    }
 
     private void OnPreviewMouseUp(object sender, MouseButtonEventArgs eventArgs)
     {
@@ -171,6 +183,9 @@ public class OperationsTable : DataGrid
             column.Width.IsAbsolute ? column.Width.Value : 0)) + SystemParameters.VerticalScrollBarWidth + 2;
         var compact = ActualWidth < requiredWidth;
         if (compact == compactDetails && !force) return;
+        // Collapsing columns or row details can detach an editor before LostFocus
+        // writes its value. Commit pending input while the original bindings exist.
+        if (!CommitPendingInput(this)) return;
         compactDetails = compact;
         foreach (var column in Columns)
             column.Visibility = unavailableColumns.Contains(column) || compact && GetIsCompactDetail(column)
