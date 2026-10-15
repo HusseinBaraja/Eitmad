@@ -66,7 +66,6 @@ public sealed class PartsViewModel : ObservableObject
     public bool HasMaterialOptionsMessage => MaterialOptionsMessage.Length > 0;
     public string TotalPartCostLabel => totalCost?.ToString("N0",CultureInfo.InvariantCulture) ?? "—";
     public bool HasCalculatedCost => totalCost.HasValue;
-    public bool HasNoVisibleParts => VisibleParts.Count == 0 && !HasAvailabilityMessage;
     public string VisibleCountLabel => $"{VisibleParts.Count} أجزاء";
 
     /// <summary>Replaces Rust projections while retaining unsaved editor fields and selected category identity.</summary>
@@ -114,7 +113,7 @@ public sealed class PartsViewModel : ObservableObject
         matchingMaterials = []; materialSearchMessage = message; RefreshMaterialOptions();
     }
     /// <summary>Clears visible records when scoped data cannot be loaded without discarding unsaved input.</summary>
-    public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); Raise(nameof(HasNoVisibleParts)); }
+    public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); }
     public void ClearSession()
     {
         SavePending = false; CancelEditor(); records.Clear(); currentCosts.Clear(); categories.Clear(); materials.Clear(); VisibleParts.Clear();
@@ -213,6 +212,6 @@ public sealed class PartsViewModel : ObservableObject
             if (SelectedCategory != AllCategories && category != SelectedCategory || SelectedStatus == ActiveStatus && p.Archived || SelectedStatus == ArchivedStatus && !p.Archived) continue;
             VisibleParts.Add(new PartListItem(p.Id,p.Name,category,currentCosts[p.Id].TotalCostYer,p.Archived));
         }
-        Raise(nameof(HasNoVisibleParts)); Raise(nameof(VisibleCountLabel));
+        Raise(nameof(VisibleCountLabel));
     }
 }

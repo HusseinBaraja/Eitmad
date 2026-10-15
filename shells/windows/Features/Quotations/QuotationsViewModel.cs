@@ -188,8 +188,6 @@ public sealed partial class QuotationsViewModel : ObservableObject
 
     public bool IsDetailVisible => SelectedQuotation is not null;
 
-    public bool HasNoVisibleQuotations => VisibleQuotations.Count == 0;
-
     public string VisibleCountLabel => VisibleQuotations.Count switch
     {
         1 => "عرض سعر واحد",
@@ -221,7 +219,6 @@ public sealed partial class QuotationsViewModel : ObservableObject
             VisibleQuotations.Add(quotation);
         }
 
-        Raise(nameof(HasNoVisibleQuotations));
         Raise(nameof(VisibleCountLabel));
     }
 

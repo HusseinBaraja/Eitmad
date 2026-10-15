@@ -145,8 +145,6 @@ public sealed class QuotationListItem : ObservableObject
 
     public string DiscountLabel => Discount == 0m ? "—" : FormatMoney(Discount);
 
-    public string DiscountDetailLabel => $"{FormatMoney(Discount)} · {DiscountPercent.ToString("0.#", CultureInfo.InvariantCulture)}%";
-
     public string FinalTotalLabel => FormatMoney(FinalTotal);
 
     public string StatusLabel => Lifecycle is not null ? Lifecycle.State switch { Eitmad.Contracts.QuotationState.Accepted => "مقبول", Eitmad.Contracts.QuotationState.Converted => "محوّل", Eitmad.Contracts.QuotationState.Issued => "صادر", Eitmad.Contracts.QuotationState.Expired => "منتهي", Eitmad.Contracts.QuotationState.Cancelled => "ملغي", Eitmad.Contracts.QuotationState.PendingApproval => "بانتظار الموافقة", _ => "مسودة" } : Approval is not null ? QuotationDraftClient.ApprovalLabel(Approval) : HasApprovalDecision ? (ApprovalDecision == DiscountApprovalDecision.Approved ? "الخصم مقبول" : "الخصم مرفوض") : HasPendingDiscountApproval ? "بانتظار الموافقة" : Status switch

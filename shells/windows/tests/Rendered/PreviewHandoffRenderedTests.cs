@@ -111,7 +111,7 @@ public sealed class PreviewHandoffRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(production.IsCompleted);
             Assert.IsFalse(work.ViewModel.AdvanceSelectedStatus());
-            var notice = reception.PreviewOrders.ViewModel.NewReadyOrders.Single();
+            var notice = reception.PreviewOrders.ViewModel.PreviewOrders.Single(item => item.IsNewlyReady);
             Assert.AreEqual(order.Id, notice.Id);
             Assert.IsTrue(notice.IsReady);
             Assert.AreEqual(production.Number, notice.ReadyFromWorkOrder);
@@ -125,7 +125,6 @@ public sealed class PreviewHandoffRenderedTests
             Assert.AreEqual(order.Id, reception.PreviewOrders.ViewModel.SelectedOrder!.Id);
             WpfTestHost.Capture(window, "handoff-newly-ready-order");
             WpfTestHost.FindByAutomationName<Button>(reception.PreviewOrders, "تمت مراجعة تنبيه جاهزية الطلب").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.AreEqual(0, reception.PreviewOrders.ViewModel.NewReadyOrders.Count);
             Assert.IsTrue(reception.PreviewOrders.ViewModel.SelectedOrder.IsReady);
             Assert.IsFalse(reception.PreviewOrders.ViewModel.SelectedOrder.IsNewlyReady);
         });

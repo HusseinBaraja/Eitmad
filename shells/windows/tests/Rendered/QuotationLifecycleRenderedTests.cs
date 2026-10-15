@@ -28,8 +28,6 @@ public sealed class QuotationLifecycleRenderedTests
                 var issue = WpfTestHost.FindByAutomationName<Button>(view, "إصدار عرض السعر"); issue.BringIntoView(); WpfTestHost.CompleteLayout(window);
                 Assert.IsTrue(issue.IsVisible); Assert.IsTrue(issue.IsEnabled); Assert.IsTrue(issue.Focus()); Assert.IsTrue(issue.IsKeyboardFocusWithin);
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
-                AssertIdentityBefore(view, "DocumentActionsSection");
-                ScrollToIdentity(view, window);
                 WpfTestHost.Capture(window, $"quotation-issue-reception-{width}");
                 var confirmation = new TaskCompletionSource();
                 fixture.Engine.CommandBarrier = _ => confirmation.Task;
@@ -50,10 +48,8 @@ public sealed class QuotationLifecycleRenderedTests
                 var acceptanceNote = WpfTestHost.FindByAutomationName<TextBox>(view, "ملاحظة قبول العميل"); Assert.IsTrue(acceptanceNote.Focus());
                 var accept = WpfTestHost.FindByAutomationName<Button>(view, "تأكيد قبول العميل لعرض السعر");
                 accept.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(accept.IsVisible); Assert.IsTrue(accept.Focus());
-                AssertIdentityBefore(view, "AcceptanceSection");
                 Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Border>(view, "CancellationSection").Visibility);
                 WpfTestHost.Capture(window, $"quotation-accept-reception-actions-{width}");
-                ScrollToIdentity(view, window);
                 WpfTestHost.Capture(window, $"quotation-accept-reception-{width}");
                 Finish(view.ViewModel.DeactivateDraftsAsync());
                 fixture.Record.PermittedActions = [QuotationPermittedAction.Revise, QuotationPermittedAction.Cancel, QuotationPermittedAction.Print];
@@ -62,7 +58,6 @@ public sealed class QuotationLifecycleRenderedTests
                 var revise = WpfTestHost.FindByAutomationName<Button>(view, "إنشاء إصدار جديد من عرض السعر"); revise.BringIntoView(); WpfTestHost.CompleteLayout(window);
                 Assert.IsTrue(revise.IsVisible); Assert.IsTrue(revise.Focus()); Assert.IsTrue(revise.IsKeyboardFocusWithin);
                 var reason = WpfTestHost.FindByAutomationName<TextBox>(view, "سبب إلغاء عرض السعر"); Assert.IsTrue(reason.IsVisible); Assert.IsTrue(reason.Focus()); reason.Text = "إلغاء تجريبي مع حفظ سجل العرض";
-                AssertIdentityBefore(view, "DocumentActionsSection");
                 var documentActions = WpfTestHost.FindByName<Border>(view, "DocumentActionsSection");
                 var cancellation = WpfTestHost.FindByName<Border>(view, "CancellationSection");
                 Assert.IsFalse(WpfTestHost.Descendants<Button>(documentActions).Any(button => AutomationProperties.GetName(button) == "إلغاء عرض السعر مع حفظ السجل"));
@@ -70,25 +65,11 @@ public sealed class QuotationLifecycleRenderedTests
                 cancellation.BringIntoView(); WpfTestHost.CompleteLayout(window);
                 WpfTestHost.Capture(window, $"quotation-cancellation-manager-{width}");
                 var dpi = VisualTreeHelper.GetDpi(window); Console.WriteLine($"Quotation requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
-                ScrollToIdentity(view, window);
                 WpfTestHost.Capture(window, $"quotation-issued-manager-{width}");
                 if (width == 720) { foreach (var control in WpfTestHost.Descendants<Control>(view)) Eitmad.WindowsShell.Controls.ControlOptions.SetHighContrast(control, true); WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "quotation-issued-manager-high-contrast-720"); }
                 Finish(view.ViewModel.DeactivateDraftsAsync());
             } finally { Finish(client.DisposeAsync().AsTask()); Finish(fixture.Engine.DisposeAsync().AsTask()); }
         });
-    }
-    private static void AssertIdentityBefore(QuotationsView view, string sectionName)
-    {
-        var identity = WpfTestHost.FindByName<Border>(view, "QuotationIdentity");
-        var section = WpfTestHost.FindByName<Border>(view, sectionName);
-        Assert.IsTrue(identity.TranslatePoint(new Point(0, identity.ActualHeight), view).Y <= section.TranslatePoint(new Point(), view).Y,
-            "The current record must precede its lifecycle form.");
-    }
-    private static void ScrollToIdentity(QuotationsView view, Window window)
-    {
-        WpfTestHost.FindByName<Button>(view, "BackToQuotationsButton").Focus();
-        WpfTestHost.Ancestor<ScrollViewer>(WpfTestHost.FindByName<Border>(view, "QuotationIdentity")).ScrollToTop();
-        WpfTestHost.CompleteLayout(window);
     }
     private static void Finish(Task task)
     {

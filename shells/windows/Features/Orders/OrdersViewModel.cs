@@ -104,7 +104,6 @@ public sealed partial class OrdersViewModel : ObservableObject
     public string ProductionNumber => SelectedOrder is { } order ? IsLive ? string.Join(" · ", order.Record?.Work.Select(w => w.Number) ?? []) : FindProduction?.Invoke(order.Number)?.Number ?? "" : "";
     public string ProductionSummary => IsLive ? SelectedOrder?.WorkSummary ?? "" : SelectedOrder is { } order && FindProduction?.Invoke(order.Number) is { } work ? work.StatusLabel : "لا يوجد أمر عمل لهذا الطلب في المعاينة";
     public ObservableCollection<OrderListItem> PreviewOrders => orders;
-    public ObservableCollection<OrderListItem> NewReadyOrders { get; } = [];
     public int ReadyCount => orders.Count(order => order.IsReady);
     public void UsePreviewOrders(ObservableCollection<OrderListItem> items)
     {
@@ -123,14 +122,11 @@ public sealed partial class OrdersViewModel : ObservableObject
         var updated = order with { Status = status, ReadyFromWorkOrder = status == OrderStatus.Ready ? workNumber : "" };
         orders[orders.IndexOf(order)] = updated;
         if (SelectedOrder?.Id == order.Id) SelectedOrder = updated;
-        if (status == OrderStatus.Ready) NewReadyOrders.Add(updated);
         RefreshVisibleOrders();
     }
     public void AcknowledgeReady()
     {
         if (SelectedOrder is not { } order) return;
-        var notice = NewReadyOrders.FirstOrDefault(item => item.Id == order.Id);
-        if (notice is not null) NewReadyOrders.Remove(notice);
         if (order.ReadyFromWorkOrder.Length == 0) return;
         var updated = order with { ReadyFromWorkOrder = "" };
         orders[orders.IndexOf(order)] = updated;
@@ -206,8 +202,6 @@ public sealed partial class OrdersViewModel : ObservableObject
 
     public bool IsDetailVisible => SelectedOrder is not null;
 
-    public bool HasNoVisibleOrders => VisibleOrders.Count == 0;
-
     public string VisibleCountLabel => VisibleOrders.Count switch
     {
         1 => "طلب واحد",
@@ -235,7 +229,7 @@ public sealed partial class OrdersViewModel : ObservableObject
         }
 
         Raise(nameof(ReadyCount));
-        Raise(nameof(HasNoVisibleOrders));
+
         Raise(nameof(VisibleCountLabel));
     }
 

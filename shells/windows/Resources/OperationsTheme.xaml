@@ -11,10 +11,8 @@
     <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColor}" />
     <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
     <SolidColorBrush x:Key="LineBrush" Color="{StaticResource LineColor}" />
-    <SolidColorBrush x:Key="ForestBrush" Color="#1F6F3D" />
     <SolidColorBrush x:Key="CopperBrush" Color="{StaticResource CopperColor}" />
     <SolidColorBrush x:Key="CopperTintBrush" Color="#F6EEE6" />
-    <SolidColorBrush x:Key="StatusDotBrush" Color="#A35E1E" />
     <LinearGradientBrush x:Key="NavSelectedBrush" StartPoint="1,0" EndPoint="0,1">
         <GradientStop Color="#9A5C22" />
         <GradientStop Color="#693705" Offset="1" />

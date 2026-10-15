@@ -26,12 +26,11 @@ public sealed partial class SalesCatalogViewModel
     public string DraftEditState => uncertainSave
         ? "لم يُؤكد الحفظ. احتُفظ بالتعديلات هنا؛ أعد المحاولة."
         : hasUnsavedEdits ? "تعديلات غير محفوظة" : "";
-    public string FutureActionsNotice => IsLiveQuotation ? "احفظ المسودة ثم أصدر العرض بعد تأكيد الشروط. تحويل العرض إلى طلب غير متاح بعد." : "";
     public void AttachDraftClient(QuotationDraftClient client)
     {
         draftClient = client; PublishPreview = null;
         client.Changed += DraftChanged; client.ApprovalChanged += ServerApprovalChanged; client.LifecycleChanged += LifecycleChanged; client.Invalidated += DraftInvalidated;
-        Raise(nameof(FutureActionsNotice));
+
     }
     private void DraftInvalidated(object? sender, EventArgs e) { catalogActive = false; ClearCatalog(); QuotationLines.Clear(); ClearDraftSession(); }
     private void ServerApprovalChanged(object? sender, EventArgs e) { if (catalogActive) _ = RefreshApprovalAndLifecycleAsync(); }

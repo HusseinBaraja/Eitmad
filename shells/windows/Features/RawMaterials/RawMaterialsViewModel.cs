@@ -380,8 +380,6 @@ public sealed class RawMaterialsViewModel : ObservableObject
 
     public bool HasReferenceError => !string.IsNullOrEmpty(ReferenceError);
 
-    public bool HasNoVisibleMaterials => VisibleMaterials.Count == 0;
-
     public string VisibleCountLabel => $"{VisibleMaterials.Count} من {materials.Count} مواد";
 
     public void BeginCreate()
@@ -516,7 +514,6 @@ public sealed class RawMaterialsViewModel : ObservableObject
             VisibleMaterials.Add(material);
         }
 
-        Raise(nameof(HasNoVisibleMaterials));
         Raise(nameof(VisibleCountLabel));
     }
 

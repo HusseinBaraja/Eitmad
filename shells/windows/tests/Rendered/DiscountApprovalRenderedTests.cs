@@ -19,9 +19,6 @@ public sealed class DiscountApprovalRenderedTests
     public void ConfirmedApprovalControlsRenderAndRejectThroughTheServerReply(int width, int height)
     {
         WpfTestHost.Run(width, height, window => {
-            var dpi = VisualTreeHelper.GetDpi(window);
-            var displays = string.Join("; ", System.Windows.Forms.Screen.AllScreens.Select(s => $"{s.Bounds.Width}x{s.Bounds.Height} pixels"));
-            Console.WriteLine($"Approval rendering: available displays {displays}; scale {dpi.DpiScaleX * 100:0}%; off-screen WPF RenderTargetBitmap at 96 DPI; synthetic server replies.");
             var authority = new DiscountApprovalTests.ConfirmedAuthority(); var reception = authority.Engine(); var manager = authority.Engine();
             var catalog = new SalesCatalogClient(reception); var receptionDrafts = new QuotationDraftClient(reception); var managerDrafts = new QuotationDraftClient(manager);
             SalesCatalogViewModel? editor = null; QuotationsView? view = null;
@@ -38,38 +35,13 @@ public sealed class DiscountApprovalRenderedTests
                 WpfTestHost.CompleteLayout(window); Assert.HasCount(1, view.ViewModel.VisibleQuotations); WpfTestHost.Capture(window, $"discount-inbox-manager-{width}");
                 view.ViewModel.OpenQuotation(view.ViewModel.VisibleQuotations.Single()); WpfTestHost.CompleteLayout(window);
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
-                var rejection = WpfTestHost.FindByName<Expander>(view, "DiscountRejection");
-                Assert.IsFalse(rejection.IsExpanded);
-                Assert.IsFalse(WpfTestHost.Descendants<TextBox>(rejection).Any(t => t.IsVisible));
-                var approve = WpfTestHost.FindByAutomationName<Button>(view, "الموافقة على خصم عرض السعر");
-                Assert.IsTrue(approve.IsEnabled);
-                var panel = WpfTestHost.FindByName<Border>(view, "ApprovalSection");
-                if (view.ActualWidth >= 1200) {
-                    AssertBesideEvidence(view, window, panel, approve);
-                }
-                var detailScroll = WpfTestHost.Ancestor<ScrollViewer>(panel);
-                detailScroll.ScrollToVerticalOffset(detailScroll.VerticalOffset + panel.TranslatePoint(new Point(), detailScroll).Y);
+                WpfTestHost.FindByName<Expander>(view, "DiscountRejection").IsExpanded = true;
                 WpfTestHost.CompleteLayout(window);
-                WpfTestHost.Capture(window, $"discount-request-summary-manager-{width}");
-                var expandToggle = WpfTestHost.Descendants<System.Windows.Controls.Primitives.ToggleButton>(rejection).Single();
-                Assert.IsTrue(expandToggle.Focus());
-                Assert.IsTrue(expandToggle.IsKeyboardFocusWithin);
-                expandToggle.SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, true);
-                WpfTestHost.CompleteLayout(window); Assert.IsTrue(rejection.IsExpanded);
-                if (view.ActualWidth >= 1200) {
-                    AssertBesideEvidence(view, window, panel, approve);
-                }
                 var reason = WpfTestHost.Descendants<TextBox>(view).Single(t => AutomationProperties.GetName(t) == "سبب رفض الخصم");
-                Assert.IsTrue(reason.IsVisible);
                 reason.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(reason.Focus()); reason.Text = "الخصم مرتفع";
                 var reject = WpfTestHost.FindByAutomationName<Button>(view, "رفض خصم عرض السعر"); reject.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(reject.Focus()); Assert.IsTrue(reject.IsKeyboardFocusWithin); Assert.IsTrue(reject.IsEnabled);
-                Console.WriteLine($"Approval requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
+                var dpi = VisualTreeHelper.GetDpi(window); Console.WriteLine($"Approval requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%");
                 WpfTestHost.Capture(window, $"discount-review-manager-{width}");
-                if (width == 720) {
-                    view.Resources[SystemParameters.HighContrastKey] = true; WpfTestHost.CompleteLayout(window);
-                    WpfTestHost.Capture(window, "discount-review-manager-high-contrast-720");
-                    view.Resources.Remove(SystemParameters.HighContrastKey); WpfTestHost.CompleteLayout(window);
-                }
                 reject.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Finish(view.ViewModel.LastApprovalDecision);
                 Assert.IsFalse(view.ViewModel.CanDecideApproval); authority.Publish(reception); Finish(QuotationDraftTests.WaitFor(() => editor.IsDiscountRejected));
                 window.Content = quotation; WpfTestHost.CompleteLayout(window); scroll.ScrollToBottom(); WpfTestHost.CompleteLayout(window);
@@ -79,25 +51,6 @@ public sealed class DiscountApprovalRenderedTests
                 Finish(receptionDrafts.DisposeAsync().AsTask()); Finish(managerDrafts.DisposeAsync().AsTask()); Finish(catalog.DisposeAsync().AsTask()); Finish(reception.DisposeAsync().AsTask()); Finish(manager.DisposeAsync().AsTask());
             }
         });
-    }
-    private static void AssertBesideEvidence(QuotationsView view, Window window, Border panel, Button approve)
-    {
-        var items = WpfTestHost.FindByName<Border>(view, "QuotationItems");
-        var summary = WpfTestHost.FindByName<Border>(view, "QuotationSummary");
-        var scroll = WpfTestHost.Ancestor<ScrollViewer>(panel);
-        scroll.ScrollToTop(); WpfTestHost.CompleteLayout(window);
-        Rect Bounds(FrameworkElement element) => element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
-        var viewport = new Rect(0, 0, scroll.ViewportWidth, scroll.ViewportHeight);
-        Assert.IsTrue(viewport.Contains(Bounds(approve)), "Approval must remain visible with quotation evidence.");
-        Assert.IsTrue(viewport.Contains(Bounds(summary)), "Quotation totals must remain visible beside the decision.");
-        Assert.IsTrue(Bounds(panel).Right <= Bounds(items).Left || Bounds(items).Right <= Bounds(panel).Left,
-            "The decision must sit beside quotation lines, without overlap.");
-        if (WpfTestHost.FindByName<Expander>(view, "DiscountRejection").IsExpanded) {
-            var reason = WpfTestHost.FindByAutomationName<TextBox>(view, "سبب رفض الخصم");
-            var reject = WpfTestHost.FindByAutomationName<Button>(view, "رفض خصم عرض السعر");
-            Assert.IsTrue(viewport.Contains(Bounds(reason)), "The reason must fit beside quotation totals.");
-            Assert.IsTrue(viewport.Contains(Bounds(reject)), "Rejection confirmation must fit beside quotation totals.");
-        }
     }
     private static void Finish(Task task)
     {

@@ -58,7 +58,6 @@ public sealed class PricingViewModel : ObservableObject
     public bool HasEditorError => EditorError.Length > 0;
     public string FeedbackMessage { get => feedbackMessage; private set { Set(ref feedbackMessage, value); Raise(nameof(HasFeedback)); } }
     public bool HasFeedback => FeedbackMessage.Length > 0;
-    public bool HasNoVisiblePrices => VisiblePrices.Count == 0;
     public string VisibleCountLabel => $"{VisiblePrices.Count} من {prices.Count} أسعار";
     public long EditorVersion { get; private set; }
 
@@ -131,7 +130,7 @@ public sealed class PricingViewModel : ObservableObject
     {
         VisiblePrices.Clear();
         foreach (var item in prices.Where(p => SelectedCategory == AllCategories || p.Category == SelectedCategory)) VisiblePrices.Add(item);
-        Raise(nameof(HasNoVisiblePrices)); Raise(nameof(VisibleCountLabel));
+        Raise(nameof(VisibleCountLabel));
     }
     private static bool TryParsePrice(string value, out long result) => long.TryParse(PreviewText.NormalizeNumericInput(value).Trim(), NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out result) && result >= 0;
 }

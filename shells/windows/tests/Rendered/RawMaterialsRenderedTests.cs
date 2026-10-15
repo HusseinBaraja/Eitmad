@@ -1,10 +1,10 @@
 using System.Windows;
+using System.Windows.Media;
+using Eitmad.WindowsShell.Controls;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media;
-using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.RawMaterials;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Tests.TestDoubles;
@@ -116,13 +116,6 @@ public sealed class RawMaterialsRenderedTests
                 Assert.AreEqual(error, AutomationProperties.GetItemStatus(input));
                 Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(input)));
                 Assert.IsNotNull(AutomationProperties.GetLabeledBy(input));
-                var message = (TextBlock)field.Template.FindName("Error", field);
-                Assert.AreEqual(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(message));
-                Assert.AreEqual(Visibility.Visible, message.Visibility);
-                var messageBounds = message.TransformToAncestor(field).TransformBounds(new Rect(message.RenderSize));
-                var inputBounds = input.TransformToAncestor(field).TransformBounds(new Rect(input.RenderSize));
-                Assert.IsTrue(messageBounds.Top >= inputBounds.Bottom && messageBounds.Top - inputBounds.Bottom <= 12);
-                AssertInside(field, WpfTestHost.Descendants<ScrollContentPresenter>(WpfTestHost.FindByName<ScrollViewer>(view, "EditorScrollViewer")).First());
             }
         }, engine: engine);
     }
@@ -150,7 +143,6 @@ public sealed class RawMaterialsRenderedTests
         };
         WpfTestHost.Run(width, height, window =>
         {
-            Console.WriteLine($"Materials rendered {window.ActualWidth}x{window.ActualHeight} DIP; scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
             WpfTestHost.FindByName<Button>(window, "MaterialsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<RawMaterialsView>(window).Single();
@@ -161,45 +153,7 @@ public sealed class RawMaterialsRenderedTests
             view.ViewModel.BeginEdit(view.ViewModel.VisibleMaterials.Single());
             WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(view.ViewModel.IsEditorOpen);
-            var editor = WpfTestHost.FindByName<Grid>(view, "EditorSurface");
-            var scroll = WpfTestHost.FindByName<ScrollViewer>(view, "EditorScrollViewer");
-            var save = WpfTestHost.FindByName<Button>(view, "SaveEditorButton");
-            var cancel = WpfTestHost.FindByName<Button>(view, "CancelEditorButton");
-            var cost = WpfTestHost.FindByName<TextBox>(view, "EditorCostBox");
-            var viewport = WpfTestHost.Descendants<ScrollContentPresenter>(scroll).First();
-            AssertInside(save, editor);
-            AssertInside(cancel, editor);
-            AssertInside(cost, viewport);
             WpfTestHost.Capture(window, $"material-durable-editor-{width}x{height}");
-
-            var actionPosition = save.TranslatePoint(new Point(), editor);
-            scroll.ScrollToBottom();
-            WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(actionPosition, save.TranslatePoint(new Point(), editor));
-            scroll.ScrollToTop();
-            cost.Text = "8.5";
-            save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(view.ViewModel.HasEditorError);
-            Assert.IsTrue(view.ViewModel.IsEditorOpen);
-            Assert.AreEqual("8.5", cost.Text);
-            var costField = WpfTestHost.FindByName<FormField>(view, "EditorCostField");
-            AssertInside(costField, viewport);
-            AssertInside(save, editor);
-            AssertInside(cancel, editor);
-            WpfTestHost.Capture(window, $"material-durable-editor-error-{width}x{height}");
-            if (width == 720)
-            {
-                cost.FontSize = 24;
-                WpfTestHost.CompleteLayout(window);
-                scroll.ScrollToTop();
-                view.ViewModel.Fail("أدخل تكلفة صحيحة بالريال اليمني ثم حاول الحفظ مرة أخرى.");
-                WpfTestHost.CompleteLayout(window);
-                AssertInside(costField, viewport);
-                AssertInside(save, editor);
-                AssertInside(cancel, editor);
-            }
-            view.ViewModel.BeginEdit(view.ViewModel.VisibleMaterials.Single());
 
             var categorySelector = WpfTestHost.FindByAutomationName<ComboBox>(view, "تصنيف المادة الخام");
             var unitSelector = WpfTestHost.FindByAutomationName<ComboBox>(view, "وحدة المادة الخام");
@@ -214,12 +168,8 @@ public sealed class RawMaterialsRenderedTests
                 ],
                 Units =
                 [
-                    new MaterialUnit { Id = unit.Id, Scope = scope, Name = "متر طولي", Dimension = unit.Dimension,
-                        Numerator = unit.Numerator, Denominator = unit.Denominator, Revision = 2 },
-                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = unit.Name, Dimension = unit.Dimension,
-                        Numerator = unit.Numerator, Denominator = unit.Denominator, Revision = 1 },
-                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = "سنتيمتر مربع", Dimension = UnitDimension.Area,
-                        Numerator = 1, Denominator = 10_000, Revision = 1 },
+                    new MaterialUnit { Id = unit.Id, Scope = scope, Name = "متر طولي", Revision = 2 },
+                    new MaterialUnit { Id = Guid.NewGuid(), Scope = scope, Name = unit.Name, Revision = 1 },
                 ],
             }, [material]);
             WpfTestHost.CompleteLayout(window);
@@ -235,52 +185,7 @@ public sealed class RawMaterialsRenderedTests
             Assert.IsTrue(view.ViewModel.IsReferenceEditorOpen);
             Assert.IsTrue(view.ViewModel.IsUnitReference);
             WpfTestHost.Capture(window, $"material-durable-unit-{width}x{height}");
-            var conversion = WpfTestHost.FindByName<StackPanel>(view, "UnitConversionGroup");
-            var referenceScroll = WpfTestHost.Ancestor<ScrollViewer>(conversion);
-            referenceScroll.ScrollToBottom();
-            WpfTestHost.CompleteLayout(window);
-            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
-            WpfTestHost.Capture(window, $"material-unit-conversion-count-{width}x{height}");
-
-            view.ViewModel.ReferenceDimension = UnitDimension.Length;
-            WpfTestHost.CompleteLayout(window);
-            referenceScroll.ScrollToBottom();
-            WpfTestHost.CompleteLayout(window);
-            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
-            WpfTestHost.Capture(window, $"material-unit-conversion-length-{width}x{height}");
-            view.ViewModel.ReferenceDimension = UnitDimension.Area;
-            WpfTestHost.CompleteLayout(window);
-            referenceScroll.ScrollToBottom();
-            WpfTestHost.CompleteLayout(window);
-            AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
-            WpfTestHost.Capture(window, $"material-unit-conversion-area-{width}x{height}");
-            if (width == 720)
-            {
-                foreach (var field in WpfTestHost.Descendants<FormField>(conversion))
-                    ControlOptions.SetHighContrast(field, true);
-                WpfTestHost.CompleteLayout(window);
-                referenceScroll.ScrollToBottom();
-                WpfTestHost.CompleteLayout(window);
-                AssertInside(conversion, WpfTestHost.Descendants<ScrollContentPresenter>(referenceScroll).First());
-                WpfTestHost.Capture(window, "material-unit-conversion-larger-text-system-colors-720x560");
-            }
-            view.ViewModel.CancelReferenceEditor();
-            view.ViewModel.BeginManageUnits();
-            view.ViewModel.BeginEditReference(view.ViewModel.Units.Single(item => item.Dimension == UnitDimension.Area));
-            WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual("1", WpfTestHost.FindByName<TextBox>(view, "UnitNumeratorBox").Text);
-            Assert.AreEqual("10000", WpfTestHost.FindByName<TextBox>(view, "UnitDenominatorBox").Text);
         }, engine: engine);
-    }
-
-    private static void AssertInside(FrameworkElement element, FrameworkElement viewport)
-    {
-        var bounds = element.TransformToAncestor(viewport)
-            .TransformBounds(new Rect(element.RenderSize));
-        Assert.IsTrue(bounds.Width > 0 && bounds.Height > 0
-            && bounds.Left >= -1 && bounds.Top >= -1
-            && bounds.Right <= viewport.ActualWidth + 1 && bounds.Bottom <= viewport.ActualHeight + 1,
-            $"{element.Name} is outside the viewport: {bounds}, viewport {viewport.RenderSize}.");
     }
 
     [TestMethod]

@@ -29,13 +29,6 @@ public sealed class QuotationDraftRenderedTests
                 window.Content = view; model.IsReviewingQuotation = true;
                 if (width == 1920) window.WindowState = WindowState.Maximized;
                 WpfTestHost.CompleteLayout(window);
-                var dpi = VisualTreeHelper.GetDpi(window);
-                var geometry = $"Draft requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX:0}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY:0} px; scale {dpi.DpiScaleX * 100:0}%; WPF RenderTargetBitmap at 96 DPI; synthetic Rust replies.";
-                Console.WriteLine(geometry);
-                if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory) {
-                    System.IO.Directory.CreateDirectory(directory);
-                    System.IO.File.WriteAllText(System.IO.Path.Combine(directory, $"ui32-{width}.txt"), geometry);
-                }
                 Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
                 WpfTestHost.Capture(window, $"quotation-draft-lines-{width}");
                 var review = WpfTestHost.Descendants<CurrentQuotationView>(view).Single();

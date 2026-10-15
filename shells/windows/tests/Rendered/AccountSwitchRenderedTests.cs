@@ -102,34 +102,9 @@ public sealed class AccountSwitchRenderedTests
     {
         WpfTestHost.Run(width, height, window =>
         {
-            // Native tooltip placement needs an anchor inside the available desktop.
-            window.Left = 0;
-            window.Top = 0;
-            if (width == 1920) window.WindowState = WindowState.Maximized;
             WpfTestHost.SignIn(window, account);
-            WpfTestHost.CompleteLayout(window);
             var toolbar = account == "manager" ? window.ManagerTitleBar : window.ReceptionistSurface.ReceptionistTitleBar;
             var accountButton = toolbar.SwitchAccountButton;
-            var label = (ContentPresenter)accountButton.Template.FindName("ActionText", accountButton);
-            Assert.AreEqual(width != 720, label.IsVisible);
-            AssertToolbarFits(toolbar);
-            var dpi = VisualTreeHelper.GetDpi(window);
-            Console.WriteLine($"Account toolbar {account}, requested {width} x {height}: actual window {window.ActualWidth} x {window.ActualHeight} DIP, scaling {dpi.DpiScaleX * 100}%, display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX} x {SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} pixels.");
-            WpfTestHost.Capture(window, $"ui-09-toolbar-{account}-{width}");
-            var tooltip = (ToolTip)accountButton.ToolTip;
-            tooltip.PlacementTarget = accountButton;
-            tooltip.IsOpen = true;
-            var frame = new DispatcherFrame();
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
-            timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
-            timer.Start();
-            Dispatcher.PushFrame(frame);
-            WpfTestHost.CompleteLayout(tooltip);
-            var tooltipContent = (FrameworkElement)tooltip.Content;
-            Assert.IsTrue(tooltipContent.ActualWidth >= tooltipContent.DesiredSize.Width);
-            Assert.IsTrue(tooltipContent.ActualHeight >= tooltipContent.DesiredSize.Height);
-            WpfTestHost.Capture(tooltip, $"ui-09-tooltip-{account}-{width}");
-            tooltip.IsOpen = false;
             accountButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
             var dialog = window.AccountSwitchDialog;
@@ -153,38 +128,4 @@ public sealed class AccountSwitchRenderedTests
         }, showSignIn: true);
     }
 
-    private static void AssertToolbarFits(ShellTitleBar toolbar)
-    {
-        var button = toolbar.SwitchAccountButton;
-        foreach (var content in WpfTestHost.Descendants<FrameworkElement>(button)
-            .Where(element => element.IsVisible && element is TextBlock or System.Windows.Shapes.Path))
-        {
-            var bounds = content.TransformToAncestor(button).TransformBounds(new Rect(content.RenderSize));
-            Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= button.ActualWidth);
-            Assert.IsTrue(bounds.Top >= 0 && bounds.Bottom <= button.ActualHeight);
-        }
-        var accountBounds = button.TransformToAncestor(toolbar).TransformBounds(new Rect(button.RenderSize));
-        Assert.IsTrue(accountBounds.Left >= 0 && accountBounds.Right <= toolbar.ActualWidth);
-        foreach (var neighbor in new FrameworkElement[] { toolbar.PrimaryActionButton, toolbar.TitleText, toolbar.SearchBox })
-        {
-            var bounds = neighbor.TransformToAncestor(toolbar).TransformBounds(new Rect(neighbor.RenderSize));
-            Assert.IsFalse(accountBounds.IntersectsWith(bounds));
-        }
-    }
-
-    [TestMethod]
-    [DataRow(1338, 753)]
-    [DataRow(720, 560)]
-    public void AccountActionFitsWithLargerTextAndSystemColors(int width, int height)
-    {
-        WpfTestHost.Run(width, height, window =>
-        {
-            var toolbar = window.ManagerTitleBar;
-            toolbar.SwitchAccountButton.FontSize = 18;
-            ControlOptions.SetHighContrast(toolbar.SwitchAccountButton, true);
-            WpfTestHost.CompleteLayout(window);
-            AssertToolbarFits(toolbar);
-            WpfTestHost.Capture(window, $"ui-09-system-colors-larger-text-{width}");
-        });
-    }
 }

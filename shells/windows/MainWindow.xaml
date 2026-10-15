@@ -6,19 +6,6 @@
         <CommandBinding Command="{x:Static local:MainWindow.SwitchAccountCommand}" Executed="SwitchAccountExecuted" CanExecute="CanSwitchAccount" />
     </Window.CommandBindings>
     <Window.Resources>
-        <Style x:Key="MetricLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style x:Key="MetricValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="27" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,5,0,0" />
-        </Style>
-        <Style x:Key="SmallMuted" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-        </Style>
         <Style x:Key="TableCell" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -33,17 +20,6 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
                     <Setter Property="Padding" Value="16,14,16,20" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="ResponsiveMetricsGrid" TargetType="UniformGrid">
-            <Setter Property="Columns" Value="4" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}">
-                    <Setter Property="Columns" Value="2" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Columns" Value="2" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -90,7 +66,6 @@
         <workOrders:WorkOrdersView x:Name="WorkOrdersSurface" Grid.Column="0" Visibility="Collapsed" />
         <!-- Right navigation -->
         <controls:ShellSidebar x:Name="ManagerSidebar" Grid.Column="1" NavigationRequested="ManagerSidebarNavigationRequested" />
-        <TextBlock Visibility="Collapsed" Text="CNC-04 · Windows / Rust · مرجع REF-١٢" />
     </Grid>
         <reception:ReceptionistHomeView x:Name="ReceptionistSurface"
                                         Panel.ZIndex="20"

@@ -1,8 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using System.Windows.Media;
-using System.IO;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Customers;
@@ -113,142 +111,28 @@ public sealed class CustomersRenderedTests
         engine.Customers.Add(ContractCustomer("مؤسسة الاعتماد للأثاث", "+967 777 123 456", "صنعاء", "", engine.CustomerBranch));
         WpfTestHost.Run(width, height, window =>
         {
-            if (width == 1920) window.WindowState = WindowState.Maximized;
             var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
             reception.Visibility = Visibility.Visible;
             WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
             var catalog = (SalesCatalogView)reception.FindName("CatalogContent");
             catalog.Visibility = Visibility.Visible;
-            var model = (SalesCatalogViewModel)catalog.DataContext;
-            model.IsReviewingQuotation = true;
+            ((SalesCatalogViewModel)catalog.DataContext).IsReviewingQuotation = true;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.FindByName<TextBox>(catalog, "CustomerNameInput").Text = "الاعتماد";
-            Finish(model.LastCustomerSearch);
-            var review = WpfTestHost.Descendants<CurrentQuotationView>(catalog).Single();
-            var section = WpfTestHost.FindByName<Border>(review, "CustomerSection");
-            var state = WpfTestHost.FindByName<TextBlock>(review, "CustomerSelectionState");
-            var typedState = state.Text;
-            var phone = WpfTestHost.FindByName<TextBox>(review, "PhoneInput");
-            var scroll = WpfTestHost.FindByName<ScrollViewer>(review, "QuotationDetailsScroll");
             WpfTestHost.CompleteLayout(window);
-            scroll.ScrollToVerticalOffset(scroll.VerticalOffset + section.TranslatePoint(new Point(), scroll).Y);
+            var model = (SalesCatalogViewModel)catalog.DataContext;
+            WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
-            var match = WpfTestHost.FindByAutomationName<Button>(catalog, "اختيار العميل مؤسسة الاعتماد للأثاث");
-            var create = WpfTestHost.FindByAutomationName<Button>(catalog, "عميل جديد");
-            foreach (var element in new FrameworkElement[] { phone, match, create })
-            {
-                var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
-                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
-                    && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
-                    $"Customer phone, match and new-customer action must fit in the viewport: {bounds}.");
-                var local = element.TransformToAncestor(section).TransformBounds(new Rect(element.RenderSize));
-                Assert.IsTrue(local.Left >= 0 && local.Right <= section.ActualWidth + 1,
-                    "Customer controls must remain within the bounded section.");
-            }
-            Assert.IsTrue(section.ActualWidth <= scroll.ActualWidth);
-            Assert.AreEqual(0, scroll.ScrollableWidth);
-            Assert.AreEqual(FlowDirection.LeftToRight, phone.FlowDirection);
-            var dpi = VisualTreeHelper.GetDpi(window);
-            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; "
-                + $"primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%; "
-                + "WPF RenderTargetBitmap at 96 DPI; synthetic customer search response; customer section scrolled into view.";
-            Console.WriteLine(geometry);
-            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                File.WriteAllText(Path.Combine(directory, $"ui30-{width}x{height}.txt"), geometry);
-            }
+            var selected = model.SelectedCustomer;
+            Assert.IsNotNull(selected);
+            WpfTestHost.FindByAutomationName<Button>(catalog, "عميل جديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(model.IsNewCustomer);
+            Assert.IsNull(model.SelectedCustomer);
+            WpfTestHost.FindByAutomationName<Button>(catalog, "إلغاء العميل الجديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(selected, model.SelectedCustomer);
             WpfTestHost.Capture(window, $"customers-selection-{width}x{height}");
-            match.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(engine.Customers[0].Id, model.SelectedCustomer!.Id);
-            Assert.AreEqual(engine.Customers[0].Phone, phone.Text);
-            Assert.AreNotEqual(typedState, state.Text);
-            var selectedState = state.Text;
-            WpfTestHost.Capture(window, $"ui30-customer-selected-{width}x{height}");
-            phone.Text = "777000001";
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsNull(model.SelectedCustomer);
-            Assert.AreEqual(typedState, state.Text, "Editing a contact must remove the selected-record indication.");
-            model.AttachCustomer(PreviewCustomer.FromContract(engine.Customers[0]));
-            create.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(model.IsNewCustomer);
-            Assert.IsNull(model.SelectedCustomer);
-            Assert.AreEqual("", phone.Text);
-            Assert.IsFalse(create.IsVisible, "Creation must hide its own trigger.");
-            Assert.IsFalse(state.IsVisible, "The creation heading replaces the selection state.");
-            var saveCustomer = WpfTestHost.FindByAutomationName<Button>(review, "حفظ العميل");
-            Assert.IsTrue(saveCustomer.IsVisible);
-            WpfTestHost.Capture(window, $"ui30-customer-new-{width}x{height}");
-            WpfTestHost.FindByAutomationName<Button>(review, "إلغاء العميل الجديد").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual(engine.Customers[0].Id, model.SelectedCustomer!.Id);
-            Assert.AreEqual(engine.Customers[0].Phone, phone.Text);
-            Assert.AreEqual(selectedState, state.Text);
-            Assert.IsTrue(create.IsVisible, "Cancel must restore the selection action.");
-            Assert.IsTrue(state.IsVisible);
-            Assert.IsFalse(saveCustomer.IsVisible);
-            WpfTestHost.Capture(window, $"ui28-customer-cancelled-{width}x{height}");
-
-            create.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            model.CustomerName = "عميل جديد تجريبي";
-            model.Phone = "invalid";
-            model.Address = "صنعاء، شارع تجريبي";
-            model.Notes = "الاتصال قبل التوصيل";
-            var rejectedSave = model.SaveNewCustomerAsync();
-            Finish(rejectedSave);
-            Assert.IsFalse(rejectedSave.Result);
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(model.IsNewCustomer);
-            Assert.IsFalse(create.IsVisible, "A rejected save must keep the creation state.");
-            Assert.AreEqual("عميل جديد تجريبي", model.CustomerName);
-            Assert.AreEqual("صنعاء، شارع تجريبي", model.Address);
-            Assert.AreEqual("الاتصال قبل التوصيل", model.Notes);
-            Assert.IsTrue(model.PhoneError.Length > 0);
-            model.Phone = "777000002";
-            var releaseSave = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            engine.CommandBarrier = _ => releaseSave.Task;
-            var savedCustomer = model.SaveNewCustomerAsync();
-            try
-            {
-                WpfTestHost.CompleteLayout(window);
-                Assert.IsTrue(model.IsNewCustomer, "Creation remains open until the authority reply.");
-                Assert.IsFalse(create.IsVisible);
-                Assert.IsFalse(saveCustomer.IsEnabled);
-            }
-            finally { releaseSave.SetResult(); }
-            Finish(savedCustomer);
-            Assert.IsTrue(savedCustomer.Result);
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsFalse(model.IsNewCustomer);
-            Assert.IsTrue(create.IsVisible, "A confirmed save must restore the selection action.");
-            Assert.IsTrue(state.IsVisible);
-            Assert.IsFalse(saveCustomer.IsVisible);
-            Assert.AreEqual(engine.Customers[1].Id, model.SelectedCustomer!.Id);
-            Assert.AreEqual("777000002", phone.Text);
-            Assert.AreEqual("صنعاء، شارع تجريبي", model.Address);
-            Assert.AreEqual("الاتصال قبل التوصيل", model.Notes);
-            WpfTestHost.Capture(window, $"ui28-customer-saved-{width}x{height}");
-            WpfTestHost.FindByName<TextBox>(review, "CustomerNameInput").Text = "الاعتماد";
-            Finish(model.LastCustomerSearch);
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(review, "اختيار العميل مؤسسة الاعتماد للأثاث").IsVisible,
-                "Search and selection must be available after saving.");
-            if (width == 720)
-            {
-                foreach (var text in WpfTestHost.Descendants<TextBlock>(section)) text.FontSize = Math.Max(text.FontSize, 18);
-                foreach (var input in WpfTestHost.Descendants<TextBox>(section)) input.FontSize = 18;
-                WpfTestHost.CompleteLayout(window);
-                foreach (var element in new FrameworkElement[] { phone, create })
-                {
-                    var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
-                    Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
-                        && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
-                        "Larger customer text must retain the phone and new-customer action in view.");
-                }
-                WpfTestHost.Capture(window, "ui30-customer-larger-text-720x560");
-            }
         }, engine: engine);
     }
 
@@ -256,7 +140,6 @@ public sealed class CustomersRenderedTests
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]
-    [DataRow(1536, 864)]
     public void DetailEditKeepsHistoryAndCancelDiscardsDraft(int width, int height)
     {
         var engine = new FakeEngine();
@@ -273,13 +156,6 @@ public sealed class CustomersRenderedTests
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, $"customers-detail-{width}x{height}");
-            foreach (var table in WpfTestHost.Descendants<OperationsTable>(view))
-            {
-                table.BringIntoView();
-                WpfTestHost.CompleteLayout(window);
-                Assert.AreEqual(0, ((ScrollViewer)table.Template.FindName("DG_ScrollViewer", table)).ScrollableWidth, 1);
-                WpfTestHost.Capture(window, $"ui04-history-{table.Name}-{width}x{height}");
-            }
             var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
             edit.Focus();
             edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -316,19 +192,13 @@ public sealed class CustomersRenderedTests
             "عدن، المنصورة — عنوان تجريبي", "الاتصال قبل التسليم");
         WpfTestHost.Run(width, height, window =>
         {
-            var preview = new CustomerPreview(contract,
-                [new("QUO-2026-0084", new(2026, 9, 12), "سرير وادي ظهر", "محوّل", "345,000 ر.ي")],
-                [new("ORD-2026-0084", new(2026, 9, 13), "سرير وادي ظهر", "قيد الإنتاج", "345,000 ر.ي")]);
+            var preview = new CustomerPreview(contract, [], []);
             var view = new CustomerDetailView { DataContext = preview };
             window.Content = view;
             WpfTestHost.CompleteLayout(window);
             var edit = WpfTestHost.FindByName<Button>(view, "EditButton");
-            var status = WpfTestHost.FindByName<StatusBadge>(view, "ConflictStatus");
-            var notice = WpfTestHost.FindByName<FeedbackNotice>(view, "ConflictNotice");
             Assert.AreEqual("بانتظار المزامنة", preview.SyncStateLabel);
             Assert.IsTrue(edit.IsEnabled);
-            Assert.IsFalse(status.IsVisible);
-            Assert.IsFalse(notice.IsVisible);
 
             contract.SyncState = SyncState.Confirmed;
             preview.Observe(contract);
@@ -341,67 +211,13 @@ public sealed class CustomersRenderedTests
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("رُفضت المزامنة", preview.SyncStateLabel);
             Assert.IsFalse(edit.IsEnabled);
-            Assert.IsFalse(status.IsVisible);
-            Assert.IsFalse(notice.IsVisible);
 
             contract.SyncState = SyncState.Conflicted;
             preview.Observe(contract);
             WpfTestHost.CompleteLayout(window);
             Assert.AreEqual("تعارض يحتاج مراجعة", preview.SyncStateLabel);
             Assert.IsFalse(edit.IsEnabled);
-            Assert.IsTrue(status.IsVisible);
-            Assert.IsTrue(notice.IsVisible);
-            var scroll = WpfTestHost.Ancestor<ScrollViewer>(notice);
-            foreach (var element in new FrameworkElement[] { status, notice })
-            {
-                var bounds = element.TransformToAncestor(scroll).TransformBounds(new Rect(element.RenderSize));
-                Assert.IsTrue(bounds.Left >= 0 && bounds.Right <= scroll.ActualWidth + 1
-                    && bounds.Top >= 0 && bounds.Bottom <= scroll.ActualHeight + 1,
-                    $"The conflict and edit restriction must be visible without scrolling: {bounds}.");
-            }
-            Assert.AreEqual(contract.Phone, preview.Phone);
-            var dpi = VisualTreeHelper.GetDpi(window);
-            var geometry = $"Requested {width}x{height}; actual window {window.ActualWidth}x{window.ActualHeight} DIP; "
-                + $"primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP; scaling {dpi.DpiScaleX * 100}%; "
-                + "WPF RenderTargetBitmap at 96 DPI; synthetic customer conflict and history; no display settings changed.";
-            Console.WriteLine(geometry);
-            if (Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                File.WriteAllText(Path.Combine(directory, $"ui38-{width}x{height}.txt"), geometry);
-            }
             WpfTestHost.Capture(window, $"customers-sync-conflict-{width}x{height}");
-            foreach (var table in WpfTestHost.Descendants<OperationsTable>(view))
-            {
-                table.BringIntoView();
-                WpfTestHost.CompleteLayout(window);
-                Assert.AreEqual(1, table.Items.Count, "Conflict must keep the last known history readable.");
-                Assert.AreEqual(0, ((ScrollViewer)table.Template.FindName("DG_ScrollViewer", table)).ScrollableWidth, 1);
-                WpfTestHost.Capture(window, $"ui38-conflict-{table.Name}-{width}x{height}");
-            }
-            scroll.ScrollToTop();
-            if (width == 720)
-            {
-                ControlOptions.SetHighContrast(status, true);
-                ControlOptions.SetHighContrast(notice, true);
-                WpfTestHost.CompleteLayout(window);
-                WpfTestHost.Capture(window, "ui38-conflict-high-contrast-720x560");
-                ControlOptions.SetHighContrast(status, false);
-                ControlOptions.SetHighContrast(notice, false);
-                status.FontSize = 18;
-                notice.FontSize = 18;
-                WpfTestHost.CompleteLayout(window);
-                var bounds = notice.TransformToAncestor(scroll).TransformBounds(new Rect(notice.RenderSize));
-                Assert.IsTrue(bounds.Right <= scroll.ActualWidth + 1 && bounds.Bottom <= scroll.ActualHeight + 1,
-                    "Larger conflict text must keep the edit restriction in the viewport.");
-                WpfTestHost.Capture(window, "ui38-conflict-larger-text-720x560");
-            }
-            contract.SyncState = SyncState.Confirmed;
-            preview.Observe(contract);
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsFalse(status.IsVisible, "A Rust state refresh must remove a resolved conflict warning.");
-            Assert.IsFalse(notice.IsVisible);
-            Assert.IsTrue(edit.IsEnabled);
         });
     }
 

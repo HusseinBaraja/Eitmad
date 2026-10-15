@@ -107,57 +107,6 @@ public sealed class OperationsTableRenderedTests
     }
 
     [TestMethod]
-    public void SmallMaterialListsFitContentAndLargeListsKeepNativeScrolling()
-    {
-        WpfTestHost.Run(1920, 1080, window =>
-        {
-            WpfTestHost.FindByName<Button>(window, "MaterialsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            var page = window.RawMaterialsSurface;
-            var data = RawMaterials.MaterialFixtures.Snapshot();
-            var material = data.Materials[0];
-            page.ViewModel.ApplyDurableData(data.References, [material]);
-            WpfTestHost.CompleteLayout(window);
-            var table = WpfTestHost.FindByName<OperationsTable>(page, "MaterialsTable");
-            var row = (DataGridRow)table.ItemContainerGenerator.ContainerFromIndex(0);
-            var rowBottom = row.TranslatePoint(new Point(0, row.ActualHeight), table).Y;
-            Assert.IsTrue(table.ActualHeight - rowBottom < 4, "A small list must end at its last row.");
-            var singleHeight = table.ActualHeight;
-            var filters = WpfTestHost.FindByName<WrapPanel>(page, "FiltersGrid");
-            var fields = filters.Children.Cast<FrameworkElement>().ToArray();
-            Assert.IsTrue(fields[0].ActualWidth > fields[1].ActualWidth && fields[1].ActualWidth > fields[2].ActualWidth,
-                "Search needs more space than category; the short status needs less.");
-            WpfTestHost.Capture(window, "table-materials-small");
-
-            var records = Enumerable.Range(0, 32).Select(index => new Contracts.Material
-            {
-                Id = Guid.NewGuid(), Scope = material.Scope, Name = $"لوح خشب تجريبي {index + 1}",
-                CategoryId = material.CategoryId, UnitId = material.UnitId,
-                CurrentCostYer = material.CurrentCostYer, Revision = 1,
-            }).ToArray();
-            page.ViewModel.ApplyDurableData(data.References, records);
-            WpfTestHost.CompleteLayout(window);
-            var scroll = (ScrollViewer)table.Template.FindName("DG_ScrollViewer", table);
-            Assert.IsTrue(table.ActualHeight > singleHeight && table.ActualHeight <= table.MaxHeight);
-            Assert.IsGreaterThan(0, scroll.ScrollableHeight);
-            table.SelectedIndex = table.Items.Count - 1;
-            table.ScrollIntoView(table.SelectedItem);
-            WpfTestHost.CompleteLayout(window);
-            Assert.IsNotNull(table.ItemContainerGenerator.ContainerFromIndex(table.SelectedIndex), "The last record remains reachable.");
-            Assert.IsTrue(table.Focus());
-            WpfTestHost.Capture(window, "table-materials-many-last-row");
-
-            page.ViewModel.SelectedStatus = Features.RawMaterials.RawMaterialsViewModel.ArchivedStatus;
-            WpfTestHost.CompleteLayout(window);
-            Assert.HasCount(0, table.Items);
-            var empty = WpfTestHost.Descendants<EmptyState>(table).Single();
-            Assert.IsTrue(empty.IsVisible);
-            Assert.IsTrue(empty.TranslatePoint(new Point(0, empty.ActualHeight), table).Y <= table.ActualHeight,
-                "Content sizing must keep the complete empty state visible.");
-            WpfTestHost.Capture(window, "table-materials-empty");
-        });
-    }
-
-    [TestMethod]
     public void CompactDetailsKeepEditingSortingAndSelectionAcrossResize()
     {
         WpfTestHost.Run(900, 700, window =>

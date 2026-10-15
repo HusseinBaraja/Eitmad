@@ -269,8 +269,6 @@ public sealed class ProductsViewModel : ObservableObject
 
     public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
 
-    public bool HasNoVisibleProducts => VisibleProducts.Count == 0;
-
     public string VisibleCountLabel => $"{VisibleProducts.Count} من {products.Count} منتجات";
 
     public bool IsArchiveConfirmationOpen
@@ -302,16 +300,8 @@ public sealed class ProductsViewModel : ObservableObject
     public string CategoryError
     {
         get => categoryError;
-        private set
-        {
-            if (Set(ref categoryError, value))
-            {
-                Raise(nameof(HasCategoryError));
-            }
-        }
+        private set => Set(ref categoryError, value);
     }
-
-    public bool HasCategoryError => !string.IsNullOrEmpty(CategoryError);
 
     public void BeginCreate()
     {
@@ -518,7 +508,6 @@ public sealed class ProductsViewModel : ObservableObject
             VisibleProducts.Add(product);
         }
 
-        Raise(nameof(HasNoVisibleProducts));
         Raise(nameof(VisibleCountLabel));
     }
 
