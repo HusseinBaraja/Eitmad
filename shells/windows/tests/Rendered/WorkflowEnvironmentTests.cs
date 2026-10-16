@@ -156,7 +156,8 @@ public sealed partial class WorkflowEnvironmentTests
             }
             Assert.AreEqual(expected, signedIn.Task.Result);
             Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
-            Finish(window.AccountActivation);
+            // Activation loads several independent capabilities, each with its own IPC deadline.
+            Finish(window.AccountActivation, TimeSpan.FromMinutes(2));
             Assert.AreEqual(expected == AuthenticatedSurface.Manager ? Visibility.Visible : Visibility.Collapsed, window.ResponsiveRoot.Visibility,
                 $"{name} activation: {bridge.Snapshot.State}, {bridge.Snapshot.IpcHealth}, exit {bridge.Snapshot.LastExit?.ExitCode}.");
             Assert.AreEqual(expected == AuthenticatedSurface.Receptionist ? Visibility.Visible : Visibility.Collapsed, window.ReceptionistSurface.Visibility);
@@ -166,17 +167,38 @@ public sealed partial class WorkflowEnvironmentTests
 
     private static void ReadConfirmedWork(IEngineShellBridge bridge, string root)
     {
-        var quotations = bridge.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
-        Finish(quotations);
+        var quotations = ReadServerConfirmed(bridge, Query.ForQuotationList(new() { Limit = 100 }),
+            result => result.AsQuotations()!.ServerAvailable);
+        Finish(quotations, TimeSpan.FromMinutes(2));
         Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Result.Outcome.Status);
         Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.ServerAvailable);
         Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 5);
-        var orders = bridge.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
-        Finish(orders);
+        var orders = ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }),
+            result => result.AsOrders()!.ServerAvailable);
+        Finish(orders, TimeSpan.FromMinutes(2));
         Assert.AreEqual(CommandOutcomeStatus.Succeeded, orders.Result.Outcome.Status);
         Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.ServerAvailable);
         Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.Items.Length >= 1);
         CheckAcceptedWork(root, orders.Result.Outcome.Payload.AsOrders()!.Items);
+    }
+
+    private static async Task<QueryResponseEnvelope> ReadServerConfirmed(
+        IEngineShellBridge bridge, Query query, Func<QueryResult, bool> confirmed)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var cachedReads = 0;
+        while (true)
+        {
+            var response = await bridge.QueryAsync(query, deadline.Token);
+            Assert.AreEqual(CommandOutcomeStatus.Succeeded, response.Outcome.Status);
+            if (confirmed(response.Outcome.Payload))
+            {
+                Console.WriteLine($"Server confirmed {query.Kind}; preceding cached reads: {cachedReads}.");
+                return response;
+            }
+            ++cachedReads;
+            await Task.Delay(TimeSpan.FromSeconds(1), deadline.Token);
+        }
     }
 
     private static void SwitchAccount(MainWindow window, IEngineShellBridge bridge)
@@ -243,9 +265,9 @@ public sealed partial class WorkflowEnvironmentTests
         finally { bridge.StateChanged -= Changed; }
     }
 
-    private static void Finish(Task task)
+    private static void Finish(Task task, TimeSpan? timeout = null)
     {
-        task = task.WaitAsync(TimeSpan.FromSeconds(30));
+        task = task.WaitAsync(timeout ?? TimeSpan.FromSeconds(30));
         if (!task.IsCompleted)
         {
             var frame = new DispatcherFrame();
