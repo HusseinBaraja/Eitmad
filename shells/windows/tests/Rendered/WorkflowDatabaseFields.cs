@@ -212,7 +212,7 @@ public sealed partial class WorkflowEnvironmentTests
         ClickNamed(window, "FurnitureNavButton");
         var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
         Finish(view.ActivateAsync());
-        ClickAutomation(view, "إضافة منتج");
+        ClickAutomation(view, "إضافة أثاث");
         WaitField(() => view.ViewModel.IsEditorOpen, "furniture editor ready");
         var name = $"خزانة تحقق {suffix}";
         SetNamedField(view, "FurnitureNameBox", name);

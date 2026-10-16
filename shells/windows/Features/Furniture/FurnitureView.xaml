@@ -127,7 +127,7 @@
             </Grid.RowDefinitions>
             <controls:PageHeader Grid.Row="0" Title="الأثاث" ShowSubtitle="False" Height="Auto" MinHeight="96">
                 <StackPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource PrimaryButton}" Height="46" IsEnabled="{Binding CanSubmit}" Click="AddFurnitureClick" automation:AutomationProperties.Name="إضافة منتج" Content="إضافة منتج" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
+                    <Button Style="{StaticResource PrimaryButton}" Height="46" IsEnabled="{Binding CanSubmit}" Click="AddFurnitureClick" automation:AutomationProperties.Name="إضافة أثاث" Content="إضافة أثاث" controls:ControlOptions.Icon="{StaticResource IconPlus}" />
                 </StackPanel>
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" Padding="28,20,28,28" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -138,7 +138,7 @@
                             <Button x:Name="OpenPricingButton" Content="فتح التسعير" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="OpenPricingClick" Visibility="{Binding CanOpenPricing, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="فتح التسعير لنشر سعر البيع" />
                         </StackPanel>
                     </Border>
-                    <TextBlock Text="هذه تعريفات الأثاث وأسعارها المقترحة. حالة سعر البيع المنشور تظهر في التسعير بعد تأكيد الخادم." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
+                    <TextBlock Text="قائمة الأثاث لتعريف ما نصنعه. قائمة المنتجات للأصناف الجاهزة التي نشتريها ونبيعها كما هي. هذه تعريفات الأثاث وأسعارها المقترحة. حالة سعر البيع المنشور تظهر في التسعير بعد تأكيد الخادم." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
                     <TextBlock Text="{Binding DataStateText}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8" />
                     <WrapPanel Margin="0,0,0,14">
                         <StackPanel Width="360" Margin="0,0,12,8">
@@ -487,7 +487,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <TextBlock Text="صورة المنتج" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="صورة الأثاث" Style="{StaticResource FieldLabel}" />
                                 <Border Height="180" Background="{DynamicResource CanvasBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                                     <Grid>
                                         <Image Source="{Binding ProductImage}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
@@ -979,7 +979,7 @@
                                 <TextBlock Text="للقراءة فقط" Foreground="#28733C" FontSize="14" FontWeight="SemiBold" />
                             </Border>
                             <StackPanel Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Right">
-                                <TextBlock Text="مراجعة المنتج" FontSize="24" FontWeight="Bold" />
+                                <TextBlock Text="مراجعة الأثاث" FontSize="24" FontWeight="Bold" />
                             </StackPanel>
                         </Grid>
                         <Border x:Name="BelowCostReview" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,18" Visibility="{Binding HasBelowCostVariants, Converter={StaticResource BooleanToVisibility}}">
@@ -1362,7 +1362,7 @@
                     <TextBox Text="{Binding ColorPriceAdjustment, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" automation:AutomationProperties.Name="تعديل سعر اللون" />
                 </controls:FormField>
                 <controls:FormField Label="اللون المعروض" Margin="0,17,0,0" ErrorText="{Binding EditorError}">
-                    <ComboBox ItemsSource="{Binding ColorSwatchOptions}" SelectedValuePath="Hex" SelectedValue="{Binding ColorSwatchHex}" Style="{StaticResource SelectInput}" FlowDirection="RightToLeft" automation:AutomationProperties.Name="درجة لون المنتج">
+                    <ComboBox ItemsSource="{Binding ColorSwatchOptions}" SelectedValuePath="Hex" SelectedValue="{Binding ColorSwatchHex}" Style="{StaticResource SelectInput}" FlowDirection="RightToLeft" automation:AutomationProperties.Name="درجة لون الأثاث">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft">

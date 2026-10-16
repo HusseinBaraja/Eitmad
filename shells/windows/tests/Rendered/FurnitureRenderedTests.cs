@@ -161,7 +161,7 @@ public sealed class FurnitureRenderedTests
             WpfTestHost.FindByName<Button>(window, "FurnitureNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
             var view = WpfTestHost.Descendants<FurnitureView>(window).Single();
             Assert.IsTrue(view.ViewModel.CanManage); Assert.AreEqual("البحث عن أثاث", AutomationProperties.GetName(WpfTestHost.FindByName<TextBox>(view, "FurnitureSearchBox")));
-            Click(view, "إضافة منتج"); var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox"); Assert.IsTrue(name.IsKeyboardFocusWithin); name.Text = "خزانة اختبار";
+            Click(view, "إضافة أثاث"); var name = WpfTestHost.FindByName<TextBox>(view, "FurnitureNameBox"); Assert.IsTrue(name.IsKeyboardFocusWithin); name.Text = "خزانة اختبار";
             view.ViewModel.ShortDescription = "وصف محفوظ"; view.ViewModel.InternalNotes = "ملاحظة محفوظة";
             view.ViewModel.EditorCategory = "فئة غير محفوظة";
             Next(view); Assert.AreEqual(1, view.ViewModel.CurrentStep);

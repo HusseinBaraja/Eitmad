@@ -206,7 +206,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
         }
     }
 
-    public string EditorTitle => IsCreating ? "إضافة منتج" : "تعديل المنتج";
+    public string EditorTitle => IsCreating ? "إضافة أثاث" : "تعديل الأثاث";
 
     public int CurrentStep
     {
@@ -254,7 +254,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
     }
 
     public string ReviewDescription => string.IsNullOrWhiteSpace(ShortDescription)
-        ? "لا يوجد وصف لهذا المنتج."
+        ? "لا يوجد وصف لهذا الأثاث."
         : ShortDescription.Trim();
 
     public string InternalNotes { get => internalNotes; set => Set(ref internalNotes, value ?? string.Empty); }
@@ -385,7 +385,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
 
     public bool HasNoVisibleFurniture => !IsLoading && VisibleFurniture.Count == 0;
 
-    public string VisibleCountLabel => $"{VisibleFurniture.Count} من {furniture.Count} منتجات";
+    public string VisibleCountLabel => $"{VisibleFurniture.Count} من {furniture.Count} تعريفات أثاث";
 
     public void BeginCreate()
     {
