@@ -1,6 +1,8 @@
 use super::{Client, Result, checked, correlation, deadline, mutation};
 use eitmad_authorization::AuthorizationService;
+use eitmad_catalog_image::{CatalogImageService, CatalogImageTransfer};
 use eitmad_contracts::{
+    catalog_image::{CatalogImageKind, CatalogImageRef, ImportCatalogImage},
     commands::CreateCustomer,
     customer::{CustomerAddress, CustomerName, CustomerNotes, CustomerPhone},
     furniture::{
@@ -10,12 +12,13 @@ use eitmad_contracts::{
     material::{
         MaterialQuantity, SaveMaterial, SaveMaterialCategory, SaveMaterialUnit, UnitDimension,
     },
-    order::{AcceptQuotation, AcceptanceMethod, ConfirmOrder, ConvertQuotation, OrderAction},
+    order::{
+        AcceptQuotation, AcceptanceMethod, ConfirmOrder, ConvertQuotation, OrderAction,
+        OrderRecord, TransitionOrderWork,
+    },
     part::{PartUsage, SavePart, SavePartCategory},
     pricing::{ListPrices, PriceSelection, PriceTarget, PublishPrice},
-    product::{
-        ProductReference, ProductVariantId, SaveProduct, SaveProductCategory, SaveProductVariant,
-    },
+    product::{ProductVariantId, SaveProduct, SaveProductCategory, SaveProductVariant},
     quotation::{EvaluateQuotation, QuotationCustomerIntent, QuotationLineIntent},
     quotation_approval::{ConfirmDiscountApproval, DiscountApprovalAction},
     quotation_draft::CreateQuotationDraft,
@@ -33,18 +36,42 @@ use uuid::Uuid;
 pub(super) fn run(manager: &Client, reception: &Client) -> Result<()> {
     let part = seed_part(manager)?;
     seed_furniture(manager, part)?;
-    let product = seed_product(manager)?;
+    seed_product(manager)?;
     publish_catalog(manager, reception)?;
-    seed_workflow(
-        reception,
-        &PriceTarget::Product(ProductReference {
-            scope: reception.actor.scope.clone(),
-            product_id: product.id,
-            variant_id: product.variants[0].id,
-            revision: product.revision,
-            schema_version: 1,
-        }),
+    seed_workflow(manager, reception)
+}
+
+fn seed_image(
+    manager: &Client,
+    kind: CatalogImageKind,
+    file: &str,
+    step: u128,
+) -> Result<Box<CatalogImageRef>> {
+    let images = CatalogImageService::new(
+        manager.store.clone(),
+        AuthorizationService::new(manager.store.clone()),
     )
+    .with_transfer(manager.media.clone());
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("examples/workflow_environment/photos")
+        .join(file);
+    let image = checked(
+        images.import(
+            &mutation(&manager.actor, step),
+            &ImportCatalogImage {
+                kind,
+                source_path: path.to_string_lossy().into_owned(),
+            },
+            deadline(),
+        ),
+        "import showroom photo",
+    )?;
+    checked(images.retry_uploads(), "upload showroom photo")?;
+    checked(
+        manager.media.download(&manager.actor, &image, deadline()),
+        "confirm showroom photo upload",
+    )?;
+    Ok(Box::new(image))
 }
 
 fn seed_part(manager: &Client) -> Result<eitmad_contracts::part::Part> {
@@ -56,7 +83,7 @@ fn seed_part(manager: &Client) -> Result<eitmad_contracts::part::Part> {
             &SaveMaterialCategory {
                 id: None,
                 expected_revision: None,
-                name: "أخشاب تجريبية".into(),
+                name: "ألواح خشبية".into(),
                 archived: false,
             },
         ),
@@ -84,10 +111,10 @@ fn seed_part(manager: &Client) -> Result<eitmad_contracts::part::Part> {
             &SaveMaterial {
                 id: None,
                 expected_revision: None,
-                name: "لوح خشب تجريبي".into(),
+                name: "لوح خشب بقشرة الجوز".into(),
                 category_id: category.id,
                 unit_id: unit.id,
-                current_cost_yer: 500,
+                current_cost_yer: 9_000,
                 archived: false,
             },
         ),
@@ -100,7 +127,7 @@ fn seed_part(manager: &Client) -> Result<eitmad_contracts::part::Part> {
             &SavePartCategory {
                 id: None,
                 expected_revision: None,
-                name: "ألواح تجريبية".into(),
+                name: "ألواح الخزائن".into(),
                 archived: false,
             },
         ),
@@ -112,9 +139,9 @@ fn seed_part(manager: &Client) -> Result<eitmad_contracts::part::Part> {
             &SavePart {
                 id: None,
                 expected_revision: None,
-                name: "جانب خزانة تجريبي".into(),
+                name: "لوح خزانة جوزي".into(),
                 category_id: category.id,
-                description: "بيانات اختبار اصطناعية".into(),
+                description: "مجموعة ألواح بقشرة الجوز لخزانة السكينة".into(),
                 usages: vec![PartUsage {
                     material_id: material.id,
                     material_revision: material.revision,
@@ -139,7 +166,7 @@ fn seed_furniture(manager: &Client, part: eitmad_contracts::part::Part) -> Resul
             &SaveFurnitureCategory {
                 id: None,
                 expected_revision: None,
-                name: "خزائن تجريبية".into(),
+                name: "خزائن غرف النوم".into(),
                 archived: false,
             },
         ),
@@ -151,25 +178,25 @@ fn seed_furniture(manager: &Client, part: eitmad_contracts::part::Part) -> Resul
             &SaveFurniture {
                 id: None,
                 expected_revision: None,
-                name: "خزانة اختبار".into(),
+                name: "خزانة السكينة ببابين".into(),
                 category_id: category.id,
-                image: None,
-                description: "خزانة ببيانات اصطناعية".into(),
-                notes: "للاختبار فقط".into(),
+                image: Some(seed_image(manager, CatalogImageKind::Furniture, "walnut-wardrobe.png", 10)?),
+                description: "خزانة بقشرة الجوز، بابان ومقبضان بلون نحاسي. العرض ١٢٠ سم، الارتفاع ٢٠٠ سم، العمق ٦٠ سم.".into(),
+                notes: "عينة عرض اصطناعية لغرفة نوم أسرة السعدي؛ الصورة مولدة.".into(),
                 parts: vec![FurniturePart {
                     reference: part.composition,
                     quantity: 3,
                 }],
                 variants: vec![FurnitureVariant {
                     id: FurnitureVariantId::new(Uuid::from_u128(1001)),
-                    name: "قياسي".into(),
+                    name: "جوزي — ١٢٠ × ٢٠٠ × ٦٠ سم".into(),
                     dimensions: FurnitureDimensions {
-                        width_mm: 1000,
-                        height_mm: 1800,
-                        depth_mm: 500,
+                        width_mm: 1200,
+                        height_mm: 2000,
+                        depth_mm: 600,
                     },
                     customization: None,
-                    selling_price_yer: 5000,
+                    selling_price_yer: 185_000,
                     archived: false,
                     color_ids: vec![],
                     handle_ids: vec![],
@@ -194,7 +221,7 @@ fn seed_product(manager: &Client) -> Result<eitmad_contracts::product::Product> 
             &SaveProductCategory {
                 id: None,
                 expected_revision: None,
-                name: "مراتب تجريبية".into(),
+                name: "مراتب غرف النوم".into(),
                 archived: false,
             },
         ),
@@ -206,15 +233,15 @@ fn seed_product(manager: &Client) -> Result<eitmad_contracts::product::Product> 
             &SaveProduct {
                 id: None,
                 expected_revision: None,
-                name: "مرتبة اختبار".into(),
+                name: "مرتبة الراحة المزدوجة".into(),
                 category_id: category.id,
-                image: None,
-                description: "مرتبة ببيانات اصطناعية".into(),
-                notes: "للاختبار فقط".into(),
+                image: Some(seed_image(manager, CatalogImageKind::Product, "double-mattress.png", 11)?),
+                description: "مرتبة مزدوجة بسطح أبيض مبطن وجوانب بيج. العرض ١٦٠ سم، الطول ٢٠٠ سم، السماكة ٢٥ سم.".into(),
+                notes: "عينة عرض اصطناعية لغرفة نوم أسرة السعدي؛ الصورة مولدة.".into(),
                 variants: vec![SaveProductVariant {
                     id: ProductVariantId::new(Uuid::from_u128(1002)),
-                    name: "مفرد".into(),
-                    purchase_cost_yer: 90_000,
+                    name: "١٦٠ × ٢٠٠ سم — سماكة ٢٥ سم".into(),
+                    purchase_cost_yer: 65_000,
                     archived: false,
                 }],
                 archived: false,
@@ -248,9 +275,9 @@ fn publish_catalog(manager: &Client, reception: &Client) -> Result<()> {
     )?;
     for (index, item) in page.items.into_iter().enumerate() {
         let amount = if matches!(item.target, PriceTarget::Product(_)) {
-            100_000
+            95_000
         } else {
-            5000
+            185_000
         };
         checked(
             pricing.publish(
@@ -273,77 +300,61 @@ fn publish_catalog(manager: &Client, reception: &Client) -> Result<()> {
     Ok(())
 }
 
-fn seed_workflow(reception: &Client, target: &PriceTarget) -> Result<()> {
+fn seed_customer(reception: &Client) -> Result<eitmad_contracts::customer::Customer> {
     let auth = AuthorizationService::new(reception.store.clone());
     let customers = eitmad_customer::CustomerService::new(reception.store.clone(), auth.clone());
-    let customer = checked(
-        customers.create(
-            &mutation(&reception.branch, 40),
-            &CreateCustomer {
-                name: checked(
-                    CustomerName::parse("عميل الاختبار الاصطناعي"),
-                    "customer name",
-                )?,
-                phone: checked(CustomerPhone::parse("777123456"), "customer phone")?,
-                address: Some(checked(
-                    CustomerAddress::parse("صنعاء - عنوان تجريبي"),
-                    "customer address",
-                )?),
-                notes: Some(checked(
-                    CustomerNotes::parse("بيانات اصطناعية للاختبار فقط"),
-                    "customer notes",
-                )?),
-            },
-        ),
-        "synthetic customer",
-    )?
-    .customer;
+    let customer = checked(customers.create(&mutation(&reception.branch, 40), &CreateCustomer {
+        name: checked(CustomerName::parse("أسرة سامر السعدي"), "customer name")?,
+        phone: checked(CustomerPhone::parse("000000000"), "customer phone")?,
+        address: Some(checked(CustomerAddress::parse("حي السكينة الافتراضي، منزل ١٢ — عنوان عرض غير حقيقي"), "customer address")?),
+        notes: Some(checked(CustomerNotes::parse("أسرة خيالية؛ رقم غير صالح للاتصال. تجهيز غرفة النوم بخزانة ومرتبة. لا توجد بيانات أشخاص حقيقيين."), "customer notes")?),
+    }), "synthetic family")?.customer;
     super::customers::synchronize(reception)?;
-    for (index, discount) in [(0_u128, 0), (1, 600), (2, 500), (3, 0), (4, 0)] {
-        seed_quotation(reception, target, &customer, index, discount)?;
-    }
-    Ok(())
+    Ok(customer)
 }
 
-fn seed_quotation(
-    reception: &Client,
-    target: &PriceTarget,
-    customer: &eitmad_contracts::customer::Customer,
-    index: u128,
-    discount: u32,
-) -> Result<()> {
-    let auth = AuthorizationService::new(reception.store.clone());
-    let drafts = QuotationDraftService::new(reception.store.clone(), auth);
-    // One draft, one pending discount approval, one issued quotation, one accepted quotation,
-    // and one converted ready-made order exercise distinct durable workflow states.
-    let step = 100 + index * 10;
+fn seed_workflow(manager: &Client, reception: &Client) -> Result<()> {
+    let customer = seed_customer(reception)?;
+    let entries = checked(
+        reception.store.catalog_sales(&reception.actor.scope),
+        "family catalog",
+    )?;
+    let lines = entries
+        .into_iter()
+        .enumerate()
+        .map(|(index, entry)| QuotationLineIntent {
+            id: Uuid::from_u128(100 + index as u128),
+            configuration: CheckSalesConfiguration {
+                selection: PriceSelection {
+                    target: entry.price.target,
+                    price_revision: entry.price.revision,
+                    quantity: 1,
+                    color_id: None,
+                    handle_id: None,
+                },
+                dimensions: entry.dimensions,
+            },
+        })
+        .collect();
+    let drafts = QuotationDraftService::new(
+        reception.store.clone(),
+        AuthorizationService::new(reception.store.clone()),
+    );
     let draft = checked(
         drafts.create(
-            &mutation(&reception.branch, step),
+            &mutation(&reception.branch, 100),
             &CreateQuotationDraft {
                 intent: EvaluateQuotation {
                     customer: Some(QuotationCustomerIntent {
                         id: customer.id,
                         revision: customer.revision,
                     }),
-                    lines: vec![QuotationLineIntent {
-                        id: Uuid::from_u128(step),
-                        configuration: CheckSalesConfiguration {
-                            selection: PriceSelection {
-                                target: target.clone(),
-                                price_revision: 1,
-                                quantity: 1,
-                                color_id: None,
-                                handle_id: None,
-                            },
-                            dimensions: None,
-                        },
-                    }],
-                    discount_basis_points: discount,
+                    lines,
+                    discount_basis_points: 0,
                 },
             },
         ),
-        "quotation draft",
+        "family quotation draft",
     )?;
     checked(
         DiscountApprovalServer::transition(
@@ -351,111 +362,96 @@ fn seed_quotation(
             &reception.branch,
             &ConfirmDiscountApproval {
                 scope: reception.branch.scope.clone(),
-                idempotency_key: IdempotencyKey::new(Uuid::from_u128(step + 1)),
-                action: if index == 1 {
-                    DiscountApprovalAction::Request(draft.snapshot.clone())
-                } else {
-                    DiscountApprovalAction::Refresh(draft.snapshot.clone())
-                },
+                idempotency_key: IdempotencyKey::new(Uuid::from_u128(101)),
+                action: DiscountApprovalAction::Refresh(draft.snapshot.clone()),
             },
             deadline(),
         ),
-        "confirm draft or request discount approval",
+        "confirm family draft",
     )?;
-    if index < 2 {
-        return Ok(());
-    }
-    finish_quotation(reception, &drafts, &draft.snapshot, index, step)
-}
-
-fn finish_quotation(
-    reception: &Client,
-    drafts: &QuotationDraftService,
-    draft: &eitmad_contracts::quotation_draft::QuotationDraftSnapshot,
-    index: u128,
-    step: u128,
-) -> Result<()> {
-    let record = checked(
-        reception.workflow.quotations(
-            &reception.branch,
-            &ListQuotations {
-                after: None,
-                limit: 100,
-            },
-            deadline(),
-        ),
-        "read confirmed quotation",
-    )?
-    .items
-    .into_iter()
-    .find(|r| r.quotation.id == draft.id)
-    .ok_or("confirmed draft missing")?;
     let issued = checked(
         reception.workflow.quotation_transition(
             &reception.branch,
             &ConfirmQuotation {
                 scope: reception.branch.scope.clone(),
-                idempotency_key: IdempotencyKey::new(Uuid::from_u128(step + 2)),
+                idempotency_key: IdempotencyKey::new(Uuid::from_u128(102)),
                 action: QuotationAction::Issue(IssueQuotation {
-                    draft_id: record.quotation.id,
+                    draft_id: draft.snapshot.id,
                     expected_revision: 1,
-                    expected_draft_revision: draft.revision,
+                    expected_draft_revision: draft.snapshot.revision,
                 }),
             },
             deadline(),
         ),
-        "issue quotation",
+        "issue family quotation",
     )?;
-    checked(
-        drafts.cache_quotation(&reception.branch, &issued, correlation()),
-        "cache issued quotation",
-    )?;
-    if index == 2 {
-        return Ok(());
-    }
-    let accepted = checked(
-        reception.workflow.quotation_transition(
+    let accepted = checked(reception.workflow.quotation_transition(&reception.branch, &ConfirmQuotation {
+        scope: reception.branch.scope.clone(), idempotency_key: IdempotencyKey::new(Uuid::from_u128(103)),
+        action: QuotationAction::Accept(AcceptQuotation { draft_id: issued.quotation.id,
+            expected_revision: issued.revision, method: AcceptanceMethod::InPerson,
+            note: Some("وافقت أسرة السعدي على الخزانة والمرتبة بسعر إجمالي ٢٨٠٬٠٠٠ ريال. مثال اصطناعي.".into()) }),
+    }, deadline()), "accept family quotation")?;
+    let order = checked(
+        OrderServer::transition(
+            &reception.workflow,
             &reception.branch,
-            &ConfirmQuotation {
+            &ConfirmOrder {
                 scope: reception.branch.scope.clone(),
-                idempotency_key: IdempotencyKey::new(Uuid::from_u128(step + 3)),
-                action: QuotationAction::Accept(AcceptQuotation {
-                    draft_id: issued.quotation.id,
-                    expected_revision: issued.revision,
-                    method: AcceptanceMethod::Phone,
-                    note: Some("موافقة اختبار اصطناعية".into()),
+                idempotency_key: IdempotencyKey::new(Uuid::from_u128(104)),
+                action: OrderAction::Convert(ConvertQuotation {
+                    draft_id: accepted.quotation.id,
+                    expected_revision: accepted.revision,
                 }),
             },
             deadline(),
         ),
-        "accept quotation",
+        "convert family order",
     )?;
     checked(
-        drafts.cache_quotation(&reception.branch, &accepted, correlation()),
-        "cache accepted quotation",
+        drafts.cache_quotation(&reception.branch, &order.source, correlation()),
+        "cache converted family quotation",
     )?;
-    if index == 4 {
-        checked(
+    complete_work(manager, order)
+}
+
+fn complete_work(manager: &Client, mut order: OrderRecord) -> Result<()> {
+    let work_id = order.work.first().ok_or("family work order missing")?.id;
+    for (step, starting) in [(105, true), (106, false)] {
+        let work = TransitionOrderWork {
+            order_id: order.id,
+            expected_revision: order.revision,
+            work_id,
+            due_at: Some(eitmad_contracts::transport::UnixMillis(
+                order.created_at.0 + 86_400_000,
+            )),
+            assignment: Some("ورشة السكينة — فريق العرض الافتراضي".into()),
+        };
+        order = checked(
             OrderServer::transition(
-                &reception.workflow,
-                &reception.branch,
+                &manager.workflow,
+                &manager.branch,
                 &ConfirmOrder {
-                    scope: reception.branch.scope.clone(),
-                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(step + 4)),
-                    action: OrderAction::Convert(ConvertQuotation {
-                        draft_id: accepted.quotation.id,
-                        expected_revision: accepted.revision,
-                    }),
+                    scope: manager.branch.scope.clone(),
+                    idempotency_key: IdempotencyKey::new(Uuid::from_u128(step)),
+                    action: if starting {
+                        OrderAction::StartWork(work)
+                    } else {
+                        OrderAction::CompleteWork(work)
+                    },
                 },
                 deadline(),
             ),
-            "convert accepted quotation to order",
+            "complete family wardrobe production",
         )?;
+    }
+    if order.state != eitmad_contracts::order::OrderState::Ready {
+        return Err("family order is not ready for delivery");
     }
     Ok(())
 }
 
 pub(super) fn verify(manager: &Client, reception: &Client) -> Result<()> {
+    // Restart verification must permit later rehearsal work and delivery. Never reseed or reset it.
     for client in [manager, reception] {
         super::customers::synchronize(client)?;
         checked(
@@ -473,8 +469,8 @@ pub(super) fn verify(manager: &Client, reception: &Client) -> Result<()> {
             ),
             "authenticated workflow restart check",
         )?;
-        if records.items.len() < 5 {
-            return Err("seeded workflow state missing");
+        if records.items.is_empty() {
+            return Err("seeded family quotation missing");
         }
     }
     Ok(())

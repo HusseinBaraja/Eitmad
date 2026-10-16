@@ -33,7 +33,9 @@ Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, th
 
 ### Prepare and launch the local demo
 
-Use `run-demo.ps1` for the presentation. It uses this connected workflow with fixed state at `tests/engine-integration/artifacts/demo-presentation` and loopback ports `55449` (PostgreSQL) and `58453` (TLS server). It does not use the local-only `run.ps1` account seeder. Keep this state under the same Windows user. The default PostgreSQL binaries on this PC are at `target/direct-order-test/pgsql/bin`; supply `-PostgresBin` if they are installed elsewhere. That path and the ports are retained in private settings.
+Use `run-demo.ps1` for the presentation. It uses this connected workflow with fixed state at `tests/engine-integration/artifacts/demo-family-purchase` and loopback ports `55459` (PostgreSQL) and `58463` (TLS server). This separate environment preserves the previous `demo-presentation` state and its services. It does not use the local-only `run.ps1` account seeder. Keep this state under the same Windows user. The default PostgreSQL binaries on this PC are at `target/direct-order-test/pgsql/bin`; supply `-PostgresBin` if they are installed elsewhere. That path and the ports are retained in private settings.
+
+The fresh connected seed contains one fictional family purchase: a two-door walnut wardrobe at 185,000 YER and a double mattress at 95,000 YER, one of each, with no discount and a 280,000 YER total. Both have bundled synthetic catalog photos. The same customer and specifications link the converted quotation, order, customer documents, and completed wardrobe work order. Rust completes production and leaves the order Ready, without recording delivery. The customer, address, workshop assignment, and non-dialable all-zero phone are fictional. Prices are demo values, not a market quotation. Photo prompts are retained beside the `crates/server-connection/examples/workflow_environment/photos/README.md`.
 
 Before the meeting, while package sources are available, prepare all build outputs and check the PostgreSQL binaries:
 
@@ -49,11 +51,11 @@ From stopped services, use one launch command:
 pwsh -NoProfile -File .\run-demo.ps1
 ```
 
-Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadPricesAndIssueQuotation` through the real supervised engine and authenticated routes. The check signs in as both roles, requires server-confirmed Furniture and Product prices, creates a synthetic customer, and issues a new zero-discount quotation at the confirmed Product price. It does not change catalog prices. Each successful check adds synthetic work; it does not reset existing work.
+Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads the two confirmed prices and photo assets, and compares the linked quotation, order, printable documents, and Manager work-order specifications. It requires the order to remain Ready and permits Receptionist delivery. It adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery. After rehearsing delivery, readiness fails until another purchase is prepared through normal authorized workflows; it never resets the delivered order.
 
 Wait for `DEMO READY` and exit code zero. The launcher requires every selected test to pass; a skipped or missing test cannot pass readiness. The private `demo-ready.json` links the fresh TRX result and `demo-workflow-proof.json`. A new launch clears old readiness proof, and Stop removes the ready marker. These files record a completed check, not continuous health monitoring. Leave PostgreSQL, the server, and the opened app running before the meeting. Local services use loopback and need no store internet after preparation. Actual disconnected operation still needs a rehearsal on the demo PC.
 
-For this demo, read `manager_password` and `receptionist_password` locally from the protected `tests/engine-integration/artifacts/demo-presentation/secrets.json` before the meeting. Use the sign-in names `manager` and `receptionist`. Do not print or copy private settings into evidence or logs.
+For this demo, read `manager_password` and `receptionist_password` locally from the protected `tests/engine-integration/artifacts/demo-family-purchase/secrets.json` before the meeting. Use the sign-in names `manager` and `receptionist`. Do not print or copy private settings into evidence or logs.
 
 For CLI verification without opening or driving the desktop:
 

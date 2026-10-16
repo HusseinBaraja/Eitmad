@@ -296,7 +296,7 @@ try {
         $filter = if ($VerifySignIn) {
             'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork'
         } else {
-            'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.DemoRolesCanReadPricesAndIssueQuotation'
+            'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.DemoRolesCanReadFamilyPurchase'
         }
         $results = Join-Path $root ('launch-check-' + [Guid]::NewGuid().ToString('N'))
         Run-Tool 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx')
@@ -322,14 +322,14 @@ try {
     if ($VerifyDemo) {
         $proof = Get-Content -LiteralPath (Join-Path $root 'demo-workflow-proof.json') -Raw | ConvertFrom-Json
         if (-not $proof.manager_sign_in -or -not $proof.receptionist_sign_in -or
-            $proof.priced_catalog_items -lt 2 -or $proof.quotation_state -ne 'Issued') {
+            $proof.priced_catalog_items -lt 2 -or $proof.quotation_state -ne 'Converted' -or $proof.order_state -ne 'Ready') {
             throw 'The required demo workflow proof is incomplete.'
         }
         @{
             verified_utc = [DateTime]::UtcNow.ToString('O'); desktop_started = -not [bool]$NoDesktop
             workflow_proof = 'demo-workflow-proof.json'; test_result = (Join-Path $results 'workflow.trx')
         } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'demo-ready.json')
-        Write-Host 'DEMO READY: both roles signed in, server-confirmed catalog prices read, and a new quotation issued. Keep PostgreSQL and the local server running.'
+        Write-Host 'DEMO READY: both roles signed in, server-confirmed catalog prices read, and the linked family purchase is ready for delivery. Keep PostgreSQL and the local server running.'
         if ($NoDesktop) { Write-Host 'CLI proof only: the interactive desktop was not opened or checked.' }
     }
     Write-Host "Read the generated passwords locally from the protected file: $secretsFile"

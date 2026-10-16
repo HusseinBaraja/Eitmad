@@ -21,8 +21,8 @@ use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane, TokenK
 use eitmad_engine_runtime::DesktopAuthenticator;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{
-    DirectCatalogSyncClient, DirectCustomerSyncClient, DirectDiscountApprovalClient,
-    DirectPriceClient, DirectServerConfig, store_account_session,
+    DirectCatalogImageClient, DirectCatalogSyncClient, DirectCustomerSyncClient,
+    DirectDiscountApprovalClient, DirectPriceClient, DirectServerConfig, store_account_session,
 };
 use eitmad_storage::{AuthorityStore, DesktopAccount, DesktopRole};
 use serde::{Deserialize, Serialize};
@@ -424,6 +424,7 @@ struct Client {
     prices: Arc<DirectPriceClient>,
     workflow: DirectDiscountApprovalClient,
     customers: DirectCustomerSyncClient,
+    media: Arc<DirectCatalogImageClient>,
 }
 fn local_client(
     root: &Path,
@@ -475,6 +476,11 @@ fn local_client(
         store: store.clone(),
         actor,
         branch,
+        media: Arc::new(DirectCatalogImageClient::from_config(
+            config.clone(),
+            secrets.clone(),
+            credential.clone(),
+        )),
         catalog: Arc::new(DirectCatalogSyncClient::from_config(
             config.clone(),
             secrets.clone(),

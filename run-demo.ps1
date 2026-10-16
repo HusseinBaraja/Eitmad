@@ -12,9 +12,9 @@ $ErrorActionPreference = 'Stop'
 # One fixed, isolated connected setup. Never use the developer account seeder.
 $options = @{
     Action = $Action
-    StateDirectory = Join-Path $PSScriptRoot 'tests/engine-integration/artifacts/demo-presentation'
-    DatabasePort = 55449
-    ServerPort = 58453
+    StateDirectory = Join-Path $PSScriptRoot 'tests/engine-integration/artifacts/demo-family-purchase'
+    DatabasePort = 55459
+    ServerPort = 58463
 }
 if ($PostgresBin) { $options.PostgresBin = $PostgresBin }
 if ($NoDesktop -and $Action -ne 'Start') { throw 'NoDesktop is only valid for Start.' }
