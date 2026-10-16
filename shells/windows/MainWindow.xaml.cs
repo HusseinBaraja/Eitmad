@@ -163,7 +163,7 @@ public partial class MainWindow : Window
         sessionActive = true;
         var session = ++accountGeneration;
         ShowAccount(surface);
-        if (home is not null) await home.ActivateAsync();
+        if (home is not null) await home.ActivateAsync(includeCustomerSearch: surface == AuthenticatedSurface.Receptionist);
         if (session != accountGeneration) return;
         if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
         else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
