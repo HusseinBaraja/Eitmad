@@ -81,7 +81,7 @@ public sealed partial class WorkOrdersViewModel
         if (client is null || busy || SelectedWorkOrder?.Record is not { } value || !SelectedWorkOrder.CanAdvance) return;
         if (CanRetry) { ActionNotice = "أكد نتيجة العملية السابقة قبل إرسال عملية جديدة."; return; }
         var input = new TransitionOrderWork { OrderId = value.OrderId, WorkId = value.Id, ExpectedRevision = value.Revision,
-            Assignment = Assignment, DueAt = new DateTimeOffset(DateTime.SpecifyKind(DueDate.Date, DateTimeKind.Unspecified).AddTicks(TimeSpan.TicksPerDay - TimeSpan.TicksPerMillisecond), TimeSpan.FromHours(3)).ToUnixTimeMilliseconds() };
+            Assignment = Assignment, DueAt = WorkOrderDueDate.EndOfAdenDay(DueDate) };
         retryCommand = value.CanStart ? Command.ForOrderWorkStart(input) : Command.ForOrderWorkComplete(input);
         retryKey = Guid.NewGuid(); await SendAsync();
     }
@@ -100,7 +100,7 @@ public sealed partial class WorkOrdersViewModel
         try {
             var result = await client.SendAsync(retryCommand, retryKey);
             if (!active || session != generation) return;
-            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure);
+            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure, retryCommand);
             if (result.Succeeded || result.Failure != DraftFailure.Unavailable) retryCommand = null;
             LastLoad = LoadAsync(); await LastLoad;
         }

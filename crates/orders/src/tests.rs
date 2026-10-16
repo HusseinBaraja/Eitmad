@@ -287,6 +287,36 @@ fn production_due_date_errors_are_invalid_input_without_mutation() {
 }
 
 #[test]
+fn production_date_only_deadlines_accept_today_and_reject_yesterday() {
+    let original = order(vec![planned()]);
+    // 2026-10-16 at 16:30 in Aden; deadlines are 23:59:59.999 at UTC+03:00.
+    let now = UnixMillis(1_792_157_400_000);
+    for (due_at, accepted) in [
+        (1_792_097_999_999, false), // October 15
+        (1_792_184_399_999, true),  // October 16
+        (1_792_270_799_999, true),  // October 17
+    ] {
+        let mut value = original.clone();
+        let input = TransitionOrderWork {
+            order_id: value.id,
+            expected_revision: value.revision,
+            work_id: value.work[0].id,
+            assignment: Some("ورشة تجريبية".into()),
+            due_at: Some(UnixMillis(due_at)),
+        };
+        let result = apply(&mut value, &OrderAction::StartWork(input), now);
+        if accepted {
+            assert_eq!(result, Ok(()));
+            assert_eq!(value.state, OrderState::InProduction);
+            assert_eq!(value.work[0].due_at, Some(UnixMillis(due_at)));
+        } else {
+            assert_eq!(result, Err(OrderError::Invalid));
+            assert_eq!(value, original);
+        }
+    }
+}
+
+#[test]
 fn production_rejects_missing_duplicate_and_incomplete_furniture_before_mutation() {
     let original = order(vec![planned(), planned()]);
     for defect in 0..3 {

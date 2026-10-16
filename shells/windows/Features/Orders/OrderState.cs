@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Quotations;
+using Eitmad.WindowsShell.Features.WorkOrders;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
@@ -139,7 +140,7 @@ public sealed partial class OrdersViewModel
     {
         var start = action == OrderPermittedAction.StartWork;
         if (value.Work.FirstOrDefault(w => w.State == (start ? WorkState.Planned : WorkState.InProgress)) is not { } work) return null;
-        var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = new DateTimeOffset(DateTime.SpecifyKind(DueDate.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(3)).ToUnixTimeMilliseconds() };
+        var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = WorkOrderDueDate.EndOfAdenDay(DueDate) };
         return start ? Command.ForOrderWorkStart(input) : Command.ForOrderWorkComplete(input);
     }
     public void Retry() => LastAction = RetryAsync(false);
@@ -159,7 +160,7 @@ public sealed partial class OrdersViewModel
         try {
             var result = await client.SendAsync(retryCommand, retryKey);
             if (!active || session != generation) return;
-            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure);
+            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure, retryCommand);
             if (result.Succeeded || result.Failure != DraftFailure.Unavailable) retryCommand = null;
             LastLoad = LoadAsync(); await LastLoad;
         }

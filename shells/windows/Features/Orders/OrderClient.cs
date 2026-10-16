@@ -55,8 +55,9 @@ public sealed class OrderClient : IAsyncDisposable
             ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => DraftFailure.Denied,
             _ => DraftFailure.Unavailable,
         }, []);
-    public static string Message(DraftFailure failure) => failure switch {
+    public static string Message(DraftFailure failure, Command? command = null) => failure switch {
         DraftFailure.Conflict => "رفضت العملية: تغير الطلب أو لا تسمح حالته بهذه العملية. حدّث الطلب.",
+        DraftFailure.Invalid when command?.Kind == Command.OrderWorkStartKind => "رفض بدء العمل: تحقق من جهة الإسناد وموعد الإنجاز. يجب ألا يكون الموعد في الماضي.",
         DraftFailure.Invalid => "رفضت العملية: تحقق من البيانات المدخلة.",
         DraftFailure.Denied => "ليس لديك صلاحية لهذه العملية.",
         _ => "بانتظار تأكيد الخادم — لم تتغير الحالة المؤكدة. أعد محاولة العملية نفسها.",

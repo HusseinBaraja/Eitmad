@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Work Orders capability maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-16"
 review_triggers:
   - "Work Order contracts, manufacturing lifecycle rules, or Windows Work Orders UI behavior change"
 keywords:
@@ -34,7 +34,7 @@ Full snapshots are persisted in the Order transaction. Existing confirmed Order 
 
 A Manager starts `Planned` work with an assignment and due date, then completes `InProgress` work. Completed and Cancelled work cannot advance. There is no independent work cancellation command: cancellation of an undelivered Order cancels Planned and In Progress work and preserves Completed work. The retained accepted commercial document remains unchanged.
 
-The native date input maps to 23:59:59.999 at UTC+3 on the selected day. Rust rejects a missing deadline or one earlier than server time with `eitmad.error.order-invalid.v1`, so the shell asks the Manager to check the input. Stale revisions and incompatible work states remain `eitmad.error.order-conflict.v1`. A rejected deadline does not change the Order or Work Order.
+The date-only inputs on Orders and Work Orders use the same conversion to 23:59:59.999 at UTC+3 on the selected Aden calendar day. Work Orders displays the confirmed deadline in the same zone, so its date remains the selected date. Today is valid until that deadline; yesterday is rejected. Rust rejects a missing deadline or one earlier than server time with `eitmad.error.order-invalid.v1`. Both screens ask the Manager to check the assignment and deadline and state that the deadline must not be in the past. Stale revisions and incompatible work states remain `eitmad.error.order-conflict.v1`. A rejected deadline does not change the Order or Work Order.
 
 Rust requires each accepted Furniture line to belong to exactly one nonempty Work Order, with matching accepted specifications. Readiness considers all applicable work: all Completed means Ready; any In Progress means In Production; otherwise the Order remains Confirmed. Products-only Orders are Ready at conversion. The model supports multiple Work Orders without changing these rules, although version 1 conversion creates at most one.
 
