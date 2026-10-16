@@ -31,6 +31,46 @@ Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, th
 
 ## Start and sign in
 
+### Prepare and launch the local demo
+
+Use `run-demo.ps1` for the presentation. It uses this connected workflow with fixed state at `tests/engine-integration/artifacts/demo-presentation` and loopback ports `55449` (PostgreSQL) and `58453` (TLS server). It does not use the local-only `run.ps1` account seeder. Keep this state under the same Windows user. The default PostgreSQL binaries on this PC are at `target/direct-order-test/pgsql/bin`; supply `-PostgresBin` if they are installed elsewhere. That path and the ports are retained in private settings.
+
+Before the meeting, while package sources are available, prepare all build outputs and check the PostgreSQL binaries:
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 Prepare
+```
+
+Prepare builds the Rust server, engine, provisioning example, WPF shell, certificate tool, and test assembly. It does not start services or claim demo readiness. Repeat Prepare after changing relevant source or dependencies. Keep the prepared checkout and its build outputs on the demo PC.
+
+From stopped services, use one launch command:
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1
+```
+
+Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadPricesAndIssueQuotation` through the real supervised engine and authenticated routes. The check signs in as both roles, requires server-confirmed Furniture and Product prices, creates a synthetic customer, and issues a new zero-discount quotation at the confirmed Product price. It does not change catalog prices. Each successful check adds synthetic work; it does not reset existing work.
+
+Wait for `DEMO READY` and exit code zero. The launcher requires every selected test to pass; a skipped or missing test cannot pass readiness. The private `demo-ready.json` links the fresh TRX result and `demo-workflow-proof.json`. A new launch clears old readiness proof, and Stop removes the ready marker. These files record a completed check, not continuous health monitoring. Leave PostgreSQL, the server, and the opened app running before the meeting. Local services use loopback and need no store internet after preparation. Actual disconnected operation still needs a rehearsal on the demo PC.
+
+For this demo, read `manager_password` and `receptionist_password` locally from the protected `tests/engine-integration/artifacts/demo-presentation/secrets.json` before the meeting. Use the sign-in names `manager` and `receptionist`. Do not print or copy private settings into evidence or logs.
+
+For CLI verification without opening or driving the desktop:
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 -NoDesktop
+```
+
+This checks the same Rust workflow and leaves the local services running. It does not verify visible sign-in, keyboard input, or the display. After a CLI-only check, stop this setup before using the normal launch command:
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 Stop
+```
+
+Use `run-demo.ps1 Status` to inspect owned processes. A PC reboot, visible role sign-in, and a manual quotation rehearsal remain separate checks. The full `-VerifySignIn` rehearsal below remains available; the focused demo check does not replace its field-editor, order, or delivery coverage. On failure, keep the state, inspect the stage error, then Stop before retrying. Do not reset databases or print private settings.
+
+### Run the full connected workflow test
+
 Supply the PostgreSQL binary directory on the first launch. For an installation at `C:\Program Files\PostgreSQL\17\bin`:
 
 ```powershell
