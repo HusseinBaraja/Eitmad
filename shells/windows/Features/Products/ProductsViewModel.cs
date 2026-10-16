@@ -22,7 +22,18 @@ public sealed class ProductsViewModel : ObservableObject
     public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEdit)); } }
     public bool CanReadCosts { get => canReadCosts; private set => Set(ref canReadCosts, value); }
     public bool CanInteract => !IsBusy;
-    public bool CanEdit => !IsBusy && !SavePending && CanManage;
+    public bool CanEdit => IsDataReady && !IsBusy && !SavePending && CanManage;
+    private bool isLoading = true, isDataReady;
+    public bool IsLoading => isLoading;
+    public bool IsDataReady => isDataReady;
+    public bool ShowLoadStatus => !IsDataReady;
+    private void SetLoadState(bool loading, bool ready, string message)
+    {
+        isLoading = loading; isDataReady = ready; AvailabilityMessage = message;
+        Raise(nameof(IsLoading)); Raise(nameof(IsDataReady)); Raise(nameof(ShowLoadStatus));
+        Raise(nameof(CanEdit)); Raise(nameof(VisibleCountLabel));
+    }
+    public void BeginLoad() => SetLoadState(true, false, "جار تحميل المنتجات…");
     private string availabilityMessage = "جار تحميل المنتجات…";
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
     public long ImageEditVersion { get; private set; }
@@ -91,16 +102,16 @@ public sealed class ProductsViewModel : ObservableObject
         if (editingRecord is { } editing && Categories.FirstOrDefault(c => c.Id == editing.CategoryId) is { } retained && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
         EditorCategoryId = selectedCategoryId;
         SelectedCategory = CategoryOptions.Contains(selectedFilter) ? selectedFilter : AllCategories; Raise(nameof(SelectedCategory));
-        AvailabilityMessage = ""; RefreshVisibleProducts();
+        RefreshVisibleProducts(); SetLoadState(false, true, "");
     }
     /// <summary>Shows a load failure and clears visible rows while retaining unsaved edits for transport recovery.</summary>
-    public void Unavailable(string message) { AvailabilityMessage = message; products.Clear(); RefreshVisibleProducts(); }
+    public void Unavailable(string message) { SetLoadState(false, false, message); products.Clear(); RefreshVisibleProducts(); }
     public void ClearSession()
     {
         ++ImageEditVersion; SetImportedImage(null,null);
         SavePending = false; IsBusy = false; IsEditorOpen = false; IsCategoryEditorOpen = false; IsCategoryManagerOpen = false; IsArchiveConfirmationOpen = false;
         editingRecord = null; pendingArchiveRecord = null; editorCategoryId = null; editingProduct = null; pendingArchiveProduct = null; editingCategory = null; EditorName = ""; EditorCategory = ""; ShortDescription = ""; Notes = ""; PurchaseCost = 0; Variants.Clear(); CategoryName = ""; CategoryError = ""; EditorError = ""; FeedbackMessage = "";
-        searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); Categories.Clear(); ActiveCategories.Clear(); Unavailable("جار تحميل المنتجات…");
+        searchText = ""; Raise(nameof(SearchText)); SelectedCategory = AllCategories; SelectedStatus = AllStatuses; CategoryOptions = [AllCategories]; Raise(nameof(CategoryOptions)); CanManage = false; CanReadCosts = false; records.Clear(); products.Clear(); Categories.Clear(); ActiveCategories.Clear(); BeginLoad(); RefreshVisibleProducts();
     }
     public void Fail(string message) => EditorError = message;
     public void FailCategory(string message) => CategoryError = message;
@@ -269,7 +280,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public bool HasFeedback => !string.IsNullOrEmpty(FeedbackMessage);
 
-    public string VisibleCountLabel => $"{VisibleProducts.Count} من {products.Count} منتجات";
+    public string VisibleCountLabel => IsDataReady ? $"{VisibleProducts.Count} من {products.Count} منتجات" : "";
 
     public bool IsArchiveConfirmationOpen
     {
@@ -305,7 +316,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginCreate()
     {
-        if (SavePending || !CanManage) return;
+        if (!CanEdit) return;
         ++ImageEditVersion; SetImportedImage(null,null);
         singleVariantId = Guid.NewGuid();
         editingRecord = null; editorCategoryId = null;
@@ -326,7 +337,7 @@ public sealed class ProductsViewModel : ObservableObject
     public void BeginEdit(ProductListItem product)
     {
         ArgumentNullException.ThrowIfNull(product);
-        if (SavePending || !CanManage || !records.ContainsKey(product.Id)) return;
+        if (!CanEdit || !records.ContainsKey(product.Id)) return;
         singleVariantId = records[product.Id].Variants.FirstOrDefault()?.Id ?? Guid.NewGuid();
         editingProduct = product;
         editingRecord = records[product.Id];
@@ -353,7 +364,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginDuplicate(ProductListItem product)
     {
-        if (SavePending || !CanManage) return;
+        if (!CanEdit) return;
         BeginEdit(product);
         var copies = Variants.Where(v => !v.IsArchived).Select(v => new ProductVariant(Guid.NewGuid(), v.Name, v.PurchaseCost)).ToArray();
         Variants.Clear(); foreach (var v in copies) Variants.Add(v); singleVariantId = Guid.NewGuid();
@@ -448,7 +459,7 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginAddCategory()
     {
-        if (SavePending || !CanManage) return;
+        if (!CanEdit) return;
         editingCategory = null;
         returnToCategoryManager = false;
         CategoryName = string.Empty;
@@ -460,14 +471,14 @@ public sealed class ProductsViewModel : ObservableObject
 
     public void BeginManageCategories()
     {
-        if (SavePending || !CanManage) return;
+        if (!CanEdit) return;
         IsCategoryEditorOpen = false;
         IsCategoryManagerOpen = true;
     }
 
     public void BeginEditCategory(ProductCategoryOption category)
     {
-        if (SavePending || !CanManage) return;
+        if (!CanEdit) return;
         ArgumentNullException.ThrowIfNull(category);
         editingCategory = category;
         returnToCategoryManager = IsCategoryManagerOpen;
