@@ -51,7 +51,7 @@ From stopped services, use one launch command:
 pwsh -NoProfile -File .\run-demo.ps1
 ```
 
-Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads the two confirmed prices and photo assets, and compares the linked quotation, order, printable documents, and Manager work-order specifications. It requires the order to remain Ready and permits Receptionist delivery. It adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery. After rehearsing delivery, readiness fails until another purchase is prepared through normal authorized workflows; it never resets the delivered order.
+Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads confirmed prices and photo assets, and compares the linked family quotation, order, printable documents, and Manager work-order specifications. It permits separate catalog samples and quotations. It requires the family order to remain Ready and permits Receptionist delivery. Normal Start adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery. After rehearsing delivery, readiness fails until another purchase is prepared through normal authorized workflows; it never resets the delivered order.
 
 Wait for `DEMO READY` and exit code zero. The launcher requires every selected test to pass; a skipped or missing test cannot pass readiness. The private `demo-ready.json` links the fresh TRX result and `demo-workflow-proof.json`. A new launch clears old readiness proof, and Stop removes the ready marker. These files record a completed check, not continuous health monitoring. Leave PostgreSQL, the server, and the opened app running before the meeting. Local services use loopback and need no store internet after preparation. Actual disconnected operation still needs a rehearsal on the demo PC.
 
@@ -70,6 +70,22 @@ pwsh -NoProfile -File .\run-demo.ps1 Stop
 ```
 
 Use `run-demo.ps1 Status` to inspect owned processes. A PC reboot, visible role sign-in, and a manual quotation rehearsal remain separate checks. The full `-VerifySignIn` rehearsal below remains available; the focused demo check does not replace its field-editor, order, or delivery coverage. On failure, keep the state, inspect the stage error, then Stop before retrying. Do not reset databases or print private settings.
+
+### Prepare the optional customization sample
+
+After the family demo has been seeded, stop its services, run Prepare for the current source, then use:
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 -PrepareCustomization -NoDesktop
+```
+
+This adds `خزانة السكينة حسب المقاس` as a separate active furniture item. It preserves the original family purchase. The two standard sizes are 1200 × 2000 × 600 mm at 185,000 YER and 1600 × 2000 × 600 mm at 225,000 YER. Both permit custom width 1000–1800 mm, height 1800–2400 mm, and depth 500–700 mm. Both accept walnut or white and a black handle at no extra charge or a brass handle at an extra 15,000 YER. Custom dimensions have no separate surcharge in this sample; the selected variant determines the base price. These are synthetic demo values.
+
+Rust saves and audits the new definition, synchronizes it through authenticated TLS, and publishes both current prices with server confirmation. As Receptionist, the command selects 1400 × 2100 × 600 mm, walnut, and the brass handle on the smaller variant. It creates and issues one separate quotation for the existing fictional family at 200,000 YER, with no discount. It compares the server quotation specification and total with the local evaluation. It also checks the larger variant at 240,000 YER and rejects width 1801 mm locally with a Dimensions/Invalid error and no total. It does not accept or convert the extra quotation, change the original order, or record delivery.
+
+`customization-proof.json` in the protected demo state records the published public variants, chosen specification, server-issued quotation, and local rejection. Stable idempotency keys resume partial preparation without creating another sample or quotation. Changed source definitions or rehearsal edits can cause a conflict; retain the state and inspect the failed stage instead of resetting or overwriting work. Normal Start does not run this preparation.
+
+Stop the CLI setup before the next normal launch. In the visible app, sign in as Receptionist and rehearse the same selection and out-of-range error. The CLI proof does not verify the displayed quotation, Arabic layout, input, or focus. If that rehearsal cannot be completed before the meeting, show the original fixed-size family purchase and describe customization separately.
 
 ### Run the full connected workflow test
 

@@ -34,6 +34,8 @@ use std::{
 use uuid::Uuid;
 #[path = "workflow_environment/customers.rs"]
 mod customers;
+#[path = "workflow_environment/customization.rs"]
+mod customization;
 #[path = "workflow_environment/seed.rs"]
 mod seed;
 #[cfg(test)]
@@ -125,6 +127,9 @@ async fn prepare() -> Result<()> {
         checked(TokenKey::from_base64(&settings.token_key), "token key")?,
     );
     let mut journal = load_or_bootstrap(&root, &control).await?;
+    if env::args().any(|arg| arg == "--prepare-customization") {
+        return prepare_customization(&root, &settings, &journal, &control).await;
+    }
     if journal.seeded {
         return prepare_shared_desktop(&root, &settings, &journal, &control, false).await;
     }
@@ -209,6 +214,44 @@ async fn prepare() -> Result<()> {
     journal.seeded = true;
     save(&root, &journal)?;
     prepare_shared_desktop(&root, &settings, &journal, &control, true).await
+}
+
+async fn prepare_customization(
+    root: &Path,
+    settings: &Settings,
+    journal: &Journal,
+    control: &ControlPlane,
+) -> Result<()> {
+    if !journal.seeded {
+        return Err("prepare the family demo before customization");
+    }
+    let manager = authenticate(
+        control,
+        "manager",
+        &settings.manager_password,
+        settings.manager_device,
+        &settings.manager_seed,
+        None,
+    )
+    .await?;
+    let reception = authenticate(
+        control,
+        "receptionist",
+        &settings.receptionist_password,
+        settings.receptionist_device,
+        &settings.receptionist_seed,
+        None,
+    )
+    .await?;
+    let manager = local_client(root, settings, journal, manager, true, false)?;
+    let reception = local_client(root, settings, journal, reception, false, false)?;
+    let proof_root = root.to_path_buf();
+    checked(
+        tokio::task::spawn_blocking(move || customization::run(&proof_root, &manager, &reception))
+            .await,
+        "customization worker",
+    )??;
+    prepare_shared_desktop(root, settings, journal, control, true).await
 }
 
 async fn prepare_shared_desktop(

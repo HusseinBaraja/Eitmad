@@ -9,13 +9,17 @@ param(
     [switch]$SkipBuild,
     [switch]$VerifySignIn,
     [switch]$VerifyDemo,
-    [switch]$NoDesktop
+    [switch]$NoDesktop,
+    [switch]$PrepareCustomization
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path $PSScriptRoot -Parent
 if ($Action -eq 'Prepare' -and $SkipBuild) { throw 'Prepare cannot skip builds.' }
 if ($VerifySignIn -and $VerifyDemo) { throw 'Select VerifySignIn or VerifyDemo, not both.' }
+if ($PrepareCustomization -and ($Action -ne 'Start' -or -not $VerifyDemo)) {
+    throw 'PrepareCustomization requires Start with VerifyDemo.'
+}
 if ($NoDesktop -and ($Action -ne 'Start' -or -not ($VerifyDemo -or $VerifySignIn))) {
     throw 'NoDesktop requires Start with VerifyDemo or VerifySignIn.'
 }
@@ -278,7 +282,8 @@ try {
     } finally { $http.Dispose(); $ca.Dispose() }
     if (-not $ready) { throw 'Server readiness deadline elapsed.' }
     $env:EITMAD_E2E_ROOT = $root
-    Run-Tool $provision @()
+    $provisionArguments = if ($PrepareCustomization) { @('--prepare-customization') } else { @() }
+    Run-Tool $provision $provisionArguments
     $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
     $env:EITMAD_QUOTATION_ORGANIZATION_ID = $journal.organization
     $env:EITMAD_QUOTATION_BRANCH_ID = $journal.branch
