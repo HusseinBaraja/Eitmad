@@ -10,7 +10,7 @@ public sealed partial class FurnitureViewModel : ObservableObject
 {
     public const string AllCategories = "كل الفئات";
     public const string AllStatuses = "كل الحالات";
-    public const string ActiveStatus = "نشط";
+    public const string ActiveStatus = "تعريف نشط";
     public const string ArchivedStatus = "مؤرشف";
     public const string DraftStatus = "مسودة";
 

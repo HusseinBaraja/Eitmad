@@ -34,6 +34,12 @@ public partial class MainWindow : Window
         bool preview = false)
     {
         InitializeComponent();
+        FurnitureSurface.PricingRequested += name =>
+        {
+            PricingSurface.ViewModel.SelectedCategory = Features.Pricing.PricingViewModel.AllCategories;
+            PricingSurface.ViewModel.SearchText = name;
+            OpenManagerDestination("التسعير");
+        };
         PricingSurface.DefinitionReviewRequested += issue =>
         {
             var destination = issue.Kind switch

@@ -31,7 +31,13 @@ public sealed partial class FurnitureViewModel
     public string DataStateText { get=>dataStateText; private set=>Set(ref dataStateText,value); }
     public bool IsLoading { get=>isLoading; set { Set(ref isLoading,value); Raise(nameof(HasNoVisibleFurniture)); if(value) DataStateText="جار تحميل الأثاث..."; } }
     private bool canManage, isBusy, confirmBelowCost;
-    public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEditFields)); Raise(nameof(CanSubmit)); } }
+    public bool CanManage { get => canManage; private set { Set(ref canManage, value); Raise(nameof(CanEditFields)); Raise(nameof(CanSubmit)); Raise(nameof(CanOpenPricing)); } }
+    private string saveNextStepMessage = "", savedDefinitionName = "";
+    private bool savedActiveDefinition;
+    public string SaveNextStepMessage => saveNextStepMessage;
+    public bool HasSaveNextStep => saveNextStepMessage.Length > 0;
+    public bool CanOpenPricing => savedActiveDefinition && CanManage;
+    public string SavedDefinitionName => savedDefinitionName;
     public bool IsBusy { get => isBusy; set { Set(ref isBusy, value); Raise(nameof(CanEditFields)); Raise(nameof(CanSubmit)); } }
     public bool CanSubmit => CanManage && !IsBusy;
     public bool CanEditFields => CanManage && !IsBusy && pendingSave is null;
@@ -132,6 +138,7 @@ public sealed partial class FurnitureViewModel
     /// <summary>Removes restricted records, costs, retry input, and editor fields when authority ends.</summary>
     public void ClearSession()
     {
+        ClearSaveNextStep(); ClearFeedback();
         IsLoading=false; DataStateText=""; IsPreview=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         availableParts.Clear();
@@ -143,12 +150,30 @@ public sealed partial class FurnitureViewModel
         CancelEditor(); reviewedCost = 0; RefreshPartsState(); RefreshVisibleFurniture();
     }
     public void Fail(string text) => EditorError = text;
-    public void Unavailable(string text) { IsLoading=false; CanManage = false; DataStateText=text; FeedbackMessage = text; }
-    public void Saved(bool draft)
+    public void Unavailable(string text) { ClearSaveNextStep(); IsLoading=false; CanManage = false; DataStateText=text; FeedbackMessage = text; }
+    public void Saved(FurnitureState state, string name)
     {
         pendingSave = null; CancelEditor();
-        FeedbackMessage = draft ? "حُفظت مسودة الأثاث محلياً." : "حُفظ تعريف الأثاث محلياً.";
+        savedDefinitionName = name;
+        savedActiveDefinition = state == FurnitureState.Active;
+        saveNextStepMessage = state switch
+        {
+            FurnitureState.Draft => $"حُفظت مسودة «{name}» محلياً. أكملها واحفظ التعريف النشط، ثم انشر سعر كل مقاس من التسعير ليظهر لدى الاستقبال.",
+            FurnitureState.Active => $"حُفظ التعريف النشط «{name}» محلياً. افتح التسعير وانشر سعر كل مقاس، وانتظر تأكيد الخادم قبل البيع لدى الاستقبال.",
+            _ => $"حُفظ تعريف «{name}» كمؤرشف محلياً. التعريف المؤرشف غير متاح لنشر سعر بيع جديد.",
+        };
+        RaiseSaveNextStep();
+        FeedbackMessage = state == FurnitureState.Draft ? "حُفظت مسودة الأثاث محلياً." : "حُفظ تعريف الأثاث محلياً.";
         Raise(nameof(CanEditFields));
+    }
+    private void ClearSaveNextStep()
+    {
+        saveNextStepMessage = ""; savedDefinitionName = ""; savedActiveDefinition = false;
+        RaiseSaveNextStep();
+    }
+    private void RaiseSaveNextStep()
+    {
+        Raise(nameof(SaveNextStepMessage)); Raise(nameof(HasSaveNextStep)); Raise(nameof(CanOpenPricing));
     }
     /// <summary>Freezes the original request while its save outcome remains unknown.</summary>
     public void SaveUnconfirmed(SaveFurniture input) { pendingSave = input; Raise(nameof(CanEditFields)); }

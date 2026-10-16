@@ -132,6 +132,13 @@
             </controls:PageHeader>
             <ScrollViewer Grid.Row="1" Padding="28,20,28,28" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
+                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14" Visibility="{Binding HasSaveNextStep, Converter={StaticResource BooleanToVisibility}}">
+                        <StackPanel>
+                            <TextBlock x:Name="SaveNextStepText" Text="{Binding SaveNextStepMessage}" TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Polite" />
+                            <Button x:Name="OpenPricingButton" Content="فتح التسعير" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="OpenPricingClick" Visibility="{Binding CanOpenPricing, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="فتح التسعير لنشر سعر البيع" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="هذه تعريفات الأثاث وأسعارها المقترحة. حالة سعر البيع المنشور تظهر في التسعير بعد تأكيد الخادم." TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,14" />
                     <TextBlock Text="{Binding DataStateText}" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8" />
                     <WrapPanel Margin="0,0,0,14">
                         <StackPanel Width="360" Margin="0,0,12,8">
@@ -282,7 +289,7 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="سعر البيع" Width="1.2*" MinWidth="120" SortMemberPath="SellingPrice">
+                                        <DataGridTemplateColumn Header="السعر المقترح" Width="1.2*" MinWidth="120" SortMemberPath="SellingPrice">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="RowSurface" MinHeight="78" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
@@ -846,6 +853,7 @@
                         </Border>
                     </StackPanel>
                     <StackPanel x:Name="PricingStep" Visibility="{Binding IsStepFive, Converter={StaticResource BooleanToVisibility}}">
+                        <TextBlock Text="هذه أسعار مقترحة للتعريف. حفظ التعريف لا ينشر سعر البيع. بعد الحفظ، انشر سعر كل مقاس من التسعير وانتظر تأكيد الخادم." TextWrapping="Wrap" Margin="0,0,0,14" />
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -880,7 +888,7 @@
                                     <TextBlock Text="المقاس والأبعاد" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" />
                                     <layout:AdaptiveFieldsPanel Grid.Column="1" MinItemWidth="170">
                                         <TextBlock Text="التكلفة" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" Margin="12,0" />
-                                        <TextBlock Text="سعر البيع" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" FontSize="13" Margin="12,0" />
+                                        <TextBlock Text="السعر المقترح" Style="{StaticResource FurnitureOptionText}" FontWeight="SemiBold" FontSize="13" Margin="12,0" />
                                         <TextBlock Text="هامش الربح" Style="{StaticResource FurniturePricingMutedText}" FontSize="13" Margin="12,0" />
                                     </layout:AdaptiveFieldsPanel>
                                 </Grid>
@@ -907,7 +915,7 @@
                                                             <controls:AmountDisplay FontSize="15" FontWeight="SemiBold" AmountText="{Binding CalculatedCostLabel}" UnitText="ر.ي" UnitPlacement="After" />
                                                         </StackPanel>
                                                         <StackPanel Margin="12,0" VerticalAlignment="Center">
-                                                            <TextBlock Text="سعر البيع" Style="{StaticResource FurniturePricingLabel}" />
+                                                            <TextBlock Text="السعر المقترح" Style="{StaticResource FurniturePricingLabel}" />
                                                             <Grid FlowDirection="LeftToRight">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="*" />
@@ -961,6 +969,7 @@
                         </Border>
                     </StackPanel>
                     <StackPanel x:Name="ReviewStep" Visibility="{Binding IsStepSix, Converter={StaticResource BooleanToVisibility}}">
+                        <TextBlock Text="حفظ التعريف لا ينشر سعر البيع. بعد حفظ التعريف النشط، افتح التسعير وانشر سعر كل مقاس وانتظر تأكيد الخادم." TextWrapping="Wrap" Margin="0,0,0,14" />
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,18">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />

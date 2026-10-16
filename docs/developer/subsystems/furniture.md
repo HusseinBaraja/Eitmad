@@ -39,6 +39,8 @@ Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptio
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 
+After a confirmed definition save, the list retains a named Arabic next-step message after the short success notice is dismissed. A Draft message asks the Manager to complete and save the active definition before publishing. An active save offers **فتح التسعير** with the saved name as the Pricing search and the category filter reset. It asks the Manager to publish each size price and wait for server confirmation before Receptionist sales. An archived save does not offer publication. The list labels active state as **تعريف نشط** and definition prices as **السعر المقترح**; published and republish states remain authoritative on [Pricing](pricing.md). The editor also states that saving does not publish. Failed or unknown saves do not create success guidance; ended sessions and unavailable projections clear retained guidance.
+
 One optional [durable catalog image](catalog-images.md) is retained per revision. The information step imports through Rust and stages replacement or removal until save. Local paths are never stored as references. Asset transfer remains separate. The [catalog cycle](synchronization.md#catalog-replication) transfers the reference with the immutable definition, after its exact Part dependencies.
 
 ## Composition, dimensions, and option rules
