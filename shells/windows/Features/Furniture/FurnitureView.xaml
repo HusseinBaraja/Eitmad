@@ -1,8 +1,10 @@
 <UserControl x:Class="Eitmad.WindowsShell.Features.Furniture.FurnitureView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" FlowDirection="RightToLeft" Background="{StaticResource CanvasBrush}">
     <UserControl.Resources>
         <Style x:Key="FurnitureProgress" TargetType="controls:StepIndicator" BasedOn="{StaticResource {x:Type controls:StepIndicator}}">
+            <Setter Property="Margin" Value="24,12,24,14" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Margin" Value="16,0,16,8" />
                     <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                     <Setter Property="FontSize" Value="16" />
                     <Setter Property="ItemsPanel">
@@ -375,10 +377,25 @@
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Padding="0">
                 <StackPanel>
-                    <controls:PageHeader Title="{Binding EditorTitle}" ShowSubtitle="False" Height="Auto" MinHeight="96">
+                    <controls:PageHeader Title="{Binding EditorTitle}" Subtitle="{Binding EditorName}">
+                        <controls:PageHeader.Style>
+                            <Style TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+                                <Setter Property="Height" Value="Auto" />
+                                <Setter Property="MinHeight" Value="96" />
+                                <Setter Property="ShowSubtitle" Value="False" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                        <Setter Property="MinHeight" Value="64" />
+                                        <Setter Property="Padding" Value="16,8" />
+                                        <Setter Property="FontSize" Value="20" />
+                                        <Setter Property="ShowSubtitle" Value="True" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </controls:PageHeader.Style>
                         <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}" />
                     </controls:PageHeader>
-                    <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}" Margin="24,12,24,14">
+                    <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}">
                         <controls:StepIndicator.ItemsSource>
                             <x:Array Type="{x:Type sys:String}">
                                 <sys:String>المعلومات</sys:String>
@@ -392,11 +409,15 @@
                     </controls:StepIndicator>
                 </StackPanel>
             </Border>
-            <ScrollViewer IsEnabled="{Binding CanEditFields}" Grid.Row="1" Padding="28,22" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="EditorBody" IsEnabled="{Binding CanEditFields}" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <ScrollViewer.Style>
                     <Style TargetType="ScrollViewer">
+                        <Setter Property="Padding" Value="28,22" />
                         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                <Setter Property="Padding" Value="16,12" />
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsStepTwo}" Value="True">
                                 <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
                             </DataTrigger>
@@ -538,7 +559,7 @@
                                     <RowDefinition Height="0" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <controls:OperationsTable x:Name="PartRows" Grid.Row="1" ItemsSource="{Binding SelectedParts}" MaxHeight="460" automation:AutomationProperties.Name="الجزء">
+                                <controls:OperationsTable x:Name="PartRows" Grid.Row="1" ItemsSource="{Binding SelectedParts}" automation:AutomationProperties.Name="الجزء">
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="الجزء" Width="2*" MinWidth="160" SortMemberPath="Part.Name">
                                             <DataGridTemplateColumn.CellTemplate>
@@ -969,8 +990,16 @@
                         </Border>
                     </StackPanel>
                     <StackPanel x:Name="ReviewStep" Visibility="{Binding IsStepSix, Converter={StaticResource BooleanToVisibility}}">
-                        <TextBlock Text="حفظ التعريف لا ينشر سعر البيع. بعد حفظ التعريف النشط، افتح التسعير وانشر سعر كل مقاس وانتظر تأكيد الخادم." TextWrapping="Wrap" Margin="0,0,0,14" />
                         <Grid FlowDirection="LeftToRight" Margin="0,0,0,18">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -1016,9 +1045,21 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="96" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="2" Height="96" VerticalAlignment="Top" Background="#F2E7DB" CornerRadius="8" ClipToBounds="True">
+                                <Border Grid.Column="2" VerticalAlignment="Top" Background="#F2E7DB" CornerRadius="8" ClipToBounds="True">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Width" Value="96" />
+                                            <Setter Property="Height" Value="96" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter Property="Width" Value="48" />
+                                                    <Setter Property="Height" Value="48" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Image Source="{Binding ProductImage}" Stretch="UniformToFill" FlowDirection="LeftToRight" automation:AutomationProperties.Name="صورة الأثاث">
                                             <Image.Style>
@@ -1032,7 +1073,7 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <Viewbox Width="72" Height="72" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Viewbox Margin="12" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Viewbox.Style>
                                                 <Style TargetType="Viewbox">
                                                     <Style.Triggers>
@@ -1154,6 +1195,7 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+                        <TextBlock Text="حفظ التعريف لا ينشر سعر البيع. بعد حفظ التعريف النشط، افتح التسعير وانشر سعر كل مقاس وانتظر تأكيد الخادم." TextWrapping="Wrap" Margin="0,14,0,0" />
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

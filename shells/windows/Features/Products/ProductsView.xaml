@@ -251,13 +251,48 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="{Binding EditorTitle}" ShowSubtitle="False"></controls:PageHeader>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel IsEnabled="{Binding CanEdit}" Margin="28,16,28,18" MaxWidth="970" HorizontalAlignment="Stretch">
+            <controls:PageHeader Grid.Row="0" Title="{Binding EditorTitle}" Subtitle="{Binding EditorName}">
+                <controls:PageHeader.Style>
+                    <Style TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+                        <Setter Property="ShowSubtitle" Value="False" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                <Setter Property="Height" Value="Auto" />
+                                <Setter Property="MinHeight" Value="64" />
+                                <Setter Property="Padding" Value="16,8" />
+                                <Setter Property="FontSize" Value="20" />
+                                <Setter Property="ShowSubtitle" Value="True" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </controls:PageHeader.Style>
+            </controls:PageHeader>
+            <ScrollViewer x:Name="EditorBody" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel IsEnabled="{Binding CanEdit}" MaxWidth="970" HorizontalAlignment="Stretch">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Margin" Value="28,16,28,18" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <Setter Property="Margin" Value="16,12" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <Border Style="{StaticResource Card}" Padding="16">
                         <Grid>
                             <StackPanel FlowDirection="RightToLeft">
-                                <TextBlock Text="المعلومات الأساسية" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock Text="المعلومات الأساسية" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <layout:AdaptiveFieldsPanel MinItemWidth="220" Spacing="12">
                                     <controls:FormField Label="اسم المنتج">
                                         <TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" />
@@ -314,7 +349,7 @@
                                             <RowDefinition Height="0" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource LineBrush}" automation:AutomationProperties.Name="اسم الخيار">
+                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource LineBrush}" automation:AutomationProperties.Name="اسم الخيار">
                                             <DataGrid.Columns>
                                                 <DataGridTemplateColumn Header="اسم الخيار" Width="1.45*" MinWidth="160" SortMemberPath="Name">
                                                     <DataGridTemplateColumn.CellTemplate>
