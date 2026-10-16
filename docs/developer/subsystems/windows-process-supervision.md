@@ -88,6 +88,8 @@ Caller cancellation can stop waiting for the write lock or response. After the f
 
 Normal shutdown cancels pending restart, requests typed IPC shutdown when a negotiated session exists, closes stdin to preserve abandonment semantics and release the Windows reader, continues reading lifecycle output, and waits 15 seconds. A clean engine reaches `Stopped` and exits `0`; the adapter then closes the empty Job Object. If the deadline expires, `TerminateJobObject` ends the contained process tree and records `Forced: true`.
 
+The typed IPC shutdown has its own two-second deadline. Its expiration falls back to stdin closure and the normal process-exit deadline. It must not escape as caller cancellation and skip cleanup. An explicitly cancelled `StopAsync` caller still receives cancellation. `IpcCancellationScenario.StalledShutdownStillCleansUpProcess` withholds a real named-pipe shutdown reply and verifies stdin closure, process disposal, and `Stopped` without forced termination.
+
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is the crash safety net. If the shell exits without cleanup, Windows closes its Job Object handle and terminates the engine tree. If initial assignment fails, the launcher kills the child and does not continue with an uncontained engine.
 
 ## Security, privacy, and Arabic behavior

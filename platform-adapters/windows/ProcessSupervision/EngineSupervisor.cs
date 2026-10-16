@@ -335,6 +335,10 @@ public sealed class EngineSupervisor : IAsyncDisposable
             {
                 // Inherited stdin remains the graceful abandonment fallback.
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The local IPC deadline must not skip stdin closure and process cleanup.
+            }
             finally
             {
                 await ipcClient.DisposeAsync().ConfigureAwait(false);

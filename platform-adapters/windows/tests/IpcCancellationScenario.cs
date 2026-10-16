@@ -3,9 +3,45 @@ using System.IO.Pipes;
 using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
+using Eitmad.Platform.Windows.ProcessSupervision;
 
 internal static class IpcCancellationScenario
 {
+    public static async Task StalledShutdownStillCleansUpProcess()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var server = new NamedPipeServerStream("fake-1001", PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var fixture = new SupervisorFixture();
+        fixture.Launcher.LifecycleOutput = JsonSerializer.Serialize(new LifecycleSnapshot
+        {
+            Identity = new() { InstanceId = Guid.NewGuid() }, State = LifecycleState.Ready,
+            Ready = true, Live = true, Checks = [],
+        }, Converter.Settings) + "\n";
+        var serve = StallShutdownAsync(server, deadline.Token);
+        await fixture.Supervisor.StartAsync(fixture.Request);
+        while (!fixture.Supervisor.IpcConnected) await Task.Delay(5, deadline.Token);
+        var process = fixture.Launcher.Current;
+        var stop = fixture.Supervisor.StopAsync();
+        await serve;
+        process.Exit(0);
+        await stop.WaitAsync(deadline.Token);
+        Assert.True(process.InputClosed, "IPC timeout must still close the stdin lifetime pipe");
+        Assert.True(process.Disposed, "IPC timeout must still dispose the owned process");
+        Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "IPC timeout cleanup reaches stopped");
+        Assert.False(fixture.Group.Terminated, "stdin fallback allows a clean process exit");
+        await fixture.Supervisor.DisposeAsync();
+    }
+
+    private static async Task StallShutdownAsync(NamedPipeServerStream server, CancellationToken token)
+    {
+        await server.WaitForConnectionAsync(token);
+        await HandshakeAsync(server, token);
+        using var shutdown = await ReadFrameAsync(server, token);
+        Assert.Equal(IpcClientMessage.IpcShutdownKind, shutdown.RootElement.GetProperty("kind").GetString(), "typed shutdown request");
+        Assert.Equal(0, await server.ReadAsync(new byte[1], token), "IPC shutdown deadline disposes the stalled transport");
+    }
+
     public static async Task CancelledWritePreservesTheNextFrame()
     {
         var name = $"eitmad-cancellation-{Guid.NewGuid():N}";
@@ -31,16 +67,7 @@ internal static class IpcCancellationScenario
     private static async Task ServeAsync(NamedPipeServerStream server, CancellationTokenSource cancelled, CancellationToken token)
     {
         await server.WaitForConnectionAsync(token);
-        using var hello = await ReadFrameAsync(server, token);
-        await ReplyAsync(server, IpcServerMessage.IpcHandshakeResponseKind, new HandshakeResponse
-        {
-            RequestId = hello.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
-            Outcome = new() { Status = HandshakeOutcomeStatus.Accepted, Payload = new()
-            {
-                Authorization = new() { SessionId = Guid.NewGuid() },
-                Negotiated = new() { Protocol = new() { Major = 1 }, Capabilities = [], Schemas = [] },
-            } },
-        }, token);
+        await HandshakeAsync(server, token);
         var header = new byte[4];
         await server.ReadExactlyAsync(header, token);
         // Cancel only after the frame has started, while its large body is under backpressure.
@@ -56,6 +83,20 @@ internal static class IpcCancellationScenario
         {
             RequestId = next.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
             Outcome = new() { Status = CommandOutcomeStatus.Succeeded, Payload = new() },
+        }, token);
+    }
+
+    private static async Task HandshakeAsync(NamedPipeServerStream server, CancellationToken token)
+    {
+        using var hello = await ReadFrameAsync(server, token);
+        await ReplyAsync(server, IpcServerMessage.IpcHandshakeResponseKind, new HandshakeResponse
+        {
+            RequestId = hello.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
+            Outcome = new() { Status = HandshakeOutcomeStatus.Accepted, Payload = new()
+            {
+                Authorization = new() { SessionId = Guid.NewGuid() },
+                Negotiated = new() { Protocol = new() { Major = 1 }, Capabilities = [], Schemas = [] },
+            } },
         }, token);
     }
 

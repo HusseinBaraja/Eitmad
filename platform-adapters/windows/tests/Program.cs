@@ -26,6 +26,7 @@ try
     await tests.StaleExitCannotReplaceCurrentGeneration();
     await tests.CleanShutdownAvoidsForcedTermination();
     await tests.ShutdownTimeoutTerminatesProcessGroup();
+    await IpcCancellationScenario.StalledShutdownStillCleansUpProcess();
     await tests.TerminationFailureStillCompletesCleanup();
 
     if (args is ["--engine", var enginePath])
@@ -919,27 +920,28 @@ internal sealed class FakeClock : ISupervisionClock
 
 internal sealed class FakeProcessLauncher : IEngineProcessLauncher
 {
+    public string LifecycleOutput { get; set; } = string.Empty;
     public List<FakeEngineProcess> Processes { get; } = [];
     public int LaunchCount => Processes.Count;
     public FakeEngineProcess Current => Processes[^1];
 
     public IEngineProcess Launch(EngineLaunchRequest request, long generation, IProcessGroup group)
     {
-        var process = new FakeEngineProcess(1000 + (int)generation);
+        var process = new FakeEngineProcess(1000 + (int)generation, LifecycleOutput);
         Processes.Add(process);
         group.Assign(process);
         return process;
     }
 }
 
-internal sealed class FakeEngineProcess(int processId) : IEngineProcess
+internal sealed class FakeEngineProcess(int processId, string lifecycleOutput = "") : IEngineProcess
 {
     private readonly TaskCompletionSource<int> exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TrackingWriter input = new();
 
     public int ProcessId { get; } = processId;
     public nint NativeHandle => 0;
-    public TextReader StandardOutput { get; } = new StringReader(string.Empty);
+    public TextReader StandardOutput { get; } = new StringReader(lifecycleOutput);
     public TextReader StandardError { get; } = new StringReader(string.Empty);
     public TextWriter StandardInput => input;
     public string IpcPipeName { get; } = $"fake-{processId}";
