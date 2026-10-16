@@ -8,7 +8,6 @@ public sealed record ProductListItem(
     string Category,
     decimal PurchaseCost,
     string VariantSummary,
-    string ThumbnailKind,
     bool IsArchived,
     bool HasPurchaseCost) : System.ComponentModel.INotifyPropertyChanged
 {

@@ -78,46 +78,31 @@
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="82" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
                                                             <Border x:Name="ContrastCell1" Width="54" Height="54" CornerRadius="10" Background="#F2E7DC" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <Grid><Grid>
-    <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Image}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
-
-                                                                    <Grid x:Name="MattressThumb" Visibility="Collapsed">
-                                                                        <Border x:Name="ContrastCell2" Width="42" Height="25" CornerRadius="5" Background="#DCE6E4" BorderBrush="#7A958F" BorderThickness="1" />
-                                                                        <Path Data="M8,26 L39,26 M11,16 L11,30 M36,16 L36,30" Stroke="#825A39" StrokeThickness="2" Stretch="Uniform" Width="40" Height="28" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="PillowThumb" Visibility="Collapsed">
-                                                                        <Path Data="M7,17 C10,9 33,9 38,17 C42,24 37,35 29,34 C21,37 9,34 7,27 C5,23 5,20 7,17Z" Fill="#FAF8F3" Stroke="#B89572" StrokeThickness="1.4" Stretch="Uniform" Width="42" Height="36" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="VaseThumb" Visibility="Collapsed">
-                                                                        <Path Data="M15,4 L29,4 C28,10 27,12 31,17 C37,25 33,41 22,44 C11,41 7,25 13,17 C17,12 16,10 15,4Z" Fill="#C98550" Stroke="#8B4D24" StrokeThickness="1.4" Stretch="Uniform" Width="34" Height="42" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="LampThumb" Visibility="Collapsed">
-                                                                        <Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" />
-                                                                        <Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" />
-                                                                    </Grid>
-                                                                </Grid><Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="{Binding Name}"/></Grid>
+                                                                <Grid>
+                                                                    <TextBlock x:Name="MissingImage" Text="الصورة غير متاحة" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="3" FontSize="10" Foreground="{DynamicResource MutedBrush}">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding Image}" Value="{x:Null}">
+                                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                    <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="{Binding Name}" />
+                                                                </Grid>
                                                             </Border>
                                                         </Border>
                                                         <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Mattress">
-                                                                <Setter TargetName="MattressThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Pillow">
-                                                                <Setter TargetName="PillowThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Vase">
-                                                                <Setter TargetName="VaseThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Lamp">
-                                                                <Setter TargetName="LampThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
                                                                 <Setter TargetName="ContrastCell1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
-                                                                <Setter TargetName="ContrastCell2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                                <Setter TargetName="MissingImage" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                                                             </DataTrigger>
                                                         </DataTemplate.Triggers>
                                                     </DataTemplate>

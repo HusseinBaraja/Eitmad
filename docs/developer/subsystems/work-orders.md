@@ -50,6 +50,8 @@ Before sending, Rust stores the exact pending Order intent and key. A lost reply
 
 ## Native workflow
 
+Furniture pictures show **الصورة غير متاحة**. The manufacturing projection contains no image reference, so the shell does not infer a drawing from the item name or current catalog. Preview fixtures use the same neutral state. Use the retained dimensions, color, handle, quantity, and Parts as the manufacturing specifications; a placeholder is not a specification.
+
 The existing RTL list provides Arabic-normalized search, status/date filters, customer and Order links, assignment, due date, and multi-Furniture details. **مخطط**, **قيد التنفيذ**, **مكتمل**, and **ملغي** reflect Rust state. Planned work exposes assignment and date inputs before **تغيير حالة أمر العمل**. The related Order link opens the exact Manager Order; **فتح أمر العمل** returns to production.
 
 Loading, empty, denied, offline, conflict, and pending-confirmation states use explicit Arabic messages. Retry controls appear for pending operations. Offline rows show the last confirmed state with disabled transitions. Synthetic preview state is available only without an attached engine client and remains clearly labeled.

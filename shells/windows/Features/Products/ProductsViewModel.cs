@@ -97,7 +97,7 @@ public sealed class ProductsViewModel : ObservableObject
         {
             records[p.Id] = p;
             var active = p.Variants.Where(v => !v.Archived).ToArray(); var primary = active.FirstOrDefault() ?? p.Variants.FirstOrDefault();
-            products.Add(new ProductListItem(p.Id, p.Name, Categories.FirstOrDefault(c => c.Id == p.CategoryId)?.Name ?? p.CategoryName, primary?.PurchaseCostYer ?? 0, string.Join("، ", active.Select(v => v.Name)), ThumbnailForCategory(p.CategoryName), p.Archived, primary?.PurchaseCostYer is not null));
+            products.Add(new ProductListItem(p.Id, p.Name, Categories.FirstOrDefault(c => c.Id == p.CategoryId)?.Name ?? p.CategoryName, primary?.PurchaseCostYer ?? 0, string.Join("، ", active.Select(v => v.Name)), p.Archived, primary?.PurchaseCostYer is not null));
         }
         if (editingRecord is { } editing && Categories.FirstOrDefault(c => c.Id == editing.CategoryId) is { } retained && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
         EditorCategoryId = selectedCategoryId;
@@ -522,11 +522,4 @@ public sealed class ProductsViewModel : ObservableObject
         Raise(nameof(VisibleCountLabel));
     }
 
-    private static string ThumbnailForCategory(string category) => category switch
-    {
-        "المراتب" => "Mattress",
-        "الوسائد" => "Pillow",
-        "الإضاءة" => "Lamp",
-        _ => "Vase",
-    };
 }
