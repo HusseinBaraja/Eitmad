@@ -11,6 +11,8 @@ public sealed partial class OrdersViewModel
     private OrderClient? client;
     private bool active, busy;
     private long generation, loadVersion;
+    private Task? loadOperation;
+    private bool loadRequested;
     private string listState = "", actionNotice = "", fulfillmentNote = "", recipient = "", reason = "", assignment = "", deliveryNote = "";
     private DateTime dueDate = DateTime.Today.AddDays(7);
     private Command? retryCommand;
@@ -62,7 +64,7 @@ public sealed partial class OrdersViewModel
     public void Attach(OrderClient source)
     {
         client = source; UsePreviewOrders(new ObservableCollection<OrderListItem>());
-        source.Changed += (_, _) => { if (active) LastLoad = LoadAsync(); };
+        source.Changed += (_, _) => { if (active) RequestLoad(); };
         source.Invalidated += (_, _) => ClearOrders();
         Raise(nameof(IsLive)); Raise(nameof(ListSubtitle)); Raise(nameof(DetailSubtitle));
     }
@@ -72,7 +74,7 @@ public sealed partial class OrdersViewModel
         var session = generation;
         active = true; await client.ActivateAsync();
         if (!active || session != generation) return;
-        LastLoad = LoadAsync(); await LastLoad;
+        await RequestLoad();
     }
     public async Task OpenByIdAsync(Guid id)
     {
@@ -90,14 +92,31 @@ public sealed partial class OrdersViewModel
         if (client is null) return;
         DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
         active = false; ++generation; ++loadVersion; busy = false; retryCommand = null; pending = [];
+        loadRequested = false; loadOperation = null; LastLoad = Task.CompletedTask;
         CloseOrder(); orders.Clear(); RefreshVisibleOrders(); ListState = "الطلبات غير متاحة."; ActionNotice = "";
         Recipient = ""; DeliveryNote = ""; FulfillmentNote = ""; CancellationReason = ""; Assignment = ""; RaiseActions();
     }
     public async Task DeactivateAsync() { ClearOrders(); if (client is not null) await client.DeactivateAsync(); }
-    private async Task LoadAsync()
+    private Task RequestLoad()
+    {
+        ++loadVersion; loadRequested = true;
+        return LastLoad = loadOperation is { IsCompleted: false } ? loadOperation : loadOperation = DrainLoadsAsync(generation);
+    }
+    // Subscription notices and command confirmation share one read sequence.
+    // Only requested refreshes run; an unavailable result does not schedule a retry.
+    private async Task DrainLoadsAsync(long session)
+    {
+        await Task.Yield();
+        while (active && generation == session && loadRequested)
+        {
+            loadRequested = false;
+            await LoadAsync(loadVersion);
+        }
+    }
+    private async Task LoadAsync(long version)
     {
         if (client is null || !active) return;
-        var version = ++loadVersion; var session = generation; Guid? cursor = null;
+        var session = generation; Guid? cursor = null;
         var items = new List<OrderListItem>(); var available = true; IReadOnlyList<OrderPending> requests = [];
         ListState = "جارٍ تحميل الطلبات...";
         do {
@@ -162,7 +181,7 @@ public sealed partial class OrdersViewModel
             if (!active || session != generation) return;
             ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure, retryCommand);
             if (result.Succeeded || result.Failure != DraftFailure.Unavailable) retryCommand = null;
-            LastLoad = LoadAsync(); await LastLoad;
+            await RequestLoad();
         }
         finally { if (session == generation) { busy = false; RaiseActions(); } }
     }

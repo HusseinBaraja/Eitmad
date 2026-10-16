@@ -220,9 +220,12 @@ public sealed partial class WorkflowEnvironmentTests
         private string? loseKind;
         private readonly Dictionary<string, (Guid Key, string Payload)> lost = [];
         public int ExactRetries { get; private set; }
+        public int SubmissionCount { get; private set; }
+        public string? LastSubmittedKind { get; private set; }
         public void LoseNext(string kind) => loseKind = kind;
         public async Task<CommandResponseEnvelope> SubmitCommandAsync(Command command, Guid idempotencyKey, CancellationToken cancellationToken = default)
         {
+            ++SubmissionCount; LastSubmittedKind = command.Kind;
             var payload = JsonSerializer.Serialize(command);
             if (lost.TryGetValue(command.Kind, out var original))
             {

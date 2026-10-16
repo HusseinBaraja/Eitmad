@@ -52,6 +52,59 @@ public sealed class OrderAuthorityTests
         await model.DeactivateAsync();
     }
     [TestMethod]
+    public async Task StartConfirmationAwaitsSerializedSubscriptionRefreshBeforeDirectCompletion()
+    {
+        var fixture = new Fixture(true);
+        fixture.Order.State = OrderState.Confirmed;
+        fixture.Order.Work = [new() { Id = Guid.NewGuid(), Number = "WO-2026-00001", State = WorkState.Planned, LineIds = [] }];
+        fixture.Order.PermittedActions = [OrderPermittedAction.StartWork];
+        await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
+        FakeSubscription? subscription = null;
+        engine.SubscribeHook = (_, value) => subscription = value;
+        var model = new OrdersViewModel(); model.Attach(client); await model.ActivateAsync();
+        model.OpenOrder(model.VisibleOrders.Single());
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Query? first = null; var reads = 0;
+        engine.QueryBarrier = query => {
+            ++reads;
+            if (first is null) { first = query; entered.TrySetResult(); return release.Task; }
+            return Task.CompletedTask;
+        };
+        engine.QueryHandler = _ => {
+            var page = QuotationDraftTests.Copy(fixture.Page);
+            // The Rust route rejects concurrent credential admission. Such a read
+            // correctly returns confirmed cache without permission to mutate.
+            if (!release.Task.IsCompleted) { page.ServerAvailable = false; page.Items[0].PermittedActions = []; }
+            return SalesCatalogAuthorityTests.Response(QueryResult.ForOrders(page));
+        };
+        engine.CommandHandler = command => {
+            fixture.Order.Revision++;
+            fixture.Order.State = command.Kind == Command.OrderWorkStartKind ? OrderState.InProduction : OrderState.Ready;
+            fixture.Order.Work[0].State = command.Kind == Command.OrderWorkStartKind ? WorkState.InProgress : WorkState.Completed;
+            fixture.Order.PermittedActions = command.Kind == Command.OrderWorkStartKind ? [OrderPermittedAction.CompleteWork] : [];
+            subscription!.SignalResync();
+            return new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded, Payload = CommandResult.ForOrder(QuotationDraftTests.Copy(fixture.Order)) } };
+        };
+        model.StartWork(); var start = model.LastAction;
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            subscription!.SignalResync();
+            Assert.IsFalse(start.IsCompleted, "Start must await the current read and its queued confirmation read.");
+            Assert.AreEqual(1, reads, "Subscription and post-command refreshes must not compete for the Rust route.");
+        }
+        finally { release.TrySetResult(); await start.WaitAsync(TimeSpan.FromSeconds(5)); }
+        Assert.AreEqual("", model.ListState);
+        Assert.AreEqual(2, reads, "A notice during the read must cause one subsequent authorized refresh.");
+        Assert.IsTrue(model.SelectedOrder!.CanCompleteWork);
+        model.CompleteWork(); await model.LastAction.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(Command.OrderWorkCompleteKind, engine.LastCommand!.Kind);
+        Assert.AreEqual(OrderState.Ready, model.SelectedOrder!.Record!.State);
+        Assert.IsFalse(model.HasPending);
+        await model.DeactivateAsync();
+    }
+    [TestMethod]
     public async Task RustPermissionsOfflineStateAndDeniedRefreshControlTheShell()
     {
         var fixture = new Fixture(true); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
@@ -88,8 +141,10 @@ public sealed class OrderAuthorityTests
     {
         var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
         var barrier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        engine.QueryBarrier = _ => barrier.Task; var model = new OrdersViewModel(true); model.Attach(client);
-        var load = model.ActivateAsync(); model.ClearOrders(); barrier.SetResult(); await load;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.QueryBarrier = _ => { entered.TrySetResult(); return barrier.Task; }; var model = new OrdersViewModel(true); model.Attach(client);
+        var load = model.ActivateAsync(); await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        model.ClearOrders(); barrier.SetResult(); await load;
         Assert.HasCount(0, model.VisibleOrders); Assert.IsFalse(model.IsDetailVisible); Assert.IsFalse(model.HasPending);
         await model.DeactivateAsync();
     }
