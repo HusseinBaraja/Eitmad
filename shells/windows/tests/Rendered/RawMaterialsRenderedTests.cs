@@ -15,7 +15,10 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class RawMaterialsRenderedTests
 {
     [TestMethod]
-    public void InputErrorsStayWithTheirFieldsAndAuthorityFailuresUseSummary()
+    [DataRow(1920, 1080)]
+    [DataRow(1338, 753)]
+    [DataRow(720, 560)]
+    public void InputErrorsStayWithTheirFieldsAndAuthorityFailuresUseSummary(double width, double height)
     {
         var data = RawMaterials.MaterialFixtures.Snapshot();
         var submissions = 0;
@@ -38,8 +41,9 @@ public sealed class RawMaterialsRenderedTests
                 };
             },
         };
-        WpfTestHost.Run(1920, 1080, window =>
+        WpfTestHost.Run(width, height, window =>
         {
+            if (width == 1920) { window.WindowState = WindowState.Maximized; WpfTestHost.CompleteLayout(window); }
             Console.WriteLine($"Materials validation: {window.ActualWidth}x{window.ActualHeight} DIP; scaling {VisualTreeHelper.GetDpi(window).DpiScaleX * 100}%; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
             WpfTestHost.FindByName<Button>(window, "MaterialsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             WpfTestHost.CompleteLayout(window);
@@ -55,7 +59,7 @@ public sealed class RawMaterialsRenderedTests
             var save = WpfTestHost.FindByName<Button>(view, "SaveEditorButton");
             var summary = WpfTestHost.FindByName<TextBlock>(view, "EditorSummary");
             void Submit() { save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window); }
-            cost.Text = "8.5";
+            cost.SetCurrentValue(TextBox.TextProperty, "8.5");
             Submit();
             Assert.AreEqual(0, submissions);
             Assert.AreEqual("8.5", cost.Text);
@@ -69,13 +73,13 @@ public sealed class RawMaterialsRenderedTests
 
             foreach (var invalid in new[] { "", "8,5", "٨٫٥", "1e3", "9223372036854775808" })
             {
-                cost.Text = invalid;
+                cost.SetCurrentValue(TextBox.TextProperty, invalid);
                 Submit();
                 Assert.AreEqual(0, submissions, invalid);
                 Assert.AreEqual(invalid, cost.Text);
                 Assert.IsFalse(string.IsNullOrEmpty(model.EditorCostError));
             }
-            cost.Text = "8500";
+            cost.SetCurrentValue(TextBox.TextProperty, "8500");
             category.SelectedIndex = -1;
             unit.SelectedIndex = -1;
             Submit();
@@ -92,7 +96,10 @@ public sealed class RawMaterialsRenderedTests
             unit.SelectedValue = material.UnitId;
             foreach (var (input, expected) in new[] { ("٨٥٠٠", 8500L), ("۰", 0L), ("9223372036854775807", long.MaxValue) })
             {
-                cost.Text = input;
+                cost.SetCurrentValue(TextBox.TextProperty, input);
+                cost.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+                Assert.IsFalse(Validation.GetHasError(cost), "Valid whole-YER text must not show a culture conversion error.");
+                if (expected == 8500L) WpfTestHost.Capture(window, $"material-valid-cost-{width}");
                 Submit();
                 Assert.AreEqual(expected, engine.LastCommand!.AsMaterialSave()!.CurrentCostYer);
                 Assert.IsTrue(model.IsEditorOpen);
