@@ -19,6 +19,7 @@ public partial class ProductsView : UserControl
     private ProductClient? client;
     private IEngineShellBridge? engineBridge;
     private CancellationTokenSource? refreshCancellation;
+    private Task currentRefresh = Task.CompletedTask;
     private long refreshVersion, sessionVersion;
     private bool activated;
     private SaveProductCategory? pendingCategoryInput;
@@ -32,12 +33,27 @@ public partial class ProductsView : UserControl
         client.Changed += (_, _) => { if (activated) _ = RefreshAsync(); };
     }
     /// <summary>Starts the scoped subscription before loading the page to avoid a policy-change gap.</summary>
-    public async Task ActivateAsync() { if (client is null) { ViewModel.Unavailable("بيانات المنتجات غير متاحة."); return; } activated = true; ViewModel.BeginLoad(); var session = sessionVersion; await client.ActivateAsync(); if (activated && session == sessionVersion) await RefreshAsync(); }
+    public async Task ActivateAsync()
+    {
+        if (client is null) { ViewModel.Unavailable("بيانات المنتجات غير متاحة."); return; }
+        activated = true; ViewModel.BeginLoad(); var session = sessionVersion;
+        await client.ActivateAsync();
+        if (!activated || session != sessionVersion) return;
+        var pending = RefreshAsync();
+        while (true)
+        {
+            await pending;
+            if (!activated || session != sessionVersion || ReferenceEquals(pending, currentRefresh)) return;
+            pending = currentRefresh;
+        }
+    }
     /// <summary>Invalidates late completions and replaces the client so retry payloads cannot cross account sessions.</summary>
     public void ClearSession() { pendingCategoryInput = null; activated = false; ClearRestrictedData(); if (client is { } previous) { _ = previous.DisposeAsync(); CreateClient(); } }
     public async ValueTask DisposeAsync() { refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); thumbnails.Clear(); if (client is not null) await client.DisposeAsync(); }
     /// <summary>Applies only the latest query result; canceled or invalidated results cannot restore an old projection.</summary>
-    private async Task RefreshAsync(bool debounce = false)
+    private Task RefreshAsync(bool debounce = false) => currentRefresh = LoadAsync(debounce);
+
+    private async Task LoadAsync(bool debounce)
     {
         if (client is null || !activated) return;
         refreshCancellation?.Cancel(); refreshCancellation?.Dispose(); var cancellation = new CancellationTokenSource(); refreshCancellation = cancellation; var version = ++refreshVersion;

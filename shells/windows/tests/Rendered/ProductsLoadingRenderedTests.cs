@@ -110,10 +110,16 @@ public sealed class ProductsLoadingRenderedTests
             try
             {
                 Assert.HasCount(2, requests); AssertLoading(window, view);
-                if (!latestFirst) { releases[0].SetResult(); Finish(first); AssertLoading(window, view); }
+                if (!latestFirst)
+                {
+                    releases[0].SetResult(); WpfTestHost.PumpDispatcher();
+                    AssertLoading(window, view);
+                    Assert.IsFalse(first.IsCompleted, "Activation must await the refresh that replaced its original request.");
+                }
                 releases[1].SetResult(); Finish(latest);
                 Assert.IsTrue(view.ViewModel.IsDataReady); Assert.HasCount(1, view.ViewModel.VisibleProducts);
-                if (latestFirst) { releases[0].SetResult(); Finish(first); }
+                if (latestFirst) releases[0].SetResult();
+                Finish(first);
                 Assert.IsTrue(view.ViewModel.IsDataReady); Assert.IsTrue(view.ViewModel.CanEdit);
                 Assert.HasCount(1, view.ViewModel.VisibleProducts); Assert.HasCount(1, view.ViewModel.Categories);
                 Console.WriteLine($"Replacement verified: latestFirst={latestFirst}, staleDenied={oldFails}; final rows=1, ready=True.");

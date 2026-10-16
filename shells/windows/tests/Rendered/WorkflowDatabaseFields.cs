@@ -165,12 +165,18 @@ public sealed partial class WorkflowEnvironmentTests
         ClickNamed(window, "ProductsNavButton");
         var view = WpfTestHost.Descendants<ProductsView>(window).Single();
         Finish(view.ActivateAsync());
+        WaitField(() => view.ViewModel.IsDataReady && view.ViewModel.CanEdit, "current Products management load");
         view.ViewModel.BeginAddCategory();
+        WaitField(() => view.ViewModel.IsCategoryEditorOpen && WpfTestHost.Descendants<TextBox>(view)
+            .Any(input => input.Name == "CategoryNameBox" && input.IsVisible && input.IsEnabled), "enabled Product category editor");
         SetNamedField(view, "CategoryNameBox", $"منتجات تحقق {suffix}");
         ClickText(view, "حفظ الفئة");
         WaitField(() => !view.ViewModel.IsCategoryEditorOpen && view.ViewModel.Categories.Any(item => item.Name == $"منتجات تحقق {suffix}"), "product category save");
         remember("product-category", $"منتجات تحقق {suffix}");
+        WaitField(() => view.ViewModel.IsDataReady && view.ViewModel.CanEdit, "Products ready after category save");
         view.ViewModel.BeginCreate();
+        WaitField(() => view.ViewModel.IsEditorOpen && WpfTestHost.Descendants<TextBox>(view)
+            .Any(input => input.Name == "ProductNameBox" && input.IsVisible && input.IsEnabled), "enabled Product editor");
         var name = $"مرتبة تحقق {suffix}";
         SetNamedField(view, "ProductNameBox", name);
         view.ViewModel.EditorCategory = $"منتجات تحقق {suffix}";
