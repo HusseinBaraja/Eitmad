@@ -2,6 +2,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Prepare', 'Start', 'Stop', 'Status')][string]$Action = 'Start',
+    [ValidateSet('Presentation', 'Rehearsal')][string]$Environment = 'Presentation',
     [string]$PostgresBin,
     [switch]$NoDesktop,
     [switch]$PrepareCustomization
@@ -10,12 +11,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# One fixed, isolated connected setup. Never use the developer account seeder.
+# Separate retained stories. Never use the developer account seeder or reset state.
+$rehearsal = $Environment -eq 'Rehearsal'
 $options = @{
     Action = $Action
-    StateDirectory = Join-Path $PSScriptRoot 'tests/engine-integration/artifacts/demo-family-purchase'
-    DatabasePort = 55459
-    ServerPort = 58463
+    StateDirectory = Join-Path $PSScriptRoot $(if ($rehearsal) {
+        'tests/engine-integration/artifacts/demo-family-rehearsal'
+    } else { 'tests/engine-integration/artifacts/demo-family-purchase' })
+    DatabasePort = $(if ($rehearsal) { 55475 } else { 55459 })
+    ServerPort = $(if ($rehearsal) { 58479 } else { 58463 })
 }
 if ($PostgresBin) { $options.PostgresBin = $PostgresBin }
 if ($NoDesktop -and $Action -ne 'Start') { throw 'NoDesktop is only valid for Start.' }
@@ -26,4 +30,5 @@ if ($Action -eq 'Start') {
     $options.NoDesktop = $NoDesktop
     $options.PrepareCustomization = $PrepareCustomization
 }
+Write-Host "Demo environment: $Environment"
 & (Join-Path $PSScriptRoot 'tools/workflow-environment.ps1') @options

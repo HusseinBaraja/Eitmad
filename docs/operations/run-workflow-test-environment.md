@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-16"
+last_verified: "2026-10-17"
 review_triggers:
   - "account provisioning, desktop startup, server routes, workflow seeding, or test prerequisites change"
 keywords:
@@ -70,6 +70,61 @@ pwsh -NoProfile -File .\run-demo.ps1 Stop
 ```
 
 Use `run-demo.ps1 Status` to inspect owned processes. A PC reboot, visible role sign-in, and a manual quotation rehearsal remain separate checks. The full `-VerifySignIn` rehearsal below remains available; the focused demo check does not replace its field-editor, order, or delivery coverage. On failure, keep the state, inspect the stage error, then Stop before retrying. Do not reset databases or print private settings.
+
+### Recover the demo and keep rehearsal separate
+
+Use the default `-Environment Presentation` for the retained family purchase. Use `-Environment Rehearsal` for practice. Each name selects its own retained database, account credentials, local authority, and process journal. The launcher prints the selected name before each action. Keep only one demo desktop open so that identical synthetic record numbers cannot be mistaken for the other environment.
+
+| Environment | State directory under `tests/engine-integration/artifacts/` | Database / TLS ports |
+| --- | --- | --- |
+| Presentation (default) | `demo-family-purchase` | `55459` / `58463` |
+| Rehearsal | `demo-family-rehearsal` | `55475` / `58479` |
+
+Before the meeting, prepare the rehearsal through the same launcher. On its first Start, supply the installed PostgreSQL binary path with `-PostgresBin` if needed. Start once to seed the family purchase; Stop; then Start with `-PrepareCustomization` to add the separate sample. These operations use Rust authority and preserve partial and accepted work. Neither environment has a reset action. Preparation is a one-time step; later starts omit `-PrepareCustomization`.
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 -Environment Rehearsal -NoDesktop -PostgresBin "$PWD\target\quotation-test-env\pgsql\bin"
+```
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 Stop -Environment Rehearsal
+```
+
+```powershell
+pwsh -NoProfile -File .\run-demo.ps1 -Environment Rehearsal -PrepareCustomization
+```
+
+Use this short recovery route with the selected environment:
+
+1. **Start:** from stopped services, run `pwsh -NoProfile -File .\run-demo.ps1 -Environment Presentation`. Wait for `DEMO READY` and exit code zero. This reads the retained family purchase through both accounts without rebuilding. Before the audience arrives, obtain both matching passwords from this environment's protected settings. Keep them available privately; never put them in the runbook, screenshots, or logs.
+2. **Confirm readiness:** run `pwsh -NoProfile -File .\run-demo.ps1 Status -Environment Presentation`. Expect `server`, `desktop`, and `postgres` to be running. Sign in as `receptionist`; confirm the records below. The ready marker is historical proof, not a health monitor. Keep this tested app session open.
+3. **Accidental close:** closing the main window hides it. Open the Windows notification area, including hidden icons if needed. Double-click **الاعتماد · مركز العمليات**, or right-click it and select **فتح مركز العمليات**. Do not run Start again while it is in the tray.
+4. **Switch accounts:** save unfinished input, press **Alt+K**, then select **تسجيل الخروج** in **تبديل الحساب**. Sign in as `manager` or `receptionist` with the same environment's matching password. Unsaved input clears; accepted records remain. Cancel with **إلغاء** to keep the current form.
+5. **Exit from tray:** right-click the icon and select **إنهاء الاعتماد**. This ends the desktop and its supervised engine. Closing the window is not Exit.
+6. **Stop local services:** run `pwsh -NoProfile -File .\run-demo.ps1 Stop -Environment Presentation`. Expect `Clients, server, and PostgreSQL stopped. Accepted work is retained.` Status must show stopped processes. Stop also ends a remaining owned desktop safely.
+7. **Resume:** repeat Start with the same environment name and locate the same record numbers. Start refuses running processes; use the tray to reopen, or Stop before Start. A failed readiness check never restores an earlier commercial state. Retain the state and use the recorded fallback if recovery would interrupt the meeting.
+
+For practice, replace `Presentation` with `Rehearsal` in every step. Exit and stop Rehearsal before opening Presentation. Do not copy its database, credentials, or process journal into Presentation.
+
+### Try the prepared family story
+
+In Presentation, use Receptionist to open the customer **أسرة سامر السعدي**, converted quotation `QT-2026-00001`, and Ready order `OR-2026-00001`. The order contains **خزانة السكينة ببابين** at 185,000 YER and **مرتبة الراحة المزدوجة** at 95,000 YER, quantity one each, zero discount, **280,000 YER** total. Open the saved quotation or order document to show the same customer, specifications, and total. Leave this order undelivered for the meeting. A converted quotation cannot be converted again.
+
+Switch to Manager and open Orders → `OR-2026-00001` → **فتح تصنيع الطلب**. Work order `WO-2026-00001` is already Completed. Show its wardrobe specification; no new completion is needed. Switch back to Receptionist. The order remains Ready. Delivery changes durable state; perform a delivery rehearsal only in Rehearsal.
+
+The separate sample **خزانة السكينة حسب المقاس**, quotation `QT-2026-00002`, is Issued: 1400 × 2100 × 600 mm, walnut, brass handle, quantity one, zero discount, **200,000 YER**. Its smaller variant costs 185,000 YER plus the 15,000 YER handle. The larger variant with brass costs 240,000 YER. Use the issued sample for inspection; keep Presentation unchanged. In Rehearsal, this unconverted sample can be used for acceptance, conversion, production, and delivery practice. Once converted or delivered, create a fresh quotation through the app and use its newly issued numbers. Restart does not undo those transitions.
+
+The strict demo gate requires one family order in Ready state. After creating another rehearsal order or delivering the family order, resume the retained rehearsal without that gate:
+
+```powershell
+pwsh -NoProfile -File .\tools\workflow-environment.ps1 Start -StateDirectory "$PWD\tests\engine-integration\artifacts\demo-family-rehearsal" -SkipBuild
+```
+
+Stop that environment first if its processes are still running. This command preserves all work and opens the app to prepare fresh records; it does not claim the original Ready-order gate passed. Continue to use `run-demo.ps1 Stop -Environment Rehearsal` and `Status -Environment Rehearsal` for its owned services.
+
+**Known defect:** direct Orders Complete remains unresolved. For a fresh manufacturing order, use the verified route: Orders → Start work → **فتح تصنيع الطلب** → Work Orders Complete (**تغيير حالة أمر العمل**) → Receptionist → Orders → Deliver. Do not use the direct Orders Complete action during this demo. The existing family work order is already Completed.
+
+Before the meeting, keep a local visual fallback made from the verified family proof and bundled synthetic photos. Label it **Recorded evidence**, include its verification time and environment, and show 280,000 YER for the family story. It is a saved snapshot, not current application state or proof of a live click. The action 13 enlarged document fixture is a separate synthetic **47,500 YER** example; do not present it as this family purchase. The local action 14 route, recorded fallback, measured restart proof, and remaining manual checks are saved under `artifacts/demo-fixes-20261016/`.
 
 ### Prepare the optional customization sample
 
