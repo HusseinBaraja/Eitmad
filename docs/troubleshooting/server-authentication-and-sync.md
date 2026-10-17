@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-23"
+last_verified: "2026-10-17"
 review_triggers:
   - "server error identifiers, authentication, tenant isolation, compatibility, or sync recovery changes"
 keywords:
@@ -56,6 +56,18 @@ Record the UTC time, stable error identifier, HTTP status, correlation ID, tenan
 4. Confirm the WebSocket first message is `eitmad.server.hello.v1`.
 5. Confirm overlap with protocol `1.4`, every required server capability, and the registered domain schema.
 6. Retry only when the error is retryable. Never retry token reuse, idempotency mismatch, scope mismatch, or incompatibility in a loop.
+
+## Credential contention and session ownership
+
+The Rust direct route serializes each stored rotating token pair by credential reference. HTTP reads, connection setup, refresh, and `store_session` / `store_account_session` persistence share that ownership. A waiter uses its remaining monotonic deadline and loads the credential only after admission. Short concurrent use does not immediately become `Unavailable`. Refresh runs once for the due pair; later owners read the persisted replacement. Session persistence cannot race an earlier refresh and be overwritten by its old result.
+
+HTTP requests use separate sockets and immutable driver state, so requests on one client do not compete for a driver mutex. Connection establishment uses one ten-second budget for credential admission, refresh, TCP/TLS, and WebSocket negotiation. It retains credential ownership through authentication failure cleanup so an older connection attempt cannot delete a newly stored session. Standalone session persistence has bounded ten-second admission. Native credential-store calls remain synchronous and cannot be interrupted by this network deadline.
+
+Desktop sign-in and sign-out use the local Rust session authority. Sign-out closes the desktop session and does not delete the reusable server credential. IPC reauthorization withholds in-flight results from closed sessions. Credential admission does not change that boundary. Account-derived references and user/tenant/device checks remain required before refresh. HTTP scope validation and server authorization remain required before data access.
+
+Use the [correlated phase diagnostic](local-ipc-failures.md#read-the-bounded-diagnostic-events) to compare `CredentialAdmission`, `CredentialRefresh`, TLS, receive, and confirmation durations. Admission reports success after waiting, deadline exhaustion, or poison; DNS keeps its independent bounded resolver admission. No trace from a new build establishes the cause of an older cached response.
+
+The focused proof is in `credential_admission.rs`, `catalog_image.rs`, and `credential_contention_tests.rs`. Run the owner library tests normally. The ignored TLS contention tests require fresh disposable certificates through `EITMAD_DIRECT_TEST_CERTIFICATE`, `EITMAD_DIRECT_TEST_PRIVATE_KEY`, and `EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE`; they verify concurrent confirmation, single refresh, session replacement ordering, and a shared establishment deadline. Keep certificate keys and credentials private.
 
 ## Recover snapshot and history safely
 

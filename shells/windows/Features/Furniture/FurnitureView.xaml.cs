@@ -23,6 +23,12 @@ public partial class FurnitureView : UserControl
     }
 
     public FurnitureViewModel ViewModel { get; }
+    public event Action<string>? PricingRequested;
+
+    private void OpenPricingClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (ViewModel.CanOpenPricing) PricingRequested?.Invoke(ViewModel.SavedDefinitionName);
+    }
 
     private void FurnitureRowInvoked(object sender, RowInvokedEventArgs eventArgs) =>
         OpenEditor((FurnitureListItem)eventArgs.Item);

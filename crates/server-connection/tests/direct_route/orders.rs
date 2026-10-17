@@ -10,6 +10,7 @@ mod manual_recovery;
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn orders_cross_client_conversion_transitions_and_restart() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;

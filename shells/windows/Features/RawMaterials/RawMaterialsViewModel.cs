@@ -390,7 +390,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorName = string.Empty;
         EditorCategory = ActiveCategories.FirstOrDefault()?.Name ?? string.Empty;
         EditorUnit = ActiveUnits.FirstOrDefault()?.Name ?? string.Empty;
-        EditorCost = 0m;
+        ResetEditorCost(0m);
         ClearEditorErrors();
         IsEditorOpen = true;
     }
@@ -406,7 +406,7 @@ public sealed class RawMaterialsViewModel : ObservableObject
         EditorUnit = material.Unit;
         EditorCategoryId = material.CategoryId;
         EditorUnitId = material.UnitId;
-        EditorCost = material.CurrentCost;
+        ResetEditorCost(material.CurrentCost);
         ClearEditorErrors();
         IsEditorOpen = true;
     }
@@ -415,6 +415,13 @@ public sealed class RawMaterialsViewModel : ObservableObject
     {
         IsEditorOpen = false;
         ClearEditorErrors();
+    }
+
+    private void ResetEditorCost(decimal cost)
+    {
+        // A new form must replace unsaved one-way textbox text even when the cost is unchanged.
+        editorCost = cost;
+        Raise(nameof(EditorCost));
     }
 
     private void RefreshEditorReferences()

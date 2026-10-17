@@ -17,6 +17,7 @@ public sealed partial class SalesCatalogViewModel
     private string draftSaveError = "";
     public string DraftSaveError => draftSaveError;
     public bool HasDraftSaveFailure => draftSaveError.Length > 0;
+    public bool HasUnsavedDraftChanges => hasUnsavedEdits || uncertainSave;
     public string DraftSaveAction => HasDraftSaveFailure ? "إعادة محاولة الحفظ" : "حفظ كمسودة";
     public bool IsLiveQuotation => catalogClient is not null;
     public bool AreCustomerDetailsReadOnly => IsLiveQuotation && !IsNewCustomer;

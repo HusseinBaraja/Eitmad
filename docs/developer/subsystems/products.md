@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Products capability maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-16"
 review_triggers:
   - "Product contracts, category ownership, pricing rules, or Windows Products UI behavior change"
 keywords:
@@ -54,6 +54,8 @@ List queries use UUID cursors and limits from 1 to 100. Search terms are bounded
 One immediate SQLite transaction writes current state, immutable Product history, stable option ownership, audit, exact retry response, and a compact publication outbox event. A mandatory write failure rolls back every write. Retry hashes bind actor, scope, operation, and input; a changed request cannot reuse a saved retry key. The runtime publishes committed events and recovers the outbox after restart. The [catalog sync cycle](synchronization.md#catalog-replication) transfers immutable definitions and categories through the real route. Server definition reads, snapshots, and subscriptions deny Receptionists before returning any draft identities or payloads. The confirmed sales projection exposes only priced active variants.
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
+
+The Products page shows a loading state from activation through the current category and Product queries. It hides the list and count during a pending refresh. Only a successful current response can show rows or an empty result and enable permitted Product and category actions. Failure shows an unavailable state. A canceled or superseded response cannot end the replacement request's loading state or replace its result. Activation awaits a replacement refresh in the same session before returning; connected editor checks must also wait for current management data and a visible, enabled input. Thumbnail reads do not delay readiness of the text and category data.
 
 The shell uses asynchronous IPC, subscriptions, and cancellable refreshes. It retains the revision opened in the editor across refreshes. A conflict or validation error keeps the editor open. An unknown outcome keeps the request and retry key for an exact retry, including an unavailable command response. Until that retry succeeds or returns a known failure, a different payload is rejected. Product and category requests use separate retry state. Reconnect refreshes authoritative state. If data is unavailable, the list states that failure without claiming that records were deleted. One optional [durable catalog image](catalog-images.md) is retained per revision. The native picker imports through Rust; image read failure does not block catalog text. Replacement and removal preserve earlier revision references.
 

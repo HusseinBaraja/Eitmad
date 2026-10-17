@@ -318,6 +318,8 @@ public sealed class CustomerDocumentsRenderedTests
         WpfTestHost.FindByName<Button>(preview, "FindPreviousButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         WpfTestHost.CompleteLayout(window);
         Assert.AreEqual(0, provider.GetSelection()[0].CompareEndpoints(TextPatternRangeEndpoint.Start, firstResult, TextPatternRangeEndpoint.Start), "Previous search must return to the preceding result.");
+        // Native search can focus the selected document text. Start Tab from the field.
+        Assert.IsTrue(search.Focus());
         Assert.IsTrue(search.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
         Assert.IsTrue(WpfTestHost.FindByName<Button>(preview, "FindPreviousButton").IsKeyboardFocusWithin);
         search.Text = string.Empty;

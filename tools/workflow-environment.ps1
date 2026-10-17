@@ -7,14 +7,21 @@ param(
     [ValidateRange(1024, 65535)][int]$DatabasePort = 55439,
     [ValidateRange(1024, 65535)][int]$ServerPort = 58443,
     [switch]$SkipBuild,
-    [switch]$VerifySignIn
+    [switch]$VerifySignIn,
+    [switch]$DiagnosticActivation,
+    [switch]$ServicesOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path $PSScriptRoot -Parent
+if ($DiagnosticActivation) {
+    if ($ServicesOnly -or $Action -ne 'Start') { throw 'DiagnosticActivation requires Start with the desktop verification environment.' }
+    $VerifySignIn = $true
+}
+if ($ServicesOnly -and $VerifySignIn) { throw 'ServicesOnly cannot verify desktop sign-in.' }
 $allowed = [IO.Path]::GetFullPath((Join-Path $workspace 'tests/engine-integration/artifacts'))
 if (-not $StateDirectory) { $StateDirectory = Join-Path $allowed 'workflow-e2e' }
-$root = [IO.Path]::GetFullPath($StateDirectory)
+$root = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($StateDirectory)
 if (-not $root.StartsWith($allowed + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Test state must be a named child of tests/engine-integration/artifacts. No state was changed.'
 }
@@ -37,6 +44,17 @@ if (Test-Path -LiteralPath $root) {
         throw 'Refusing an existing directory without the exact disposable Eitmad test marker. No reset is supported.'
     }
 } elseif ($Action -ne 'Start') { throw 'This disposable environment does not exist.' }
+if ($ServicesOnly -and $Action -eq 'Start') {
+    foreach ($file in 'secrets.json', 'provision.json', 'postgres/PG_VERSION') {
+        if (-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)) {
+            throw 'Services require an existing provisioned installation. Complete the connected workflow setup first.'
+        }
+    }
+    $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
+    if ($journal.seeded -ne $true) {
+        throw 'Services require completed provisioning. No business records were seeded.'
+    }
+}
 
 function Run-Tool([string]$File, [string[]]$Arguments) {
     & $File @Arguments
@@ -48,9 +66,10 @@ function Start-Owned([string]$File, [string[]]$Arguments, [string]$Name, [switch
         if ($_ -match '["\r\n]') { throw 'Invalid process argument.' }
         '"' + $_ + '"'
     })
+    $launch = "$Name-$([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ'))-$([Guid]::NewGuid().ToString('N'))"
     $process = Start-Process -FilePath $File -ArgumentList $quoted -WindowStyle $(if ($Visible) { 'Normal' } else { 'Hidden' }) -PassThru `
-        -RedirectStandardOutput (Join-Path $root "$Name.stdout.log") `
-        -RedirectStandardError (Join-Path $root "$Name.stderr.log")
+        -RedirectStandardOutput (Join-Path $root "$launch.stdout.log") `
+        -RedirectStandardError (Join-Path $root "$launch.stderr.log")
     return $process
 }
 function Find-Owned($Entry) {
@@ -70,7 +89,9 @@ function Record-Process($Process, [string]$Name, [string]$Executable) {
 $owned = @()
 if (Test-Path -LiteralPath $processFile) { $owned = @(Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json) }
 if ($Action -eq 'Status') {
-    foreach ($entry in $owned) { Write-Host "$($entry.name): $(if (Find-Owned $entry) { 'running' } else { 'stopped' })" }
+    foreach ($entry in $owned | Where-Object { -not $ServicesOnly -or $_.name -eq 'server' }) {
+        Write-Host "$($entry.name): $(if (Find-Owned $entry) { 'running' } else { 'stopped' })"
+    }
     if (Test-Path -LiteralPath $secretsFile) {
         $settings = Get-Content -LiteralPath $secretsFile -Raw | ConvertFrom-Json
         & (Join-Path $settings.postgres_bin 'pg_ctl.exe') -D (Join-Path $root 'postgres') status *> $null
@@ -91,7 +112,7 @@ public static class EitmadTestShutdown {
     public static extern bool PostThreadMessage(uint thread, uint message, UIntPtr wParam, IntPtr lParam);
 }
 '@
-    foreach ($entry in $owned | Where-Object name -ne 'server') {
+    foreach ($entry in $owned | Where-Object { $_.name -ne 'server' -and -not $ServicesOnly }) {
         $process = Find-Owned $entry
         if ($process) {
             foreach ($thread in $process.Threads) { [void][EitmadTestShutdown]::PostThreadMessage([uint32]$thread.Id, 0x0012, [UIntPtr]::Zero, [IntPtr]::Zero) }
@@ -109,17 +130,18 @@ public static class EitmadTestShutdown {
         & (Join-Path $settings.postgres_bin 'pg_ctl.exe') -D (Join-Path $root 'postgres') status *> $null
         if ($LASTEXITCODE -eq 0) { throw 'PostgreSQL did not stop.' }
     }
-    Write-Host 'Clients, server, and PostgreSQL stopped. Accepted work is retained.'
+    if ($ServicesOnly) { Write-Host 'Server and PostgreSQL stopped. Accepted work is retained.' }
+    else { Write-Host 'Clients, server, and PostgreSQL stopped. Accepted work is retained.' }
     return
 }
 if (@($owned | Where-Object { Find-Owned $_ }).Count) { throw 'This environment has running processes. Use Stop before Start.' }
-if (-not $PostgresBin) { $PostgresBin = Join-Path $workspace 'target/direct-order-test/pgsql/bin' }
 if (Test-Path -LiteralPath $secretsFile) {
     $settings = Get-Content -LiteralPath $secretsFile -Raw | ConvertFrom-Json
     $PostgresBin = $settings.postgres_bin
     $DatabasePort = $settings.database_port
     $ServerPort = $settings.server_port
 }
+if (-not $PostgresBin) { throw 'Supply -PostgresBin with the PostgreSQL 17 binary directory for initial setup.' }
 $PostgresBin = [IO.Path]::GetFullPath($PostgresBin)
 foreach ($tool in 'initdb', 'pg_ctl', 'psql', 'createdb') {
     if (-not (Test-Path -LiteralPath (Join-Path $PostgresBin "$tool.exe"))) {
@@ -153,7 +175,7 @@ if (-not (Test-Path -LiteralPath $secretsFile)) {
 }
 $owned = @()
 $previous = @{}
-$names = @('PGPASSWORD', 'CARGO_INCREMENTAL', 'CARGO_TARGET_DIR', 'EITMAD_E2E_ROOT') +
+$names = @('PGPASSWORD', 'CARGO_INCREMENTAL', 'CARGO_TARGET_DIR', 'EITMAD_E2E_ROOT', 'EITMAD_DIAGNOSTICS') +
     @(Get-ChildItem Env:EITMAD_* | ForEach-Object Name) + @(
     'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY', 'EITMAD_SERVER_LISTEN',
     'EITMAD_SERVER_TLS_CERTIFICATE', 'EITMAD_SERVER_TLS_PRIVATE_KEY', 'EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY',
@@ -175,17 +197,28 @@ try {
     $env:CARGO_TARGET_DIR = Join-Path $workspace 'target/toolchain-1.85.1'
     $env:CARGO_INCREMENTAL = '0'
     if (-not $SkipBuild) {
-        Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server', '-p', 'eitmad-engine-cli')
+        $packages = @('-p', 'eitmad-server')
+        if (-not $ServicesOnly) { $packages += @('-p', 'eitmad-engine-cli') }
+        Run-Tool 'rustup' (@('run', '1.85.1', 'cargo', 'build', '--locked') + $packages)
         Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server-connection', '--example', 'workflow_environment')
-        Run-Tool 'dotnet' @('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo')
+        if (-not $ServicesOnly) {
+            Run-Tool 'dotnet' @('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo')
+        }
+        Run-Tool 'dotnet' @('build', 'tools/dev-certificate/Eitmad.DevCertificate.csproj', '--configuration', 'Release', '--nologo')
+        if ($VerifySignIn) {
+            Run-Tool 'dotnet' @('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1')
+        }
     }
-    $metadata = & rustup run 1.85.1 cargo metadata --format-version 1 --no-deps | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 0) { throw 'Cargo metadata failed.' }
-    $server = Join-Path $metadata.target_directory 'debug/eitmad-server.exe'
-    $engine = Join-Path $metadata.target_directory 'debug/eitmad-engine-cli.exe'
-    $provision = Join-Path $metadata.target_directory 'debug/examples/workflow_environment.exe'
+    $server = Join-Path $env:CARGO_TARGET_DIR 'debug/eitmad-server.exe'
+    $engine = Join-Path $env:CARGO_TARGET_DIR 'debug/eitmad-engine-cli.exe'
+    $provision = Join-Path $env:CARGO_TARGET_DIR 'debug/examples/workflow_environment.exe'
     $shell = Join-Path $workspace 'shells/windows/bin/Release/net8.0-windows/Eitmad.WindowsShell.exe'
-    foreach ($file in $server, $engine, $provision, $shell) { if (-not (Test-Path -LiteralPath $file)) { throw 'A build output is missing. Run Start without -SkipBuild.' } }
+    $certificateTool = Join-Path $workspace 'tools/dev-certificate/bin/Release/net8.0/Eitmad.DevCertificate.dll'
+    $testAssembly = Join-Path $workspace 'shells/windows/tests/bin/Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'
+    $outputs = @($server, $provision, $certificateTool)
+    if (-not $ServicesOnly) { $outputs += @($engine, $shell) }
+    if ($VerifySignIn) { $outputs += $testAssembly }
+    foreach ($file in $outputs) { if (-not (Test-Path -LiteralPath $file)) { throw 'A build output is missing. Run Start without -SkipBuild.' } }
     $cluster = Join-Path $root 'postgres'
     if (-not (Test-Path -LiteralPath (Join-Path $cluster 'PG_VERSION'))) {
         $passwordFile = Join-Path $root 'initdb-password'
@@ -195,7 +228,7 @@ try {
     }
     & (Join-Path $PostgresBin 'pg_ctl.exe') -D $cluster status *> $null
     if ($LASTEXITCODE -ne 0) {
-        $start = Start-Owned (Join-Path $PostgresBin 'pg_ctl.exe') @('-D', $cluster, '-l', (Join-Path $root 'postgres.log'), '-o', "-h 127.0.0.1 -p $DatabasePort -c log_statement=none -c log_min_error_statement=panic", '-w', 'start') 'postgres-start'
+        $start = Start-Owned (Join-Path $PostgresBin 'pg_ctl.exe') @('-D', $cluster, '-l', (Join-Path $root ('postgres-' + [Guid]::NewGuid().ToString('N') + '.log')), '-o', "-h 127.0.0.1 -p $DatabasePort -c log_statement=none -c log_min_error_statement=panic", '-w', 'start') 'postgres-start'
         $start.WaitForExit()
         if ($start.ExitCode -ne 0) { throw 'Isolated PostgreSQL startup failed. Check port availability and private logs.' }
     }
@@ -204,6 +237,7 @@ try {
     $exists = & (Join-Path $PostgresBin 'psql.exe') @connection '-tAc' "SELECT 1 FROM pg_roles WHERE rolname='eitmad_workflow'"
     if ($LASTEXITCODE -ne 0) { throw 'Isolated database authentication failed.' }
     if ($exists -notcontains '1') {
+        if ($ServicesOnly) { throw 'The provisioned database role is missing. No role was created.' }
         $roleFile = Join-Path $root 'create-role.sql'
         [IO.File]::WriteAllText($roleFile, "CREATE ROLE eitmad_workflow LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '$($settings.database_password)';")
         try { Run-Tool (Join-Path $PostgresBin 'psql.exe') ($connection + @('-f', $roleFile)) }
@@ -211,13 +245,16 @@ try {
     }
     $exists = & (Join-Path $PostgresBin 'psql.exe') @connection '-tAc' "SELECT 1 FROM pg_database WHERE datname='eitmad_workflow_test'"
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect disposable database.' }
-    if ($exists -notcontains '1') { Run-Tool (Join-Path $PostgresBin 'createdb.exe') @('-h', '127.0.0.1', '-p', "$DatabasePort", '-U', 'postgres', '-O', 'eitmad_workflow', 'eitmad_workflow_test') }
+    if ($exists -notcontains '1') {
+        if ($ServicesOnly) { throw 'The provisioned database is missing. No database was created.' }
+        Run-Tool (Join-Path $PostgresBin 'createdb.exe') @('-h', '127.0.0.1', '-p', "$DatabasePort", '-U', 'postgres', '-O', 'eitmad_workflow', 'eitmad_workflow_test')
+    }
     $env:EITMAD_SERVER_DATABASE_URL = $settings.database_url
     $env:EITMAD_SERVER_TOKEN_KEY = $settings.token_key
     $env:EITMAD_SERVER_LISTEN = "127.0.0.1:$ServerPort"
     $certificates = Join-Path $root 'certificates'
     # Renew only transport certificates; database, identity, work, and token signing key persist.
-    Run-Tool 'dotnet' @('run', '--project', 'tools/dev-certificate/Eitmad.DevCertificate.csproj', '--configuration', 'Release', '--', $certificates)
+    Run-Tool 'dotnet' @($certificateTool, $certificates)
     $env:EITMAD_SERVER_TLS_CERTIFICATE = Join-Path $certificates 'server-cert.pem'
     $env:EITMAD_SERVER_TLS_PRIVATE_KEY = Join-Path $certificates 'server-key.pem'
     $env:EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY = Join-Path $root 'update-manifests'
@@ -255,33 +292,42 @@ try {
     if (-not $ready) { throw 'Server readiness deadline elapsed.' }
     $env:EITMAD_E2E_ROOT = $root
     Run-Tool $provision @()
-    $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
-    $env:EITMAD_QUOTATION_ORGANIZATION_ID = $journal.organization
-    $env:EITMAD_QUOTATION_BRANCH_ID = $journal.branch
-    $env:EITMAD_CUSTOMER_BRANCH_ID = $journal.branch
-    # The thin shell and its supervised engine receive route references, never server secrets.
+    if ($ServicesOnly) {
+        Write-Host 'SERVICES READY: PostgreSQL and the TLS server are running. Connection references are refreshed; business records are retained.'
+        Write-Host "Open the app separately: .\run.ps1 -RuntimeDirectory `"$(Join-Path $root 'receptionist')`""
+        return
+    }
+    # The shell and its engine must not inherit server credentials.
     foreach ($name in 'PGPASSWORD', 'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY') {
         [Environment]::SetEnvironmentVariable($name, $null, 'Process')
     }
     if ($VerifySignIn) {
-        foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
-            [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
-            [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
-        }
         $env:EITMAD_E2E_ENGINE = $engine
-        Run-Tool 'dotnet' @('test', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1', '--filter', 'FullyQualifiedName~WorkflowEnvironmentTests')
+        $testName = if ($DiagnosticActivation) { 'DiagnosticAccountSwitchAndConfirmation' } else { 'OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork' }
+        $filter = "FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.$testName"
+        if ($DiagnosticActivation) { $env:EITMAD_DIAGNOSTICS = '1' }
+        $results = Join-Path $root ('launch-check-' + [Guid]::NewGuid().ToString('N'))
+        if ($DiagnosticActivation) {
+            $testProcess = Start-Owned 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx') 'activation-diagnostic'
+            $testProcess.WaitForExit()
+            if ($testProcess.ExitCode -ne 0) { throw 'Activation diagnostic failed. Retain the distinct activation-diagnostic stdout/stderr and TRX evidence.' }
+        } else {
+            Run-Tool 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx')
+        }
+        [xml]$result = Get-Content -LiteralPath (Join-Path $results 'workflow.trx') -Raw
+        $counts = $result.TestRun.ResultSummary.Counters
+        if ([int]$counts.total -lt 1 -or [int]$counts.passed -ne [int]$counts.total) {
+            throw 'Workflow verification did not pass every selected test.'
+        }
     }
-    # Both imported accounts use one persistent desktop and one supervised engine.
+    if ($DiagnosticActivation) {
+        Write-Host "Activation diagnostic passed. Retain stdout/stderr logs and TRX in: $root"
+        return
+    }
     $directory = Join-Path $root 'receptionist'
-    $credential = Get-Content -LiteralPath (Join-Path $directory 'route.json') -Raw
-    foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
-        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
-        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
-        [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_CREDENTIAL_ID", $credential, 'Process')
-    }
     $client = Start-Owned $shell @('--engine', $engine, '--runtime-directory', $directory) 'desktop' -Visible
     Record-Process $client 'desktop' $shell
-    Write-Host "One real WPF client started. Sign-in names: manager and receptionist. Use Alt+K to switch accounts."
+    Write-Host 'One real WPF client started. Sign-in names: manager and receptionist. Use Alt+K to switch accounts.'
     Write-Host "Read the generated passwords locally from the protected file: $secretsFile"
     Write-Host "Disposable state is retained at: $root"
 } finally {

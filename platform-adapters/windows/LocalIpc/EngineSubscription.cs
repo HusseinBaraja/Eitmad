@@ -18,6 +18,7 @@ public sealed class EngineSubscription
     private readonly object gate = new();
     private Guid processedCursor;
     private long processedSequence;
+    private bool deliveryStopped;
 
     internal EngineSubscription(Guid subscriptionId, Guid streamCursor, bool resumed)
     {
@@ -67,7 +68,20 @@ public sealed class EngineSubscription
         }
     }
 
-    internal bool TryPublish(EventEnvelope delivered) => events.Writer.TryWrite(delivered);
+    internal bool TryPublish(EventEnvelope delivered)
+    {
+        lock (gate) return deliveryStopped || events.Writer.TryWrite(delivered);
+    }
+
+    internal void StopDelivery(Exception? error = null)
+    {
+        lock (gate)
+        {
+            deliveryStopped = true;
+            events.Writer.TryComplete(error);
+            while (events.Reader.TryRead(out _)) { }
+        }
+    }
 
     internal void Complete(Exception? error = null) => events.Writer.TryComplete(error);
 }

@@ -269,3 +269,97 @@ fn debug_seed_provisions_distinct_accounts_and_is_idempotent() {
             .principal_id
     );
 }
+
+#[test]
+fn debug_seed_preserves_changed_roles_and_deactivated_accounts() {
+    use eitmad_contracts::{
+        accounts::{DeactivateDesktopAccount, DesktopAccountRole, UpdateDesktopAccount},
+        transport::IdempotencyKey,
+    };
+    use eitmad_engine_runtime::DesktopAccountService;
+
+    let directory = TempDir::new().unwrap();
+    let seed = || {
+        let output = Command::new(binary())
+            .args(["seed-development-accounts", "--runtime-directory"])
+            .arg(directory.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "Account initialization must preserve existing access changes"
+        );
+        assert!(output.stderr.is_empty());
+    };
+    seed();
+    let store = AuthorityStore::open(directory.path()).unwrap();
+    let now = UnixMillis(2_000_000_000_000);
+    let owner = store.local_authorization_context(now).unwrap();
+    let mut process = owner.clone();
+    process.identity.principal_kind = PrincipalKind::Device;
+    process.identity.principal_id = PrincipalId::new(process.identity.device_id.unwrap().value());
+    let actor = DesktopAuthenticator::new(store.clone())
+        .sign_in(
+            &process,
+            "admin",
+            "admin",
+            CorrelationId::new(Uuid::new_v4()),
+            now,
+        )
+        .unwrap()
+        .authorization
+        .unwrap();
+    let context = || eitmad_authorization::MutationContext {
+        authorization: actor.clone(),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+        causation_id: None,
+        idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+        occurred_at: now,
+    };
+    let service = DesktopAccountService::new(
+        store.clone(),
+        eitmad_authorization::AuthorizationService::new(store.clone()),
+    );
+    let account = store
+        .desktop_account(owner.tenant_id, "rec")
+        .unwrap()
+        .unwrap();
+    let changed = service
+        .update(
+            &context(),
+            &UpdateDesktopAccount {
+                account_id: account.account_id,
+                expected_revision: 1,
+                display_name: "مدير المتجر".into(),
+                role: DesktopAccountRole::Manager,
+            },
+        )
+        .unwrap();
+    let before = store.list_desktop_accounts(owner.tenant_id).unwrap();
+    seed();
+    assert_eq!(
+        store.list_desktop_accounts(owner.tenant_id).unwrap(),
+        before
+    );
+    service
+        .deactivate(
+            &context(),
+            &DeactivateDesktopAccount {
+                account_id: account.account_id,
+                expected_revision: changed.revision,
+            },
+        )
+        .unwrap();
+    let before = store.list_desktop_accounts(owner.tenant_id).unwrap();
+    seed();
+    assert_eq!(
+        store.list_desktop_accounts(owner.tenant_id).unwrap(),
+        before
+    );
+    assert!(
+        store
+            .desktop_account(owner.tenant_id, "rec")
+            .unwrap()
+            .is_none()
+    );
+}

@@ -28,7 +28,11 @@ public partial class QuotationsView : UserControl
     public Func<QuotationListItem?, Task<Features.Reception.SalesCatalogViewModel?>>? LiveEditorFactory { get; set; }
     private readonly List<Window> editorWindows = [];
     private bool openingEditor;
-    public void CloseEditors() { foreach (var window in editorWindows.ToArray()) window.Close(); }
+    public void CloseEditors()
+    {
+        foreach (var window in editorWindows.ToArray())
+            if (window is QuotationEditorWindow editor) editor.CloseInvalidated(); else window.Close();
+    }
     private async Task OpenLiveEditorAsync(QuotationListItem? row)
     {
         if (LiveEditorFactory is null || openingEditor) return;
@@ -135,9 +139,14 @@ public partial class QuotationsView : UserControl
 
     private void ShowPreviewWindow(UserControl content, string title)
     {
-        var window = new Window { Title = title, Content = content, Owner = Window.GetWindow(this), Width = 1050, Height = 780,
-            MinWidth = 640, MinHeight = 480, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language };
+        Window window = content is Features.Reception.SalesCatalogView { DataContext: Features.Reception.SalesCatalogViewModel { IsLiveQuotation: true } model } catalogView
+            ? new QuotationEditorWindow(model, catalogView) : new Window { Content = content };
+        window.Title = title;
+        window.Owner = Window.GetWindow(this);
+        window.Width = 1050; window.Height = 780;
+        window.MinWidth = 640; window.MinHeight = 480;
+        window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        window.FlowDirection = System.Windows.FlowDirection.RightToLeft; window.Language = Language;
         if (content is PrintPreview print) print.BackRequested += (_, _) => window.Close();
         window.Loaded += (_, _) =>
         {

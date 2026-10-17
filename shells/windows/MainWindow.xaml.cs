@@ -1,3 +1,4 @@
+using Eitmad.Platform.Windows.LocalIpc;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,6 +20,8 @@ public partial class MainWindow : Window
     private long accountGeneration;
     private bool sessionActive;
     private bool switchingAccount;
+    private CancellationTokenSource? activationCancellation;
+    internal TimeSpan AccountTransitionTimeout { get; set; } = DesktopSessionController.RecoveryTimeout;
 
     public static RoutedUICommand SwitchAccountCommand { get; } = new(
         "تبديل الحساب",
@@ -34,6 +37,12 @@ public partial class MainWindow : Window
         bool preview = false)
     {
         InitializeComponent();
+        FurnitureSurface.PricingRequested += name =>
+        {
+            PricingSurface.ViewModel.SelectedCategory = Features.Pricing.PricingViewModel.AllCategories;
+            PricingSurface.ViewModel.SearchText = name;
+            OpenManagerDestination("التسعير");
+        };
         PricingSurface.DefinitionReviewRequested += issue =>
         {
             var destination = issue.Kind switch
@@ -73,6 +82,7 @@ public partial class MainWindow : Window
         if (sessions is not null) sessions.SessionEnded += SessionEnded;
         Closed += (_, _) =>
         {
+            activationCancellation?.Cancel();
             if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
             if (customerClient is not null) _ = customerClient.DisposeAsync();
             _ = RawMaterialsSurface.DisposeAsync();
@@ -139,44 +149,43 @@ public partial class MainWindow : Window
 
     private async void SessionSignedIn(object sender, AuthenticatedSurface surface)
     {
-        AccountActivation = ActivateAccountAsync(surface);
+        activationCancellation?.Dispose();
+        var cancellation = activationCancellation = new CancellationTokenSource();
+        AccountActivation = ActivateAccountAsync(surface, cancellation.Token);
         try
         {
             await AccountActivation;
         }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
             or IOException or ObjectDisposedException)
         {
-            ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
+            if (!cancellation.IsCancellationRequested)
+                ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
         }
     }
 
-    private async Task ActivateAccountAsync(AuthenticatedSurface surface)
+    private Task ActivateAccountAsync(AuthenticatedSurface surface, CancellationToken cancellationToken) =>
+        OperationDiagnostics.MeasureAsync(DiagnosticPhase.Activation, () => ActivateAccountCoreAsync(surface, cancellationToken), cancellationToken);
+
+    private async Task ActivateAccountCoreAsync(AuthenticatedSurface surface, CancellationToken cancellationToken)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
         var session = ++accountGeneration;
         ShowAccount(surface);
-        if (home is not null) await home.ActivateAsync();
-        if (session != accountGeneration) return;
-        if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync();
-        else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync();
-        if (session != accountGeneration) return;
-        if (surface == AuthenticatedSurface.Manager) { await OrdersSurface.ViewModel.ActivateAsync(); if (session != accountGeneration) return; await WorkOrdersSurface.ViewModel.ActivateAsync(); }
-        else await ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync();
-        if (session != accountGeneration) return;
+        if (home is not null) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Home, () => home.ActivateAsync(includeCustomerSearch: surface == AuthenticatedSurface.Receptionist, cancellationToken), cancellationToken);
+        if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
+        if (surface == AuthenticatedSurface.Manager) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => QuotationsSurface.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
+        else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
+        if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
+        if (surface == AuthenticatedSurface.Manager) { await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Orders, () => OrdersSurface.ViewModel.ActivateAsync(cancellationToken), cancellationToken); if (session != accountGeneration || cancellationToken.IsCancellationRequested) return; await OperationDiagnostics.MeasureAsync(DiagnosticPhase.WorkOrders, () => WorkOrdersSurface.ViewModel.ActivateAsync(cancellationToken), cancellationToken); }
+        else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Orders, () => ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync(cancellationToken), cancellationToken);
+        if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
         if (surface != AuthenticatedSurface.Receptionist) return;
-        try
-        {
-            await ReceptionistSurface.ActivateCustomersAsync();
-            if (session != accountGeneration) return;
-            await ReceptionistSurface.ActivateCatalogAsync();
-        }
-        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
-            or IOException or ObjectDisposedException)
-        {
-            ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
-        }
+        await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Customers, () => ReceptionistSurface.ActivateCustomersAsync(cancellationToken), cancellationToken);
+        if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
+        await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Catalog, () => ReceptionistSurface.ActivateCatalogAsync(cancellationToken), cancellationToken);
     }
 
     private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
@@ -223,35 +232,72 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Clears receptionist projections and stops session adapters before switching accounts.</summary>
-    private async Task SwitchAccountAsync()
+    private Task SwitchAccountAsync() => CompleteAccountTransitionAsync(null);
+
+    private async Task CompleteAccountTransitionAsync(SessionEndReason? reason)
     {
         if (!sessionActive || switchingAccount || sessions is null)
         {
             return;
         }
+        using var diagnostic = new OperationDiagnostics(DiagnosticPhase.AccountSwitch);
         switchingAccount = true;
+        SignInSurface.IsEnabled = false;
         CommandManager.InvalidateRequerySuggested();
         HideAccountSurfaces();
+        using var budget = new CancellationTokenSource(AccountTransitionTimeout);
+        Task signOut = Task.CompletedTask;
         try
         {
-            await AwaitActivationEndAsync();
-            if (home is not null) await home.DeactivateAsync();
-            await ReceptionistSurface.DeactivateCustomersAsync();
-            await ReceptionistSurface.DeactivateCatalogAsync();
-            if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
-            if (orderClient is not null) await orderClient.DeactivateAsync();
-            await sessions.SignOutAsync();
-            ShowSignIn();
+            // Start every local cancellation before any peer can delay cleanup.
+            var cleanup = Task.WhenAll(AwaitActivationEndAsync(),
+                home?.DeactivateAsync() ?? Task.CompletedTask,
+                ReceptionistSurface.DeactivateCustomersAsync(), ReceptionistSurface.DeactivateCatalogAsync(),
+                quotationDraftClient?.DeactivateAsync() ?? Task.CompletedTask,
+                orderClient?.DeactivateAsync() ?? Task.CompletedTask);
+            _ = ObserveAccountCleanupAsync(cleanup);
+            await cleanup.WaitAsync(budget.Token);
+            if (reason is null)
+            {
+                signOut = sessions.SignOutAsync(budget.Token);
+                await signOut.WaitAsync(budget.Token);
+            }
         }
-        catch (Eitmad.Platform.Windows.LocalIpc.EngineIpcException)
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException or OperationCanceledException)
         {
-            ShowSignIn(SessionEndReason.ConnectionLost);
+            // Never use an expired token: a pre-cancelled stop leaves the session active.
+            // Supervision owns bounded transport/process containment after admission.
+            try
+            {
+                if (reason != SessionEndReason.RecoveryFailed)
+                {
+                    await sessions.StopAsync(CancellationToken.None);
+                    await ObserveAccountCleanupAsync(signOut);
+                    reason = SessionEndReason.ConnectionLost;
+                }
+            }
+            catch (Exception cleanupError) when (DesktopSessionController.IsCleanupFailure(cleanupError))
+            {
+                _ = ObserveAccountCleanupAsync(signOut);
+                reason = SessionEndReason.RecoveryFailed;
+            }
         }
         finally
         {
             switchingAccount = false;
+            SignInSurface.IsEnabled = reason != SessionEndReason.RecoveryFailed;
             CommandManager.InvalidateRequerySuggested();
         }
+        ShowSignIn(reason);
+        diagnostic.Finish(reason == SessionEndReason.RecoveryFailed ? DiagnosticResult.Failed : DiagnosticResult.Succeeded);
+    }
+
+    private static async Task ObserveAccountCleanupAsync(Task operation)
+    {
+        try { await operation; }
+        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
+            or IOException or ObjectDisposedException or OperationCanceledException) { }
     }
 
     private void ShowAccount(AuthenticatedSurface surface)
@@ -277,34 +323,16 @@ public partial class MainWindow : Window
             await AccountActivation;
         }
         catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
-            or IOException or ObjectDisposedException)
+            or IOException or ObjectDisposedException or OperationCanceledException)
         {
             // Sign-in reports activation failures; they must not prevent cleanup or sign-out.
         }
     }
 
-    private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) =>
-        Dispatcher.Invoke(() => _ = CompleteSessionEndAsync(eventArgs.Reason));
-
-    private async Task CompleteSessionEndAsync(SessionEndReason reason)
+    private void SessionEnded(object? sender, SessionEndedEventArgs eventArgs) => Dispatcher.Invoke(() =>
     {
-        SignInSurface.IsEnabled = false;
-        try
-        {
-            HideAccountSurfaces();
-            await AwaitActivationEndAsync();
-            if (home is not null) await home.DeactivateAsync();
-            await ReceptionistSurface.DeactivateCustomersAsync();
-            await ReceptionistSurface.DeactivateCatalogAsync();
-            if (quotationDraftClient is not null) await quotationDraftClient.DeactivateAsync();
-            if (orderClient is not null) await orderClient.DeactivateAsync();
-        }
-        finally
-        {
-            ShowSignIn(reason);
-            SignInSurface.IsEnabled = true;
-        }
-    }
+        if (!switchingAccount) AccountTransition = CompleteAccountTransitionAsync(eventArgs.Reason);
+    });
 
     private void ShowSignIn(SessionEndReason? reason = null)
     {
@@ -318,6 +346,7 @@ public partial class MainWindow : Window
 
     private void HideAccountSurfaces()
     {
+        activationCancellation?.Cancel();
         ++accountGeneration;
         AccountSwitchDialog.IsOpen = false;
         home?.Clear();

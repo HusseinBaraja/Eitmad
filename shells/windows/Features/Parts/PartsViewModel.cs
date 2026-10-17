@@ -20,6 +20,7 @@ public sealed class PartsViewModel : ObservableObject
     private string editorName = "", editorDescription = "", editorError = "", materialSearchText = "", feedbackMessage = "";
     private string availabilityMessage = "جار تحميل الأجزاء…", newCategoryName = "";
     private PartCategory? editorCategory;
+    private string? savedCategoryName;
     private bool isEditorOpen, isCreating, isMaterialPickerOpen, isBusy, savePending, archiveRequested;
     private int currentStep = 1;
     private long? totalCost;
@@ -84,7 +85,8 @@ public sealed class PartsViewModel : ObservableObject
             if (!category.Archived || editingPart?.CategoryId == category.Id) EditorCategoryOptions.Add(category);
         }
         // Retain the unsaved category identity across reference renames.
-        if (selectedEditorCategory is { } selected) EditorCategory = EditorCategoryOptions.FirstOrDefault(c => c.Id == selected.Id) ?? selected;
+        if (!SelectSavedCategory() && selectedEditorCategory is { } selected)
+            EditorCategory = EditorCategoryOptions.FirstOrDefault(c => c.Id == selected.Id) ?? selected;
         SelectedCategory = CategoryOptions.Contains(filter) ? filter : AllCategories;
         Raise(nameof(SelectedCategory));
         materials.Clear();
@@ -124,6 +126,21 @@ public sealed class PartsViewModel : ObservableObject
         AvailabilityMessage = "جار تحميل الأجزاء…";
     }
     public void Fail(string message) => EditorError = message;
+    /// <summary>Retains a confirmed category selection until a competing refresh includes it.</summary>
+    public void CategorySaved(string name)
+    {
+        savedCategoryName = name;
+        NewCategoryName = "";
+        SelectSavedCategory();
+    }
+    private bool SelectSavedCategory()
+    {
+        if (savedCategoryName is null || EditorCategoryOptions.FirstOrDefault(c => c.Name == savedCategoryName) is not { } category)
+            return false;
+        EditorCategory = category;
+        savedCategoryName = null;
+        return true;
+    }
     public void BeginCreate()
     {
         archiveRequested = false; editingPart = null; IsCreating = true; EditorName = ""; EditorDescription = "";
@@ -146,14 +163,14 @@ public sealed class PartsViewModel : ObservableObject
         }));
         totalCost = currentCosts[part.Id].TotalCostYer; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost)); OpenEditor();
     }
-    private void OpenEditor() { EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
+    private void OpenEditor() { savedCategoryName = null; EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
     public void BeginArchive(PartListItem row)
     {
         BeginEdit(row); archiveRequested = true;
         ApplyCost(currentCosts[row.Id],review:true);
     }
     public void Duplicate(PartListItem row) { BeginEdit(row); editingPart = null; IsCreating = true; EditorName += " — نسخة"; }
-    public void CancelEditor() { IsEditorOpen = false; IsMaterialPickerOpen = false; EditorError = ""; }
+    public void CancelEditor() { savedCategoryName = null; IsEditorOpen = false; IsMaterialPickerOpen = false; EditorError = ""; }
     public bool MoveToMaterials()
     {
         if (EditorName.Length == 0 || EditorCategory is null) { EditorError = "أدخل اسم الجزء واختر فئة."; return false; }

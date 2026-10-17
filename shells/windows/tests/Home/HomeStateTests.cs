@@ -19,6 +19,30 @@ public sealed class HomeStateTests
         QueryHandler = q => { Assert.IsNotNull(q.AsHomeRead()); return SalesCatalogAuthorityTests.Response(QueryResult.ForHome(data)); },
     };
     [TestMethod]
+    public async Task ManagerOmitsCustomerDestinationAndReceptionistRestoresItAfterAccountChange()
+    {
+        var data = Data(); data.Quotations.Items = [];
+        data.Customers = Section(0, new HomeItem { Id = Guid.NewGuid(), Destination = HomeDestination.Customer, Title = "عميل تجريبي", State = "عميل" });
+        await using var engine = Engine(data); await using var model = new HomeViewModel(engine);
+        await model.ActivateAsync(includeCustomerSearch: false);
+        model.Search("عميل"); await model.LastLoad;
+        Assert.HasCount(0, model.Activity); Assert.IsTrue(model.IsEmpty);
+        data.Customers.Availability = HomeAvailability.Unavailable;
+        model.Refresh(); await model.LastLoad;
+        Assert.IsTrue(model.IsEmpty); Assert.IsFalse(model.Notice.Contains("العملاء"));
+        await model.DeactivateAsync();
+        await model.ActivateAsync(includeCustomerSearch: true);
+        model.Search("عميل"); await model.LastLoad;
+        Assert.IsFalse(model.IsEmpty); StringAssert.Contains(model.Notice, "العملاء: غير متاح");
+        data.Customers.Availability = HomeAvailability.Available;
+        model.Refresh(); await model.LastLoad;
+        Assert.AreEqual(HomeDestination.Customer, model.Activity.Single().Item.Destination);
+        await model.DeactivateAsync();
+        await model.ActivateAsync(includeCustomerSearch: false);
+        model.Search("عميل"); await model.LastLoad;
+        Assert.HasCount(0, model.Activity); Assert.IsTrue(model.IsEmpty);
+    }
+    [TestMethod]
     public async Task SearchContextUpdatesBeforeRepliesAndResetDiscardsPendingSearch()
     {
         var data = Data(); var filtered = Data(); filtered.Quotations.Items = [];

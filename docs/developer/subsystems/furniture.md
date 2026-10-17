@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Furniture capability maintainers"
-last_verified: "2026-10-06"
+last_verified: "2026-10-16"
 review_triggers:
   - "Furniture contracts, Rust projections, pricing rules, or Windows Furniture UI behavior change"
 keywords:
@@ -39,6 +39,8 @@ Definitions use stable scoped UUIDs, separate Furniture category IDs, descriptio
 
 The shell keeps Rust records for list loading and creates editable copies only when an editor opens. List rows are immutable display projections.
 
+After a confirmed definition save, the list retains a named Arabic next-step message after the short success notice is dismissed. A Draft message asks the Manager to complete and save the active definition before publishing. An active save offers **فتح التسعير** with the saved name as the Pricing search and the category filter reset. It asks the Manager to publish each size price and wait for server confirmation before Receptionist sales. An archived save does not offer publication. The list labels active state as **تعريف نشط** and definition prices as **السعر المقترح**; published and republish states remain authoritative on [Pricing](pricing.md). The editor also states that saving does not publish. Failed or unknown saves do not create success guidance; ended sessions and unavailable projections clear retained guidance.
+
 One optional [durable catalog image](catalog-images.md) is retained per revision. The information step imports through Rust and stages replacement or removal until save. Local paths are never stored as references. Asset transfer remains separate. The [catalog cycle](synchronization.md#catalog-replication) transfers the reference with the immutable definition, after its exact Part dependencies.
 
 ## Composition, dimensions, and option rules
@@ -54,6 +56,8 @@ Colors and handles each have at most 100 stable options, names, supported visual
 Draft proposed prices can be zero. Active definitions require a positive proposed price for each active variant and a checked effective price after compatible option adjustments. A below-cost proposal requires explicit confirmation, recorded as redacted audit metadata. This is internal definition review; it does not publish a commercial price. Selection review checks the current active definition, category, variant, permitted dimensions, compatible active options, whole item quantity, and checked price and total. Future commercial consumers must revalidate these references in their own transaction and retain their issued display snapshots.
 
 ## Atomic save, permissions, and failures
+
+The native size editor parses fixed dimensions and customization limits with an explicit invariant decimal separator. For example, `123.4` cm reaches Rust as `1234` mm even when the shell language is Arabic. `FractionalCentimetresReachTheSavedVariantFromArabicEditor` exercises the actual bindings for all nine fields.
 
 Protocol `1.13` negotiates optional `eitmad.capability.furniture.v1` and `eitmad.schema.furniture.v1`. Commands save a Furniture definition or category. Bounded UUID-cursor queries list definitions and categories, review staged fields, resolve an immutable revision, or check a prospective selection. `furniture.changed` carries scope, record ID, kind, revision, and time without names, notes, or costs.
 

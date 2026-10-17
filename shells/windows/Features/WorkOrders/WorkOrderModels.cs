@@ -10,13 +10,6 @@ public enum WorkOrderStatus
     Cancelled,
 }
 
-public enum FurnitureIllustration
-{
-    Wardrobe,
-    Table,
-    Bed,
-}
-
 public sealed record WorkOrderPart(string Name, long Quantity)
 {
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
@@ -28,16 +21,9 @@ public sealed record WorkOrderFurnitureItem(
     string Dimensions,
     string Color,
     string Handle,
-    int Quantity,
-    FurnitureIllustration Illustration)
+    int Quantity)
 {
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
-
-    public bool IsWardrobe => Illustration == FurnitureIllustration.Wardrobe;
-
-    public bool IsTable => Illustration == FurnitureIllustration.Table;
-
-    public bool IsBed => Illustration == FurnitureIllustration.Bed;
 }
 
 public sealed class WorkOrderListItem : ObservableObject

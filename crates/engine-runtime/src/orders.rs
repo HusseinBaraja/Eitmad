@@ -3,10 +3,12 @@ use super::{
     Arc, Command, CommandResult, ContractError, DispatchContext, Event, MutationContext,
     ProductDispatcher, QueryResult, RetryDisposition, contract_error,
 };
+use crate::diagnostic_blocking;
 use eitmad_contracts::{
     identity::AuthorizationContext,
     order::{ConfirmOrder, ListOrders, OrderAction, OrderNotice, OrderRecord},
 };
+use eitmad_observability_audit::operation_diagnostics::DiagnosticSource as Source;
 use eitmad_observability_audit::{AuditTarget, MutationAuditRecord};
 use eitmad_orders::{OrderError as E, OrderServer};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -26,9 +28,11 @@ impl ProductDispatcher {
         let deadline = context.deadline;
         let copy = query.clone();
         let result = if let Some(server) = self.order_server.clone() {
-            tokio::task::spawn_blocking(move || server.work_orders(&actor, &copy, deadline))
-                .await
-                .map_err(|_| failure(E::Unavailable, context))?
+            diagnostic_blocking(context.correlation_id, Source::WorkOrders, move || {
+                server.work_orders(&actor, &copy, deadline)
+            })
+            .await
+            .map_err(|_| failure(E::Unavailable, context))?
         } else {
             Err(E::Unavailable)
         };
@@ -113,10 +117,11 @@ impl ProductDispatcher {
             .order_server
             .clone()
             .ok_or_else(|| failure(E::Unavailable, context))?;
-        let outcome =
-            tokio::task::spawn_blocking(move || server.transition(&actor, &request, deadline))
-                .await
-                .map_err(|_| failure(E::Unavailable, context))?;
+        let outcome = diagnostic_blocking(context.correlation_id, Source::Orders, move || {
+            server.transition(&actor, &request, deadline)
+        })
+        .await
+        .map_err(|_| failure(E::Unavailable, context))?;
         let value = match outcome {
             Ok(value) => value,
             Err(e) => {
@@ -213,9 +218,11 @@ impl ProductDispatcher {
         let deadline = context.deadline;
         let copy = query.clone();
         let result = if let Some(server) = self.order_server.clone() {
-            tokio::task::spawn_blocking(move || server.orders(&actor, &copy, order_id, deadline))
-                .await
-                .map_err(|_| failure(E::Unavailable, context))?
+            diagnostic_blocking(context.correlation_id, Source::Orders, move || {
+                server.orders(&actor, &copy, order_id, deadline)
+            })
+            .await
+            .map_err(|_| failure(E::Unavailable, context))?
         } else {
             Err(E::Unavailable)
         };

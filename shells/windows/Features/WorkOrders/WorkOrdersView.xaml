@@ -76,14 +76,7 @@
         <Style x:Key="FurniturePicture" TargetType="Border">
             <Setter Property="Width" Value="142" />
             <Setter Property="Height" Value="118" />
-            <Setter Property="Background">
-                <Setter.Value>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#F4E7D8" />
-                        <GradientStop Color="#E5CDB3" Offset="1" />
-                    </LinearGradientBrush>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
             <Setter Property="CornerRadius" Value="11" />
             <Setter Property="ClipToBounds" Value="True" />
         </Style>
@@ -328,35 +321,7 @@
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
                                                 <Border Grid.Column="0" Style="{StaticResource FurniturePicture}" automation:AutomationProperties.Name="{Binding Name, StringFormat=صورة {0}}">
-                                                    <Grid>
-                                                        <Canvas Width="112" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsWardrobe, Converter={StaticResource BooleanToVisibility}}">
-                                                            <Rectangle Canvas.Left="16" Canvas.Top="8" Width="80" Height="78" RadiusX="5" Fill="#8C552C" />
-                                                            <Rectangle Canvas.Left="22" Canvas.Top="14" Width="33" Height="66" RadiusX="2" Fill="#B17643" />
-                                                            <Rectangle Canvas.Left="58" Canvas.Top="14" Width="32" Height="66" RadiusX="2" Fill="#9B6337" />
-                                                            <Line X1="56" Y1="14" X2="56" Y2="80" Stroke="#6C3E1E" StrokeThickness="2" />
-                                                            <Ellipse Canvas.Left="48" Canvas.Top="48" Width="5" Height="5" Fill="#D7AE61" />
-                                                            <Ellipse Canvas.Left="60" Canvas.Top="48" Width="5" Height="5" Fill="#D7AE61" />
-                                                            <Rectangle Canvas.Left="23" Canvas.Top="86" Width="10" Height="5" Fill="#593016" />
-                                                            <Rectangle Canvas.Left="80" Canvas.Top="86" Width="10" Height="5" Fill="#593016" />
-                                                        </Canvas>
-                                                        <Canvas Width="112" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsTable, Converter={StaticResource BooleanToVisibility}}">
-                                                            <Polygon Points="12,35 72,17 101,31 40,51" Fill="#A76C3D" />
-                                                            <Polygon Points="12,35 40,51 40,60 12,44" Fill="#75431F" />
-                                                            <Polygon Points="40,51 101,31 101,40 40,60" Fill="#8C552C" />
-                                                            <Rectangle Canvas.Left="22" Canvas.Top="47" Width="7" Height="38" Fill="#68401F" />
-                                                            <Rectangle Canvas.Left="87" Canvas.Top="39" Width="7" Height="39" Fill="#68401F" />
-                                                            <Rectangle Canvas.Left="41" Canvas.Top="56" Width="7" Height="35" Fill="#68401F" />
-                                                        </Canvas>
-                                                        <Canvas Width="112" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsBed, Converter={StaticResource BooleanToVisibility}}">
-                                                            <Rectangle Canvas.Left="12" Canvas.Top="49" Width="90" Height="28" RadiusX="5" Fill="#A26A3D" />
-                                                            <Rectangle Canvas.Left="12" Canvas.Top="14" Width="15" Height="72" RadiusX="4" Fill="#704321" />
-                                                            <Rectangle Canvas.Left="20" Canvas.Top="35" Width="78" Height="23" RadiusX="5" Fill="#E8D9C5" />
-                                                            <Rectangle Canvas.Left="28" Canvas.Top="38" Width="27" Height="13" RadiusX="4" Fill="#FAF5ED" />
-                                                            <Rectangle Canvas.Left="59" Canvas.Top="38" Width="27" Height="13" RadiusX="4" Fill="#FAF5ED" />
-                                                            <Rectangle Canvas.Left="18" Canvas.Top="77" Width="8" Height="10" Fill="#583116" />
-                                                            <Rectangle Canvas.Left="89" Canvas.Top="77" Width="8" Height="10" Fill="#583116" />
-                                                        </Canvas>
-                                                    </Grid>
+                                                    <TextBlock Text="الصورة غير متاحة" FlowDirection="RightToLeft" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="8" Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                                                 </Border>
                                                 <Grid Grid.Column="1" Margin="22,0,0,0" FlowDirection="RightToLeft">
                                                     <Grid.RowDefinitions>

@@ -10,6 +10,32 @@ namespace Eitmad.WindowsShell.Tests.Quotations;
 [TestClass]
 public sealed class DiscountApprovalTests
 {
+    [TestMethod]
+    [Timeout(30000)]
+    public async Task PendingApprovalReadDoesNotBlockDecisionSubmission()
+    {
+        var authority = new ConfirmedAuthority(); await using var engine = authority.Engine();
+        await using var client = new QuotationDraftClient(engine);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        engine.QueryBarrier = _ => { entered.TrySetResult(); return release.Task; };
+        var read = client.ApprovalsAsync(null); await entered.Task;
+        var submitted = false;
+        engine.CommandHandler = _ => {
+            submitted = true;
+            return new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded,
+                Payload = CommandResult.ForDiscountApproval(new() { State = DiscountApprovalState.Approved }) } };
+        };
+        var decision = client.ApprovalAsync(Command.ForQuotationApprovalDecide(new()), Guid.NewGuid());
+        try
+        {
+            Assert.IsTrue((await decision.WaitAsync(TimeSpan.FromSeconds(2))).Succeeded);
+            Assert.IsTrue(submitted, "Rust owns credential admission; an unrelated shell read must not delay the command.");
+            Assert.IsFalse(read.IsCompleted);
+        }
+        finally { release.TrySetResult(); }
+        await read;
+    }
     internal sealed class ConfirmedAuthority
     {
         internal readonly QuotationDraftTests.Authority Drafts = new();

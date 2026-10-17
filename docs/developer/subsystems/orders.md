@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Order capability maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-17"
 review_triggers:
   - "Order contracts, lifecycle rules, or Windows order UI behavior change"
 keywords:
@@ -51,6 +51,10 @@ Before transport, Rust persists the exact request. A lost reply remains pending 
 
 Both role screens use the existing RTL list, Arabic search, date/status filters and detail. Metadata and the source quotation appear before state-changing actions. Managers see **حفظ ملاحظات التنفيذ**, **إلغاء الطلب**, and permitted work actions. Receptionists see **تسجيل التسليم** only when Rust returns delivery permission. An order confirmed from a quotation opens its exact detail. **فتح أمر العمل** opens the [confirmed manufacturing screen](work-orders.md); its related Order link returns to the Manager detail. Both screens use the same confirmed Order aggregate and shared change feed.
 
+Managers can use **بدء أمر العمل** and then **إكمال أمر العمل** directly in Orders. Subscription notices, activation, and post-command list refreshes share one read sequence. Notices received during a read request one subsequent refresh; superseded results cannot replace the current projection. The command operation waits for that sequence, so its next action uses the latest authorized projection. Rust owns credential admission. The shell still uses only Rust-returned state and permissions. It does not retry an unavailable read without a new refresh request, retain live permissions on cache, or treat a notice as mutation confirmation.
+
+If **غير متصل — آخر حالة مؤكدة. العمليات تحتاج تأكيد الخادم.** remains after production, check the returned read freshness before treating the missing Complete action as a permission defect. Cached reads correctly disable transitions. If the mutation reply is uncertain, use **إعادة محاولة العملية** with its retained command and key. Do not send a replacement transition or change the expected revision. The focused tests below distinguish overlapping refreshes from a real unavailable or denied result.
+
 **عرض السعر الأصلي** opens the retained accepted quotation. Printing uses the customer-only document. Sign-out clears protected rows, selected detail and pending presentation, and fences late replies. Loading, denial, conflict and unavailability have explicit Arabic states. Preview fixtures remain available only when no engine client is attached.
 
 ## Saved customer documents
@@ -70,6 +74,8 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_
 ```
 
 Domain tests cover derived readiness, immutable commercial terms and invalid transitions. Storage tests cover migration from version 26, immutable history, exact retry, tenant/principal/scope isolation, restart and publication rollback. `OrderAuthorityTests` covers lost replies, durable pending projection, denied reads, missing work items and sign-out fencing. `QuotationConversionTests` checks exact retry across selection and revision refresh, definitive rejection and session cleanup. `OrderAuthorityRenderedTests` renders both roles at requested full-screen, default and minimum sizes and checks new input focus and delivery method popup access.
+
+`StartConfirmationAwaitsSerializedSubscriptionRefreshBeforeDirectCompletion` reproduces a subscription read overlapping post-Start confirmation at the view-model boundary. It checks that the command waits, notices cause a subsequent authorized read, and direct Complete reaches Ready.
 
 The local display is 1920 × 1080 at 125% scaling. The maximized window measured 1550.4 × 830.4 DIP; the default window measured 1338.4 × 752.8 DIP and the minimum measured 720 × 560 DIP. Rendered captures use the WPF DIP raster. The required 100% scaling baseline remains unverified. OS high contrast and physical printer output are not verified by these checks.
 

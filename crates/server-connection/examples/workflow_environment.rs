@@ -195,12 +195,9 @@ async fn prepare() -> Result<()> {
     }
     let manager_client = local_client(&root, &settings, &journal, manager, true, false)?;
     let reception_client = local_client(&root, &settings, &journal, reception, false, false)?;
-    let seeded = journal.seeded;
     checked(
         tokio::task::spawn_blocking(move || {
-            if !seeded {
-                seed::run(&manager_client, &reception_client)?;
-            }
+            seed::run(&manager_client, &reception_client)?;
             seed::verify(&manager_client, &reception_client)
         })
         .await,
@@ -255,7 +252,9 @@ async fn prepare_shared_desktop(
             ),
         ] {
             import_account(&directory, journal, &authentication, name, password, role)?;
-            persist_route(&directory, authentication, settings.receptionist_seed)?;
+            let (_, credential) =
+                persist_route(&directory, authentication, settings.receptionist_seed)?;
+            persist_connection(root, &directory, settings, journal, credential)?;
         }
         return Ok(());
     }
@@ -458,6 +457,7 @@ fn local_client(
         import_account(&directory, journal, &authentication, name, password, role)?;
     let (actor, branch) = sign_in(&store, installer, name, password)?;
     let (secrets, credential) = persist_route(&directory, authentication, seed)?;
+    persist_connection(root, &directory, settings, journal, credential.clone())?;
     let config = checked(
         DirectServerConfig::new(
             &settings.endpoint,
@@ -513,6 +513,39 @@ fn local_client(
     })
 }
 
+fn persist_connection(
+    root: &Path,
+    directory: &Path,
+    settings: &Settings,
+    journal: &Journal,
+    credential: SecretId,
+) -> Result<()> {
+    let connection = eitmad_server_connection::DesktopConnectionSettings {
+        version: 1,
+        endpoint: settings.endpoint.clone(),
+        trusted_certificate: checked(
+            root.join("certificates/trusted-ca.pem").canonicalize(),
+            "connection trust anchor",
+        )?,
+        credential,
+        organization: journal.organization,
+        branch: journal.branch,
+    };
+    let bytes = checked(
+        serde_json::to_vec(&connection),
+        "encode connection settings",
+    )?;
+    let pending = directory.join("connection.next");
+    checked(fs::write(&pending, bytes), "write connection settings")?;
+    checked(
+        fs::rename(
+            pending,
+            directory.join(eitmad_server_connection::DesktopConnectionSettings::FILE_NAME),
+        ),
+        "commit connection settings",
+    )
+}
+
 fn persist_route(
     directory: &Path,
     authentication: AuthenticationResult,
@@ -529,13 +562,6 @@ fn persist_route(
     checked(
         store_account_session(&secrets, &credential, authentication, seed),
         "persist authenticated route",
-    )?;
-    checked(
-        fs::write(
-            directory.join("route.json"),
-            checked(serde_json::to_vec(&credential), "credential reference")?,
-        ),
-        "write non-secret route reference",
     )?;
     Ok((secrets, credential))
 }

@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-08-25"
+last_verified: "2026-10-17"
 review_triggers:
   - "Windows supervision states, retry bounds, process containment, or shutdown recovery changes"
 keywords:
@@ -48,6 +48,9 @@ The Windows shell maps these states to **توقفت محاولات إعادة ت
 | `Faulted` with retry `Never` | Rust says repeating the same launch is unsafe | Match the stable error in [engine startup troubleshooting](engine-startup-failures.md) | Correct the non-retryable cause; do not loop or override retry metadata |
 | `Faulted` without a Rust lifecycle snapshot | Executable launch or Job Object creation/assignment failed | Verify Windows support, packaging, and executable availability | Repair packaging or platform containment; never continue with an ungrouped child |
 | `Forced: true` | Engine did not exit within 15 seconds | Preserve the last lifecycle state and component-shutdown error | Treat the exit as crash recovery and repair the Rust component that failed to drain |
+| Stop is waiting with IPC backpressure or no shutdown reply | The typed shutdown cannot complete | Run `IpcCancellationScenario.StalledShutdownStillCleansUpProcess` through the adapter harness | The two-second IPC operation deadline must release transport disposal and stdin closure, then arm the independent process-exit deadline; do not increase the timeout |
+| Caller cancels stop after it begins | Cancellation arrived during owned-session cleanup | Check that stdin closed, containment completed, and no replacement launched | Wait for cleanup before handling cancellation; see the [shutdown cancellation contract](../developer/subsystems/windows-process-supervision.md#shutdown-and-containment) |
+| Job Object termination throws during stop | Windows could not force termination through the explicit call | Capture only the exception type and native error code | The adapter closes kill-on-close containment without waiting indefinitely for exit; preserve the first failure and any later cleanup failures |
 | Old generation reports exit after replacement starts | An asynchronous callback completed late | Compare its generation and `EngineInstanceId` with the current snapshot | No process action is required; the adapter ignores stale observations by design |
 
 ## Verify recovery

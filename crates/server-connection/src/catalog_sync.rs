@@ -35,7 +35,7 @@ pub struct DirectCatalogSyncClient {
     credential: SecretId,
     store: AuthorityStore,
     authorization: AuthorizationService,
-    worker: std::sync::Mutex<()>,
+    worker: crate::request_admission::RequestGate,
 }
 impl DirectCatalogSyncClient {
     #[must_use]
@@ -52,7 +52,10 @@ impl DirectCatalogSyncClient {
             credential,
             store,
             authorization,
-            worker: std::sync::Mutex::new(()),
+            worker: crate::request_admission::RequestGate::new(
+                eitmad_observability_audit::operation_diagnostics::DiagnosticPhase::DriverAdmission,
+                eitmad_sync::FailurePhase::Connect,
+            ),
         }
     }
     /// Checks the current local permission for the owning private schema or public catalog.
@@ -442,9 +445,11 @@ impl CatalogReplication for DirectCatalogSyncClient {
         actor: &AuthorizationContext,
         deadline: UnixMillis,
     ) -> Result<usize, PricingError> {
+        let remaining = u64::try_from(deadline.0.saturating_sub(now().0))
+            .map_err(|_| PricingError::Unconfirmed)?;
         let _worker = self
             .worker
-            .try_lock()
+            .acquire(Instant::now() + Duration::from_millis(remaining))
             .map_err(|_| PricingError::Unconfirmed)?;
         self.require(actor, PUBLIC_SCHEMA, false)?;
         self.store

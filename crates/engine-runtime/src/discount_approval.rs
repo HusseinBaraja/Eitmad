@@ -4,9 +4,11 @@ use super::{
     ContractError, DispatchContext, Event, MutationContext, ProductDispatcher, QueryResult,
     RetryDisposition, authorization_error, contract_error, draft_error, now, unsupported,
 };
+use crate::diagnostic_blocking;
 use eitmad_contracts::quotation_approval::{
     ConfirmDiscountApproval, DiscountApprovalAction, DiscountApprovalNotice, ListDiscountApprovals,
 };
+use eitmad_observability_audit::operation_diagnostics::DiagnosticSource as Source;
 use eitmad_pricing::{ApprovalError, DiscountApprovalServer};
 use std::sync::{
     Mutex,
@@ -90,12 +92,13 @@ impl ProductDispatcher {
             idempotency_key: mutation.idempotency_key,
             action,
         };
-        let value =
-            tokio::task::spawn_blocking(move || server.transition(&actor, &request, deadline))
-                .await
-                .map_err(|_| approval_error(ApprovalError::Unavailable, context))?
-                .map_err(|e| approval_error(e, context))?
-                .ok_or_else(|| approval_error(ApprovalError::Unavailable, context))?;
+        let value = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            server.transition(&actor, &request, deadline)
+        })
+        .await
+        .map_err(|_| approval_error(ApprovalError::Unavailable, context))?
+        .map_err(|e| approval_error(e, context))?
+        .ok_or_else(|| approval_error(ApprovalError::Unavailable, context))?;
         self.events
             .publish(
                 context.authorization.scope.clone(),
@@ -152,11 +155,13 @@ impl ProductDispatcher {
             .ok_or_else(|| approval_error(ApprovalError::Unavailable, context))?;
         let actor = context.authorization.clone();
         let deadline = context.deadline;
-        let result = tokio::task::spawn_blocking(move || server.list(&actor, &query, deadline))
-            .await
-            .map_err(|_| approval_error(ApprovalError::Unavailable, context))?
-            .map(QueryResult::DiscountApprovals)
-            .map_err(|e| approval_error(e, context));
+        let result = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            server.list(&actor, &query, deadline)
+        })
+        .await
+        .map_err(|_| approval_error(ApprovalError::Unavailable, context))?
+        .map(QueryResult::DiscountApprovals)
+        .map_err(|e| approval_error(e, context));
         self.require_approval(context, eitmad_authorization::DISCOUNT_READ_PERMISSION)
             .map_err(|e| *e)?;
         result
@@ -201,35 +206,39 @@ impl ProductDispatcher {
         let deadline = context.deadline;
         let drafts = self.drafts.clone();
         let correlation = context.correlation_id;
-        let _ = tokio::task::spawn_blocking(move || -> Result<(), ApprovalError> {
-            loop {
-                let pending = drafts
-                    .sync_batch(&actor, 50)
-                    .map_err(|_| ApprovalError::Unavailable)?;
-                if pending.is_empty() {
-                    return Ok(());
-                }
-                for change in pending {
-                    use base64::{Engine as _, engine::general_purpose::STANDARD};
-                    let payload = change.payload.as_ref().ok_or(ApprovalError::Invalid)?;
-                    let snapshot = serde_json::from_slice(
-                        &STANDARD
-                            .decode(&payload.base64)
-                            .map_err(|_| ApprovalError::Invalid)?,
-                    )
-                    .map_err(|_| ApprovalError::Invalid)?;
-                    let request = ConfirmDiscountApproval {
-                        scope: actor.scope.clone(),
-                        idempotency_key: change.idempotency_key,
-                        action: DiscountApprovalAction::Refresh(snapshot),
-                    };
-                    server.transition(&actor, &request, deadline)?;
-                    drafts
-                        .project_confirmed(&actor, &change, correlation)
+        let _ = diagnostic_blocking(
+            context.correlation_id,
+            Source::Approvals,
+            move || -> Result<(), ApprovalError> {
+                loop {
+                    let pending = drafts
+                        .sync_batch(&actor, 50)
                         .map_err(|_| ApprovalError::Unavailable)?;
+                    if pending.is_empty() {
+                        return Ok(());
+                    }
+                    for change in pending {
+                        use base64::{Engine as _, engine::general_purpose::STANDARD};
+                        let payload = change.payload.as_ref().ok_or(ApprovalError::Invalid)?;
+                        let snapshot = serde_json::from_slice(
+                            &STANDARD
+                                .decode(&payload.base64)
+                                .map_err(|_| ApprovalError::Invalid)?,
+                        )
+                        .map_err(|_| ApprovalError::Invalid)?;
+                        let request = ConfirmDiscountApproval {
+                            scope: actor.scope.clone(),
+                            idempotency_key: change.idempotency_key,
+                            action: DiscountApprovalAction::Refresh(snapshot),
+                        };
+                        server.transition(&actor, &request, deadline)?;
+                        drafts
+                            .project_confirmed(&actor, &change, correlation)
+                            .map_err(|_| ApprovalError::Unavailable)?;
+                    }
                 }
-            }
-        })
+            },
+        )
         .await;
     }
     pub(super) fn start_approval_watch(

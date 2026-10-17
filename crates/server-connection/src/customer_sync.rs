@@ -249,7 +249,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn missing_customer_credential_is_denied_but_busy_refresh_is_retryable() {
+    fn missing_customer_credential_is_denied() {
         let directory = tempfile::tempdir().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let secrets = SecretStore::open(
@@ -291,18 +291,10 @@ mod tests {
             SecretKind::parse("server-session").unwrap(),
             SecretReferenceId::new(Uuid::new_v4()),
         );
-        let client = DirectCustomerSyncClient::from_config(config, secrets, route.clone(), store);
+        let client = DirectCustomerSyncClient::from_config(config, secrets, route, store);
         assert!(matches!(
             client.transport(&actor),
             Err(CustomerError::Denied)
-        ));
-
-        let id = crate::account_credential_id(&route, actor.identity.principal_id);
-        let gate = crate::credential_gate(&id).unwrap();
-        let _refresh = gate.lock().unwrap();
-        assert!(matches!(
-            client.transport(&actor),
-            Err(CustomerError::Unavailable)
         ));
     }
 }

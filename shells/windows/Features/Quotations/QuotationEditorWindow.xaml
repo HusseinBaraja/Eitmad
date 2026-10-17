@@ -1,0 +1,25 @@
+<Window x:Class="Eitmad.WindowsShell.Features.Quotations.QuotationEditorWindow" x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+        FlowDirection="RightToLeft" Language="ar-YE"
+        Closing="EditorClosing">
+    <Grid>
+        <ContentControl x:Name="EditorContent"/>
+        <controls:DialogHost x:Name="UnsavedDialog" Title="تعديلات غير محفوظة"
+                             PreferredWidth="520" InitialFocusTarget="{Binding ElementName=ContinueEditingButton}"
+                             CloseRequested="ContinueEditingClick">
+            <TextBlock Text="هل تريد حفظ مسودة عرض السعر قبل الإغلاق؟" TextWrapping="Wrap"/>
+            <controls:DialogHost.Footer>
+                <WrapPanel>
+                    <Button x:Name="SaveAndCloseButton" Content="حفظ" AutomationProperties.Name="حفظ المسودة وإغلاق المحرر"
+                            Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Click="SaveAndCloseClick"/>
+                    <Button x:Name="DiscardButton" Content="تجاهل التعديلات" AutomationProperties.Name="تجاهل التعديلات وإغلاق المحرر"
+                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="DiscardClick"/>
+                    <Button x:Name="ContinueEditingButton" Content="متابعة التعديل" AutomationProperties.Name="متابعة تعديل عرض السعر"
+                            Style="{StaticResource SecondaryButton}" Margin="0,0,0,8" Click="ContinueEditingClick"/>
+                </WrapPanel>
+            </controls:DialogHost.Footer>
+        </controls:DialogHost>
+    </Grid>
+</Window>

@@ -40,13 +40,15 @@ The durable manager raw-material boundary is documented in [Maintain raw materia
 
 ## 1. Run the local Windows app
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the Rust engine and start the Windows shell with one command:
+Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the Rust engine and start the Windows shell with one command:
 
 ```powershell
 .\run.ps1
 ```
 
 The **لوحة التحكم** window opens, and the shell supervises the Rust engine. Use **إنهاء الاعتماد** in the system tray menu to stop both processes.
+
+For an existing connected installation, pass `-RuntimeDirectory <installation-directory>` to this same launcher. It preserves accounts and saved work. Rust loads the installation's connection references; the server must be running. See [connected workflow test setup](../operations/run-workflow-test-environment.md) for provisioning and test limits. Use `-SkipBuild` only for unchanged source and dependencies.
 
 ## 2. Name the product capability
 

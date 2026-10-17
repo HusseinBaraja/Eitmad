@@ -56,7 +56,7 @@ public partial class ReceptionistHomeView : UserControl
         if (session != editorSession) { await editor.DisposeEditorAsync(); return null; }
         return editor;
     }
-    public Task ActivateCatalogAsync() => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync();
+    public Task ActivateCatalogAsync(CancellationToken cancellationToken = default) => ((SalesCatalogViewModel)CatalogContent.DataContext).ActivateCatalogAsync(cancellationToken);
     public async Task DeactivateCatalogAsync()
     {
         ++editorSession;

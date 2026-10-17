@@ -100,7 +100,8 @@ public sealed class WorkOrdersRenderedTests
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "مكتب العمل الهادئ"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "الأجزاء المطلوبة"));
             Assert.IsTrue(WpfTestHost.Descendants<TextBlock>(view).Any(text => text.Text == "ملاحظات الطلب"));
-            Assert.AreEqual(2, WpfTestHost.Descendants<Canvas>(view).Count(canvas => canvas.IsVisible));
+            Assert.IsFalse(WpfTestHost.Descendants<Canvas>(view).Any(canvas => canvas.IsVisible));
+            Assert.AreEqual(2, WpfTestHost.Descendants<TextBlock>(view).Count(text => text.IsVisible && text.Text == "الصورة غير متاحة"));
 
             var statusAction = WpfTestHost.FindByName<Button>(view, "AdvanceStatusButton");
             Assert.AreEqual("تغيير حالة أمر العمل", AutomationProperties.GetName(statusAction));

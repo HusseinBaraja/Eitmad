@@ -15,21 +15,57 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
+Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
 
 ```powershell
 .\run.ps1
 ```
 
-Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Existing role changes, credentials, and deactivation are preserved on restart. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+
+For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`; no development accounts are added. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for the current provisioning boundary and synthetic test records. The normal local installation has no server connection until one is configured, so server-confirmed sales actions remain unavailable there.
+
+### Start the local services
+
+After completing the [connected workflow setup](docs/operations/run-workflow-test-environment.md), use PowerShell 7.4 or later from the repository root to start PostgreSQL and the TLS server:
+
+```powershell
+.\run-services.ps1
+```
+
+Wait for `SERVICES READY`. The command builds the required service tools, starts the retained database and server, checks TLS readiness, and refreshes the installation's connection references. It leaves the app closed and preserves business records. It requires completed setup and does not add test records.
+
+Then open the normal app against the same installation:
+
+```powershell
+.\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
+```
+
+Both commands support `-SkipBuild` when the relevant source and dependencies are unchanged. For another retained setup, pass `-StateDirectory <setup-directory>` to `run-services.ps1` and use its `receptionist` child as the app's `-RuntimeDirectory`.
+
+On Windows, another local server can lock the shared build executable. If a build reports `Access is denied` for `eitmad-server.exe`, stop that server through the command that started it, then retry. Use `-SkipBuild` only if the existing outputs match the current source and dependencies.
+
+Inspect the services:
+
+```powershell
+.\run-services.ps1 Status
+```
+
+Exit the app through its tray menu, then stop the services:
+
+```powershell
+.\run-services.ps1 Stop
+```
+
+Stop retains stored work and does not close the app. Start refuses an already running setup; use Status before restarting. Keep the same `-StateDirectory` for Start, Status, and Stop. These commands control the retained local development setup; they do not install system services.
 
 ## Furniture editor flow
 
-The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.
+The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set proposed prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ التعريف` from the read-only review step. Saving the definition does not publish a selling price. Use `فتح التسعير` after saving an active definition, publish each variant's selling price, and wait for server confirmation before Receptionist sales. See [Furniture](docs/developer/subsystems/furniture.md) for the definition and publication boundaries.
 
 ## Ready-made Products manager
 
-The Windows **المنتجات** page manages ready-made items that the company purchases and sells as-is. Its compact table and short **إضافة منتج** / **تعديل المنتج** page support images, shared category interaction, purchase and selling prices, calculated margins, optional supplier variants, notes, duplicate, and confirmed archive. The current workflow uses in-memory preview state only; Rust authorization, audit, storage, and synchronization are not implemented for Products yet.
+The Windows **المنتجات** page manages ready-made items through Rust-owned authorization, audit, durable definitions, supplier variants, images, and catalog transfer. Managers can add, edit, duplicate, and archive definitions. Commercial selling prices use the separate [Pricing capability](docs/developer/subsystems/pricing.md); see [Products](docs/developer/subsystems/products.md) for the storage and public catalog boundaries.
 
 ## Server-confirmed pricing
 
@@ -37,15 +73,15 @@ The separate Windows **التسعير** page lets a manager search product varia
 
 ## Manager quotation review
 
-The Windows **عروض الأسعار** page lets a manager search and filter quotations, open a read-only furniture-item detail, and review subtotal, discount, and final total. **موافقة** and **رفض** appear only when the synthetic fixture requires discount approval. These actions update preview state only; Rust quotation authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **عروض الأسعار** page reads Rust-owned drafts and server-confirmed quotation state. Managers review and decide discount approval requests; Receptionists compose, issue, record acceptance, and convert quotations under Rust authorization. See [Quotations](docs/developer/subsystems/quotations.md) for persistence, approval, and retry behavior.
 
 ## Manager order review
 
-The Windows **الطلبات** page lets a manager search and filter orders, review the five preview statuses, and open a read-only order detail with furniture specifications and totals. It does not expose carpenter actions or change order state. The rows are synthetic presentation fixtures; Rust order authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **الطلبات** page reads server-confirmed orders with immutable commercial snapshots. Rust authorizes conversion, fulfillment changes, manufacturing transitions, and delivery; each role receives its permitted actions. See [Orders](docs/developer/subsystems/orders.md) for state, audit, and replay behavior.
 
 ## Manager work orders
 
-The Windows **أوامر العمل** page separates furniture that must be manufactured from ready-made Products. One Work order can contain multiple Furniture items, and the list shows both the item summary and total quantity. Managers can search and filter the scan-first list, open **أمر عمل #024**, review the assigned carpenter, due date, every furniture specification, required Parts, and customer notes, then move the local preview through **جديد** → **قيد التنفيذ** → **مكتمل**. It never shows selling price, cost, profit, or margin. The status action is transient; Rust work-order authorization, audit, storage, and synchronization are not implemented yet.
+The Windows **أوامر العمل** page separates manufactured Furniture from ready-made Products. Managers inspect production specifications, assign work and due dates, and start or complete manufacturing through Rust-owned server-confirmed transitions. The page omits commercial prices and margins. See [Work Orders](docs/developer/subsystems/work-orders.md) for the production boundary.
 
 For routine changes, use the [focused check selection table](docs/developer/index.md#choose-the-smallest-normal-proof). Keep the full workspace and platform gates for [release-candidate validation](docs/operations/validate-release-candidate.md).
 

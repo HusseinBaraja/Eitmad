@@ -22,7 +22,7 @@ public sealed class HomeSearchRenderedTests
         {
             WpfTestHost.Run(1338, 753, window => {
                 var model = (HomeViewModel)window.ManagerHome.DataContext;
-                Finish(model.ActivateAsync());
+                Finish(model.ActivateAsync(includeCustomerSearch: !manager));
                 window.ResponsiveRoot.Visibility = manager ? Visibility.Visible : Visibility.Collapsed;
                 window.ReceptionistSurface.Visibility = manager ? Visibility.Collapsed : Visibility.Visible;
                 WpfTestHost.CompleteLayout(window);

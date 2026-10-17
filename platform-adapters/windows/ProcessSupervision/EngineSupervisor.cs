@@ -1,5 +1,5 @@
-using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
@@ -225,17 +225,12 @@ public sealed class EngineSupervisor : IAsyncDisposable
             client = currentIpcClient;
             attached = subscription.Attached;
         }
-        try
+        // Local delivery must end before a peer can delay its unsubscribe reply.
+        await subscription.DisposeAsync().ConfigureAwait(false);
+        if (client is not null && attached is not null)
         {
-            if (client is not null && attached is not null)
-            {
-                await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            await subscription.DisposeAsync().ConfigureAwait(false);
+            await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -285,6 +280,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>Stops the owned session. Cancellation after stop begins is reported only after cleanup.</summary>
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -313,70 +309,117 @@ public sealed class EngineSupervisor : IAsyncDisposable
             };
         }
 
-        PublishSnapshot();
-
-        if (process is null)
+        List<Exception> failures = [];
+        try
         {
-            CompleteStop(group);
-            return;
+            PublishSnapshot();
+        }
+        catch (Exception error)
+        {
+            failures.Add(error);
         }
 
         if (ipcClient is not null)
         {
-            using var ipcShutdown = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            ipcShutdown.CancelAfter(TimeSpan.FromSeconds(2));
             try
             {
                 await ipcClient.RequestShutdownAsync(
                     TimeSpan.FromSeconds(2),
-                    ipcShutdown.Token).ConfigureAwait(false);
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (EngineIpcException)
             {
                 // Inherited stdin remains the graceful abandonment fallback.
             }
-            finally
+            catch (OperationCanceledException)
+            {
+                // Neither the IPC deadline nor caller cancellation can abandon an owned process.
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
+            }
+            try
             {
                 await ipcClient.DisposeAsync().ConfigureAwait(false);
             }
+            catch (Exception error)
+            {
+                failures.Add(error);
+            }
         }
 
-        process.StandardInput.Dispose();
-        var exitTask = process.WaitForExitAsync(cancellationToken);
-        var timeoutTask = clock.DelayAsync(policy.ShutdownTimeout, CancellationToken.None);
-        if (await Task.WhenAny(exitTask, timeoutTask).ConfigureAwait(false) == timeoutTask)
+        if (process is not null)
         {
-            lock (gate)
+            try
             {
-                if (ReferenceEquals(process, currentProcess))
-                {
-                    forcedCurrentExit = true;
-                }
+                process.StandardInput.Dispose();
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
             }
 
             try
             {
-                group?.Terminate();
+                // Cleanup owns this wait; cancelling the caller must not cancel containment.
+                var exitTask = process.WaitForExitAsync(CancellationToken.None);
+                var timeoutTask = clock.DelayAsync(policy.ShutdownTimeout, CancellationToken.None);
+                if (await Task.WhenAny(exitTask, timeoutTask).ConfigureAwait(false) == timeoutTask)
+                {
+                    lock (gate)
+                    {
+                        if (ReferenceEquals(process, currentProcess))
+                        {
+                            forcedCurrentExit = true;
+                        }
+                    }
+                    group?.Terminate();
+                }
+
+                await exitTask.ConfigureAwait(false);
+                if (monitor is not null)
+                {
+                    await monitor.ConfigureAwait(false);
+                }
             }
-            catch (Win32Exception)
+            catch (Exception error)
             {
-                // Cleanup must continue even when Windows cannot terminate the Job Object.
+                // Do not wait indefinitely after failed termination. Closing the kill-on-close
+                // Job Object below is the independent containment fallback.
+                failures.Add(error);
+            }
+            try
+            {
+                await process.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
             }
         }
-
         try
         {
-            await exitTask.ConfigureAwait(false);
-            if (monitor is not null)
-            {
-                await monitor.ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            await process.DisposeAsync().ConfigureAwait(false);
             CompleteStop(group);
         }
+        catch (Exception error)
+        {
+            failures.Add(error);
+        }
+
+        // Preserve the initiating error and every later cleanup error, without logging
+        // transport details. Explicit cancellation retains its caller token and failures.
+        Exception? failure = failures.Count switch
+        {
+            0 => null,
+            1 => failures[0],
+            _ => new AggregateException("Engine shutdown and cleanup failed.", failures),
+        };
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException("Engine stop was cancelled after cleanup.", failure, cancellationToken);
+        }
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     internal async Task ObserveExitAsync(long observedGeneration, int exitCode)
@@ -554,6 +597,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
     {
         while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
         {
+            if (OperationDiagnostics.ForwardEngineLine(line)) continue;
             ContractError? error;
             try
             {
