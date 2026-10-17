@@ -46,6 +46,16 @@ The host registers branch-scoped Customer contacts and organization-scoped Mater
 
 Native shells and network adapters must not copy these rules, access PostgreSQL, inspect token hashes, assign update policy, interpret domain payloads, or bypass domain authorization.
 
+## Retained desktop connection
+
+`eitmad-server-connection::DesktopConnectionSettings` owns version 1 of `connection.json` in the engine runtime directory. It contains only `version`, `endpoint`, `trustedCertificate`, `credential`, `organization`, and `branch`. The credential is a typed reference; tokens and device signing keys remain in Rust secret storage. Relative CA paths resolve against that runtime directory. Setup writes the file through Rust after authenticated account import.
+
+On ordinary supervised startup, Rust loads the bounded file and attaches catalog-image, catalog-sync, pricing, customer, quotation, and order routes. The organization must match the installation authority. Each request still resolves the current author and enforces scope and authorization. HTTPS and the explicit CA remain required. A malformed, unreadable, oversized, or unsupported file fails startup; Rust does not silently open a disconnected installation or use environment values instead. If the file is absent, existing per-capability environment configuration remains supported. A valid retained file takes precedence as a complete installation connection.
+
+The shell receives only the engine path and optional runtime directory. It does not read connection settings. Closing and reopening the app preserves the configured routes; the server remains a separate required service. Preserve the runtime directory and credential store under the same Windows user during recovery. Correct invalid connection settings while the engine is stopped; do not reset business data or print credential references.
+
+Focused proof: `desktop_connection` Rust tests cover bounded loading and version rejection; `RetainedConnectionStartsWithoutLauncherEnvironment` checks both role sign-ins, confirmed reads, signed-out denial, and order retention across engine restart with inherited route variables cleared. The [workflow test setup](../../operations/run-workflow-test-environment.md) provides the current account-provisioning boundary.
+
 ## Contracts and compatibility
 
 Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. Protocol `1.6` changes only the local IPC handshake. The server WebSocket accepts protocol `1.4–1.17`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.

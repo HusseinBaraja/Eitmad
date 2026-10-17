@@ -48,7 +48,7 @@ public sealed class MissingProductImagesRenderedTests
                 Assert.IsTrue(placeholder.IsVisible, "Editable category text must never choose a product drawing.");
             }
 
-            // A synthetic decoded image proves binding priority; it is not a demo product photograph.
+            // A synthetic decoded image proves binding priority.
             var image = BitmapSource.Create(2, 2, 96, 96, PixelFormats.Rgb24, null,
                 new byte[] { 180, 90, 45, 180, 90, 45, 180, 90, 45, 180, 90, 45 }, 6);
             image.Freeze();

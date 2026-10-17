@@ -10,7 +10,6 @@ param(
     [ValidateRange(1024, 65535)][int]$ServerPort = 58443,
     [switch]$SkipBuild,
     [switch]$VerifySignIn,
-    [switch]$VerifyDemo,
     [switch]$NoDesktop,
     [switch]$PrepareCustomization
 )
@@ -22,12 +21,11 @@ $dotNetBuildOptions = if ($DotNetOutputDirectory) {
     @("-p:BaseOutputPath=$DotNetOutputDirectory/")
 } else { @() }
 if ($Action -eq 'Prepare' -and $SkipBuild) { throw 'Prepare cannot skip builds.' }
-if ($VerifySignIn -and $VerifyDemo) { throw 'Select VerifySignIn or VerifyDemo, not both.' }
-if ($PrepareCustomization -and ($Action -ne 'Start' -or -not $VerifyDemo)) {
-    throw 'PrepareCustomization requires Start with VerifyDemo.'
+if ($PrepareCustomization -and $Action -ne 'Start') {
+    throw 'PrepareCustomization requires Start.'
 }
-if ($NoDesktop -and ($Action -ne 'Start' -or -not ($VerifyDemo -or $VerifySignIn))) {
-    throw 'NoDesktop requires Start with VerifyDemo or VerifySignIn.'
+if ($NoDesktop -and $Action -ne 'Start') {
+    throw 'NoDesktop requires Start.'
 }
 $allowed = [IO.Path]::GetFullPath((Join-Path $workspace 'tests/engine-integration/artifacts'))
 if (-not $StateDirectory) { $StateDirectory = Join-Path $allowed 'workflow-e2e' }
@@ -97,7 +95,6 @@ if ($Action -eq 'Status') {
     return
 }
 if ($Action -eq 'Stop') {
-    Remove-Item -LiteralPath (Join-Path $root 'demo-ready.json') -ErrorAction SilentlyContinue
     $settings = Get-Content -LiteralPath $secretsFile -Raw | ConvertFrom-Json
     # Closing the shell main window hides it in the tray. WM_QUIT ends its dispatcher;
     # process exit closes its kill-on-close engine Job Object.
@@ -197,7 +194,7 @@ try {
         Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server-connection', '--example', 'workflow_environment')
         Run-Tool 'dotnet' (@('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo') + $dotNetBuildOptions)
         Run-Tool 'dotnet' @('build', 'tools/dev-certificate/Eitmad.DevCertificate.csproj', '--configuration', 'Release', '--nologo')
-        if ($Action -eq 'Prepare' -or $VerifyDemo -or $VerifySignIn) {
+        if ($Action -eq 'Prepare' -or $VerifySignIn) {
             Run-Tool 'dotnet' (@('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1') + $dotNetBuildOptions)
         }
     }
@@ -216,15 +213,11 @@ try {
         $testAssembly = Join-Path $DotNetOutputDirectory 'Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'
     }
     $outputs = @($server, $engine, $provision, $shell, $certificateTool)
-    if ($Action -eq 'Prepare' -or $VerifyDemo -or $VerifySignIn) { $outputs += $testAssembly }
+    if ($Action -eq 'Prepare' -or $VerifySignIn) { $outputs += $testAssembly }
     foreach ($file in $outputs) { if (-not (Test-Path -LiteralPath $file)) { throw 'A build output is missing. Run Prepare before Start -SkipBuild.' } }
     if ($Action -eq 'Prepare') {
-        Write-Host 'PREPARED: PostgreSQL binaries and connected build outputs are present. Services have not started; demo readiness is not yet verified.'
+        Write-Host 'PREPARED: PostgreSQL binaries and connected build outputs are present. Services have not started.'
         return
-    }
-    # Historical proof must never make a failed new launch look ready.
-    foreach ($name in 'demo-ready.json', 'demo-workflow-proof.json') {
-        Remove-Item -LiteralPath (Join-Path $root $name) -ErrorAction SilentlyContinue
     }
     $cluster = Join-Path $root 'postgres'
     if (-not (Test-Path -LiteralPath (Join-Path $cluster 'PG_VERSION'))) {
@@ -304,23 +297,19 @@ try {
     foreach ($name in 'PGPASSWORD', 'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY') {
         [Environment]::SetEnvironmentVariable($name, $null, 'Process')
     }
-    if ($VerifySignIn -or $VerifyDemo) {
+    if ($VerifySignIn) {
         foreach ($prefix in 'MEDIA', 'PRICING', 'QUOTATION', 'CUSTOMER') {
             [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_SERVER", $settings.endpoint, 'Process')
             [Environment]::SetEnvironmentVariable("EITMAD_${prefix}_TRUST_PEM", (Join-Path $certificates 'trusted-ca.pem'), 'Process')
         }
         $env:EITMAD_E2E_ENGINE = $engine
-        $filter = if ($VerifySignIn) {
-            'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork'
-        } else {
-            'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.DemoRolesCanReadFamilyPurchase'
-        }
+        $filter = 'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork'
         $results = Join-Path $root ('launch-check-' + [Guid]::NewGuid().ToString('N'))
         Run-Tool 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx')
         [xml]$result = Get-Content -LiteralPath (Join-Path $results 'workflow.trx') -Raw
         $counts = $result.TestRun.ResultSummary.Counters
         if ([int]$counts.total -lt 1 -or [int]$counts.passed -ne [int]$counts.total) {
-            throw 'Workflow verification did not pass every selected test. The demo is not ready.'
+            throw 'Workflow verification did not pass every selected test.'
         }
     }
     # Both imported accounts use one persistent desktop and one supervised engine.
@@ -335,19 +324,6 @@ try {
         $client = Start-Owned $shell @('--engine', $engine, '--runtime-directory', $directory) 'desktop' -Visible
         Record-Process $client 'desktop' $shell
         Write-Host "One real WPF client started. Sign-in names: manager and receptionist. Use Alt+K to switch accounts."
-    }
-    if ($VerifyDemo) {
-        $proof = Get-Content -LiteralPath (Join-Path $root 'demo-workflow-proof.json') -Raw | ConvertFrom-Json
-        if (-not $proof.manager_sign_in -or -not $proof.receptionist_sign_in -or
-            $proof.priced_catalog_items -lt 2 -or $proof.quotation_state -ne 'Converted' -or $proof.order_state -ne 'Ready') {
-            throw 'The required demo workflow proof is incomplete.'
-        }
-        @{
-            verified_utc = [DateTime]::UtcNow.ToString('O'); desktop_started = -not [bool]$NoDesktop
-            workflow_proof = 'demo-workflow-proof.json'; test_result = (Join-Path $results 'workflow.trx')
-        } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'demo-ready.json')
-        Write-Host 'DEMO READY: both roles signed in, server-confirmed catalog prices read, and the linked family purchase is ready for delivery. Keep PostgreSQL and the local server running.'
-        if ($NoDesktop) { Write-Host 'CLI proof only: the interactive desktop was not opened or checked.' }
     }
     Write-Host "Read the generated passwords locally from the protected file: $secretsFile"
     Write-Host "Disposable state is retained at: $root"

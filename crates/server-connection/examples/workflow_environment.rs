@@ -223,7 +223,7 @@ async fn prepare_customization(
     control: &ControlPlane,
 ) -> Result<()> {
     if !journal.seeded {
-        return Err("prepare the family demo before customization");
+        return Err("prepare the catalog fixtures before customization");
     }
     let manager = authenticate(
         control,
@@ -298,7 +298,9 @@ async fn prepare_shared_desktop(
             ),
         ] {
             import_account(&directory, journal, &authentication, name, password, role)?;
-            persist_route(&directory, authentication, settings.receptionist_seed)?;
+            let (_, credential) =
+                persist_route(&directory, authentication, settings.receptionist_seed)?;
+            persist_connection(root, &directory, settings, journal, credential)?;
         }
         return Ok(());
     }
@@ -502,6 +504,7 @@ fn local_client(
         import_account(&directory, journal, &authentication, name, password, role)?;
     let (actor, branch) = sign_in(&store, installer, name, password)?;
     let (secrets, credential) = persist_route(&directory, authentication, seed)?;
+    persist_connection(root, &directory, settings, journal, credential.clone())?;
     let config = checked(
         DirectServerConfig::new(
             &settings.endpoint,
@@ -560,6 +563,39 @@ fn local_client(
             store,
         ),
     })
+}
+
+fn persist_connection(
+    root: &Path,
+    directory: &Path,
+    settings: &Settings,
+    journal: &Journal,
+    credential: SecretId,
+) -> Result<()> {
+    let connection = eitmad_server_connection::DesktopConnectionSettings {
+        version: 1,
+        endpoint: settings.endpoint.clone(),
+        trusted_certificate: checked(
+            root.join("certificates/trusted-ca.pem").canonicalize(),
+            "connection trust anchor",
+        )?,
+        credential,
+        organization: journal.organization,
+        branch: journal.branch,
+    };
+    let bytes = checked(
+        serde_json::to_vec(&connection),
+        "encode connection settings",
+    )?;
+    let pending = directory.join("connection.next");
+    checked(fs::write(&pending, bytes), "write connection settings")?;
+    checked(
+        fs::rename(
+            pending,
+            directory.join(eitmad_server_connection::DesktopConnectionSettings::FILE_NAME),
+        ),
+        "commit connection settings",
+    )
 }
 
 fn persist_route(

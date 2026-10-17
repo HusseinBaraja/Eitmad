@@ -46,7 +46,7 @@ Catalog text and prices load before thumbnails. Each view retains at most 128 de
 
 Image transfer does not publish or synchronize Product or Furniture definitions. Their existing local definition workflows and private Manager projection remain unchanged. A second authorized client must receive the immutable reference through an authorized catalog definition or consuming workflow; image transfer alone cannot invent that catalog relationship. [Catalog replication](synchronization.md#catalog-replication) carries those references to separate clients. Image transfer does not confirm a catalog definition or price.
 
-Product list rows show the decoded product image when available and **الصورة غير متاحة** otherwise, including while loading or after a failed read. Editable category names never select a product drawing. For demos, attach actual item photos through **اختيار صورة**; synthetic test images only verify rendering and are not product specifications. Work Orders have no image reference in their manufacturing projection; see the [Work Orders native workflow](work-orders.md#native-workflow).
+Product list rows show the decoded product image when available and **الصورة غير متاحة** otherwise, including while loading or after a failed read. Editable category names never select a product drawing. Attach actual item photos through **اختيار صورة**; synthetic test images only verify rendering and are not product specifications. Work Orders have no image reference in their manufacturing projection; see the [Work Orders native workflow](work-orders.md#native-workflow).
 
 ## Configure the engine transfer route
 

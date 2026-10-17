@@ -31,118 +31,21 @@ Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, th
 
 ## Start and sign in
 
-### Prepare and launch the local demo
+The setup tool is an integration-test harness. It starts the ordinary application with an isolated installation. It does not select an application mode or require any saved order to remain in a particular state. Keep existing state directories and evidence; no rename or reset is required.
 
-Use `run-demo.ps1` for the presentation. It uses this connected workflow with fixed state at `tests/engine-integration/artifacts/demo-family-purchase` and loopback ports `55459` (PostgreSQL) and `58463` (TLS server). This separate environment preserves the previous `demo-presentation` state and its services. It does not use the local-only `run.ps1` account seeder. Keep this state under the same Windows user. The default PostgreSQL binaries on this PC are at `target/direct-order-test/pgsql/bin`; supply `-PostgresBin` if they are installed elsewhere. That path and the ports are retained in private settings.
+Use `Prepare` to build without starting services. `Start -NoDesktop` starts the connected test services and provisions the retained installation without opening a desktop. `-PrepareCustomization` adds the optional customization fixture through Rust authority; it requires an already seeded catalog. These actions belong to test setup, not application startup.
 
-The fresh connected seed contains one fictional family purchase: a two-door walnut wardrobe at 185,000 YER and a double mattress at 95,000 YER, one of each, with no discount and a 280,000 YER total. Both have bundled synthetic catalog photos. The same customer and specifications link the converted quotation, order, customer documents, and completed wardrobe work order. Rust completes production and leaves the order Ready, without recording delivery. The customer, address, workshop assignment, and non-dialable all-zero phone are fictional. Prices are demo values, not a market quotation. Photo prompts are retained beside the `crates/server-connection/examples/workflow_environment/photos/README.md`.
+After setup, the engine installation contains Rust-owned `connection.json` references for the HTTPS endpoint, CA trust anchor, organization, branch, and credential route. Tokens and signing keys remain in Windows Credential Manager. Reopening this installation does not require inherited service environment variables. The local server and PostgreSQL must still be running.
 
-Before the meeting, while package sources are available, prepare all build outputs and check the PostgreSQL binaries:
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 Prepare
-```
-
-Prepare builds the Rust server, engine, provisioning example, WPF shell, certificate tool, and test assembly. It does not start services or claim demo readiness. Repeat Prepare after changing relevant source or dependencies. Keep the prepared checkout and its build outputs on the demo PC.
-
-If another retained desktop locks the normal shell outputs, build the current shell/test source with a separate MSBuild `BaseOutputPath`. Pass that same directory to `run-demo.ps1` with `-DotNetOutputDirectory`, and use `-EnginePath` for a separately built clean engine executable. The workflow tool accepts the same options. Start checks the selected prebuilt outputs and runs the normal readiness gate; these options do not bypass verification or stop another environment. The certificate tool and Rust server/provisioning outputs keep their normal paths.
-
-From stopped services, use one launch command:
+Open that existing installation through the normal launcher:
 
 ```powershell
-pwsh -NoProfile -File .\run-demo.ps1
+.\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
 ```
 
-Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads confirmed prices and photo assets, and compares the linked family quotation, order, printable documents, and Manager work-order specifications. The prepared story is the unique quotation `QT-2026-00001` and the unique order whose source quotation ID matches it. The check reads every quotation and order page through each role before selecting that story. Separate catalog samples, quotations, and practice orders, including Delivered orders, are permitted. The original order must remain Ready with no delivery, two matching catalog lines, zero discount, and a 280,000 YER total. Current photos, printable documents, Completed work specifications, and Receptionist delivery authority must still pass. A missing or ambiguous story, wrong state, denied query, or unavailable service fails readiness. Normal Start adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery.
+This builds the current engine and shell, then opens the usual sign-in screen without provisioning development accounts or changing saved work. For unchanged built source, add `-SkipBuild`. Supply the same installation directory on subsequent starts. A runtime-directory argument selects stored installation data, not a different product workflow.
 
-Wait for `DEMO READY` and exit code zero. The launcher requires every selected test to pass; a skipped or missing test cannot pass readiness. The private `demo-ready.json` links the fresh TRX result and `demo-workflow-proof.json`. A new launch clears old readiness proof, and Stop removes the ready marker. These files record a completed check, not continuous health monitoring. Leave PostgreSQL, the server, and the opened app running before the meeting. Local services use loopback and need no store internet after preparation. Actual disconnected operation still needs a rehearsal on the demo PC.
-
-For this demo, read `manager_password` and `receptionist_password` locally from the protected `tests/engine-integration/artifacts/demo-family-purchase/secrets.json` before the meeting. Use the sign-in names `manager` and `receptionist`. Do not print or copy private settings into evidence or logs.
-
-For CLI verification without opening or driving the desktop:
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 -NoDesktop
-```
-
-This checks the same Rust workflow and leaves the local services running. It does not verify visible sign-in, keyboard input, or the display. After a CLI-only check, stop this setup before using the normal launch command:
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 Stop
-```
-
-Use `run-demo.ps1 Status` to inspect owned processes. A PC reboot, visible role sign-in, and a manual quotation rehearsal remain separate checks. The full `-VerifySignIn` rehearsal below remains available; the focused demo check does not replace its field-editor, order, or delivery coverage. On failure, keep the state, inspect the stage error, then Stop before retrying. Do not reset databases or print private settings.
-
-### Recover the demo and keep rehearsal separate
-
-Use the default `-Environment Presentation` for the retained family purchase. Use `-Environment Rehearsal` for practice. Each name selects its own retained database, account credentials, local authority, and process journal. The launcher prints the selected name before each action. Keep only one demo desktop open so that identical synthetic record numbers cannot be mistaken for the other environment.
-
-| Environment | State directory under `tests/engine-integration/artifacts/` | Database / TLS ports |
-| --- | --- | --- |
-| Presentation (default) | `demo-family-purchase` | `55459` / `58463` |
-| Rehearsal | `demo-family-rehearsal` | `55475` / `58479` |
-
-Before the meeting, prepare the rehearsal through the same launcher. On its first Start, supply the installed PostgreSQL binary path with `-PostgresBin` if needed. Start once to seed the family purchase; Stop; then Start with `-PrepareCustomization` to add the separate sample. These operations use Rust authority and preserve partial and accepted work. Neither environment has a reset action. Preparation is a one-time step; later starts omit `-PrepareCustomization`.
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 -Environment Rehearsal -NoDesktop -PostgresBin "$PWD\target\quotation-test-env\pgsql\bin"
-```
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 Stop -Environment Rehearsal
-```
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 -Environment Rehearsal -PrepareCustomization
-```
-
-Use this short recovery route with the selected environment:
-
-1. **Start:** from stopped services, run `pwsh -NoProfile -File .\run-demo.ps1 -Environment Presentation`. Wait for `DEMO READY` and exit code zero. This reads the retained family purchase through both accounts without rebuilding. Before the audience arrives, obtain both matching passwords from this environment's protected settings. Keep them available privately; never put them in the runbook, screenshots, or logs.
-2. **Confirm readiness:** run `pwsh -NoProfile -File .\run-demo.ps1 Status -Environment Presentation`. Expect `server`, `desktop`, and `postgres` to be running. Sign in as `receptionist`; confirm the records below. The ready marker is historical proof, not a health monitor. Keep this tested app session open.
-3. **Accidental close:** closing the main window hides it. Open the Windows notification area, including hidden icons if needed. Double-click **الاعتماد · مركز العمليات**, or right-click it and select **فتح مركز العمليات**. Do not run Start again while it is in the tray.
-4. **Switch accounts:** save unfinished input, press **Alt+K**, then select **تسجيل الخروج** in **تبديل الحساب**. Sign in as `manager` or `receptionist` with the same environment's matching password. Unsaved input clears; accepted records remain. Cancel with **إلغاء** to keep the current form.
-5. **Exit from tray:** right-click the icon and select **إنهاء الاعتماد**. This ends the desktop and its supervised engine. Closing the window is not Exit.
-6. **Stop local services:** run `pwsh -NoProfile -File .\run-demo.ps1 Stop -Environment Presentation`. Expect `Clients, server, and PostgreSQL stopped. Accepted work is retained.` Status must show stopped processes. Stop also ends a remaining owned desktop safely.
-7. **Resume:** repeat Start with the same environment name and locate the same record numbers. Start refuses running processes; use the tray to reopen, or Stop before Start. A failed readiness check never restores an earlier commercial state. Retain the state and use the recorded fallback if recovery would interrupt the meeting.
-
-For practice, replace `Presentation` with `Rehearsal` in every step. Exit and stop Rehearsal before opening Presentation. Do not copy its database, credentials, or process journal into Presentation.
-
-### Try the prepared family story
-
-In Presentation, use Receptionist to open the customer **أسرة سامر السعدي**, converted quotation `QT-2026-00001`, and Ready order `OR-2026-00001`. The order contains **خزانة السكينة ببابين** at 185,000 YER and **مرتبة الراحة المزدوجة** at 95,000 YER, quantity one each, zero discount, **280,000 YER** total. Open the saved quotation or order document to show the same customer, specifications, and total. Leave this order undelivered for the meeting. A converted quotation cannot be converted again.
-
-Switch to Manager and open Orders → `OR-2026-00001` → **فتح تصنيع الطلب**. Work order `WO-2026-00001` is already Completed. Show its wardrobe specification; no new completion is needed. Switch back to Receptionist. The order remains Ready. Delivery changes durable state; perform a delivery rehearsal only in Rehearsal.
-
-The separate sample **خزانة السكينة حسب المقاس**, quotation `QT-2026-00002`, is Issued: 1400 × 2100 × 600 mm, walnut, brass handle, quantity one, zero discount, **200,000 YER**. Its smaller variant costs 185,000 YER plus the 15,000 YER handle. The larger variant with brass costs 240,000 YER. Use the issued sample for inspection; keep Presentation unchanged. In Rehearsal, this unconverted sample can be used for acceptance, conversion, production, and delivery practice. Once converted or delivered, create a fresh quotation through the app and use its newly issued numbers. Restart does not undo those transitions.
-
-After creating or delivering a separate practice order, stop and resume Rehearsal with the normal named launcher. Its readiness gate still checks the original prepared story:
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 Start -Environment Rehearsal
-```
-
-If the original prepared order itself was delivered, normal readiness must fail, even if another Ready purchase exists. Keep the retained records and inspect the specific failure; do not reset data, undo delivery, substitute another order, or treat a failed launch as ready. For the original story, use the recorded fallback below or retain a separate prepared environment whose intended story is still Ready. Stop the failed environment before another Start.
-
-For a fresh manufacturing order in separate verification or Rehearsal state, a Manager can use Orders → **بدء أمر العمل** → **إكمال أمر العمل** after server confirmation. The [Orders guide](../developer/subsystems/orders.md#native-workflow) explains refresh sequencing, cached reads, and exact retry after an uncertain reply. A connected button-handler test verifies this direct route with test-generated WPF renders; it does not establish a physical click-through. The existing Presentation family work order is already Completed and must remain Ready for the meeting.
-
-Before the meeting, keep a local visual fallback made from the verified family proof and bundled synthetic photos. Label it **Recorded evidence**, include its verification time and environment, and show 280,000 YER for the family story. It is a saved snapshot, not current application state or proof of a live click. The action 13 enlarged document fixture is a separate synthetic **47,500 YER** example; do not present it as this family purchase. The local action 14 route, recorded fallback, measured restart proof, and remaining manual checks are saved under `artifacts/demo-fixes-20261016/`.
-
-### Prepare the optional customization sample
-
-After the family demo has been seeded, stop its services, run Prepare for the current source, then use:
-
-```powershell
-pwsh -NoProfile -File .\run-demo.ps1 -PrepareCustomization -NoDesktop
-```
-
-This adds `خزانة السكينة حسب المقاس` as a separate active furniture item. It preserves the original family purchase. The two standard sizes are 1200 × 2000 × 600 mm at 185,000 YER and 1600 × 2000 × 600 mm at 225,000 YER. Both permit custom width 1000–1800 mm, height 1800–2400 mm, and depth 500–700 mm. Both accept walnut or white and a black handle at no extra charge or a brass handle at an extra 15,000 YER. Custom dimensions have no separate surcharge in this sample; the selected variant determines the base price. These are synthetic demo values.
-
-Rust saves and audits the new definition, synchronizes it through authenticated TLS, and publishes both current prices with server confirmation. As Receptionist, the command selects 1400 × 2100 × 600 mm, walnut, and the brass handle on the smaller variant. It creates and issues one separate quotation for the existing fictional family at 200,000 YER, with no discount. It compares the server quotation specification and total with the local evaluation. It also checks the larger variant at 240,000 YER and rejects width 1801 mm locally with a Dimensions/Invalid error and no total. It does not accept or convert the extra quotation, change the original order, or record delivery.
-
-`customization-proof.json` in the protected demo state records the published public variants, chosen specification, server-issued quotation, and local rejection. Stable idempotency keys resume partial preparation without creating another sample or quotation. Changed source definitions or rehearsal edits can cause a conflict; retain the state and inspect the failed stage instead of resetting or overwriting work. Normal Start does not run this preparation.
-
-Stop the CLI setup before the next normal launch. In the visible app, sign in as Receptionist and rehearse the same selection and out-of-range error. The CLI proof does not verify the displayed quotation, Arabic layout, input, or focus. If that rehearsal cannot be completed before the meeting, show the original fixed-size family purchase and describe customization separately.
+`RetainedConnectionStartsWithoutLauncherEnvironment` verifies both role sign-ins, server-confirmed catalog, quotations and orders, signed-out denial, and unchanged order records across two engine starts with all inherited `EITMAD_*` variables cleared. It does not require fixed record numbers, totals, or delivery states. Run it through the existing test assembly with `EITMAD_E2E_ROOT` and `EITMAD_E2E_ENGINE` set to the prepared test installation and current engine. It performs no desktop interaction.
 
 ### Run the full connected workflow test
 
@@ -170,7 +73,7 @@ The default state is explicitly identified as disposable test state by `disposab
 | --- | --- |
 | `postgres/` | Dedicated PostgreSQL cluster; database `eitmad_workflow_test` |
 | `manager/` | Retained provisioning authority and original Manager data; no interactive client starts here |
-| `receptionist/` | Shared interactive desktop authority for both accounts, including saved Receptionist drafts, audit, checkpoints, and route reference |
+| `receptionist/` | Shared interactive desktop authority for both accounts, including saved Receptionist drafts, audit, checkpoints, and connection references |
 | `certificates/` | Private test TLS key and explicit CA trust anchor; renewed at startup |
 | `secrets.json`, `provision.json` | Private settings and resumable provisioning journal |
 | `processes.json` | Process IDs, executable paths, and start times used to identify owned processes |
@@ -193,14 +96,14 @@ The initial Manager is also the tenant bootstrap owner so it can provision the t
 | Arabic furniture category and wardrobe with a fixed size | Active definition with a server-published selling price |
 | Arabic product category and mattress variant | Ready-made definition with a server-published selling price |
 | Arabic customer contact | Branch-scoped, server-confirmed customer |
-| Five quotations | Draft, pending discount approval above 5%, issued, accepted, and converted |
-| Ready-made order | Created from the accepted quotation through server confirmation |
+| One mixed purchase | Converted quotation for one wardrobe and one mattress, total 280,000 YER; Completed manufacturing and Ready order, without delivery |
+| Bundled synthetic item photos | Imported through Rust catalog-image authority and transferred to the server |
 
-Images are not seeded. These records contain synthetic Arabic text only. The environment is intended for the [accepted Manager and Receptionist workflows](../developer/subsystems/manager-receptionist-workflows.md), not production operation.
+The fixtures are fictional and exist only for integration tests. Later starts preserve all accepted work, including deliveries and additional orders. There is no startup requirement to retain their initial states. Optional customization adds a separate furniture definition with two variants, custom dimensions, colors, and handle adjustments. Use the normal catalog, quotation, order, and production screens to test changes.
 
 Seed mutations use stable idempotency keys. After successful seeding, later starts refresh server credentials and import only missing local accounts. Existing account identity must match, including inactive accounts. Setup preserves local role, display name, password verifier, activation state, relationships, revision, and sessions. It does not sign in to local fixture accounts or restore their initial access. Existing accepted work is not replaced. A failure preserves local outboxes, journals, audits, and PostgreSQL state.
 
-The running engine retries pending customer changes on a Rust worker every two seconds when idle. The launcher supplies `EITMAD_CUSTOMER_SERVER`, `EITMAD_CUSTOMER_TRUST_PEM`, `EITMAD_CUSTOMER_CREDENTIAL_ID`, and `EITMAD_CUSTOMER_BRANCH_ID`. The credential setting is a route reference. Rust resolves each original author's account credential and checks current branch permission before transfer. Connection failure retains pending work for retry. Customer revisions must reach server confirmation before quotation validation can use them; restarting the environment is not required.
+The running engine retries pending customer changes on a Rust worker every two seconds when idle. Rust loads the saved connection references for customer transfer. For an installation without a connection file, the existing `EITMAD_CUSTOMER_SERVER`, `EITMAD_CUSTOMER_TRUST_PEM`, `EITMAD_CUSTOMER_CREDENTIAL_ID`, and `EITMAD_CUSTOMER_BRANCH_ID` environment configuration remains available. The credential setting is a route reference. Rust resolves each original author's account credential and checks current branch permission before transfer. Connection failure retains pending work for retry. Customer revisions must reach server confirmation before quotation validation can use them; restarting the environment is not required.
 
 For existing two-window environments, the launcher retains both directories and uses the existing `receptionist/` database as the shared desktop. It registers Manager on that device through authenticated server login, imports the verified account, and transfers catalog definitions through the supported authenticated catalog operations. Receptionist drafts and server-accepted work stay in place. Original Manager-only local data remains in `manager/`; this is not a general database merge or restore tool.
 

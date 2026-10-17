@@ -1,39 +1,76 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$RuntimeDirectory,
+    [switch]$SkipBuild
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = $PSScriptRoot
 $shellProject = Join-Path $repositoryRoot "shells\windows\Eitmad.WindowsShell.csproj"
+$previousPath = $env:PATH
+$previousTarget = $env:CARGO_TARGET_DIR
+$previousIncremental = $env:CARGO_INCREMENTAL
+
+if ($RuntimeDirectory) {
+    $RuntimeDirectory = [IO.Path]::GetFullPath($RuntimeDirectory)
+    if (-not (Test-Path -LiteralPath (Join-Path $RuntimeDirectory 'eitmad.sqlite3') -PathType Leaf)) {
+        throw 'RuntimeDirectory must contain an existing engine installation. No data was changed.'
+    }
+}
 
 Push-Location $repositoryRoot
 try {
-    & cargo build -p eitmad-engine-cli
+    $cargoPath = & rustup which --toolchain 1.85.1 cargo
     if ($LASTEXITCODE -ne 0) {
-        throw "The Rust engine build failed with exit code $LASTEXITCODE."
+        throw 'Install Rust 1.85.1 with rustup.'
+    }
+    $env:PATH = (Split-Path $cargoPath -Parent) + [IO.Path]::PathSeparator + $previousPath
+    $env:CARGO_TARGET_DIR = Join-Path $repositoryRoot 'target/toolchain-1.85.1'
+    $env:CARGO_INCREMENTAL = '0'
+    if (-not $SkipBuild) {
+        & rustup run 1.85.1 cargo build --locked -p eitmad-engine-cli
+        if ($LASTEXITCODE -ne 0) {
+            throw "The Rust engine build failed with exit code $LASTEXITCODE."
+        }
+        & dotnet build $shellProject --configuration Release --nologo
+        if ($LASTEXITCODE -ne 0) {
+            throw "The Windows shell build failed with exit code $LASTEXITCODE."
+        }
     }
 
-    $cargoMetadata = & cargo metadata --format-version 1 --no-deps | ConvertFrom-Json
+    $cargoMetadata = & rustup run 1.85.1 cargo metadata --offline --format-version 1 --no-deps | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) {
         throw "Cargo metadata failed with exit code $LASTEXITCODE."
     }
 
     $enginePath = Join-Path $cargoMetadata.target_directory "debug\eitmad-engine-cli.exe"
-    & $enginePath seed-development-accounts
-    if ($LASTEXITCODE -ne 0) {
-        throw "Development account provisioning failed with exit code $LASTEXITCODE."
+    $shellPath = Join-Path $repositoryRoot 'shells/windows/bin/Release/net8.0-windows/Eitmad.WindowsShell.exe'
+    foreach ($file in $enginePath, $shellPath) {
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+            throw 'A build output is missing. Run without SkipBuild.'
+        }
+    }
+    $shellArguments = @('--engine', $enginePath)
+    if ($RuntimeDirectory) {
+        $shellArguments += @('--runtime-directory', $RuntimeDirectory)
+    } else {
+        & $enginePath seed-development-accounts
+        if ($LASTEXITCODE -ne 0) {
+            throw "Development account provisioning failed with exit code $LASTEXITCODE."
+        }
+        Write-Host 'Local development sign-in names: admin and rec. Use the existing credentials after account changes.'
     }
 
-    Write-Host "Development accounts:"
-    Write-Host "  Manager      admin / admin"
-    Write-Host "  Receptionist rec / rec"
-
-    & dotnet run --project $shellProject -- --engine $enginePath
+    & dotnet run --project $shellProject --configuration Release --no-build -- @shellArguments
     if ($LASTEXITCODE -ne 0) {
         throw "The Windows app stopped with exit code $LASTEXITCODE."
     }
 }
 finally {
+    $env:PATH = $previousPath
+    $env:CARGO_TARGET_DIR = $previousTarget
+    $env:CARGO_INCREMENTAL = $previousIncremental
     Pop-Location
 }

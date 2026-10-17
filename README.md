@@ -15,13 +15,15 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and the stable Rust toolchain. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
+Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
 
 ```powershell
 .\run.ps1
 ```
 
-Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Existing role changes, credentials, and deactivation are preserved on restart. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+
+For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`; no development accounts are added. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for the current provisioning boundary and synthetic test records. The normal local installation has no server connection until one is configured, so server-confirmed sales actions remain unavailable there.
 
 ## Furniture editor flow
 
