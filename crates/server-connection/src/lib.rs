@@ -4,12 +4,12 @@ use eitmad_observability_audit::operation_diagnostics::{
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;
-mod credential_admission;
 #[cfg(test)]
 mod credential_contention_tests;
 mod customer_sync;
 mod desktop_connection;
 mod diagnostics;
+mod request_admission;
 pub use catalog_sync::DirectCatalogSyncClient;
 pub use customer_sync::DirectCustomerSyncClient;
 pub use desktop_connection::DesktopConnectionSettings;
@@ -66,10 +66,10 @@ const POLL_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
 const REFRESH_MARGIN_MS: i64 = 30_000;
-use credential_admission::CredentialGate;
-static CREDENTIAL_GATES: OnceLock<Mutex<HashMap<SecretId, Weak<CredentialGate>>>> = OnceLock::new();
+use request_admission::RequestGate;
+static CREDENTIAL_GATES: OnceLock<Mutex<HashMap<SecretId, Weak<RequestGate>>>> = OnceLock::new();
 
-fn credential_gate(id: &SecretId) -> Result<Arc<CredentialGate>, TransportFailure> {
+fn credential_gate(id: &SecretId) -> Result<Arc<RequestGate>, TransportFailure> {
     let mut gates = CREDENTIAL_GATES
         .get_or_init(Mutex::default)
         .lock()
@@ -78,7 +78,10 @@ fn credential_gate(id: &SecretId) -> Result<Arc<CredentialGate>, TransportFailur
     if let Some(gate) = gates.get(id).and_then(Weak::upgrade) {
         return Ok(gate);
     }
-    let gate = Arc::new(CredentialGate::default());
+    let gate = Arc::new(RequestGate::new(
+        DiagnosticPhase::CredentialAdmission,
+        FailurePhase::Authentication,
+    ));
     gates.insert(id.clone(), Arc::downgrade(&gate));
     Ok(gate)
 }

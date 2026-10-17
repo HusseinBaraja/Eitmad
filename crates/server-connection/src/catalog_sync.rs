@@ -35,7 +35,7 @@ pub struct DirectCatalogSyncClient {
     credential: SecretId,
     store: AuthorityStore,
     authorization: AuthorizationService,
-    worker: std::sync::Mutex<()>,
+    worker: crate::request_admission::RequestGate,
 }
 impl DirectCatalogSyncClient {
     #[must_use]
@@ -52,7 +52,10 @@ impl DirectCatalogSyncClient {
             credential,
             store,
             authorization,
-            worker: std::sync::Mutex::new(()),
+            worker: crate::request_admission::RequestGate::new(
+                eitmad_observability_audit::operation_diagnostics::DiagnosticPhase::DriverAdmission,
+                eitmad_sync::FailurePhase::Connect,
+            ),
         }
     }
     /// Checks the current local permission for the owning private schema or public catalog.
@@ -442,19 +445,12 @@ impl CatalogReplication for DirectCatalogSyncClient {
         actor: &AuthorizationContext,
         deadline: UnixMillis,
     ) -> Result<usize, PricingError> {
-        use eitmad_observability_audit::operation_diagnostics::{
-            DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
-        };
-        let mut admission = DiagnosticSpan::start(DiagnosticPhase::DriverAdmission);
-        let _worker = self.worker.try_lock().map_err(|error| {
-            admission.finish(match error {
-                std::sync::TryLockError::WouldBlock => DiagnosticResult::GateBusy,
-                std::sync::TryLockError::Poisoned(_) => DiagnosticResult::Poisoned,
-            });
-            PricingError::Unconfirmed
-        })?;
-        admission.finish(DiagnosticResult::Succeeded);
-        drop(admission);
+        let remaining = u64::try_from(deadline.0.saturating_sub(now().0))
+            .map_err(|_| PricingError::Unconfirmed)?;
+        let _worker = self
+            .worker
+            .acquire(Instant::now() + Duration::from_millis(remaining))
+            .map_err(|_| PricingError::Unconfirmed)?;
         self.require(actor, PUBLIC_SCHEMA, false)?;
         self.store
             .register_catalog_client(actor, &audit(actor, "eitmad.catalog.sync.register.v1"))?;

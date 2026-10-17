@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -56,6 +56,8 @@ The public `eitmad.schema.catalog-public.v1` and Pricing streams are server-auth
 Server handlers enforce tenant RLS and organization relationships. Material, Part, Product, and private Furniture definition reads require Manager. Receptionists cannot read their history, snapshots, or subscriptions. Catalog page projection rechecks current access inside the existing tenant transaction. If this check denies a pull or snapshot, the coordinator rolls back page work and commits a redacted denial audit before returning the error; an audit failure returns unavailable. The public entry type contains no costs, margins, Part compositions, or internal notes. A Branch Receptionist can read the owning organization's public catalog. See each capability's accepted authority policy.
 
 The receiving engine decodes an entire page before committing its read model, checkpoint, audit, immutable price history, and price-change outbox. Private streams finish in dependency order before Furniture projection. A stale checkpoint uses the existing manifest/chunk/completion route. The client stages the complete snapshot, checks identities, counts, per-chunk and whole checksums, expiry, and bounded size, then commits once. No received prefix becomes a confirmed sales entry. Restart retains the old confirmed projection and resumes or repeats the interrupted transfer. The Rust worker retries every registered actor even when an earlier actor fails, drains committed events, and then reports the first failure. Worker-lock contention or a slow actor cannot prevent later actors from being attempted or strand notifications from committed pages. Native shells use existing subscriptions.
+
+Foreground catalog reads wait for the active catalog worker within their existing request deadline. A background transfer alone must not make a reachable server appear unavailable. Expired admission returns unconfirmed state; a poisoned worker fails closed. The catalog worker and credential rotation reuse the private deadline-bound admission gate in `server-connection`.
 
 The focused real TLS/PostgreSQL scenario is `catalog_sync::catalog_reaches_separate_receptionist_and_recovers_without_private_fields` in `crates/server-connection/tests/direct_route/catalog_sync.rs`. It uses isolated Manager and Receptionist stores and an ordinary PostgreSQL role. Follow [real-server verification](../../operations/run-server-authority.md#verify-catalog-delivery-and-recovery).
 

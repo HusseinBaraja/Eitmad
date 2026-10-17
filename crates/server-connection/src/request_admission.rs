@@ -6,9 +6,10 @@ use eitmad_observability_audit::operation_diagnostics::{
 };
 use eitmad_sync::{FailurePhase, RetryAdvice, TransportFailure, TransportFailureKind};
 
-/// Serializes one stored rotating pair without polling or an unbounded wait.
-#[derive(Default)]
-pub(super) struct CredentialGate {
+/// Serializes a connection operation without polling or an unbounded wait.
+pub(super) struct RequestGate {
+    phase: DiagnosticPhase,
+    failure_phase: FailurePhase,
     state: Mutex<State>,
     released: Condvar,
 }
@@ -19,18 +20,23 @@ struct State {
     poisoned: bool,
 }
 
-pub(super) struct CredentialGuard<'a>(&'a CredentialGate);
+pub(super) struct RequestGuard<'a>(&'a RequestGate);
 
-impl CredentialGate {
-    pub(super) fn acquire(
-        &self,
-        deadline: Instant,
-    ) -> Result<CredentialGuard<'_>, TransportFailure> {
-        let mut span = DiagnosticSpan::start(DiagnosticPhase::CredentialAdmission);
+impl RequestGate {
+    pub(super) fn new(phase: DiagnosticPhase, failure_phase: FailurePhase) -> Self {
+        Self {
+            phase,
+            failure_phase,
+            state: Mutex::new(State::default()),
+            released: Condvar::new(),
+        }
+    }
+    pub(super) fn acquire(&self, deadline: Instant) -> Result<RequestGuard<'_>, TransportFailure> {
+        let mut span = DiagnosticSpan::start(self.phase);
         let poison = || {
             TransportFailure::new(
                 TransportFailureKind::DriverUnavailable,
-                FailurePhase::Authentication,
+                self.failure_phase,
                 RetryAdvice::Never,
             )
         };
@@ -44,7 +50,7 @@ impl CredentialGate {
                 }
                 if !state.held {
                     state.held = true;
-                    return Ok(CredentialGuard(self));
+                    return Ok(RequestGuard(self));
                 }
                 (state, _) = self
                     .released
@@ -60,7 +66,7 @@ impl CredentialGate {
     }
 }
 
-impl Drop for CredentialGuard<'_> {
+impl Drop for RequestGuard<'_> {
     fn drop(&mut self) {
         if let Ok(mut state) = self.0.state.lock() {
             state.poisoned |= std::thread::panicking();
@@ -76,8 +82,36 @@ mod tests {
     use std::time::Duration;
 
     #[test]
+    fn catalog_waiter_acquires_after_the_active_worker_releases() {
+        let gate = RequestGate::new(DiagnosticPhase::DriverAdmission, FailurePhase::Connect);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let owner = gate.acquire(deadline).unwrap();
+        let (entered, waiting) = std::sync::mpsc::channel();
+        let (finished, result) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            let gate = &gate;
+            let worker = scope.spawn(move || {
+                entered.send(()).unwrap();
+                let _owner = gate.acquire(deadline).unwrap();
+                finished.send(()).unwrap();
+            });
+            waiting.recv_timeout(Duration::from_secs(1)).unwrap();
+            assert!(matches!(
+                result.recv_timeout(Duration::from_millis(100)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ));
+            drop(owner);
+            result.recv_timeout(Duration::from_secs(1)).unwrap();
+            worker.join().unwrap();
+        });
+    }
+
+    #[test]
     fn contention_expires_without_ownership_and_panics_fail_closed() {
-        let gate = CredentialGate::default();
+        let gate = RequestGate::new(
+            DiagnosticPhase::CredentialAdmission,
+            FailurePhase::Authentication,
+        );
         let end = Instant::now() + Duration::from_secs(2);
         let held = gate.acquire(end).unwrap();
         let started = Instant::now();
