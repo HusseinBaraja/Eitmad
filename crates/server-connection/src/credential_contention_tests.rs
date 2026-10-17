@@ -441,9 +441,23 @@ fn credential_wait_and_socket_share_the_establishment_deadline() {
     });
     ready.recv_timeout(Duration::from_secs(1)).unwrap();
     let (release, wait) = mpsc::channel();
+    listener.set_nonblocking(true).unwrap();
     let peer = std::thread::spawn(move || {
-        let (_socket, _) = listener.accept().unwrap();
-        let _ = wait.recv_timeout(Duration::from_secs(2));
+        // The shared deadline can expire before connect on a loaded host.
+        // Never leave cleanup blocked in accept when no socket was opened.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            match listener.accept() {
+                Ok((_socket, _)) => {
+                    let _ = wait.recv_timeout(Duration::from_secs(2));
+                    return;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("Synthetic peer could not accept: {error}"),
+            }
+        }
     });
     let start = Instant::now();
     let result = client.driver.establish_before(
