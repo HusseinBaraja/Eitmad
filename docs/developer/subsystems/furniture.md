@@ -57,7 +57,7 @@ Draft proposed prices can be zero. Active definitions require a positive propose
 
 ## Atomic save, permissions, and failures
 
-The native size editor parses fixed dimensions and customization limits with an explicit invariant decimal separator. For example, `123.4` cm reaches Rust as `1234` mm even when the shell language is Arabic. `FractionalCentimetresReachTheSavedVariantFromArabicEditor` exercises the actual bindings for all nine fields. The **وضع المعاينة** badge appears only for explicit presentation fixtures; a connected durable editor does not show it.
+The native size editor parses fixed dimensions and customization limits with an explicit invariant decimal separator. For example, `123.4` cm reaches Rust as `1234` mm even when the shell language is Arabic. `FractionalCentimetresReachTheSavedVariantFromArabicEditor` exercises the actual bindings for all nine fields.
 
 Protocol `1.13` negotiates optional `eitmad.capability.furniture.v1` and `eitmad.schema.furniture.v1`. Commands save a Furniture definition or category. Bounded UUID-cursor queries list definitions and categories, review staged fields, resolve an immutable revision, or check a prospective selection. `furniture.changed` carries scope, record ID, kind, revision, and time without names, notes, or costs.
 

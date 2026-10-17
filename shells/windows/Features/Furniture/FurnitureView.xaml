@@ -393,7 +393,6 @@
                                 </Style.Triggers>
                             </Style>
                         </controls:PageHeader.Style>
-                        <controls:FeedbackNotice Message="وضع المعاينة" Tone="Warning" Visibility="{Binding IsPreview, Converter={StaticResource BooleanToVisibility}}" />
                     </controls:PageHeader>
                     <controls:StepIndicator x:Name="FurnitureProgress" Style="{StaticResource FurnitureProgress}" CurrentStep="{Binding CurrentStep}">
                         <controls:StepIndicator.ItemsSource>

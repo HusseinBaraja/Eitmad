@@ -1,5 +1,3 @@
-using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -71,32 +69,13 @@ public sealed class EditorViewportRenderedTests
         var spec = WpfTestHost.Descendants<FrameworkElement>(editor).First(element => element.IsVisible
             && (AutomationProperties.GetName(element) == specificationName
                 || element is TextBlock text && text.GetBindingExpression(TextBlock.TextProperty)?.ParentBinding.Path?.Path == specificationName));
-        var measurements = new
-        {
-            scene, highContrast, requestedWidth = width, requestedHeight = height,
-            actualWidth = window.ActualWidth, actualHeight = window.ActualHeight,
-            windowState = window.WindowState.ToString(),
-            hostDpiScale = VisualTreeHelper.GetDpi(window).DpiScaleX,
-            renderDpi = 96,
-            bodyHeight = body.ActualHeight, viewportHeight = body.ViewportHeight,
-            bodyScrollableHeight = body.ScrollableHeight,
-            activeVerticalScrollRegions = WpfTestHost.Descendants<ScrollViewer>(editor).Count(scroll => scroll.IsVisible && scroll.ScrollableHeight > 1),
-            specificationVisible = IsInside(spec, body),
-            actionVisible = IsInside(action, editor),
-            summaryVisible = WpfTestHost.Descendants<Controls.PageHeader>(editor).All(header => IsInside(header, editor)),
-        };
-        Console.WriteLine(JsonSerializer.Serialize(measurements));
-        var directory = Environment.GetEnvironmentVariable("EITMAD_UI_CAPTURE_DIR");
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, $"{scene}-{width}x{height}{(highContrast ? "-contrast" : "")}.json"), JsonSerializer.Serialize(measurements, new JsonSerializerOptions { WriteIndented = true }));
-        }
         WpfTestHost.Capture(window, $"{scene}-{width}x{height}{(highContrast ? "-contrast" : "")}");
-        Assert.IsTrue(measurements.specificationVisible, "Important specifications must be inside the initial body viewport.");
-        Assert.IsTrue(measurements.actionVisible, "Final actions must stay inside the editor.");
-        Assert.IsTrue(measurements.summaryVisible, "The item summary must stay outside the body scroll.");
-        Assert.IsLessThanOrEqualTo(1, measurements.activeVerticalScrollRegions, "Editor tables must use the body scroll.");
+        Assert.IsTrue(IsInside(spec, body), "Important specifications must be inside the initial body viewport.");
+        Assert.IsTrue(IsInside(action, editor), "Final actions must stay inside the editor.");
+        Assert.IsTrue(WpfTestHost.Descendants<Controls.PageHeader>(editor).All(header => IsInside(header, editor)),
+            "The item summary must stay outside the body scroll.");
+        Assert.IsLessThanOrEqualTo(1, WpfTestHost.Descendants<ScrollViewer>(editor).Count(scroll => scroll.IsVisible && scroll.ScrollableHeight > 1),
+            "Editor tables must use the body scroll.");
         if (scene == "furniture-options")
             Assert.IsTrue(IsInside(WpfTestHost.FindByAutomationName<Button>(editor, "إضافة مقبض"), body), "Both option sections must be visible without switching scroll regions.");
         if (scene == "furniture-review")

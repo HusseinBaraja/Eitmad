@@ -61,7 +61,7 @@ Save, edit, duplicate, and archive use typed Rust commands. Duplicate remains an
 
 ## Focused verification
 
-After a category save succeeds, the editor retains the intended category selection until a refreshed Rust projection contains it. A subscription refresh can cancel the save handler's own refresh; it must not clear the selected category or force the Manager to select it again. `ConfirmedCategorySelectionSurvivesEitherRefreshOrder` covers both response orders, and the real workflow field journey checks the selected category before advancing.
+After a category save succeeds, the editor retains the intended category selection until a refreshed Rust projection contains it. A subscription refresh can cancel the save handler's own refresh; it must not clear the selected category or force the Manager to select it again. `ConfirmedCategorySelectionSurvivesEitherRefreshOrder` covers both response orders.
 
 Run `cargo test -p eitmad-part --offline` for multi-material restart, exact retry, approved costs, conversion and rounding, invalid quantities/references, historical cost protection, concurrent edits, and audit rollback. The focused dispatcher test `routes_material_and_part_mutations_and_denies_receptionist_write` covers typed saves, queries, notices, and Receptionist denial. Regenerate and verify contract bindings with the commands in the [developer guide](../index.md#choose-the-smallest-normal-proof).
 

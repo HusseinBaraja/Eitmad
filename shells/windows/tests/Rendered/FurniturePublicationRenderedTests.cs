@@ -28,8 +28,6 @@ public sealed class FurniturePublicationRenderedTests
         WpfTestHost.Run(width, height, window =>
         {
             if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
-            var dpi = VisualTreeHelper.GetDpi(window);
-            Console.WriteLine($"Publication guidance: display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} px; window {window.ActualWidth}x{window.ActualHeight} DIP; scaling {dpi.DpiScaleX * 100}%.");
             var view = OpenEditor(window);
             view.ViewModel.EditorName = "خزانة عرض تجريبية بأبواب وأدراج لغرفة النوم";
             view.ViewModel.Variants[0].SellingPrice = 225000;

@@ -40,7 +40,7 @@ internal static class WpfTestHost
 
             try
             {
-                if (engine is null && window.FindName("FurnitureSurface") is Features.Furniture.FurnitureView fixtureView) { fixtureView.ViewModel.ApplyDurableData(Furniture.FurnitureFixtures.SalesSnapshot()); fixtureView.ViewModel.IsPreview=true; }
+                if (engine is null && window.FindName("FurnitureSurface") is Features.Furniture.FurnitureView fixtureView) { fixtureView.ViewModel.ApplyDurableData(Furniture.FurnitureFixtures.SalesSnapshot()); fixtureView.ViewModel.FixtureSalesCatalog=true; }
                 if (engine is null && window.FindName("RawMaterialsSurface") is Features.RawMaterials.RawMaterialsView materials)
                 {
                     var data = RawMaterials.MaterialFixtures.Snapshot();

@@ -118,7 +118,6 @@ public sealed class PartsViewModel : ObservableObject
     public void Unavailable(string message) { AvailabilityMessage = message; records.Clear(); VisibleParts.Clear(); }
     public void ClearSession()
     {
-        savedCategoryName = null;
         SavePending = false; CancelEditor(); records.Clear(); currentCosts.Clear(); categories.Clear(); materials.Clear(); VisibleParts.Clear();
         ReplaceMaterials([]); EditorCategoryOptions.Clear(); CategoryOptions.Clear(); CategoryOptions.Add(AllCategories);
         EditorName = ""; EditorDescription = ""; NewCategoryName = ""; EditorCategory = null; editingPart = null;
@@ -164,14 +163,14 @@ public sealed class PartsViewModel : ObservableObject
         }));
         totalCost = currentCosts[part.Id].TotalCostYer; Raise(nameof(TotalPartCostLabel)); Raise(nameof(HasCalculatedCost)); OpenEditor();
     }
-    private void OpenEditor() { EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
+    private void OpenEditor() { savedCategoryName = null; EditorError = ""; CurrentStep = 1; IsMaterialPickerOpen = false; IsEditorOpen = true; Raise(nameof(EditorCategoryLabel)); }
     public void BeginArchive(PartListItem row)
     {
         BeginEdit(row); archiveRequested = true;
         ApplyCost(currentCosts[row.Id],review:true);
     }
     public void Duplicate(PartListItem row) { BeginEdit(row); editingPart = null; IsCreating = true; EditorName += " — نسخة"; }
-    public void CancelEditor() { IsEditorOpen = false; IsMaterialPickerOpen = false; EditorError = ""; }
+    public void CancelEditor() { savedCategoryName = null; IsEditorOpen = false; IsMaterialPickerOpen = false; EditorError = ""; }
     public bool MoveToMaterials()
     {
         if (EditorName.Length == 0 || EditorCategory is null) { EditorError = "أدخل اسم الجزء واختر فئة."; return false; }

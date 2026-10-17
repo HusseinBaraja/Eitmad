@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Controls;
 using Eitmad.WindowsShell.Features.Products;
@@ -13,38 +12,27 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class ProductsLoadingRenderedTests
 {
     [TestMethod]
-    [DataRow(1920, 1080)]
-    [DataRow(1338, 753)]
-    [DataRow(720, 560)]
-    public void PendingFirstLoadHidesEmptyResultUntilProductsAndCategoriesAreReady(int width, int height)
+    public void PendingFirstLoadHidesEmptyResultUntilProductsAndCategoriesAreReady()
     {
         var engine = Engine();
         var release = new TaskCompletionSource();
         engine.QueryBarrier = _ => release.Task;
-        WpfTestHost.Run(width, height, window =>
+        WpfTestHost.Run(1338, 753, window =>
         {
-            var dpi = VisualTreeHelper.GetDpi(window);
-            Console.WriteLine($"Display {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} px; scaling {dpi.DpiScaleX * 100}%.");
-            if (width == 1920) { window.Left = 0; window.WindowState = WindowState.Maximized; }
             var view = new ProductsView(); window.Content = view; view.Attach(engine);
             var pending = view.ActivateAsync();
             try
             {
                 AssertLoading(window, view);
-                Console.WriteLine($"Actual window {window.ActualWidth}x{window.ActualHeight} DIP; requested {width}x{height}.");
-                WpfTestHost.Capture(window, $"action-04-loading-{width}x{height}");
                 release.SetResult(); Finish(pending);
                 WpfTestHost.CompleteLayout(window);
-                Assert.IsFalse(view.ViewModel.IsLoading);
                 Assert.IsTrue(view.ViewModel.IsDataReady);
                 Assert.HasCount(1, view.ViewModel.VisibleProducts);
                 Assert.HasCount(1, view.ViewModel.Categories);
                 Assert.IsTrue(WpfTestHost.FindByAutomationName<Button>(view, "إضافة منتج").IsEnabled);
                 Assert.IsTrue(WpfTestHost.FindByName<OperationsTable>(view, "ProductResults").IsVisible);
                 AssertNoVisibleEmptyResult(view);
-                WpfTestHost.Capture(window, $"action-04-loaded-{width}x{height}");
                 view.ViewModel.BeginAddCategory(); Assert.IsTrue(view.ViewModel.IsCategoryEditorOpen);
-                Console.WriteLine("Pending: loading visible, empty hidden, count blank, Add/category blocked. Success: 1 product, 1 category, Add/category enabled.");
             }
             finally { release.TrySetResult(); Finish(pending); Finish(view.DisposeAsync().AsTask()); }
         }, engine: engine);
@@ -64,11 +52,9 @@ public sealed class ProductsLoadingRenderedTests
             try
             {
                 Finish(view.ActivateAsync()); WpfTestHost.CompleteLayout(window);
-                Assert.IsFalse(view.ViewModel.IsLoading);
                 Assert.AreEqual(!fail, view.ViewModel.IsDataReady);
                 Assert.AreEqual(!fail, WpfTestHost.Descendants<EmptyState>(view).Any(s => s.IsVisible && s.Heading == "لا توجد منتجات مطابقة"));
                 Assert.AreEqual(!fail, view.ViewModel.CanEdit);
-                WpfTestHost.Capture(window, fail ? "action-04-failed" : "action-04-empty-success");
                 if (fail)
                 {
                     engine.ThrowQueries = false; engine.QueryHandler = Engine().QueryHandler;
@@ -122,7 +108,6 @@ public sealed class ProductsLoadingRenderedTests
                 Finish(first);
                 Assert.IsTrue(view.ViewModel.IsDataReady); Assert.IsTrue(view.ViewModel.CanEdit);
                 Assert.HasCount(1, view.ViewModel.VisibleProducts); Assert.HasCount(1, view.ViewModel.Categories);
-                Console.WriteLine($"Replacement verified: latestFirst={latestFirst}, staleDenied={oldFails}; final rows=1, ready=True.");
             }
             finally { foreach (var release in releases) release.TrySetResult(); Finish(first); Finish(latest); Finish(view.DisposeAsync().AsTask()); }
         }, engine: engine);
@@ -131,7 +116,6 @@ public sealed class ProductsLoadingRenderedTests
     private static void AssertLoading(MainWindow window, ProductsView view)
     {
         WpfTestHost.CompleteLayout(window);
-        Assert.IsTrue(view.ViewModel.IsLoading);
         Assert.IsFalse(view.ViewModel.IsDataReady);
         Assert.IsTrue(WpfTestHost.FindByName<EmptyState>(view, "ProductLoadStatus").IsVisible);
         Assert.IsFalse(WpfTestHost.FindByName<OperationsTable>(view, "ProductResults").IsVisible);

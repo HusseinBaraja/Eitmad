@@ -139,7 +139,7 @@ public sealed partial class FurnitureViewModel
     public void ClearSession()
     {
         ClearSaveNextStep(); ClearFeedback();
-        IsLoading=false; DataStateText=""; IsPreview=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
+        IsLoading=false; DataStateText=""; FixtureSalesCatalog=false; CanManage = false; IsBusy = false; pendingSave = null; editingRecord = null; editingFurniture = null;
         records.Clear(); furniture.Clear(); compositions.Clear(); categories = []; partCategories = [];
         availableParts.Clear();
         SetPartChoicesStatus("بيانات الأجزاء غير متاحة.");

@@ -21,8 +21,8 @@ use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane, TokenK
 use eitmad_engine_runtime::DesktopAuthenticator;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{
-    DirectCatalogImageClient, DirectCatalogSyncClient, DirectCustomerSyncClient,
-    DirectDiscountApprovalClient, DirectPriceClient, DirectServerConfig, store_account_session,
+    DirectCatalogSyncClient, DirectCustomerSyncClient, DirectDiscountApprovalClient,
+    DirectPriceClient, DirectServerConfig, store_account_session,
 };
 use eitmad_storage::{AuthorityStore, DesktopAccount, DesktopRole};
 use serde::{Deserialize, Serialize};
@@ -34,8 +34,6 @@ use std::{
 use uuid::Uuid;
 #[path = "workflow_environment/customers.rs"]
 mod customers;
-#[path = "workflow_environment/customization.rs"]
-mod customization;
 #[path = "workflow_environment/seed.rs"]
 mod seed;
 #[cfg(test)]
@@ -127,9 +125,6 @@ async fn prepare() -> Result<()> {
         checked(TokenKey::from_base64(&settings.token_key), "token key")?,
     );
     let mut journal = load_or_bootstrap(&root, &control).await?;
-    if env::args().any(|arg| arg == "--prepare-customization") {
-        return prepare_customization(&root, &settings, &journal, &control).await;
-    }
     if journal.seeded {
         return prepare_shared_desktop(&root, &settings, &journal, &control, false).await;
     }
@@ -214,44 +209,6 @@ async fn prepare() -> Result<()> {
     journal.seeded = true;
     save(&root, &journal)?;
     prepare_shared_desktop(&root, &settings, &journal, &control, true).await
-}
-
-async fn prepare_customization(
-    root: &Path,
-    settings: &Settings,
-    journal: &Journal,
-    control: &ControlPlane,
-) -> Result<()> {
-    if !journal.seeded {
-        return Err("prepare the catalog fixtures before customization");
-    }
-    let manager = authenticate(
-        control,
-        "manager",
-        &settings.manager_password,
-        settings.manager_device,
-        &settings.manager_seed,
-        None,
-    )
-    .await?;
-    let reception = authenticate(
-        control,
-        "receptionist",
-        &settings.receptionist_password,
-        settings.receptionist_device,
-        &settings.receptionist_seed,
-        None,
-    )
-    .await?;
-    let manager = local_client(root, settings, journal, manager, true, false)?;
-    let reception = local_client(root, settings, journal, reception, false, false)?;
-    let proof_root = root.to_path_buf();
-    checked(
-        tokio::task::spawn_blocking(move || customization::run(&proof_root, &manager, &reception))
-            .await,
-        "customization worker",
-    )??;
-    prepare_shared_desktop(root, settings, journal, control, true).await
 }
 
 async fn prepare_shared_desktop(
@@ -469,7 +426,6 @@ struct Client {
     prices: Arc<DirectPriceClient>,
     workflow: DirectDiscountApprovalClient,
     customers: DirectCustomerSyncClient,
-    media: Arc<DirectCatalogImageClient>,
 }
 fn local_client(
     root: &Path,
@@ -522,11 +478,6 @@ fn local_client(
         store: store.clone(),
         actor,
         branch,
-        media: Arc::new(DirectCatalogImageClient::from_config(
-            config.clone(),
-            secrets.clone(),
-            credential.clone(),
-        )),
         catalog: Arc::new(DirectCatalogSyncClient::from_config(
             config.clone(),
             secrets.clone(),
@@ -614,13 +565,6 @@ fn persist_route(
     checked(
         store_account_session(&secrets, &credential, authentication, seed),
         "persist authenticated route",
-    )?;
-    checked(
-        fs::write(
-            directory.join("route.json"),
-            checked(serde_json::to_vec(&credential), "credential reference")?,
-        ),
-        "write non-secret route reference",
     )?;
     Ok((secrets, credential))
 }

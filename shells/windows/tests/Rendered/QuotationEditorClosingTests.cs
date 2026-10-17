@@ -39,8 +39,6 @@ public sealed class QuotationEditorClosingTests
                 var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
                 Assert.IsTrue(new Rect(window.RenderSize).Contains(bounds), "Close choices must fit inside the editor.");
             }
-            var dpi = PresentationSource.FromVisual(window)!.CompositionTarget.TransformToDevice;
-            Console.WriteLine($"Requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.M11 * 100}%; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
             if (!existing) WpfTestHost.Capture(window, $"action-06-close-prompt-{width}");
             Click(window.ContinueEditingButton);
             Assert.IsTrue(window.IsVisible); Assert.IsFalse(window.UnsavedDialog.IsOpen);

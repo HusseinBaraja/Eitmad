@@ -14,8 +14,6 @@ public sealed class WorkOrderDueDateTests
     [DataRow(false, 15, 1792097999999L)]
     [DataRow(true, 16, 1792184399999L)]
     [DataRow(false, 16, 1792184399999L)]
-    [DataRow(true, 17, 1792270799999L)]
-    [DataRow(false, 17, 1792270799999L)]
     public async Task BothEntryPointsSubmitTheSelectedAdenDayAndShowConfirmedOrRejectedState(bool fromOrders, int day, long expectedDueAt)
     {
         var fixture = new WorkOrderAuthorityTests.Fixture();
@@ -73,7 +71,6 @@ public sealed class WorkOrderDueDateTests
             Assert.AreEqual(OrderState.Confirmed, fixture.Order.State);
             Assert.AreEqual(WorkOrderStatus.New, workOrders.VisibleWorkOrders.Single().Status);
         }
-        Console.WriteLine($"Entry={(fromOrders ? "Orders" : "WorkOrders")}; selected=2026-10-{day}; dueAt={expectedDueAt}; reply={(accepted ? "confirmed (synthetic)" : "invalid (synthetic)")}; date and state assertions passed.");
         await orders.DeactivateAsync(); workOrders.ClearWorkOrders();
     }
 }

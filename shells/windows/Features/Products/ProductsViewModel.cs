@@ -23,17 +23,16 @@ public sealed class ProductsViewModel : ObservableObject
     public bool CanReadCosts { get => canReadCosts; private set => Set(ref canReadCosts, value); }
     public bool CanInteract => !IsBusy;
     public bool CanEdit => IsDataReady && !IsBusy && !SavePending && CanManage;
-    private bool isLoading = true, isDataReady;
-    public bool IsLoading => isLoading;
+    private bool isDataReady;
     public bool IsDataReady => isDataReady;
     public bool ShowLoadStatus => !IsDataReady;
-    private void SetLoadState(bool loading, bool ready, string message)
+    private void SetLoadState(bool ready, string message)
     {
-        isLoading = loading; isDataReady = ready; AvailabilityMessage = message;
-        Raise(nameof(IsLoading)); Raise(nameof(IsDataReady)); Raise(nameof(ShowLoadStatus));
+        isDataReady = ready; AvailabilityMessage = message;
+        Raise(nameof(IsDataReady)); Raise(nameof(ShowLoadStatus));
         Raise(nameof(CanEdit)); Raise(nameof(VisibleCountLabel));
     }
-    public void BeginLoad() => SetLoadState(true, false, "جار تحميل المنتجات…");
+    public void BeginLoad() => SetLoadState(false, "جار تحميل المنتجات…");
     private string availabilityMessage = "جار تحميل المنتجات…";
     public string AvailabilityMessage { get => availabilityMessage; private set => Set(ref availabilityMessage, value); }
     public long ImageEditVersion { get; private set; }
@@ -102,10 +101,10 @@ public sealed class ProductsViewModel : ObservableObject
         if (editingRecord is { } editing && Categories.FirstOrDefault(c => c.Id == editing.CategoryId) is { } retained && !ActiveCategories.Contains(retained)) ActiveCategories.Add(retained);
         EditorCategoryId = selectedCategoryId;
         SelectedCategory = CategoryOptions.Contains(selectedFilter) ? selectedFilter : AllCategories; Raise(nameof(SelectedCategory));
-        RefreshVisibleProducts(); SetLoadState(false, true, "");
+        RefreshVisibleProducts(); SetLoadState(true, "");
     }
     /// <summary>Shows a load failure and clears visible rows while retaining unsaved edits for transport recovery.</summary>
-    public void Unavailable(string message) { SetLoadState(false, false, message); products.Clear(); RefreshVisibleProducts(); }
+    public void Unavailable(string message) { SetLoadState(false, message); products.Clear(); RefreshVisibleProducts(); }
     public void ClearSession()
     {
         ++ImageEditVersion; SetImportedImage(null,null);

@@ -24,7 +24,6 @@ public sealed record WorkOrderFurnitureItem(
     int Quantity)
 {
     public string QuantityLabel => Quantity.ToString(CultureInfo.InvariantCulture);
-
 }
 
 public sealed class WorkOrderListItem : ObservableObject
