@@ -24,11 +24,13 @@ public sealed partial class SalesCatalogViewModel
         client.ProjectionInvalidated += CatalogInvalidated;
         ClearCatalog();
     }
-    public async Task ActivateCatalogAsync()
+    public async Task ActivateCatalogAsync(CancellationToken cancellationToken = default)
     {
         if (catalogClient is null) return;
         catalogActive = true;
-        await catalogClient.ActivateAsync();
+        var version = catalogVersion;
+        await catalogClient.ActivateAsync(cancellationToken);
+        if (!catalogActive || version != catalogVersion || cancellationToken.IsCancellationRequested) return;
         LastCatalogOperation = LoadCatalogAsync(); await LastCatalogOperation;
     }
     /// <summary>Cancels pending reads and removes catalog and unsaved quotation data when the session ends.</summary>

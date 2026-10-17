@@ -6,7 +6,7 @@ using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.Platform.Windows.ProcessSupervision;
 
-internal static class IpcCancellationScenario
+internal static partial class IpcCancellationScenario
 {
     public static async Task StalledShutdownStillCleansUpProcess()
     {

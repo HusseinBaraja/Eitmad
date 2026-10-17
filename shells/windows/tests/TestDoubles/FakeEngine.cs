@@ -44,6 +44,7 @@ internal sealed class FakeEngine : IEngineShellBridge
     public List<Customer> Customers { get; } = [];
     public ScopeRef CustomerBranch { get; } = new() { Kind = "branch", Id = Guid.NewGuid() };
     public Action<Subscription, FakeSubscription>? SubscribeHook { get; set; }
+    public Func<CancellationToken, Task>? SubscribeBarrier { get; set; }
     public int SubscriptionCount
     {
         get
@@ -66,6 +67,11 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
     }
     public int SignOutCount { get; private set; }
+    public int SignInCount { get; private set; }
+    public bool RequireReadyForSignIn { get; set; }
+    public Func<CancellationToken, Task>? SignOutBarrier { get; set; }
+    public Action? Stopped { get; set; }
+    public Exception? StopFailure { get; set; }
     public long? SessionExpiry { get; set; }
     public Dictionary<string, (string Password, DesktopAccountRole Role)> Accounts { get; } = [];
     public IReadOnlySet<string> SupportedCapabilities { get; init; } = new HashSet<string>
@@ -85,6 +91,9 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default)
     {
+        SignInCount++;
+        if (RequireReadyForSignIn && Snapshot.IpcHealth != EngineIpcHealthState.Connected)
+            throw new EngineIpcException(EngineIpcFailureKind.EngineUnavailable, "Synthetic attachment is pending.");
         if (!Accounts.TryGetValue(username, out var account) || account.Password != password)
             return Task.FromException<DesktopSessionState>(new EngineIpcException(
                 EngineIpcFailureKind.AuthenticationRejected, "Synthetic rejection."));
@@ -116,12 +125,12 @@ internal sealed class FakeEngine : IEngineShellBridge
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(desktopSession);
 
-    public Task SignOutAsync(CancellationToken cancellationToken = default)
+    public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
+        if (SignOutBarrier is not null) await SignOutBarrier(cancellationToken);
         desktopSession = null;
         CurrentPermission = null;
         SignOutCount++;
-        return Task.CompletedTask;
     }
 
     private string? CurrentPermission { get; set; }
@@ -152,6 +161,7 @@ internal sealed class FakeEngine : IEngineShellBridge
 
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         EngineSupervisionSnapshot current;
         lock (stateLock)
         {
@@ -164,6 +174,9 @@ internal sealed class FakeEngine : IEngineShellBridge
         }
 
         StateChanged?.Invoke(current);
+        desktopSession = null;
+        Stopped?.Invoke();
+        if (StopFailure is not null) return Task.FromException(StopFailure);
         return Task.CompletedTask;
     }
 
@@ -401,10 +414,11 @@ internal sealed class FakeEngine : IEngineShellBridge
         },
     };
 
-    public Task<IEngineSubscription> SubscribeAsync(
+    public async Task<IEngineSubscription> SubscribeAsync(
         Subscription subscription,
         CancellationToken cancellationToken = default)
     {
+        if (SubscribeBarrier is not null) await SubscribeBarrier(cancellationToken);
         FakeSubscription? item = null;
         item = new FakeSubscription(() =>
         {
@@ -424,7 +438,7 @@ internal sealed class FakeEngine : IEngineShellBridge
 
         SubscribeHook?.Invoke(subscription, item);
 
-        return Task.FromResult<IEngineSubscription>(item);
+        return item;
     }
 
     public void Connect()

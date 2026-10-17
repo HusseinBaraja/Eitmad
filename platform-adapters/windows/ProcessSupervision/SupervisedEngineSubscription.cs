@@ -149,6 +149,7 @@ public sealed class SupervisedEngineSubscription : IEngineSubscription
             attachmentCancellation = null;
             attached = null;
             events.Writer.TryComplete();
+            while (events.Reader.TryRead(out _)) { }
         }
         return ValueTask.CompletedTask;
     }

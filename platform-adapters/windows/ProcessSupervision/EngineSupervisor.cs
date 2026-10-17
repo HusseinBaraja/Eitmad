@@ -225,17 +225,12 @@ public sealed class EngineSupervisor : IAsyncDisposable
             client = currentIpcClient;
             attached = subscription.Attached;
         }
-        try
+        // Local delivery must end before a peer can delay its unsubscribe reply.
+        await subscription.DisposeAsync().ConfigureAwait(false);
+        if (client is not null && attached is not null)
         {
-            if (client is not null && attached is not null)
-            {
-                await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            await subscription.DisposeAsync().ConfigureAwait(false);
+            await client.UnsubscribeAsync(attached, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 

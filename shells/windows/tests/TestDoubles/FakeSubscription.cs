@@ -26,11 +26,12 @@ internal sealed class FakeSubscription : IEngineSubscription
     public void FailRead(Exception? error = null) => events.Writer.TryComplete(error ?? new IOException("Synthetic subscription read failure."));
 
     public void SignalResync() => ResyncRequired?.Invoke();
+    public Func<Task>? DisposeBarrier { get; set; }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         events.Writer.TryComplete();
         onDispose();
-        return ValueTask.CompletedTask;
+        if (DisposeBarrier is not null) await DisposeBarrier();
     }
 }

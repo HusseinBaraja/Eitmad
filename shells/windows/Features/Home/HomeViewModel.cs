@@ -83,13 +83,13 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         return messages.Count == 0 ? "" : name + ": " + string.Join("، ", messages) + ".";
     }
 
-    public async Task ActivateAsync(bool includeCustomerSearch = true)
+    public async Task ActivateAsync(bool includeCustomerSearch = true, CancellationToken cancellationToken = default)
     {
         // This selects shell destinations only; Rust still authorizes every source read.
         this.includeCustomerSearch = includeCustomerSearch;
         active = true; context = SynchronizationContext.Current;
         var session = ++sessionGeneration;
-        foreach (var feed in feeds) { await feed.ActivateAsync(); if (!active || session != sessionGeneration) return; }
+        foreach (var feed in feeds) { await feed.ActivateAsync(cancellationToken); if (!active || session != sessionGeneration || cancellationToken.IsCancellationRequested) return; }
         Refresh(); await LastLoad;
     }
     public void Search(string query)
@@ -153,6 +153,6 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     {
         active = false; ++sessionGeneration; ++generation; load?.Cancel(); term = ""; Apply(null);
     }
-    public async Task DeactivateAsync() { Clear(); foreach (var feed in feeds) await feed.DeactivateAsync(); }
-    public async ValueTask DisposeAsync() { Clear(); foreach (var feed in feeds) await feed.DisposeAsync(); load?.Dispose(); }
+    public Task DeactivateAsync() { Clear(); return Task.WhenAll(feeds.Select(feed => feed.DeactivateAsync())); }
+    public async ValueTask DisposeAsync() { Clear(); await Task.WhenAll(feeds.Select(feed => feed.DisposeAsync().AsTask())); load?.Dispose(); }
 }

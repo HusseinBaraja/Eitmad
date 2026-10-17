@@ -16,8 +16,8 @@ public sealed class EngineChangeFeed(
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private CancellationTokenSource? lifetime;
-    private CancellationToken lifetimeToken;
     private IEngineSubscription? subscription;
+    private Action? subscriptionRefresh;
     private SynchronizationContext? context;
     private bool ready;
     private long generation;
@@ -27,24 +27,25 @@ public sealed class EngineChangeFeed(
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         await gate.WaitAsync(cancellationToken);
+        CancellationTokenSource owner;
         try
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (lifetime is not null) return;
             context = SynchronizationContext.Current;
-            lifetime = new CancellationTokenSource();
-            lifetimeToken = lifetime.Token;
+            owner = lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             ready = IsReady(engine.Snapshot);
             generation = engine.Snapshot.Generation;
             engine.StateChanged += ObserveEngine;
         }
         finally { gate.Release(); }
-        await SubscribeAsync(cancellationToken);
+        await SubscribeAsync(owner, owner.Token);
     }
 
     private void ObserveEngine(EngineSupervisionSnapshot snapshot)
     {
-        if (lifetime is null || disposed) return;
+        var owner = lifetime;
+        if (owner is null || owner.IsCancellationRequested || disposed) return;
         var wasReady = ready;
         ready = IsReady(snapshot);
         if (!ready)
@@ -52,7 +53,7 @@ public sealed class EngineChangeFeed(
             if (wasReady && notifyUnavailable) SignalRefresh();
             return;
         }
-        if (subscription is null) _ = SubscribeAsync(lifetimeToken);
+        if (subscription is null) _ = SubscribeAsync(owner, owner.Token);
         else if (!wasReady || generation != snapshot.Generation) SignalRefresh();
         generation = snapshot.Generation;
     }
@@ -60,7 +61,7 @@ public sealed class EngineChangeFeed(
     private static bool IsReady(EngineSupervisionSnapshot snapshot) =>
         snapshot.IpcHealth == EngineIpcHealthState.Connected && snapshot.LastLifecycle?.Ready == true;
 
-    private async Task SubscribeAsync(CancellationToken cancellationToken)
+    private async Task SubscribeAsync(CancellationTokenSource owner, CancellationToken cancellationToken)
     {
         if (!engine.SupportsCapability(capability)) return;
         try
@@ -68,28 +69,34 @@ public sealed class EngineChangeFeed(
             await gate.WaitAsync(cancellationToken);
             try
             {
-                if (disposed || lifetime is null || subscription is not null) return;
+                if (disposed || !ReferenceEquals(lifetime, owner) || subscription is not null) return;
                 var current = await engine.SubscribeAsync(contract, cancellationToken);
+                if (!ReferenceEquals(lifetime, owner) || cancellationToken.IsCancellationRequested)
+                {
+                    await current.DisposeAsync();
+                    return;
+                }
                 subscription = current;
-                current.ResyncRequired += SignalRefresh;
-                _ = PumpAsync(current, lifetime.Token);
-                if (refreshOnStart) SignalRefresh();
+                subscriptionRefresh = () => Post(() => changed(null), cancellationToken, owner);
+                current.ResyncRequired += subscriptionRefresh;
+                _ = PumpAsync(current, owner, cancellationToken);
+                if (refreshOnStart) Post(() => changed(null), cancellationToken, owner);
             }
             finally { gate.Release(); }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception error) when (error is EngineIpcException or IOException or ObjectDisposedException)
-        { SignalRefresh(); }
+        { Post(() => changed(null), cancellationToken, owner); }
     }
 
-    private async Task PumpAsync(IEngineSubscription current, CancellationToken cancellationToken)
+    private async Task PumpAsync(IEngineSubscription current, CancellationTokenSource owner, CancellationToken cancellationToken)
     {
         try
         {
             await foreach (var delivered in current.ReadAllAsync(cancellationToken))
             {
                 var notice = EngineContractCodec.DecodeEvent(delivered);
-                Post(() => changed(notice), cancellationToken);
+                Post(() => changed(notice), cancellationToken, owner);
                 current.Acknowledge(delivered);
             }
         }
@@ -102,18 +109,20 @@ public sealed class EngineChangeFeed(
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
             try
             {
-                if (!ReferenceEquals(subscription, current)) return;
-                if (error is EngineIpcException { Kind: EngineIpcFailureKind.SessionChanged }) invalidated?.Invoke();
+                if (!ReferenceEquals(subscription, current) || !ReferenceEquals(lifetime, owner)
+                    || cancellationToken.IsCancellationRequested) return;
+                if (error is EngineIpcException { Kind: EngineIpcFailureKind.SessionChanged })
+                    Post(() => invalidated?.Invoke(), cancellationToken, owner);
                 await DropAsync();
             }
             finally { gate.Release(); }
-            SignalRefresh();
+            Post(() => changed(null), cancellationToken, owner);
             foreach (var delay in new[] { 0, 250, 500, 1_000, 2_000 })
             {
                 if (cancellationToken.IsCancellationRequested) return;
                 try { await Task.Delay(delay, cancellationToken); }
                 catch (OperationCanceledException) { return; }
-                await SubscribeAsync(cancellationToken);
+                await SubscribeAsync(owner, cancellationToken);
                 if (subscription is not null) return;
             }
         }
@@ -121,9 +130,9 @@ public sealed class EngineChangeFeed(
 
     private void SignalRefresh() => Post(() => changed(null));
 
-    private void Post(Action action, CancellationToken cancellationToken = default)
+    private void Post(Action action, CancellationToken cancellationToken = default, CancellationTokenSource? owner = null)
     {
-        var observedLifetime = lifetime;
+        var observedLifetime = owner ?? lifetime;
         void Notify()
         {
             if (!disposed && observedLifetime is not null && ReferenceEquals(lifetime, observedLifetime)
@@ -137,22 +146,23 @@ public sealed class EngineChangeFeed(
     {
         if (subscription is not { } current) return;
         subscription = null;
-        current.ResyncRequired -= SignalRefresh;
+        current.ResyncRequired -= subscriptionRefresh;
+        subscriptionRefresh = null;
         await current.DisposeAsync();
     }
 
     public async Task DeactivateAsync()
     {
+        // Stop delivery and an in-flight subscribe before waiting for its gate or IPC cleanup.
+        var owner = Interlocked.Exchange(ref lifetime, null);
+        engine.StateChanged -= ObserveEngine;
+        owner?.Cancel();
         await gate.WaitAsync();
         try
         {
-            engine.StateChanged -= ObserveEngine;
-            lifetime?.Cancel();
-            lifetime?.Dispose();
-            lifetime = null;
             await DropAsync();
         }
-        finally { gate.Release(); }
+        finally { gate.Release(); owner?.Dispose(); }
     }
 
     public async ValueTask DisposeAsync()

@@ -20,7 +20,7 @@ public sealed class OrderClient : IAsyncDisposable
             Subscription.ForOrderChangedSubscribe(new()), _ => Changed?.Invoke(this, EventArgs.Empty),
             () => Invalidated?.Invoke(this, EventArgs.Empty), refreshOnStart: false, notifyUnavailable: true);
     }
-    public Task ActivateAsync() => changes.ActivateAsync();
+    public Task ActivateAsync(CancellationToken cancellationToken = default) => changes.ActivateAsync(cancellationToken);
     public Task DeactivateAsync() => changes.DeactivateAsync();
     public Task<DraftResult<WorkOrderPage>> WorkOrdersAsync(Guid? after = null, Guid? orderId = null) => Request(async () => {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityWorkOrdersV1)) return new DraftResult<WorkOrderPage>(null, DraftFailure.Unavailable, []);

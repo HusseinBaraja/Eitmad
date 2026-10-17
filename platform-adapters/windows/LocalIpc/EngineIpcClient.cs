@@ -17,7 +17,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly SemaphoreSlim sessionChangeLock = new(1, 1);
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IpcServerMessage>> pending = new();
     private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
-    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<object>> earlySubscriptionEvents = new();
     private readonly object subscriptionHandoff = new();
     private readonly object transportGate = new();
     private readonly CancellationTokenSource lifetime = new();
@@ -144,6 +144,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
             var result = response.AsIpcDesktopSessionResponse()
                 ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
+            ClearConfirmedSubscriptions();
             if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
             {
                 Authorization = processAuthorization;
@@ -191,6 +192,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             if (result.Status != DesktopSessionStatus.SignedOut)
                 throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
                     "The engine could not close the desktop session.", result.Error);
+            ClearConfirmedSubscriptions();
             Authorization = processAuthorization;
             customerAuthorization = null;
             accountRole = null;
@@ -206,11 +208,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
         var error = new EngineIpcException(
             EngineIpcFailureKind.SessionChanged,
             "The desktop session changed before the operation completed.");
-        FailPending(error);
-        lock (subscriptionHandoff)
-        {
-            earlySubscriptionEvents.Clear();
-        }
+        // Events already on the wire remain valid until Rust's ordered closure/response.
+        FailPending(error, retainClosingSubscriptions: true);
+    }
+
+    private void ClearConfirmedSubscriptions()
+    {
+        lock (subscriptionHandoff) subscriptions.Clear();
     }
 
     private async Task<DesktopSessionResponse> SendDesktopSessionRequestAsync(string kind, CancellationToken cancellationToken)
@@ -269,7 +273,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(request);
         ApplySession(request.Authorization, request.ProtocolVersion);
-        var earlyEvents = new ConcurrentQueue<EventEnvelope>();
+        var earlyEvents = new ConcurrentQueue<object>();
         if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
         {
             throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
@@ -315,8 +319,17 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 {
                     while (earlyEvents.TryDequeue(out var delivered))
                     {
-                        if (delivered.SubscriptionId != subscriptionId || !subscription.TryPublish(delivered))
-                            throw ProtocolViolation("The engine emitted an invalid early subscription event.");
+                        if (delivered is EventEnvelope notice && notice.SubscriptionId == subscriptionId)
+                        {
+                            if (!subscription.TryPublish(notice))
+                                throw ProtocolViolation("The engine exceeded the early subscription event capacity.");
+                        }
+                        else if (delivered is SubscriptionClosedEnvelope closed && closed.SubscriptionId == subscriptionId)
+                        {
+                            subscriptions.TryRemove(subscriptionId, out _);
+                            subscription.Complete(SubscriptionClosedError(closed));
+                        }
+                        else throw ProtocolViolation("The engine emitted an invalid early subscription event.");
                     }
                 }
                 catch
@@ -330,6 +343,15 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
             return subscription;
         }
+        catch (Exception error) when (error is OperationCanceledException
+            or EngineIpcException { Kind: EngineIpcFailureKind.Timeout or EngineIpcFailureKind.SessionChanged })
+        {
+            // An unconfirmed subscribe can still create a remote stream. Do not leave
+            // an unknown stream on a reusable connection after discarding its handoff.
+            InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                "The pending subscription ended without a confirmed stream."));
+            throw;
+        }
         finally
         {
             earlySubscriptionEvents.TryRemove(request.CorrelationId, out _);
@@ -342,27 +364,40 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(subscription);
-        var requestId = Guid.NewGuid();
-        var response = await SendFrameAsync(
-            IpcClientMessage.IpcUnsubscribeKind,
-            new UnsubscribeRequest
-            {
-                RequestId = requestId,
-                CorrelationId = Guid.NewGuid(),
-                SubscriptionId = subscription.SubscriptionId,
-            },
-            requestId,
-            timeout ?? DefaultRequestTimeout,
-            cancellationToken,
-            commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessage.IpcUnsubscribeResponseKind);
-        if (response.AsIpcUnsubscribeResponse()?.Accepted != true)
+        lock (subscriptionHandoff)
         {
-            throw ProtocolViolation("The engine did not recognize the active subscription.");
+            // Retain this registered slot as a discard sink until the ordered close/ack.
+            // No extra tombstone collection can grow when a peer withholds replies.
+            subscription.StopDelivery();
+            if (!subscriptions.TryGetValue(subscription.SubscriptionId, out var registered)
+                || !ReferenceEquals(registered, subscription)) return;
         }
-
-        subscriptions.TryRemove(subscription.SubscriptionId, out _);
-        subscription.Complete();
+        var requestId = Guid.NewGuid();
+        try
+        {
+            var response = await SendFrameAsync(
+                IpcClientMessage.IpcUnsubscribeKind,
+                new UnsubscribeRequest
+                {
+                    RequestId = requestId,
+                    CorrelationId = Guid.NewGuid(),
+                    SubscriptionId = subscription.SubscriptionId,
+                },
+                requestId,
+                timeout ?? DefaultRequestTimeout,
+                cancellationToken,
+                commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessage.IpcUnsubscribeResponseKind);
+            // A stream can already have closed (for example, authorization was revoked).
+            // An ordered negative acknowledgement still confirms that no stream remains.
+            subscriptions.TryRemove(subscription.SubscriptionId, out _);
+        }
+        catch
+        {
+            InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                "The closing subscription could not be confirmed."));
+            throw;
+        }
     }
 
     public async Task RequestShutdownAsync(
@@ -537,18 +572,17 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 if (message.Kind == IpcServerMessage.IpcSubscriptionClosedKind)
                 {
                     var closed = message.AsIpcSubscriptionClosed();
-                    var error = new EngineIpcException(
-                        closed?.Reason switch
-                        {
-                            SubscriptionCloseReason.ProjectionInvalidated or SubscriptionCloseReason.AuthorizationRevoked => EngineIpcFailureKind.SessionChanged,
-                            SubscriptionCloseReason.EngineStopping => EngineIpcFailureKind.EngineStopping,
-                            _ => EngineIpcFailureKind.SubscriptionBackpressure,
-                        },
-                        "The engine closed the subscription; its projection may require a fresh query.");
-                    if (closed?.SubscriptionId is { } subscriptionId
-                        && subscriptions.TryRemove(subscriptionId, out var subscription))
+                    if (closed is null) throw ProtocolViolation("The engine emitted an invalid subscription closure.");
+                    lock (subscriptionHandoff)
                     {
-                        subscription.Complete(error);
+                        if (earlySubscriptionEvents.TryGetValue(closed.CorrelationId, out var earlyEvents))
+                        {
+                            if (earlyEvents.Count >= EngineSubscription.Capacity)
+                                throw ProtocolViolation("The engine exceeded the early subscription event capacity.");
+                            earlyEvents.Enqueue(closed);
+                        }
+                        else if (subscriptions.TryRemove(closed.SubscriptionId, out var subscription))
+                            subscription.Complete(SubscriptionClosedError(closed));
                     }
                     continue;
                 }
@@ -593,6 +627,14 @@ public sealed class EngineIpcClient : IAsyncDisposable
         protocol.Minor = NegotiatedSession.Protocol.Minor;
     }
 
+    private static EngineIpcException SubscriptionClosedError(SubscriptionClosedEnvelope closed) => new(
+        closed.Reason switch
+        {
+            SubscriptionCloseReason.ProjectionInvalidated or SubscriptionCloseReason.AuthorizationRevoked => EngineIpcFailureKind.SessionChanged,
+            SubscriptionCloseReason.EngineStopping => EngineIpcFailureKind.EngineStopping,
+            _ => EngineIpcFailureKind.SubscriptionBackpressure,
+        }, "The engine closed the subscription; its projection may require a fresh query.");
+
     private static void EnsureKind(IpcServerMessage response, string expected)
     {
         if (response.Kind != expected)
@@ -620,7 +662,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             ?? throw ProtocolViolation("A generated IPC payload could not be converted.");
     }
 
-    private void FailPending(EngineIpcException error)
+    private void FailPending(EngineIpcException error, bool retainClosingSubscriptions = false)
     {
         foreach (var pair in pending)
         {
@@ -631,7 +673,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
         foreach (var pair in subscriptions)
         {
-            if (subscriptions.TryRemove(pair.Key, out var subscription))
+            if (retainClosingSubscriptions) pair.Value.StopDelivery(error);
+            else if (subscriptions.TryRemove(pair.Key, out var subscription))
             {
                 subscription.Complete(error);
             }

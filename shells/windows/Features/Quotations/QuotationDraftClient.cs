@@ -22,7 +22,6 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     private readonly EngineChangeFeed lifecycle;
     public bool SupportsLifecycle => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1);
     public bool SupportsApprovals => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1);
-    private SynchronizationContext? context;
     public QuotationDraftClient(IEngineShellBridge engine)
     {
         this.engine = engine;
@@ -42,14 +41,17 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     public event EventHandler? ApprovalChanged;
     public event EventHandler? LifecycleChanged;
     public event EventHandler? Invalidated;
-    public async Task ActivateAsync() { context = SynchronizationContext.Current; await changes.ActivateAsync(); await approvals.ActivateAsync(); await lifecycle.ActivateAsync(); }
-    private void Invalidate()
+    public async Task ActivateAsync(CancellationToken cancellationToken = default)
     {
-        if (context is null) Invalidated?.Invoke(this, EventArgs.Empty);
-        else context.Post(_ => Invalidated?.Invoke(this, EventArgs.Empty), null);
+        await changes.ActivateAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        await approvals.ActivateAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        await lifecycle.ActivateAsync(cancellationToken);
     }
-    public async Task DeactivateAsync() { await changes.DeactivateAsync(); await approvals.DeactivateAsync(); await lifecycle.DeactivateAsync(); }
-    public async ValueTask DisposeAsync() { await changes.DisposeAsync(); await approvals.DisposeAsync(); await lifecycle.DisposeAsync(); }
+    private void Invalidate() => Invalidated?.Invoke(this, EventArgs.Empty);
+    public Task DeactivateAsync() => Task.WhenAll(changes.DeactivateAsync(), approvals.DeactivateAsync(), lifecycle.DeactivateAsync());
+    public async ValueTask DisposeAsync() => await Task.WhenAll(changes.DisposeAsync().AsTask(), approvals.DisposeAsync().AsTask(), lifecycle.DisposeAsync().AsTask());
     public Task<DraftResult<QuotationDraft>> GetAsync(Guid id, CancellationToken token = default) =>
         RequestAsync(async () => {
             var r = await engine.QueryAsync(Query.ForQuotationDraftGet(new() { DraftId = id }), token);

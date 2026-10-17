@@ -21,9 +21,15 @@ public partial class App : System.Windows.Application
         MainWindow CreateWindow(Features.Authentication.DesktopSessionController controller)
         {
             var created = new MainWindow(controller, engine: bridge);
-            created.AccountSessionCleared += (_, _) =>
+            created.AccountSessionCleared += (_, reason) =>
             {
-                if (lifetime is not null) lifetime.ReplaceWindow(CreateWindow(controller));
+                if (lifetime is not null)
+                {
+                    var replacement = CreateWindow(controller);
+                    replacement.SignInSurface.Reset(reason);
+                    replacement.SignInSurface.IsEnabled = reason != Features.Authentication.SessionEndReason.RecoveryFailed;
+                    lifetime.ReplaceWindow(replacement);
+                }
             };
             return created;
         }

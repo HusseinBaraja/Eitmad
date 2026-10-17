@@ -17,6 +17,8 @@ try
     await IpcCancellationScenario.ReplyWaitUsesTheRemainingDeadline();
     await IpcCancellationScenario.UnconfirmedCommandsKeepUnknownOutcomeAndIdempotency();
     await IpcCancellationScenario.SessionChangeDoesNotSendQueuedAccountRequests();
+    await IpcCancellationScenario.ClosingSubscriptionDiscardsEventsWithoutBreakingTransport();
+    await IpcCancellationScenario.ContainmentReleasesSessionRequestsAndTheirLock();
     await tests.TypedRequestsRequireConnectedEngine();
     await tests.ConfigurationPatchRequiresIdempotency();
     tests.SubscriptionQueueIsBounded();

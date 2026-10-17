@@ -68,12 +68,12 @@ public sealed partial class OrdersViewModel
         source.Invalidated += (_, _) => ClearOrders();
         Raise(nameof(IsLive)); Raise(nameof(ListSubtitle)); Raise(nameof(DetailSubtitle));
     }
-    public async Task ActivateAsync()
+    public async Task ActivateAsync(CancellationToken cancellationToken = default)
     {
         if (client is null) return;
         var session = generation;
-        active = true; await client.ActivateAsync();
-        if (!active || session != generation) return;
+        active = true; await client.ActivateAsync(cancellationToken);
+        if (!active || session != generation || cancellationToken.IsCancellationRequested) return;
         await RequestLoad();
     }
     public async Task OpenByIdAsync(Guid id)

@@ -33,10 +33,13 @@ public sealed partial class WorkOrdersViewModel
         source.Invalidated += (_, _) => ClearWorkOrders();
         Raise(nameof(IsLive)); Raise(nameof(IsPreview));
     }
-    public async Task ActivateAsync()
+    public async Task ActivateAsync(CancellationToken cancellationToken = default)
     {
         if (client is null) return;
-        active = true; await client.ActivateAsync(); LastLoad = LoadAsync(); await LastLoad;
+        var session = generation;
+        active = true; await client.ActivateAsync(cancellationToken);
+        if (!active || session != generation || cancellationToken.IsCancellationRequested) return;
+        LastLoad = LoadAsync(); await LastLoad;
     }
     public void ClearWorkOrders()
     {
