@@ -21,6 +21,7 @@ try
     await IpcCancellationScenario.SessionChangeDoesNotSendQueuedAccountRequests();
     await IpcCancellationScenario.ClosingSubscriptionDiscardsEventsWithoutBreakingTransport();
     await IpcCancellationScenario.ContainmentReleasesSessionRequestsAndTheirLock();
+    await IpcCancellationScenario.SubscriptionDeadlineIncludesSessionAdmission();
     await tests.TypedRequestsRequireConnectedEngine();
     await tests.ConfigurationPatchRequiresIdempotency();
     tests.SubscriptionQueueIsBounded();

@@ -4,6 +4,46 @@ using Eitmad.Platform.Windows.LocalIpc;
 
 internal static partial class IpcCancellationScenario
 {
+    public static async Task SubscriptionDeadlineIncludesSessionAdmission()
+    {
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var token = safety.Token;
+        var name = $"eitmad-subscribe-deadline-{Guid.NewGuid():N}";
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var accept = AcceptAsync(server, token);
+        await using var client = await EngineIpcClient.ConnectAsync(name, new(), "synthetic-bootstrap", cancellationToken: token);
+        await accept;
+        var signOut = client.SignOutAsync(token);
+        using var session = await ReadFrameAsync(server, token);
+        await ExpectFailureAsync(client.SubscribeAsync(SubscriptionRequest(), TimeSpan.FromMilliseconds(100)), EngineIpcFailureKind.Timeout);
+        using var cancelled = new CancellationTokenSource();
+        var waiting = client.SubscribeAsync(SubscriptionRequest(), cancellationToken: cancelled.Token);
+        cancelled.Cancel();
+        await ExpectCancellationAsync(waiting, cancelled.Token);
+        await ProbeAsync(client, server, token);
+        Assert.False(client.Completion.IsCompleted, "Expiry or cancellation before session admission preserves the transport.");
+
+        var subscribing = client.SubscribeAsync(SubscriptionRequest(), TimeSpan.FromMilliseconds(700));
+        await Task.Delay(450, token);
+        await ReplyAsync(server, IpcServerMessage.IpcDesktopSessionResponseKind, new DesktopSessionResponse
+        {
+            RequestId = session.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
+            Status = DesktopSessionStatus.SignedOut,
+        }, token);
+        await signOut;
+        using var request = await ReadFrameAsync(server, token);
+        Assert.Equal(IpcClientMessage.IpcSubscribeKind, request.RootElement.GetProperty("kind").GetString(), "Only the admitted subscription is sent.");
+        await ExpectFailureAsync(subscribing.WaitAsync(TimeSpan.FromMilliseconds(500)), EngineIpcFailureKind.Timeout);
+        await client.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    private static SubscriptionEnvelope SubscriptionRequest() => new()
+    {
+        RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Authorization = new(), ProtocolVersion = new(),
+        Subscription = new() { ["kind"] = "synthetic" },
+    };
+
     public static async Task ContainmentReleasesSessionRequestsAndTheirLock()
     {
         using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -39,11 +79,7 @@ internal static partial class IpcCancellationScenario
             var accept = AcceptAsync(server, token);
             await using var client = await EngineIpcClient.ConnectAsync(name, new PeerHello(), "synthetic-bootstrap", cancellationToken: token);
             await accept;
-            var request = new SubscriptionEnvelope
-            {
-                RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Authorization = new(), ProtocolVersion = new(),
-                Subscription = new() { ["kind"] = "synthetic" },
-            };
+            var request = SubscriptionRequest();
             var subscribing = client.SubscribeAsync(request, cancellationToken: token);
             using var sent = await ReadFrameAsync(server, token);
             var pendingSession = scenario == "pending-session" ? client.SignOutAsync(token) : null;

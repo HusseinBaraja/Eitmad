@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text.Json;
 using Eitmad.Contracts;
@@ -273,11 +274,18 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var budget = timeout ?? DefaultRequestTimeout;
+        if (budget <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        var started = Stopwatch.GetTimestamp();
         // Confirm the stream before a session transition can discard its handoff.
-        await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (!await sessionChangeLock.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
+            throw new EngineIpcException(EngineIpcFailureKind.Timeout, "The subscription deadline elapsed while waiting for the session transition.");
         var earlyEvents = new ConcurrentQueue<object>();
         try
         {
+            var remaining = budget - Stopwatch.GetElapsedTime(started);
+            if (remaining <= TimeSpan.Zero)
+                throw new EngineIpcException(EngineIpcFailureKind.Timeout, "The subscription deadline elapsed before transmission.");
             ApplySession(request.Authorization, request.ProtocolVersion);
             if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
             {
@@ -287,7 +295,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 IpcClientMessage.IpcSubscribeKind,
                 request,
                 request.RequestId,
-                timeout ?? DefaultRequestTimeout,
+                remaining,
                 cancellationToken,
                 commandOutcomeUnknown: false).ConfigureAwait(false);
             EnsureKind(response, IpcServerMessage.IpcSubscribeResponseKind);

@@ -94,7 +94,7 @@ The server creates the next named-pipe instance before serving an accepted conne
 
 ## Deadlines, errors, and retries
 
-Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. One Windows request deadline starts before serialization and covers write-lock acquisition, header/body transmission, flush, and reply wait. It is not restarted after sending. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes.
+Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. One Windows request deadline starts before serialization and covers write-lock acquisition, header/body transmission, flush, and reply wait. A subscription's deadline also covers waiting for the session-transition lock. Expiry or cancellation before that admission sends no frame and preserves the transport. Admission and sending do not restart the deadline. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes.
 
 Before transmission starts, caller cancellation produces `OperationCanceledException` with the caller's token, and deadline expiry produces `Timeout`. Once a frame starts, caller cancellation allows it to finish only within the original request deadline. A failed or expired transmission closes the transport before releasing the writer, fails pending consumers, and cancels queued writers. The transport cannot carry another frame after an incomplete frame. A reply timeout after a complete frame leaves the transport usable. Requests invalidated by a session transition are checked again after acquiring the writer and are not sent.
 
