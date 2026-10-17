@@ -85,7 +85,7 @@ The PostgreSQL application role is `NOSUPERUSER NOBYPASSRLS`. Rust applies the n
 
 `crates/server-connection/examples/workflow_environment.rs` calls the supported Rust identity, authentication, storage-import, and product operations. Account activation and subsequent logins use the control-plane authentication service with real registered devices and signed device proof. The WPF sign-in uses the existing imported-account credential verifier; it does not implement an online login dialog. Catalog transfer, customer sync, price publication, quotation approval, issuance, acceptance, and conversion use the actual authenticated TLS routes. The test does not write business rows with SQL or disable authentication, RLS, authorization, audit, or server confirmation.
 
-The initial Manager is also the tenant bootstrap owner so it can provision the test environment. Its operational Manager role is granted separately. The Receptionist receives the organization and branch Receptionist relationships and cannot grant a Manager role; setup verifies this denial.
+The initial Manager is also the tenant bootstrap owner so it can provision the test environment. Its operational Manager role is assigned separately through `IdentityService::change_account`; setup signs in again after assignment revokes the original session. The Receptionist receives explicit organization and branch relationships and cannot administer accounts; setup verifies this denial. These server operations are also available through the [supported authenticated account routes](run-server-authority.md#manage-shared-server-accounts), independently of this fixture helper.
 
 | Synthetic fixture | Durable initial state |
 | --- | --- |

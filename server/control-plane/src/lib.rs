@@ -16,8 +16,7 @@ pub use authentication::{AuthenticationError, AuthenticationService, TokenKey, u
 pub use branches::{BranchError, BranchService};
 pub use database::{ControlDatabase, ControlDatabaseError};
 pub use identity::{
-    AccountInvitation, BootstrapInput, BootstrapResult, IdentityError, IdentityService,
-    WorkflowRole,
+    BootstrapInput, BootstrapResult, IdentityError, IdentityService, ServerAccountError,
 };
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 

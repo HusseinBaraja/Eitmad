@@ -4,6 +4,7 @@ use sqlx::{PgPool, Postgres, Row as _, Transaction, postgres::PgPoolOptions};
 
 const FOUNDATION_SQL: &str = include_str!("../migrations/0001_control_foundation.sql");
 const CUSTOMER_BRANCHES_SQL: &str = include_str!("../migrations/0005_customer_branches.sql");
+const ACCOUNTS_SQL: &str = include_str!("../migrations/0016_server_accounts.sql");
 
 #[derive(Clone)]
 pub struct ControlDatabase {
@@ -113,6 +114,25 @@ impl ControlDatabase {
             .execute(&mut *transaction)
             .await
             .map_err(ControlDatabaseError::Migration)?;
+        }
+        let checksum = format!("{:x}", Sha256::digest(ACCOUNTS_SQL.as_bytes()));
+        let existing: Option<String> = sqlx::query_scalar(
+            "SELECT checksum FROM public.eitmad_server_migrations WHERE version=16",
+        )
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(ControlDatabaseError::Migration)?;
+        if let Some(existing) = existing {
+            if existing != checksum {
+                return Err(ControlDatabaseError::MigrationChecksum);
+            }
+        } else {
+            sqlx::raw_sql(ACCOUNTS_SQL)
+                .execute(&mut *transaction)
+                .await
+                .map_err(ControlDatabaseError::Migration)?;
+            sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(16,'server.accounts.v1',$1)")
+                .bind(checksum).execute(&mut *transaction).await.map_err(ControlDatabaseError::Migration)?;
         }
         transaction
             .commit()

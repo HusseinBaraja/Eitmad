@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust authorization, security, and audit maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "an actor, tuple, relation, permission rule, boundary, scope, audit field, or extension point changes"
 keywords:
@@ -109,6 +109,8 @@ The local engine and remote server use separate storage implementations but the 
 `AuditExtensionPoint` stores validated boundary markers for `CommandBoundary`, `QueryBoundary`, `SyncBoundary`, `ExternalAdapterBoundary`, and `PluginCapabilityBoundary`. It also reserves workflow markers for `Approval`, `Ledger`, `Conflict`, `SecurityEvent`, and `UndoCritical`. A workflow marker does not implement that workflow. The future owning vertical must define lifecycle, storage, authorization, retention, idempotency, recovery, and read models before using it. Ledger and undo-critical work must remain atomic with domain state; security events need separate alerting and retention policy.
 
 ## Direct organization policy compatibility
+
+[Shared server account administration](identity-foundation.md#shared-server-account-lifecycle) requires an explicit tenant Owner relationship and a live device-bound session. It does not infer Owner from Manager or Receptionist names. Role/branch replacement and deactivation commit relationship changes, session revocation, audit, and durable retry results together.
 
 Policy v1 still persists direct principal-to-organization `member`, `config-manager`, and `owner` relationships. Members read configuration and effective permissions; managers also patch/import/export; owners also manage relationships. Rust preserves one persisted owner and supports a Rust-only first-owner bootstrap. The engine bootstrap returns a device principal; desktop users require separate password sessions.
 

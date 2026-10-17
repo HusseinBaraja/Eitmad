@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -37,6 +37,37 @@ No bearer token, refresh token, or password is stored in the identity tables. St
 The current engine does not yet import accounts from the server control plane. A new installation has no ordinary sign-in account until a trusted importer provisions the first Manager. Debug builds expose the explicit `seed-development-accounts` command for synthetic local testing. `run.ps1` invokes it before starting the Windows shell. Debug authentication accepts short passwords only for the two fixed seeded account IDs; all other accounts and release authentication keep the 12-character minimum. The seed command is absent from release builds, does not replace existing accounts, and does not print password verifiers or entered secrets.
 
 Manager and Receptionist relationships produce distinct effective permissions. An active `DesktopSessionState` also carries the current Rust-owned `DesktopAccountRole`. The WPF shell maps that role to the existing Manager or Receptionist surface; it does not interpret permission decisions, infer a role from a username, or accept a shell-owned role switch. Rust still authorizes every command and query independently of the visible surface.
+
+## Shared server account lifecycle
+
+`crates/contracts/src/server_accounts.rs` defines version-one server account administration. `server/control-plane/src/identity/accounts.rs` owns transitions; `account_projection.rs` reads current assignments. The host exposes authenticated `POST /v1/accounts/list` and `POST /v1/accounts/transition`. Invitation activation uses `POST /v1/auth/activate`. See [server account operations](../../operations/run-server-authority.md#manage-shared-server-accounts) for the request sequence.
+
+Administration requires an active device-bound session and an explicit Owner relationship on the authenticated tenant. Payloads cannot select another tenant. Manager and Receptionist relationships, usernames, and UI role names grant no Owner authority. Owner alone grants no operational role. Owner transfer and Owner deactivation are unsupported; an Owner can receive operational assignments separately.
+
+Listing uses an exclusive account UUID cursor and a limit of 1 through 100. It includes pending, active, locked, and disabled accounts, their revisions, and organization assignments. It excludes credentials and the raw authorization graph. Organization membership remains after access is removed so disabled accounts remain identifiable.
+
+`ChangeServerAccount` carries an idempotency key and one change:
+
+| Change | Committed behavior |
+| --- | --- |
+| `invite` | Create a pending account at revision 1, its organization membership, explicit role relationships, and a seven-day invitation |
+| `assign` | Require the current revision; replace Manager and Receptionist relationships only for the selected organization and its branches; preserve Owner and unrelated relationships |
+| `deactivate` | Require the current revision; disable a non-Owner account, consume pending invitations, remove its user relationships, and revoke sessions and token families |
+| `revokeSessions` | Require the current revision; revoke all account sessions and token families, retaining assignments and permitting later password login |
+
+Activation and each accepted administrative update increment the account revision once. Assign also revokes every account session, including the caller's session when changing their own account. An empty assignment list removes operational grants. A Receptionist assignment needs at least one branch. Each role appears at most once, with at most 100 distinct registered branches in the selected organization. Foreign account, organization, or branch IDs fail closed. Duplicate usernames and duplicate role or branch entries are invalid.
+
+An account can receive both operational relationships. Rust evaluates their separate permissions according to the [workflow matrix](manager-receptionist-workflows.md#action-and-permission-matrix): Managers cover the organization; Receptionist mutations require an assigned branch. An account role is not a client authorization claim.
+
+Migration `0016_server_accounts.sql` adds revisions, retained organization membership, and mutation and activation receipts under forced tenant RLS. It backfills membership from retained organization relationships. A tenant lifecycle lock serializes administration and activation; login also locks its target account. State, relationships, revocation, successful audit, and the retry receipt commit together. A failed mandatory audit rolls back the complete change. Authenticated denials, invalid input, and revision conflicts have redacted audit results. Foreign account IDs are omitted from denial audit targets.
+
+Receipts bind tenant, actor user, idempotency key, and the exact typed request through a keyed fingerprint. After current authorization succeeds, an exact retry returns its original success or terminal business failure, even after later revisions. Changed intent returns `eitmad.error.server-idempotency-mismatch.v1`. Unavailable transactions have no accepted receipt. A new intent after conflict needs a new key and current revision. Replaying a revocation receipt does not revoke newer sessions.
+
+Invitation credentials and initial session tokens use separate HMAC contexts, random IDs, and the protected server token key. Receipt rows store no plaintext secret. An exact activation retry binds the complete request, including password and device key, through a keyed fingerprint. It returns the original session and token pair only while the original access token is unexpired, the refresh token is unconsumed, and account, device, session, and token family remain usable. Changed, revoked, rotated, or expired activation results fail authentication; use ordinary login for recovery. Retries never create another session or restore access. Deliver invitations through a protected channel; email delivery remains unimplemented.
+
+This server lifecycle does not synchronize desktop passwords, offline sessions, or local account projections. The trusted Rust import boundary above remains separate. No native account-management screen or online desktop enrollment flow is added.
+
+Focused proof is `server/host/tests/accounts.rs`, using real PostgreSQL with a non-superuser, non-`BYPASSRLS` role and the real Axum handlers, token authentication, and signed device proofs. Only foreign-tenant fixtures and audit fault injection use SQL; account operations use supported routes. Re-run this proof when account contracts, authorization, revisions, retries, or revocation change.
 
 ## Audit attribution
 

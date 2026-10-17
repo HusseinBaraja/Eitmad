@@ -194,6 +194,8 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/activate", post(activate))
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/accounts/list", post(list_accounts))
+        .route("/v1/accounts/transition", post(change_account))
         .route(
             "/v1/catalog-images/upload",
             post(upload_catalog_image)
@@ -333,6 +335,67 @@ async fn activate(
         .await
         .map(Json)
         .map_err(ApiError::authentication)
+}
+
+async fn list_accounts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::ListServerAccounts>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountPage>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    state
+        .control
+        .identity
+        .list_accounts(&actor, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+async fn change_account(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::ChangeServerAccount>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountResult>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    state
+        .control
+        .identity
+        .change_account(&actor, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+fn map_account(error: eitmad_control_plane::ServerAccountError) -> ApiError {
+    use eitmad_control_plane::ServerAccountError;
+    match error {
+        ServerAccountError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+        ServerAccountError::Invalid => ApiError::bad_request("eitmad.error.contract-invalid.v1"),
+        ServerAccountError::RevisionConflict => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-account-revision-conflict.v1",
+        ),
+        ServerAccountError::IdempotencyMismatch => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-idempotency-mismatch.v1",
+        ),
+        ServerAccountError::OwnerProtected => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-owner-protected.v1",
+        ),
+        ServerAccountError::Unavailable => ApiError::unavailable(),
+    }
 }
 
 async fn login(

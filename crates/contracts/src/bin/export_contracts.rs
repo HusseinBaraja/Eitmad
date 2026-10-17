@@ -45,6 +45,12 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    change_server_account: eitmad_contracts::server_accounts::ChangeServerAccount,
+    list_server_accounts: eitmad_contracts::server_accounts::ListServerAccounts,
+    server_account_page: eitmad_contracts::server_accounts::ServerAccountPage,
+    server_account_result: eitmad_contracts::server_accounts::ServerAccountResult,
+    activate_account_request: eitmad_contracts::server::ActivateAccountRequest,
+    authentication_result: eitmad_contracts::server::AuthenticationResult,
     confirm_order: eitmad_contracts::order::ConfirmOrder,
     read_orders: eitmad_contracts::order::ReadOrders,
     read_work_orders: eitmad_contracts::work_order::ReadWorkOrders,

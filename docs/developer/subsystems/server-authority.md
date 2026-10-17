@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-17"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -19,7 +19,7 @@ keywords:
 
 # Extend the modular server authority safely
 
-For a persistent local test with real accounts and WPF clients, use the [Manager and Receptionist test environment](../../operations/run-workflow-test-environment.md). The control-plane `IdentityService` exposes owner-authorized `invite_workflow_account` and `grant_workflow_role` Rust operations. Both check the active session, organization owner relationship, and registered branch and commit role changes with mandatory server audit. Invitations require normal activation; these APIs do not replace the account authentication route.
+Use the [shared server account lifecycle](identity-foundation.md#shared-server-account-lifecycle) to list, invite, activate, assign roles and branches, deactivate, and revoke sessions through supported contracts and authenticated routes. `IdentityService::list_accounts` and `change_account` own account administration, revisions, audit, and durable retry receipts. For persistent WPF test clients, use the [Manager and Receptionist test environment](../../operations/run-workflow-test-environment.md).
 
 `eitmad-server` is the initial combined deployment for the control, sync, relay, update, and administration planes. The five planes are library crates; `server/host` owns the server executable. The Rust crates keep explicit ownership seams so a plane can move to a separate service later without moving product authority into a shell.
 
@@ -77,7 +77,7 @@ Pricing and catalog-revision HTTP routes and catalog sync streams require protoc
 
 ## Identity, authentication, and sessions
 
-The CLI creates the first tenant, organization, owner account, owner relationships, default update assignment, audit row, and activation invitation in one transaction. The executable exposes activation of stored invitations; it has no later-account invitation creation or delivery workflow.
+The CLI creates the first tenant, organization, owner account, owner relationships, default update assignment, audit row, and activation invitation in one transaction. Later accounts use the [supported account operations](../../operations/run-server-authority.md#manage-shared-server-accounts). Owner authority is an explicit tenant relationship, separate from operational assignments. Invitation delivery remains an operator task; no email provider is implemented.
 
 Login uses a tenant code and username. Usernames accept Arabic Unicode text after whitespace normalization and case folding, but reject bidirectional control characters. Tenant, organization, and other display names apply the same bidirectional-control rejection so mixed Arabic and Latin reports cannot be reordered by hidden format characters. Login denials are intentionally non-specific: an absent account and an inactive or locked account return the same redacted failure. Bootstrap serializes its tenant-count check through a PostgreSQL advisory lock so two concurrent bootstrap calls cannot both observe an empty `control.tenants` and both commit. Device-proof clock-skew validation uses checked arithmetic and rejects extreme client-supplied timestamps instead of overflowing. Passwords use Argon2 hashes. Access and refresh tokens are opaque random values; PostgreSQL stores only keyed HMAC-SHA-256 hashes. The default policy is:
 
@@ -92,7 +92,7 @@ Every access-authenticated request must include the access token, device ID, tim
 
 ## Storage, scope, and audit invariants
 
-Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, `0004_server_audit_envelope.sql`, `0005_customer_branches.sql`, `0006_catalog_images.sql`, `0007_pricing.sql`, `0008_catalog_revisions.sql`, `0009_catalog_synchronization.sql`, and `0010_catalog_image_references.sql` own the PostgreSQL schema. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS. The [catalog image capability](catalog-images.md) owns immutable organization asset transfer through authenticated HTTP routes.
+Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, `0004_server_audit_envelope.sql`, `0005_customer_branches.sql`, `0006_catalog_images.sql`, `0007_pricing.sql`, `0008_catalog_revisions.sql`, `0009_catalog_synchronization.sql`, and `0010_catalog_image_references.sql` own the PostgreSQL schema. Control migration `0016_server_accounts.sql` adds the [shared account lifecycle](identity-foundation.md#shared-server-account-lifecycle) revisions and receipts. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS. The [catalog image capability](catalog-images.md) owns immutable organization asset transfer through authenticated HTTP routes.
 
 Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 

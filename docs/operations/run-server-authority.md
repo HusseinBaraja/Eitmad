@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -61,7 +61,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, administration migration `3`, and canonical audit migration `4` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, including control migration `16` for shared accounts, before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -76,6 +76,33 @@ The command prints tenant, organization, and account IDs, one activation token, 
 A `bootstrap` invocation with a missing or extra argument prints usage and exits with a failure code (`eitmad.error.contract-invalid.v1`); it never exits successfully without creating the tenant. Concurrent bootstrap calls are serialized by a PostgreSQL advisory lock; exactly one call creates the first tenant and every other call is rejected.
 
 Do not repeat bootstrap after an uncertain result. First check the tenant and audit state through an approved administrative query or database operator under a documented incident procedure. A repeated tenant code is rejected.
+
+## Manage shared server accounts
+
+Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` and the normal TLS host. No provisioning example or direct SQL is required. The [identity guide](../developer/subsystems/identity-foundation.md#shared-server-account-lifecycle) defines authorization, revision, receipt, and secret-handling rules.
+
+1. Bootstrap and activate the initial Owner as described above, or sign in an existing Owner through `POST /v1/auth/login`.
+2. For each administrative request, send a current bearer token, a fresh signed device proof in `x-eitmad-device-proof`, and a base64url `PeerHello` in `x-eitmad-peer-hello`. Negotiate protocol 1.5 or newer and `eitmad.capability.server-administration.v1`. A UI role name is not authorization evidence.
+3. Register each needed branch with `POST /v1/customer-branches` using `RegisterBranchRequest`.
+4. Call `POST /v1/accounts/list` with `ListServerAccounts`, initially `after: null` and `limit: 100`. Continue from `nextAfter` until it is null. Use the returned account revision for changes.
+5. Call `POST /v1/accounts/transition` with `ChangeServerAccount`. Use a new UUID idempotency key for each new intent. An `invite` change supplies organization ID, username, and explicit role/branch assignments. The response contains an account receipt and an activation credential. Deliver the credential through a protected channel; do not print it in diagnostics.
+6. The invited user submits `ActivateAccountRequest` to `POST /v1/auth/activate` with that credential, a valid password, and their device registration. Possession of the invitation authenticates this step. The response supplies the user's device-bound session and tokens. Read the account list again before its next revisioned change.
+7. Use `assign` with account ID, current `expectedRevision`, organization ID, and the complete desired assignments for that organization. Both operational roles can be assigned explicitly; an empty list removes both. All affected account sessions close. A caller changing their own assignment must sign in again.
+8. Use `revokeSessions` to close all current sessions while retaining the account, or `deactivate` to disable a non-Owner account and remove its relationships. Both require account ID and current revision. Owner deactivation and transfer are unsupported.
+
+Success returns HTTP 200 after commit. Invalid input returns 400, denied scope or authority returns 403, and a stale revision, changed retry intent, or protected Owner returns 409. Invalid, revoked, or expired credentials return 401; unavailable authority returns 503. After a lost response, retry the identical request and key with a fresh device proof. Do not change the payload under the old key. After a conflict, read current state and submit a new intent with a new key. Exact retries preserve their original receipt, including terminal business errors. A revoked caller must first authenticate again.
+
+An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop account import and offline password/session synchronization remain separate work.
+
+### Verify account administration
+
+Create a fresh disposable database with the helper below, then run in the same PowerShell session:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts server_accounts_work_through_authenticated_routes -- --ignored --exact
+```
+
+This scenario uses the real handlers and PostgreSQL RLS. It verifies role separation, tenant isolation, stale revisions, concurrent exact retries, activation recovery, branch and role replacement, audit rollback, deactivation, pagination, and token/session revocation. It does not verify native rendering or TLS; the separate direct desktop connection scenario covers TLS.
 
 ## Start and verify
 

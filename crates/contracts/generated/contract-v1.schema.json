@@ -3,6 +3,9 @@
   "title": "ContractSchemaRoot",
   "type": "object",
   "properties": {
+    "activate_account_request": {
+      "$ref": "#/definitions/ActivateAccountRequest"
+    },
     "administration_backup_status": {
       "$ref": "#/definitions/BackupStatus"
     },
@@ -15,11 +18,17 @@
     "administration_support_workflow": {
       "$ref": "#/definitions/SupportWorkflow"
     },
+    "authentication_result": {
+      "$ref": "#/definitions/AuthenticationResult"
+    },
     "catalog": {
       "$ref": "#/definitions/ProtocolCatalog"
     },
     "catalog_entry": {
       "$ref": "#/definitions/CatalogEntry"
+    },
+    "change_server_account": {
+      "$ref": "#/definitions/ChangeServerAccount"
     },
     "command_request": {
       "$ref": "#/definitions/CommandEnvelope"
@@ -59,6 +68,9 @@
     },
     "lifecycle_snapshot": {
       "$ref": "#/definitions/LifecycleSnapshot"
+    },
+    "list_server_accounts": {
+      "$ref": "#/definitions/ListServerAccounts"
     },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
@@ -123,6 +135,12 @@
     "relay_session": {
       "$ref": "#/definitions/RelaySessionMetadata"
     },
+    "server_account_page": {
+      "$ref": "#/definitions/ServerAccountPage"
+    },
+    "server_account_result": {
+      "$ref": "#/definitions/ServerAccountResult"
+    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
@@ -158,6 +176,12 @@
     }
   },
   "required": [
+    "change_server_account",
+    "list_server_accounts",
+    "server_account_page",
+    "server_account_result",
+    "activate_account_request",
+    "authentication_result",
     "confirm_order",
     "read_orders",
     "read_work_orders",
@@ -252,6 +276,35 @@
       "description": "A secret-bearing password value. Debug output is always redacted.",
       "type": "string"
     },
+    "ActivateAccountRequest": {
+      "description": "Secret-bearing activation request. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceLabel": {
+          "type": "string"
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "inviteToken": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "inviteToken",
+        "password",
+        "deviceId",
+        "deviceLabel",
+        "devicePublicKey"
+      ]
+    },
     "AuthenticatedIdentity": {
       "type": "object",
       "properties": {
@@ -280,6 +333,63 @@
       "required": [
         "principalId",
         "principalKind"
+      ]
+    },
+    "AuthenticatedServerSession": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "issuedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "sessionId",
+        "accountId",
+        "userId",
+        "deviceId",
+        "tenantId",
+        "issuedAt",
+        "expiresAt"
+      ]
+    },
+    "AuthenticationResult": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/definitions/AuthenticatedServerSession"
+        },
+        "tokens": {
+          "$ref": "#/definitions/IssuedTokens"
+        }
+      },
+      "required": [
+        "session",
+        "tokens"
       ]
     },
     "AuthorizationContext": {
@@ -940,6 +1050,23 @@
         "revision",
         "changedAt",
         "idempotencyKey"
+      ]
+    },
+    "ChangeServerAccount": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ServerAccountChange"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "idempotencyKey",
+        "change"
       ]
     },
     "CheckFurnitureSelection": {
@@ -3288,6 +3415,21 @@
         "correlationId",
         "username",
         "password"
+      ]
+    },
+    "DevicePublicKey": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "base64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "base64"
       ]
     },
     "DiagnosticReport": {
@@ -5659,6 +5801,32 @@
         "expectedDraftRevision"
       ]
     },
+    "IssuedTokens": {
+      "description": "Secret-bearing token response. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "accessExpiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "accessToken": {
+          "type": "string"
+        },
+        "refreshExpiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "refreshToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "accessToken",
+        "refreshToken",
+        "accessExpiresAt",
+        "refreshExpiresAt"
+      ]
+    },
     "LifecycleSnapshot": {
       "type": "object",
       "properties": {
@@ -6060,6 +6228,28 @@
           "minimum": 1
         }
       },
+      "required": [
+        "limit"
+      ]
+    },
+    "ListServerAccounts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
       "required": [
         "limit"
       ]
@@ -11496,6 +11686,263 @@
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
     },
+    "ServerAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerAccountOrganization"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "status": {
+          "$ref": "#/definitions/ServerAccountStatus"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenantId",
+        "accountId",
+        "userId",
+        "username",
+        "status",
+        "revision",
+        "organizations"
+      ]
+    },
+    "ServerAccountChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "assignments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ServerRoleAssignment"
+              }
+            },
+            "operation": {
+              "type": "string",
+              "const": "invite"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "username": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "username",
+            "assignments"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "assignments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ServerRoleAssignment"
+              }
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "assign"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision",
+            "organizationId",
+            "assignments"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "deactivate"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "revokeSessions"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision"
+          ]
+        }
+      ]
+    },
+    "ServerAccountOrganization": {
+      "type": "object",
+      "properties": {
+        "assignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerRoleAssignment"
+          }
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "owner": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "organizationId",
+        "owner",
+        "assignments"
+      ]
+    },
+    "ServerAccountPage": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerAccount"
+          }
+        },
+        "nextAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "accounts"
+      ]
+    },
+    "ServerAccountReceipt": {
+      "description": "Receipt metadata is safe to persist. The activation credential is returned separately.",
+      "type": "object",
+      "properties": {
+        "account": {
+          "$ref": "#/definitions/ServerAccount"
+        },
+        "invitationExpiresAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "invitationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "account"
+      ]
+    },
+    "ServerAccountResult": {
+      "description": "Secret-bearing response. Do not log or include it in diagnostics.",
+      "type": "object",
+      "properties": {
+        "activationToken": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receipt": {
+          "$ref": "#/definitions/ServerAccountReceipt"
+        }
+      },
+      "required": [
+        "receipt"
+      ]
+    },
+    "ServerAccountStatus": {
+      "type": "string",
+      "enum": [
+        "pendingActivation",
+        "active",
+        "disabled",
+        "locked"
+      ]
+    },
     "ServerClientMessage": {
       "oneOf": [
         {
@@ -11679,6 +12126,26 @@
             "payload"
           ]
         }
+      ]
+    },
+    "ServerRoleAssignment": {
+      "type": "object",
+      "properties": {
+        "branchIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "branchIds"
       ]
     },
     "ServerSubscriptionAcknowledgement": {

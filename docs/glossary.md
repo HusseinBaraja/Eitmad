@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-10-01"
+last_verified: "2026-10-17"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -156,7 +156,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | صلاحية موروثة | Inherited permission | Access granted through an explicit, bounded parent relation from a protected object to an authorized ancestor. |
 | شرط الصلاحية | Authorization condition | An optional equality, `all`, or `any` predicate over canonical request attributes; a failed or absent required value denies. |
 | بوابة الصلاحية والتدقيق | Authorization and audit gate | The Rust boundary that evaluates policy, durably records denials, executes only read-only callbacks through its convenience path, and leaves state-changing audit atomicity to the owning domain transaction. |
-| مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
+| مالك النطاق | Scope owner | A principal with an explicit owner relationship at the named scope. Organization owners administer that scope; a tenant Owner administers shared server accounts. Owner does not imply Manager or Receptionist permissions. Rust preserves persisted production ownership, and the server account lifecycle rejects Owner deactivation. Explicit insecure development authentication can provide an ephemeral local owner. |
 | مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable result envelope containing actor, device/session, tenant/workspace, scope, operation, target, outcome, time, correlation, and only redacted error metadata. |
