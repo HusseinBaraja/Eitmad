@@ -161,6 +161,56 @@ async fn revoked_during_remote_read_cannot_receive_an_empty_or_cached_success() 
     }
 }
 
+#[tokio::test]
+async fn home_revocation_in_later_source_removes_earlier_cached_rows() {
+    let (_directory, dispatcher, _) = fixture();
+    let actor = role_context(4, true);
+    let saved = super::orders::document_source();
+    dispatcher
+        .drafts
+        .cache_quotation(&actor.authorization, &saved, actor.correlation_id)
+        .unwrap();
+    let QueryResult::Home(before) = dispatcher
+        .dispatch_query(
+            actor.clone(),
+            Query::Home(eitmad_contracts::home::ReadHome::default()),
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("home")
+    };
+    assert_eq!(before.quotations.items.len(), 1);
+    assert!(!before.quotations.server_available);
+    let server = Arc::new(RevokingReadServer(dispatcher.store.clone()));
+    let dispatcher = dispatcher.with_orders(server);
+    let QueryResult::Home(after) = dispatcher
+        .dispatch_query(
+            actor,
+            Query::Home(eitmad_contracts::home::ReadHome::default()),
+        )
+        .await
+        .unwrap()
+    else {
+        panic!("home")
+    };
+    for section in [
+        &after.quotations,
+        &after.orders,
+        &after.approvals,
+        &after.customers,
+    ] {
+        assert_eq!(
+            section.availability,
+            eitmad_contracts::home::HomeAvailability::Denied
+        );
+        assert!(section.items.is_empty());
+        assert_eq!(section.count, 0);
+        assert!(!section.server_available);
+    }
+    assert!(after.ready_orders.is_empty());
+}
+
 fn role_context(principal: u128, branch: bool) -> DispatchContext {
     let mut actor = if branch {
         branch_context(9000)

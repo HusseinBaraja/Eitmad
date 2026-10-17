@@ -89,6 +89,12 @@ public sealed partial class WorkflowEnvironmentTests
                     var searchedHome = bridge.QueryAsync(Query.ForHomeRead(new() { Term = "\u062a\u0634\u062e\u064a\u0635" }));
                     Finish(searchedHome);
                     Assert.AreEqual(CommandOutcomeStatus.Succeeded, searchedHome.Result.Outcome.Status);
+                    var home = searchedHome.Result.Outcome.Payload.AsHome()!;
+                    foreach (var section in new[] { home.Quotations, home.Orders, home.Approvals, home.Catalog })
+                    {
+                        Assert.AreEqual(HomeAvailability.Available, section.Availability);
+                        Assert.IsTrue(section.ServerAvailable, "The diagnostic Home source must report actual server confirmation.");
+                    }
                     Finish(ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }), result => result.AsOrders()!.ServerAvailable));
                     SwitchAccount(window, bridge);
                     Assert.AreEqual(generation, bridge.Snapshot.Generation, "Diagnostic account switching restarted the engine.");

@@ -24,11 +24,7 @@ use std::{
     io::{Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::Path,
-    sync::{
-        Arc, Mutex, OnceLock, Weak,
-        atomic::{AtomicUsize, Ordering},
-        mpsc,
-    },
+    sync::{Arc, Condvar, Mutex, OnceLock, Weak, mpsc},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -135,11 +131,31 @@ fn remaining_io(deadline: Instant) -> std::io::Result<Duration> {
 
 // System DNS cannot be canceled. Retain admission until it exits, while callers
 // stop waiting at their own deadline. Never accumulate detached resolver work.
-static DNS_WORKERS: AtomicUsize = AtomicUsize::new(0);
+static DNS_WORKERS: Mutex<usize> = Mutex::new(0);
+static DNS_AVAILABLE: Condvar = Condvar::new();
 struct DnsAdmission;
 impl Drop for DnsAdmission {
     fn drop(&mut self) {
-        DNS_WORKERS.fetch_sub(1, Ordering::AcqRel);
+        let mut count = DNS_WORKERS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *count -= 1;
+        DNS_AVAILABLE.notify_all();
+    }
+}
+
+fn admit_dns(deadline: Instant) -> std::io::Result<DnsAdmission> {
+    let poisoned = |_| std::io::Error::other("DNS admission unavailable");
+    let mut count = DNS_WORKERS.lock().map_err(poisoned)?;
+    loop {
+        let remaining = remaining_io(deadline)?;
+        if *count < 2 {
+            *count += 1;
+            return Ok(DnsAdmission);
+        }
+        (count, _) = DNS_AVAILABLE
+            .wait_timeout(count, remaining)
+            .map_err(|_| std::io::Error::other("DNS admission unavailable"))?;
     }
 }
 
@@ -148,19 +164,10 @@ fn resolve_before(
     deadline: Instant,
 ) -> Result<Vec<SocketAddr>, TransportFailure> {
     let mut span = DiagnosticSpan::start(DiagnosticPhase::Dns);
-    remaining_io(deadline).map_err(|_| {
-        span.finish(DiagnosticResult::Deadline);
+    let admission = admit_dns(deadline).map_err(|error| {
+        span.finish(diagnostics::io_result(&error, deadline));
         unavailable(FailurePhase::Connect)
     })?;
-    DNS_WORKERS
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-            (count < 2).then_some(count + 1)
-        })
-        .map_err(|_| {
-            span.finish(DiagnosticResult::GateBusy);
-            unavailable(FailurePhase::Connect)
-        })?;
-    let admission = DnsAdmission;
     let (sender, receiver) = mpsc::sync_channel(1);
     std::thread::Builder::new()
         .name("eitmad-dns".into())
@@ -1098,7 +1105,7 @@ mod tests {
             release.send(()).unwrap();
         }
         let end = Instant::now() + Duration::from_secs(2);
-        while DNS_WORKERS.load(Ordering::Acquire) != 0 {
+        while *DNS_WORKERS.lock().unwrap() != 0 {
             assert!(Instant::now() < end, "Resolver admission did not recover");
             std::thread::sleep(Duration::from_millis(1));
         }
@@ -1110,6 +1117,50 @@ mod tests {
             .unwrap()
             .is_empty()
         );
+
+        // Healthy overlapping work must not turn a third read into offline data.
+        let (entered, starts) = mpsc::channel();
+        let mut workers = vec![];
+        let mut releases = vec![];
+        for _ in 0..2 {
+            let entered = entered.clone();
+            let (release, wait) = mpsc::channel();
+            releases.push(release);
+            workers.push(std::thread::spawn(move || {
+                resolve_before(
+                    move || {
+                        entered.send(()).unwrap();
+                        wait.recv_timeout(Duration::from_secs(3)).unwrap();
+                        Ok(vec![])
+                    },
+                    Instant::now() + Duration::from_secs(2),
+                )
+            }));
+        }
+        for _ in 0..2 {
+            starts.recv_timeout(Duration::from_secs(1)).unwrap();
+        }
+        let (finished, result) = mpsc::channel();
+        let third = std::thread::spawn(move || {
+            let resolved = resolve_before(
+                || Ok(vec!["127.0.0.1:443".parse().unwrap()]),
+                Instant::now() + Duration::from_secs(1),
+            );
+            finished.send(resolved).unwrap();
+        });
+        let immediate = result.recv_timeout(Duration::from_millis(50));
+        for release in releases {
+            release.send(()).unwrap();
+        }
+        for worker in workers {
+            worker.join().unwrap().unwrap();
+        }
+        third.join().unwrap();
+        assert!(
+            immediate.is_err(),
+            "Short DNS overlap failed before admission could recover"
+        );
+        assert_eq!(result.recv().unwrap().unwrap().len(), 1);
     }
 
     #[test]

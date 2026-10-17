@@ -353,7 +353,7 @@ fn document_snapshot() -> eitmad_contracts::quotation_draft::QuotationDraftSnaps
     }
 }
 
-fn document_source() -> eitmad_contracts::quotation_lifecycle::QuotationRecord {
+pub(super) fn document_source() -> eitmad_contracts::quotation_lifecycle::QuotationRecord {
     use eitmad_contracts::quotation_lifecycle::{QuotationRecord, QuotationState};
     let actor = branch_authorization();
     QuotationRecord {

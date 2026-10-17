@@ -8,6 +8,7 @@ use eitmad_contracts::identity::{
 use eitmad_secret_storage::FallbackEncryptionKey;
 use rustls::{ServerConfig, ServerConnection, pki_types::PrivateKeyDer};
 use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 struct Fixture {
     _directory: tempfile::TempDir,
