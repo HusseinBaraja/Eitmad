@@ -273,14 +273,16 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ApplySession(request.Authorization, request.ProtocolVersion);
+        // Confirm the stream before a session transition can discard its handoff.
+        await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         var earlyEvents = new ConcurrentQueue<object>();
-        if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
-        {
-            throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
-        }
         try
         {
+            ApplySession(request.Authorization, request.ProtocolVersion);
+            if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
+            {
+                throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
+            }
             var response = await SendFrameAsync(
                 IpcClientMessage.IpcSubscribeKind,
                 request,
@@ -356,6 +358,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         finally
         {
             earlySubscriptionEvents.TryRemove(request.CorrelationId, out _);
+            sessionChangeLock.Release();
         }
     }
 

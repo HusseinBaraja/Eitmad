@@ -27,10 +27,10 @@ internal static partial class IpcCancellationScenario
 
     public static async Task ClosingSubscriptionDiscardsEventsWithoutBreakingTransport()
     {
-        foreach (var scenario in new[] { "unsubscribe", "early-close", "session" })
+        foreach (var scenario in new[] { "unsubscribe", "early-close", "session", "pending-session" })
         {
             var earlyClose = scenario == "early-close";
-            var sessionClose = scenario == "session";
+            var sessionClose = scenario is "session" or "pending-session";
             using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             var token = safety.Token;
             var name = $"eitmad-unsubscribe-{Guid.NewGuid():N}";
@@ -46,6 +46,9 @@ internal static partial class IpcCancellationScenario
             };
             var subscribing = client.SubscribeAsync(request, cancellationToken: token);
             using var sent = await ReadFrameAsync(server, token);
+            var pendingSession = scenario == "pending-session" ? client.SignOutAsync(token) : null;
+            if (pendingSession is not null)
+                Assert.False(pendingSession.IsCompleted, "session transition waits for the subscription acknowledgement");
             var id = Guid.NewGuid();
             var notice = new EventEnvelope { SubscriptionId = id, CorrelationId = request.CorrelationId, Cursor = Guid.NewGuid(), Sequence = 1 };
             // Exercise the acknowledged-subscription handoff before its continuation runs.
@@ -71,7 +74,7 @@ internal static partial class IpcCancellationScenario
             }
             else
             {
-                var closing = sessionClose ? client.SignOutAsync(token) : client.UnsubscribeAsync(subscription, cancellationToken: token);
+                var closing = pendingSession ?? (sessionClose ? client.SignOutAsync(token) : client.UnsubscribeAsync(subscription, cancellationToken: token));
                 using var unsubscribe = await ReadFrameAsync(server, token);
                 Assert.Equal(sessionClose ? IpcClientMessage.IpcDesktopSignOutKind : IpcClientMessage.IpcUnsubscribeKind,
                     unsubscribe.RootElement.GetProperty("kind").GetString(), "typed cleanup request");
