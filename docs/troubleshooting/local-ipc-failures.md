@@ -5,11 +5,13 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-10-01"
+last_verified: "2026-10-17"
 review_triggers:
   - "local IPC errors, timeouts, payload bounds, negotiation, or recovery changes"
 keywords:
   - "EngineUnavailable"
+  - "CommandOutcomeUnknown"
+  - "blocked IPC write"
   - "SessionChanged"
   - "projectionInvalidated"
   - "eitmad.error.ipc-session-invalid.v1"
@@ -29,6 +31,9 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
 | `EngineUnavailable` | Engine absent, starting, or endpoint stale | Check the latest `LifecycleSnapshot` and supervisor generation | Wait for `Ready`; retry connection once against the current generation |
+| Local `Timeout` or `OperationCanceledException` | A request expired or its caller cancelled; the request budget includes the write-lock wait, transmission, flush, and reply | Check operation type and elapsed time without recording frame contents | Retry a needed query after transport recovery; a command that never started transmission can be submitted again |
+| `CommandOutcomeUnknown` | A command started transmission but no response was confirmed before cancellation, timeout, session invalidation, or connection loss | Preserve the existing retry payload and idempotency key in the owning feature; do not log them | Reconnect if needed and retry only the unchanged command with the same key; never infer that it failed or create a replacement command |
+| A blocked write ends with `Timeout` or `CommandOutcomeUnknown`, and queued requests report `ConnectionLost` | The reader did not consume a frame before its request deadline | Run the synthetic adapter `IpcCancellationScenario` checks; inspect sanitized operation type and timing | Let supervision reconnect the closed transport; do not increase timeouts or reuse a stream containing an incomplete frame. This signature alone does not prove the cause of an earlier incident |
 | Handshake authentication rejection | The inherited bootstrap token is absent, malformed, or does not match this engine generation | Confirm that the supervisor launched the current engine and connected with its retained token | Stop the failed generation and let the supervisor start a new paired process; do not copy or override the token |
 | `eitmad.error.protocol-incompatible.v1` | No common protocol/capability | Capture both product versions and `PeerHello` ranges | Install a compatible shell/engine pair; do not bypass negotiation |
 | `eitmad.error.ipc-session-invalid.v1` | Reused/stale session or changed context | Compare engine generation and request session ID | Reconnect and rebuild envelopes from the new negotiated session |

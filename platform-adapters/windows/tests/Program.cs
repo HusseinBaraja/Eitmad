@@ -13,6 +13,10 @@ try
     var tests = new SupervisionScenarios();
     await tests.UnavailableEngineIsTyped();
     await IpcCancellationScenario.CancelledWritePreservesTheNextFrame();
+    await IpcCancellationScenario.BlockedWriteExpiresAndReleasesQueuedRequests();
+    await IpcCancellationScenario.ReplyWaitUsesTheRemainingDeadline();
+    await IpcCancellationScenario.UnconfirmedCommandsKeepUnknownOutcomeAndIdempotency();
+    await IpcCancellationScenario.SessionChangeDoesNotSendQueuedAccountRequests();
     await tests.TypedRequestsRequireConnectedEngine();
     await tests.ConfigurationPatchRequiresIdempotency();
     tests.SubscriptionQueueIsBounded();

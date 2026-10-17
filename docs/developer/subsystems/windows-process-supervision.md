@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-10-16"
+last_verified: "2026-10-17"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -80,7 +80,7 @@ The supervisor also owns IPC subscription continuity. It advertises protocol `1.
 
 An engine subscription close mapped to `EngineIpcFailureKind.SessionChanged` completes the supervised consumer with that error. The feature must discard its protected projection and query Rust again if access remains. This includes `projectionInvalidated` after a Product policy change and `authorizationRevoked`; neither requires transport loss. Transport failures still allow the supervisor to attach a replacement stream.
 
-Caller cancellation can stop waiting for the write lock or response. After the first frame byte is written, the adapter finishes the header and body under the transport lifetime token. Cancelling a superseded query must not truncate a frame and make the next request unreadable. Transport disposal still cancels blocked writes. `IpcCancellationScenario.CancelledWritePreservesTheNextFrame` cancels a large frame under named-pipe backpressure and verifies the complete body and a successful following request.
+Caller cancellation can stop waiting for the write lock or response. After transmission starts, the adapter finishes the frame within its original request deadline. If transmission fails or reaches that deadline, the adapter closes the transport before releasing the writer; queued requests then fail without sending another frame. See [IPC deadlines and command outcomes](local-ipc.md#deadlines-errors-and-retries) for cancellation and retry classifications. `IpcCancellationScenario.CancelledWritePreservesTheNextFrame` still verifies a complete cancelled frame and a successful following request under recoverable backpressure. `BlockedWriteExpiresAndReleasesQueuedRequests` verifies bounded completion and transport closure with a permanently stopped reader.
 
 `Shell/EngineChangeFeed.cs` owns the common feature event reader for Customers, Materials, Parts, Furniture, and Products. It gates subscriptions on negotiated capabilities, dispatches typed notices to the captured UI context, and drops notifications from a deactivated lifetime. The supervisor reattaches transport streams. The reader replaces a failed consumer with bounded retries and calls the owning feature to invalidate protected projections after `SessionChanged`. Feature clients retain their typed queries, mutations, retry payloads, and projection rules. A notice is acknowledged after dispatch to the feature, before its queued UI callback runs.
 

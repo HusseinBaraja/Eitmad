@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "local IPC framing, authentication, dispatch, timeout, payload, or shutdown behavior changes"
 keywords:
@@ -94,7 +94,11 @@ The server creates the next named-pipe instance before serving an accepted conne
 
 ## Deadlines, errors, and retries
 
-Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes. A command may have produced partial or committed effects before cancellation, so a shell-side command timeout still means outcome unknown; retry only with the same idempotency key.
+Connection timeout defaults to five seconds and request timeout to 30 seconds; both are configurable. One Windows request deadline starts before serialization and covers write-lock acquisition, header/body transmission, flush, and reply wait. It is not restarted after sending. Rust rejects an expired envelope before dispatch and stops awaiting a command or query dispatcher future when its deadline passes.
+
+Before transmission starts, caller cancellation produces `OperationCanceledException` with the caller's token, and deadline expiry produces `Timeout`. Once a frame starts, caller cancellation allows it to finish only within the original request deadline. A failed or expired transmission closes the transport before releasing the writer, fails pending consumers, and cancels queued writers. The transport cannot carry another frame after an incomplete frame. A reply timeout after a complete frame leaves the transport usable. Requests invalidated by a session transition are checked again after acquiring the writer and are not sent.
+
+After command transmission starts, an unconfirmed response caused by cancellation, timeout, session invalidation, or connection loss produces `CommandOutcomeUnknown`. This is conservative even when only part of the frame was sent. Execution may have occurred; retry only the unchanged command with the same idempotency key. A command cancelled or expired while still queued has not been sent and uses the ordinary cancellation or `Timeout` classification. The supervisor passes its caller's idempotency key without replacing it.
 
 Stable failures include session invalid, deadline exceeded, payload too large, subscription unsupported, subscription capacity exceeded, subscription resync required, engine stopping, and protocol incompatible. An unavailable engine has no Rust response, so `EngineIpcClient` reports a typed local `EngineUnavailable` failure. No path logs bootstrap tokens, raw frames, product payloads, customer data, or authorization graphs.
 
@@ -108,6 +112,6 @@ Explicit unsubscribe receives `SubscriptionClosed` with `clientRequested` before
 
 The transport preserves canonical Unicode and does not add bidirectional controls. Tests round-trip a multi-megabyte synthetic Arabic/Latin value such as `خزانة Wardrobe 120 cm - فرع صنعاء`. The Windows shell now owns RTL layout, Arabic labels, accessibility surfaces, localized `messageId` rendering, and directional isolation of machine identifiers. The IPC capability continues to preserve canonical values without adding presentation controls.
 
-Focused Rust tests cover outdated-beta handshake rejection, subscription capability gates, scope mismatch, replay, cursor isolation, ordering, coalescing, discrete overflow, command/query behavior, and frame bounds. Windows scenarios cover bounded event queues, processed cursor acknowledgement, normal reattachment, overflow followed by usable reattachment, real-engine negotiation, and graceful shutdown. Extend event production through `EventBroker`; keep payload meaning and authoritative queries in the owning vertical.
+Focused Rust tests cover outdated-beta handshake rejection, subscription capability gates, scope mismatch, replay, cursor isolation, ordering, coalescing, discrete overflow, command/query behavior, and frame bounds. Windows scenarios cover bounded event queues, processed cursor acknowledgement, normal reattachment, overflow followed by usable reattachment, real-engine negotiation, and graceful shutdown. `IpcCancellationScenario` also covers recoverable backpressure, permanently stopped readers, queued cancellation and expiry, the remaining reply budget, unknown command outcomes, exact retry payloads and keys, and queued account requests invalidated by sign-out. Extend event production through `EventBroker`; keep payload meaning and authoritative queries in the owning vertical.
 
 For the durable event-stream decision, see [ADR-0018](../../decisions/0018-bounded-resumable-local-ipc-events.md). For exact contracts, see [protocol v1](../../api/index.md). For threats, see the [local IPC threat model](../../architecture/local-ipc-threat-model.md). For recovery, use [Resolve local IPC failures](../../troubleshooting/local-ipc-failures.md).

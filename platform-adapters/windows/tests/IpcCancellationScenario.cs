@@ -58,10 +58,190 @@ internal static class IpcCancellationScenario
         await serve;
     }
 
+    public static async Task BlockedWriteExpiresAndReleasesQueuedRequests()
+    {
+        foreach (var command in new[] { false, true })
+            foreach (var cancel in new[] { false, true })
+                await BlockedWriteAsync(command, cancel);
+    }
+
+    private static async Task BlockedWriteAsync(bool command, bool cancel)
+    {
+        var name = $"eitmad-deadline-{Guid.NewGuid():N}";
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cancellation = new CancellationTokenSource();
+        using var queuedCancellation = new CancellationTokenSource();
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096);
+        var started = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stalled = StallAfterHeaderAsync(server, started, safety.Token);
+        await using var client = await EngineIpcClient.ConnectAsync(name, new PeerHello(), "synthetic-bootstrap", cancellationToken: safety.Token);
+        var payload = new string('x', 1024 * 1024);
+        Task blocked = command
+            ? client.SendCommandAsync(CommandRequest(payload), TimeSpan.FromMilliseconds(500), cancellation.Token)
+            : client.SendQueryAsync(Request(payload), TimeSpan.FromMilliseconds(500), cancellation.Token);
+        var length = await started.Task.WaitAsync(safety.Token);
+        if (cancel) cancellation.Cancel();
+        var queued = client.SendQueryAsync(Request("queued"), TimeSpan.FromSeconds(5));
+        var queuedCommand = client.SendCommandAsync(CommandRequest("queued"), TimeSpan.FromSeconds(5));
+        var expired = client.SendCommandAsync(CommandRequest("expired"), TimeSpan.FromMilliseconds(100));
+        var cancelled = client.SendCommandAsync(CommandRequest("cancelled"), cancellationToken: queuedCancellation.Token);
+        queuedCancellation.Cancel();
+        await ExpectCancellationAsync(cancelled, queuedCancellation.Token);
+        await ExpectFailureAsync(expired, EngineIpcFailureKind.Timeout);
+        Assert.False(client.Completion.IsCompleted, "a queued timeout or cancellation must not close the active writer");
+        if (command) await ExpectFailureAsync(blocked, EngineIpcFailureKind.CommandOutcomeUnknown);
+        else if (cancel) await ExpectCancellationAsync(blocked, cancellation.Token);
+        else await ExpectFailureAsync(blocked, EngineIpcFailureKind.Timeout);
+        await ExpectFailureAsync(queued, EngineIpcFailureKind.ConnectionLost);
+        await ExpectFailureAsync(queuedCommand, EngineIpcFailureKind.ConnectionLost);
+        await client.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+        await stalled;
+        await ExpectFailureAsync(client.SendQueryAsync(Request("closed")), EngineIpcFailureKind.ConnectionLost);
+        // Drain only after all requests ended: the stopped reader must not help them finish.
+        var received = 0;
+        var buffer = new byte[4096];
+        int count;
+        while ((count = await server.ReadAsync(buffer, safety.Token)) != 0) received += count;
+        Assert.True(received < length, "an unfinished frame must end at EOF, with no following live frame");
+    }
+
+    private static async Task StallAfterHeaderAsync(NamedPipeServerStream server, TaskCompletionSource<int> started, CancellationToken token)
+    {
+        await server.WaitForConnectionAsync(token);
+        await HandshakeAsync(server, token);
+        var header = new byte[4];
+        await server.ReadExactlyAsync(header, token);
+        started.SetResult((int)BinaryPrimitives.ReadUInt32LittleEndian(header));
+        // Keep the connection open without consuming the body until the client has closed it.
+    }
+
+    public static async Task ReplyWaitUsesTheRemainingDeadline()
+    {
+        var name = $"eitmad-reply-deadline-{Guid.NewGuid():N}";
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cancellation = new CancellationTokenSource();
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096);
+        var started = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handshake = StallAfterHeaderAsync(server, started, safety.Token);
+        await using var client = await EngineIpcClient.ConnectAsync(name, new PeerHello(), "synthetic-bootstrap", cancellationToken: safety.Token);
+        var first = client.SendQueryAsync(Request(new string('x', 1024 * 1024)), cancellationToken: cancellation.Token);
+        var length = await started.Task.WaitAsync(safety.Token);
+        cancellation.Cancel();
+        var queued = client.SendQueryAsync(Request("reply"), TimeSpan.FromMilliseconds(700));
+        await Task.Delay(450, safety.Token);
+        await server.ReadExactlyAsync(new byte[length], safety.Token);
+        using var request = await ReadFrameAsync(server, safety.Token);
+        await ExpectCancellationAsync(first, cancellation.Token);
+        // Only about 250 ms remain. A fresh 700 ms reply timeout fails this bound.
+        await ExpectFailureAsync(queued.WaitAsync(TimeSpan.FromMilliseconds(500)), EngineIpcFailureKind.Timeout);
+        Assert.False(client.Completion.IsCompleted, "reply timeout preserves a completely written stream");
+        await handshake;
+    }
+
+    public static async Task UnconfirmedCommandsKeepUnknownOutcomeAndIdempotency()
+    {
+        var name = $"eitmad-command-outcome-{Guid.NewGuid():N}";
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var accept = AcceptAsync(server, safety.Token);
+        await using var client = await EngineIpcClient.ConnectAsync(name, new PeerHello(), "synthetic-bootstrap", cancellationToken: safety.Token);
+        await accept;
+        var command = CommandRequest("unchanged");
+        var timedOut = client.SendCommandAsync(command, TimeSpan.FromMilliseconds(100));
+        using var sent = await ReadFrameAsync(server, safety.Token);
+        await ExpectFailureAsync(timedOut, EngineIpcFailureKind.CommandOutcomeUnknown);
+        using var cancellation = new CancellationTokenSource();
+        command.RequestId = Guid.NewGuid();
+        var cancelled = client.SendCommandAsync(command, cancellationToken: cancellation.Token);
+        using var retry = await ReadFrameAsync(server, safety.Token);
+        cancellation.Cancel();
+        await ExpectFailureAsync(cancelled, EngineIpcFailureKind.CommandOutcomeUnknown);
+        Assert.Equal(sent.RootElement.GetProperty("payload").GetProperty("idempotencyKey").GetGuid(),
+            retry.RootElement.GetProperty("payload").GetProperty("idempotencyKey").GetGuid(), "exact retry retains idempotency key");
+        Assert.True(sent.RootElement.GetProperty("payload").GetProperty("command").GetRawText()
+            == retry.RootElement.GetProperty("payload").GetProperty("command").GetRawText(), "exact retry retains command payload");
+        command.RequestId = Guid.NewGuid();
+        var lost = client.SendCommandAsync(command);
+        using var last = await ReadFrameAsync(server, safety.Token);
+        server.Disconnect();
+        await ExpectFailureAsync(lost, EngineIpcFailureKind.CommandOutcomeUnknown);
+    }
+
+    public static async Task SessionChangeDoesNotSendQueuedAccountRequests()
+    {
+        var name = $"eitmad-session-queue-{Guid.NewGuid():N}";
+        using var safety = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096);
+        var started = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handshake = StallAfterHeaderAsync(server, started, safety.Token);
+        await using var client = await EngineIpcClient.ConnectAsync(name, new PeerHello(), "synthetic-bootstrap", cancellationToken: safety.Token);
+        var first = client.SendCommandAsync(CommandRequest(new string('x', 1024 * 1024)), cancellationToken: safety.Token);
+        var length = await started.Task.WaitAsync(safety.Token);
+        var queued = client.SendQueryAsync(Request("old-account"), cancellationToken: safety.Token);
+        var signOut = client.SignOutAsync(safety.Token);
+        await server.ReadExactlyAsync(new byte[length], safety.Token);
+        using var next = await ReadFrameAsync(server, safety.Token);
+        Assert.Equal(IpcClientMessage.IpcDesktopSignOutKind, next.RootElement.GetProperty("kind").GetString(),
+            "a queued prior-account request must not be transmitted after session invalidation");
+        await ReplyAsync(server, IpcServerMessage.IpcDesktopSessionResponseKind, new DesktopSessionResponse
+        {
+            RequestId = next.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
+            Status = DesktopSessionStatus.SignedOut,
+        }, safety.Token);
+        await ExpectFailureAsync(first, EngineIpcFailureKind.CommandOutcomeUnknown);
+        await ExpectFailureAsync(queued, EngineIpcFailureKind.SessionChanged);
+        await signOut;
+        await handshake;
+    }
+
+    private static async Task AcceptAsync(NamedPipeServerStream server, CancellationToken token)
+    {
+        await server.WaitForConnectionAsync(token);
+        await HandshakeAsync(server, token);
+    }
+
+    private static async Task ExpectCancellationAsync(Task request, CancellationToken token)
+    {
+        try
+        {
+            await request.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch (OperationCanceledException error)
+        {
+            Assert.Equal(token, error.CancellationToken, "caller cancellation retains its token");
+            return;
+        }
+        throw new InvalidOperationException("Expected caller cancellation.");
+    }
+
+    private static async Task ExpectFailureAsync(Task request, EngineIpcFailureKind kind)
+    {
+        try
+        {
+            await request.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch (EngineIpcException error)
+        {
+            Assert.Equal(kind, error.Kind, "IPC failure classification");
+            return;
+        }
+        throw new InvalidOperationException($"Expected IPC failure {kind}.");
+    }
+
     private static QueryEnvelope Request(string value) => new()
     {
         RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Authorization = new(), ProtocolVersion = new(),
         Query = new() { ["kind"] = "synthetic", ["value"] = value },
+    };
+
+    private static CommandEnvelope CommandRequest(string value) => new()
+    {
+        RequestId = Guid.NewGuid(), CorrelationId = Guid.NewGuid(), Authorization = new(), ProtocolVersion = new(),
+        IdempotencyKey = Guid.NewGuid(), Command = new() { ["kind"] = "synthetic", ["value"] = value },
     };
 
     private static async Task ServeAsync(NamedPipeServerStream server, CancellationTokenSource cancelled, CancellationToken token)

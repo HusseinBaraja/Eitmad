@@ -19,9 +19,11 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
     private readonly object subscriptionHandoff = new();
+    private readonly object transportGate = new();
     private readonly CancellationTokenSource lifetime = new();
     private readonly Task reader;
     private bool disposed;
+    private EngineIpcException? transportFailure;
     private AuthorizationContext processAuthorization = null!;
 
     private EngineIpcClient(NamedPipeClientStream pipe)
@@ -396,11 +398,22 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken,
         bool commandOutcomeUnknown)
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
         if (timeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout));
         }
+
+        CancellationToken transportToken;
+        lock (transportGate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (transportFailure is { } failure) throw failure;
+            transportToken = lifetime.Token;
+        }
+        using var deadline = new CancellationTokenSource(timeout);
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token, transportToken);
+        using var frameCancellation = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, transportToken);
+        var frameStarted = false;
 
         var completion = new TaskCompletionSource<IpcServerMessage>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -420,55 +433,75 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     $"The IPC payload exceeds {MaximumFrameBytes} bytes.");
             }
 
-            await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await writeLock.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
             try
             {
+                requestCancellation.Token.ThrowIfCancellationRequested();
+                // A session transition can invalidate this request while it waits for the writer.
+                if (completion.Task.IsCompleted) return await completion.Task.ConfigureAwait(false);
                 var header = new byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32LittleEndian(header, (uint)bytes.Length);
-                // Once a frame starts, caller cancellation must not truncate it and corrupt
-                // the next request. Transport shutdown can still cancel a blocked write.
-                await pipe.WriteAsync(header, lifetime.Token).ConfigureAwait(false);
-                await pipe.WriteAsync(bytes, lifetime.Token).ConfigureAwait(false);
-                await pipe.FlushAsync(lifetime.Token).ConfigureAwait(false);
+                // Caller cancellation cannot truncate a live frame. Its original deadline
+                // still bounds transmission; an interrupted frame invalidates the transport.
+                frameStarted = true;
+                try
+                {
+                    await pipe.WriteAsync(header, frameCancellation.Token).ConfigureAwait(false);
+                    await pipe.WriteAsync(bytes, frameCancellation.Token).ConfigureAwait(false);
+                    await pipe.FlushAsync(frameCancellation.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                    InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                        "The IPC transport closed because a request frame could not finish."));
+                    throw;
+                }
             }
             finally
             {
                 writeLock.Release();
             }
 
-            using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            requestCancellation.CancelAfter(timeout);
-            try
-            {
-                return await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
+            return await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or EngineIpcException)
+        {
+            if (commandOutcomeUnknown && frameStarted)
             {
                 throw new EngineIpcException(
-                    commandOutcomeUnknown
-                        ? EngineIpcFailureKind.CommandOutcomeUnknown
-                        : EngineIpcFailureKind.Timeout,
-                    commandOutcomeUnknown
-                        ? "The command deadline elapsed; its final outcome is unknown. Retry only with the same idempotency key."
-                        : "The IPC request deadline elapsed.",
+                    EngineIpcFailureKind.CommandOutcomeUnknown,
+                    "The command response was not confirmed; its final outcome is unknown. Retry only with the same idempotency key.",
                     innerException: error);
             }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (deadline.IsCancellationRequested)
+                throw new EngineIpcException(EngineIpcFailureKind.Timeout,
+                    "The IPC request deadline elapsed.", innerException: error);
+            if (transportToken.IsCancellationRequested)
+            {
+                lock (transportGate) throw transportFailure!;
+            }
+            throw;
         }
         finally
         {
             pending.TryRemove(requestId, out _);
+            // Observe a pending failure even when cancellation won the response wait.
+            completion.TrySetCanceled();
+            _ = completion.Task.Exception;
         }
     }
 
     /// <summary>Routes typed replies and subscription frames; session-changing closures invalidate pending consumers.</summary>
     private async Task ReadResponsesAsync()
     {
+        var transportToken = lifetime.Token;
         try
         {
             var header = new byte[sizeof(uint)];
-            while (!lifetime.IsCancellationRequested)
+            while (!transportToken.IsCancellationRequested)
             {
-                await pipe.ReadExactlyAsync(header, lifetime.Token).ConfigureAwait(false);
+                await pipe.ReadExactlyAsync(header, transportToken).ConfigureAwait(false);
                 var length = BinaryPrimitives.ReadUInt32LittleEndian(header);
                 if (length > MaximumFrameBytes)
                 {
@@ -476,7 +509,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 }
 
                 var payload = new byte[length];
-                await pipe.ReadExactlyAsync(payload, lifetime.Token).ConfigureAwait(false);
+                await pipe.ReadExactlyAsync(payload, transportToken).ConfigureAwait(false);
                 var message = JsonSerializer.Deserialize<IpcServerMessage>(payload, Converter.Settings)
                     ?? throw ProtocolViolation("The engine returned an empty IPC response.");
                 if (message.Kind == IpcServerMessage.IpcEventKind)
@@ -533,19 +566,22 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
+        catch (OperationCanceledException) when (transportToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (transportToken.IsCancellationRequested)
         {
         }
         catch (Exception error) when (error is IOException or EndOfStreamException or JsonException)
         {
-            FailPending(new EngineIpcException(
+            InvalidateTransport(new EngineIpcException(
                 EngineIpcFailureKind.ConnectionLost,
                 "The engine IPC connection closed before pending requests completed.",
                 innerException: error));
         }
         catch (EngineIpcException error)
         {
-            FailPending(error);
+            InvalidateTransport(error);
         }
     }
 
@@ -605,16 +641,28 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private static EngineIpcException ProtocolViolation(string message) =>
         new(EngineIpcFailureKind.ProtocolViolation, message);
 
+    private void InvalidateTransport(EngineIpcException error)
+    {
+        lock (transportGate)
+        {
+            if (transportFailure is not null) return;
+            transportFailure = error;
+            FailPending(error);
+            lifetime.Cancel();
+            pipe.Dispose();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
-        if (disposed)
+        lock (transportGate)
         {
-            return;
+            if (disposed) return;
+            disposed = true;
         }
 
-        disposed = true;
-        lifetime.Cancel();
-        pipe.Dispose();
+        InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+            "The engine IPC transport was disposed before pending requests completed."));
         try
         {
             await reader.ConfigureAwait(false);
@@ -623,8 +671,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
         {
         }
         lifetime.Dispose();
-        writeLock.Dispose();
-        sessionChangeLock.Dispose();
+        // In-flight calls can still release these managed semaphores after the reader exits.
+        // No wait handles are created; let them be collected with this client.
         foreach (var subscription in subscriptions.Values)
         {
             subscription.Complete();
