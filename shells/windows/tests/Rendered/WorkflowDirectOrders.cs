@@ -86,7 +86,7 @@ public sealed partial class WorkflowEnvironmentTests
         Assert.AreEqual(CommandOutcomeStatus.Succeeded, response.Outcome.Status);
         var page = response.Outcome.Payload.AsOrders()!;
         Assert.IsTrue(page.ServerAvailable);
-        var source = page.Items.First(item => item.Work.Length > 0).Source.Quotation;
+        var source = page.Items.First(item => item.Work.Length > 0 && item.Source.Quotation.Intent.DiscountBasisPoints == 0).Source.Quotation;
         async Task<CommandResult> Send(Command command)
         {
             var reply = await bridge.SubmitCommandAsync(command, Guid.NewGuid());
@@ -94,6 +94,7 @@ public sealed partial class WorkflowEnvironmentTests
             return reply.Outcome.Payload;
         }
         var draft = (await Send(Command.ForQuotationDraftCreate(new() { Intent = source.Intent }))).AsQuotationDraftCreated()!;
+        Console.WriteLine($"Synthetic direct-order setup draft: {draft.Snapshot.Id}");
         var quotations = await bridge.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
         Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Outcome.Status);
         var current = quotations.Outcome.Payload.AsQuotations()!.Items.Single(item => item.Quotation.Id == draft.Snapshot.Id);

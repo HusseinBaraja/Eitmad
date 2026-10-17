@@ -377,12 +377,17 @@ public sealed partial class WorkflowEnvironmentTests
         public int ExactRetries { get; private set; }
         public int SubmissionCount { get; private set; }
         public string? LastSubmittedKind { get; private set; }
+        public Command? LastSubmittedCommand { get; private set; }
+        public CommandResponseEnvelope? LastReply { get; private set; }
+        public CheckSalesConfiguration? LastConfigurationInput { get; private set; }
+        public QueryResponseEnvelope? LastConfigurationReply { get; private set; }
         private readonly Dictionary<string, int> submittedKinds = [];
         public int Count(string kind) => submittedKinds.GetValueOrDefault(kind);
         public void LoseNext(string kind) => loseKind = kind;
         public async Task<CommandResponseEnvelope> SubmitCommandAsync(Command command, Guid idempotencyKey, CancellationToken cancellationToken = default)
         {
             ++SubmissionCount; LastSubmittedKind = command.Kind;
+            LastSubmittedCommand = command;
             submittedKinds[command.Kind] = Count(command.Kind) + 1;
             var payload = JsonSerializer.Serialize(command);
             if (lost.TryGetValue(command.Kind, out var original))
@@ -391,6 +396,7 @@ public sealed partial class WorkflowEnvironmentTests
                 Assert.AreEqual(original.Payload, payload, "The visible retry changed the payload.");
             }
             var reply = await inner.SubmitCommandAsync(command, idempotencyKey, cancellationToken);
+            LastReply = reply;
             Console.WriteLine($"Command reply {command.Kind}: {reply.Outcome.Status}; {reply.Outcome.Payload.Code}; approval={reply.Outcome.Payload.AsDiscountApproval()?.State}");
             if (reply.Outcome.Status != CommandOutcomeStatus.Succeeded) return reply;
             if (loseKind == command.Kind)
@@ -416,7 +422,16 @@ public sealed partial class WorkflowEnvironmentTests
         public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) => inner.SignInAsync(username, password, cancellationToken);
         public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) => inner.GetSessionStateAsync(cancellationToken);
         public Task SignOutAsync(CancellationToken cancellationToken = default) => inner.SignOutAsync(cancellationToken);
-        public Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default) => inner.QueryAsync(query, cancellationToken);
+        public async Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default)
+        {
+            var reply = await inner.QueryAsync(query, cancellationToken);
+            if (query.AsSalesCatalogCheck() is { } input)
+            {
+                LastConfigurationInput = input;
+                LastConfigurationReply = reply;
+            }
+            return reply;
+        }
         public Task<IEngineSubscription> SubscribeAsync(Subscription subscription, CancellationToken cancellationToken = default) => inner.SubscribeAsync(subscription, cancellationToken);
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
