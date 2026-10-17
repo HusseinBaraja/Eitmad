@@ -4,6 +4,9 @@ use eitmad_observability_audit::operation_diagnostics::{
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;
+mod credential_admission;
+#[cfg(test)]
+mod credential_contention_tests;
 mod customer_sync;
 mod desktop_connection;
 mod diagnostics;
@@ -67,10 +70,10 @@ const POLL_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
 const REFRESH_MARGIN_MS: i64 = 30_000;
-type CredentialGate = Arc<Mutex<()>>;
-static CREDENTIAL_GATES: OnceLock<Mutex<HashMap<SecretId, Weak<Mutex<()>>>>> = OnceLock::new();
+use credential_admission::CredentialGate;
+static CREDENTIAL_GATES: OnceLock<Mutex<HashMap<SecretId, Weak<CredentialGate>>>> = OnceLock::new();
 
-fn credential_gate(id: &SecretId) -> Result<CredentialGate, TransportFailure> {
+fn credential_gate(id: &SecretId) -> Result<Arc<CredentialGate>, TransportFailure> {
     let mut gates = CREDENTIAL_GATES
         .get_or_init(Mutex::default)
         .lock()
@@ -79,7 +82,7 @@ fn credential_gate(id: &SecretId) -> Result<CredentialGate, TransportFailure> {
     if let Some(gate) = gates.get(id).and_then(Weak::upgrade) {
         return Ok(gate);
     }
-    let gate = Arc::new(Mutex::new(()));
+    let gate = Arc::new(CredentialGate::default());
     gates.insert(id.clone(), Arc::downgrade(&gate));
     Ok(gate)
 }
@@ -280,13 +283,15 @@ impl DirectServerConfig {
 ///
 /// # Errors
 ///
-/// Returns a sanitized authentication failure for invalid tokens or expiry metadata.
+/// Returns a sanitized failure for invalid tokens, expiry metadata, persistence, or bounded admission.
 pub fn store_session(
     store: &SecretStore,
     id: &SecretId,
     result: AuthenticationResult,
     signing_seed: [u8; 32],
 ) -> Result<(), TransportFailure> {
+    let gate = credential_gate(id)?;
+    let _owner = gate.acquire(Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT)?;
     if result.tokens.access_token.is_empty()
         || result.tokens.refresh_token.is_empty()
         || result.tokens.refresh_expires_at.0 <= unix_millis_now().0
@@ -416,9 +421,9 @@ impl DirectServerDriver {
     ) -> Result<(SecretId, StoredCredential), TransportFailure> {
         let id = account_credential_id(route, actor.identity.principal_id);
         // Different HTTP clients and subscriptions share one rotating token pair.
-        // A busy refresh returns retryable unavailability without consuming an old token.
+        // Wait within the caller's budget, then reload the pair persisted by its owner.
         let gate = credential_gate(&id)?;
-        let _refresh = diagnostics::admit(&gate, DiagnosticPhase::CredentialAdmission, deadline)?;
+        let _refresh = gate.acquire(deadline)?;
         let mut credential = self.load_credential(&id)?;
         if actor.identity.principal_kind != eitmad_contracts::identity::PrincipalKind::User
             || credential.user_id.value() != actor.identity.principal_id.value()
@@ -535,13 +540,10 @@ impl DirectServerDriver {
     fn open_socket(
         &mut self,
         credential: &StoredCredential,
+        deadline: Instant,
     ) -> Result<PeerHello, TransportFailure> {
         let url = self.config.websocket_url();
-        let stream = connect_tls(
-            &url,
-            &self.config.tls,
-            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        )?;
+        let stream = connect_tls(&url, &self.config.tls, deadline)?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(credential)).map_err(|_| authentication_failure())?,
         );
@@ -609,13 +611,12 @@ impl DirectServerDriver {
         self.socket = Some(socket);
         Ok(remote_hello)
     }
-}
 
-impl ConnectionDriver for DirectServerDriver {
-    fn establish(
+    fn establish_before(
         &mut self,
         target: &ConnectionTarget,
         authentication: &TransportAuthentication,
+        deadline: Instant,
     ) -> Result<EstablishedConnection, TransportFailure> {
         self.close();
         let (account_id, device_id, id) = match (target, authentication) {
@@ -630,27 +631,22 @@ impl ConnectionDriver for DirectServerDriver {
             _ => return Err(authentication_failure()),
         };
         let gate = credential_gate(id)?;
-        let refresh = diagnostics::admit(
-            &gate,
-            DiagnosticPhase::CredentialAdmission,
-            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        )?;
+        let _refresh = gate.acquire(deadline)?;
         let mut credential = self.load_credential(id)?;
         if credential.account_id != account_id || credential.device_id != device_id {
             return Err(authentication_failure());
         }
-        self.refresh_if_due(
-            id,
-            &mut credential,
-            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        )?;
-        drop(refresh);
+        self.refresh_if_due(id, &mut credential, deadline)?;
         let start = Instant::now();
-        let remote_hello = self.open_socket(&credential).inspect_err(|failure| {
-            if failure.kind == TransportFailureKind::AuthenticationFailed {
-                let _ = self.store.delete(id);
-            }
-        })?;
+        // Keep ownership through authentication failure cleanup so an older attempt
+        // cannot delete a replacement session written by another owner.
+        let remote_hello = self
+            .open_socket(&credential, deadline)
+            .inspect_err(|failure| {
+                if failure.kind == TransportFailureKind::AuthenticationFailed {
+                    let _ = self.store.delete(id);
+                }
+            })?;
         Ok(EstablishedConnection {
             remote_hello,
             authenticated_as: AuthenticationIdentity::AccountDevice {
@@ -660,6 +656,20 @@ impl ConnectionDriver for DirectServerDriver {
             security: SessionSecurity::encrypted(),
             round_trip_ms: Some(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX)),
         })
+    }
+}
+
+impl ConnectionDriver for DirectServerDriver {
+    fn establish(
+        &mut self,
+        target: &ConnectionTarget,
+        authentication: &TransportAuthentication,
+    ) -> Result<EstablishedConnection, TransportFailure> {
+        self.establish_before(
+            target,
+            authentication,
+            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
+        )
     }
 
     fn send(&mut self, frame: &SyncTransportFrame) -> Result<(), TransportFailure> {

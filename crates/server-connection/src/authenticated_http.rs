@@ -1,4 +1,4 @@
-use super::diagnostics::{admit, failure_result, measure};
+use super::diagnostics::{failure_result, measure};
 use super::{
     DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
     parse_http_response, remaining_io,
@@ -15,7 +15,6 @@ use eitmad_observability_audit::operation_diagnostics::{
 use eitmad_sync::{FailurePhase, TransportFailure};
 use std::{
     io::{Read as _, Write as _},
-    sync::Mutex,
     time::Instant,
 };
 #[derive(Clone, Debug)]
@@ -30,7 +29,7 @@ pub(crate) enum HttpError {
     Server,
 }
 pub(crate) struct AuthenticatedHttpClient {
-    pub(super) driver: Mutex<DirectServerDriver>,
+    pub(super) driver: DirectServerDriver,
     credential_id: SecretId,
     remote_scope: ScopeRef,
 }
@@ -39,7 +38,7 @@ impl AuthenticatedHttpClient {
     pub fn new(driver: DirectServerDriver, credential_id: SecretId) -> Self {
         Self {
             remote_scope: driver.config.scope.clone(),
-            driver: Mutex::new(driver),
+            driver,
             credential_id,
         }
     }
@@ -118,9 +117,10 @@ impl AuthenticatedHttpClient {
         input: &impl serde::Serialize,
         budget: Instant,
     ) -> Result<T, HttpError> {
-        // Record an early expired budget before attempting admission.
-        let driver = admit(&self.driver, DiagnosticPhase::DriverAdmission, budget)
-            .map_err(HttpError::Unavailable)?;
+        remaining_io(budget)
+            .map_err(|_| HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation)))?;
+        // HTTP owns a fresh socket per request and only reads the driver.
+        let driver = &self.driver;
         if !(actor.scope.kind.as_str() == "organization"
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"

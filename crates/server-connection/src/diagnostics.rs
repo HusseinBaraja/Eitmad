@@ -1,19 +1,8 @@
 use eitmad_observability_audit::operation_diagnostics::{
     DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
 };
-use eitmad_sync::{FailurePhase, RetryAdvice, TransportFailure, TransportFailureKind};
-use std::{sync::TryLockError, time::Instant};
-
-pub(super) fn gate_failure<T>(error: &TryLockError<T>) -> TransportFailure {
-    TransportFailure::new(
-        match error {
-            TryLockError::WouldBlock => TransportFailureKind::RetryNotReady,
-            TryLockError::Poisoned(_) => TransportFailureKind::DriverUnavailable,
-        },
-        FailurePhase::Authentication,
-        RetryAdvice::After { delay_ms: 250 },
-    )
-}
+use eitmad_sync::{FailurePhase, TransportFailure, TransportFailureKind};
+use std::time::Instant;
 
 pub(super) fn failure_result(failure: &TransportFailure, deadline: Instant) -> DiagnosticResult {
     if Instant::now() >= deadline {
@@ -47,18 +36,6 @@ pub(super) fn measure<T>(
     result
 }
 
-pub(super) fn admit<T>(
-    gate: &std::sync::Mutex<T>,
-    phase: DiagnosticPhase,
-    deadline: Instant,
-) -> Result<std::sync::MutexGuard<'_, T>, TransportFailure> {
-    measure(phase, deadline, || {
-        super::remaining_io(deadline)
-            .map_err(|_| super::unavailable(FailurePhase::Cancellation))?;
-        gate.try_lock().map_err(|error| gate_failure(&error))
-    })
-}
-
 pub(super) fn io_result(error: &std::io::Error, deadline: Instant) -> DiagnosticResult {
     if Instant::now() >= deadline {
         DiagnosticResult::Deadline
@@ -90,37 +67,19 @@ pub(super) fn measure_io<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{sync::Mutex, time::Duration};
+    use std::time::Duration;
     #[test]
-    fn busy_deadline_and_poison_preserve_distinct_typed_causes() {
-        let gate = Mutex::new(());
+    fn deadline_and_network_preserve_distinct_typed_causes() {
         let future = Instant::now() + Duration::from_secs(5);
-        let locked = gate.lock().unwrap();
-        let busy = admit(&gate, DiagnosticPhase::CredentialAdmission, future).unwrap_err();
-        assert_eq!(busy.kind, TransportFailureKind::RetryNotReady);
-        assert_eq!(failure_result(&busy, future), DiagnosticResult::GateBusy);
         let past = Instant::now().checked_sub(Duration::from_secs(1)).unwrap();
-        let deadline = admit(&gate, DiagnosticPhase::DriverAdmission, past).unwrap_err();
-        assert_eq!(deadline.phase, FailurePhase::Cancellation);
-        assert_eq!(failure_result(&deadline, past), DiagnosticResult::Deadline);
         let network = super::super::unavailable(FailurePhase::Connect);
+        assert_eq!(failure_result(&network, past), DiagnosticResult::Deadline);
         assert_eq!(failure_result(&network, future), DiagnosticResult::Network);
         let mapped = crate::authenticated_http::HttpError::Unavailable(network.clone());
         let crate::authenticated_http::HttpError::Unavailable(retained) = mapped else {
             panic!("cause lost")
         };
         assert_eq!(retained, network);
-        drop(locked);
-        let _ = std::panic::catch_unwind(|| {
-            let _lock = gate.lock().unwrap();
-            panic!("synthetic poison");
-        });
-        let poisoned = admit(&gate, DiagnosticPhase::CredentialAdmission, future).unwrap_err();
-        assert_eq!(poisoned.kind, TransportFailureKind::DriverUnavailable);
-        assert_eq!(
-            failure_result(&poisoned, future),
-            DiagnosticResult::Poisoned
-        );
     }
     #[test]
     fn withheld_loopback_reply_reports_io_timeout_before_the_request_deadline() {

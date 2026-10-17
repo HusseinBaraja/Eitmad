@@ -89,7 +89,10 @@ Retain the diagnostic stdout/stderr, TRX, and PostgreSQL log together. No reset 
 
 | Terminal result or phase | Evidence and next safe action |
 | --- | --- |
-| `GateBusy` at `DriverAdmission`, `CredentialAdmission`, or `Dns` | Fail-fast local contention, not proof of a network failure. Compare the same source/correlation's overlapping work; preserve the current retry behavior. |
+| `CredentialAdmission/Succeeded` | Admission completed within the existing operation deadline, then the caller reloaded the persisted pair. Elapsed time includes any ownership wait and scheduling; compare overlapping phases before attributing contention. This alone is not a server failure. |
+| `CredentialAdmission/Deadline` | Credential ownership did not become available within the remaining operation budget. No new refresh or HTTP request starts for that waiter. Compare overlapping refresh/connect timings; do not add a retry loop. |
+| `GateBusy` at `Dns` | Both bounded system resolver slots are occupied. This remains fail-fast because timed-out system DNS work cannot be cancelled. Compare resolver timing; do not raise admission limits. |
+| Historical `GateBusy` at `DriverAdmission` or `CredentialAdmission` | Earlier builds used immediate mutex claims. Current HTTP requests have independent sockets and no shared driver lock; credential ownership uses deadline-bounded admission. Keep the build identifier with retained traces. |
 | `Poisoned` | A local mutex was poisoned. Preserve this cause and inspect the initiating worker failure. |
 | `IoTimeout` at connect/TLS/send/receive | A socket returned `TimedOut` or `WouldBlock` before the total request budget expired. Check the peer and network; do not label this as total deadline exhaustion. |
 | `Deadline` | The request budget expired at the measured boundary. Compare prior phases to locate where the budget was spent. |

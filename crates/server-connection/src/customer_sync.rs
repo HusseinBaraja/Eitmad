@@ -249,7 +249,7 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn missing_customer_credential_is_denied_but_busy_refresh_is_retryable() {
+    fn missing_customer_credential_is_denied_after_contention_releases() {
         let directory = tempfile::tempdir().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let secrets = SecretStore::open(
@@ -299,10 +299,16 @@ mod tests {
 
         let id = crate::account_credential_id(&route, actor.identity.principal_id);
         let gate = crate::credential_gate(&id).unwrap();
-        let _refresh = gate.lock().unwrap();
-        assert!(matches!(
-            client.transport(&actor),
-            Err(CustomerError::Unavailable)
-        ));
+        let held = gate
+            .acquire(Instant::now() + Duration::from_secs(1))
+            .unwrap();
+        std::thread::scope(|scope| {
+            let pending = scope.spawn(|| client.transport(&actor));
+            drop(held);
+            assert!(matches!(
+                pending.join().unwrap(),
+                Err(CustomerError::Denied)
+            ));
+        });
     }
 }

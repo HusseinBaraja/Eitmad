@@ -242,7 +242,7 @@ mod tests {
             store.clone(),
             route.clone(),
         );
-        let driver = client.http.driver.lock().unwrap();
+        let driver = &client.http.driver;
         // A saved operation must still select its original author after another user's request.
         for actor in [&actors[0], &actors[1], &actors[0]] {
             let (_, value) = driver
@@ -292,6 +292,85 @@ mod tests {
     }
 
     #[test]
+    fn credential_contention_waits_and_reloads_the_rotated_pair() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let directory = tempfile::tempdir().unwrap();
+        let store =
+            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let route = SecretId::new(
+            SecretKind::parse("credential-contention-test").unwrap(),
+            SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let tenant = TenantId::new(Uuid::new_v4());
+        let mut value = credential(true, Uuid::new_v4(), tenant);
+        let scope = ScopeRef {
+            kind: ScopeKind::parse("organization").unwrap(),
+            id: ScopeId::new(tenant.value()),
+        };
+        let actor = AuthorizationContext {
+            session_id: SessionId::new(Uuid::new_v4()),
+            tenant_id: tenant,
+            workspace_id: None,
+            scope: scope.clone(),
+            identity: AuthenticatedIdentity {
+                principal_id: PrincipalId::new(value.user_id.value()),
+                principal_kind: PrincipalKind::User,
+                device_id: Some(value.device_id),
+                service_id: None,
+            },
+        };
+        let id = crate::account_credential_id(&route, actor.identity.principal_id);
+        store
+            .set(
+                &id,
+                SecretMaterial::new(serde_json::to_vec(&value).unwrap()).unwrap(),
+            )
+            .unwrap();
+        let client = test_client(
+            url::Url::parse("https://127.0.0.1:1/").unwrap(),
+            scope,
+            store.clone(),
+            route.clone(),
+        );
+        let gate = crate::credential_gate(&id).unwrap();
+        let held = gate
+            .acquire(Instant::now() + Duration::from_secs(2))
+            .unwrap();
+        let (started, ready) = mpsc::channel();
+        let (send, result) = mpsc::channel();
+        let work = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            let driver = &client.http.driver;
+            let result =
+                driver.account_credential(&route, &actor, Instant::now() + Duration::from_secs(2));
+            send.send(result.map(|(_, value)| value.access_token == "synthetic-rotated"))
+                .unwrap();
+        });
+        ready.recv_timeout(Duration::from_secs(1)).unwrap();
+        let early = result.recv_timeout(Duration::from_millis(100));
+        // Simulate the current refresh owner persisting its replacement before release.
+        value.access_token = "synthetic-rotated".into();
+        value.access_expires_at = UnixMillis(crate::unix_millis_now().0 + 120_000);
+        store
+            .set(
+                &id,
+                SecretMaterial::new(serde_json::to_vec(&value).unwrap()).unwrap(),
+            )
+            .unwrap();
+        drop(held);
+        work.join().unwrap();
+        store.delete(&id).unwrap();
+        assert!(
+            matches!(early, Err(mpsc::RecvTimeoutError::Timeout)),
+            "Contention must not become immediate unavailability"
+        );
+        assert_eq!(
+            result.recv_timeout(Duration::from_secs(1)).unwrap(),
+            Ok(true)
+        );
+    }
+
+    #[test]
     fn catalog_image_hello_negotiates_with_a_minor_14_server() {
         use eitmad_contracts::versioning::{
             NegotiationOutcome, PeerKind, SupportedProtocol, negotiate,
@@ -314,7 +393,7 @@ mod tests {
             store,
             id,
         );
-        let hello = client.http.driver.lock().unwrap().local_hello.clone();
+        let hello = client.http.driver.local_hello.clone();
         let mut server = hello.clone();
         server.peer_kind = PeerKind::Server;
         server.protocols = vec![SupportedProtocol {
@@ -451,8 +530,11 @@ mod tests {
             Err(ImageError::Unavailable)
         );
         assert!(
-            client.http.driver.try_lock().is_ok(),
-            "An expired transfer must release its admission before the peer exits"
+            crate::credential_gate(&credential_id)
+                .unwrap()
+                .acquire(Instant::now() + Duration::from_millis(50))
+                .is_ok(),
+            "An expired refresh must release credential ownership before the peer exits"
         );
         // A timed-out refresh must retain the credential for a later retry.
         assert!(store.get(&credential_id).unwrap().is_some());
