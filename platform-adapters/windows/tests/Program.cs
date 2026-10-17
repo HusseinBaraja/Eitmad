@@ -10,6 +10,9 @@ try
         throw new ArgumentException("Usage: Eitmad.Platform.Windows.Tests [--engine <path>]");
     }
 
+    await IpcCancellationScenario.DiagnosticsRetainCorrelationAndRedactPayloads();
+    await IpcCancellationScenario.DiagnosticCleanupPreservesBothTypedFailures();
+    await IpcCancellationScenario.DiagnosticQueueNeverWaitsForBlockedStderr();
     var tests = new SupervisionScenarios();
     await tests.UnavailableEngineIsTyped();
     await IpcCancellationScenario.CancelledWritePreservesTheNextFrame();

@@ -442,10 +442,19 @@ impl CatalogReplication for DirectCatalogSyncClient {
         actor: &AuthorizationContext,
         deadline: UnixMillis,
     ) -> Result<usize, PricingError> {
-        let _worker = self
-            .worker
-            .try_lock()
-            .map_err(|_| PricingError::Unconfirmed)?;
+        use eitmad_observability_audit::operation_diagnostics::{
+            DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
+        };
+        let mut admission = DiagnosticSpan::start(DiagnosticPhase::DriverAdmission);
+        let _worker = self.worker.try_lock().map_err(|error| {
+            admission.finish(match error {
+                std::sync::TryLockError::WouldBlock => DiagnosticResult::GateBusy,
+                std::sync::TryLockError::Poisoned(_) => DiagnosticResult::Poisoned,
+            });
+            PricingError::Unconfirmed
+        })?;
+        admission.finish(DiagnosticResult::Succeeded);
+        drop(admission);
         self.require(actor, PUBLIC_SCHEMA, false)?;
         self.store
             .register_catalog_client(actor, &audit(actor, "eitmad.catalog.sync.register.v1"))?;

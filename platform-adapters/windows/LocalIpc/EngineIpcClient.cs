@@ -118,9 +118,10 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 ?? throw ProtocolViolation("The engine omitted protocol negotiation details.");
             return client;
         }
-        catch
+        catch (Exception primary)
         {
-            await client.DisposeAsync().ConfigureAwait(false);
+            try { await client.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception cleanup) { throw new AggregateException(primary, cleanup); }
             throw;
         }
     }
@@ -449,6 +450,22 @@ public sealed class EngineIpcClient : IAsyncDisposable
         using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token, transportToken);
         using var frameCancellation = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, transportToken);
         var frameStarted = false;
+        var correlation = payload switch
+        {
+            QueryEnvelope q => q.CorrelationId,
+            CommandEnvelope c => c.CorrelationId,
+            SubscriptionEnvelope s => s.CorrelationId,
+            DesktopSignInRequest s => s.CorrelationId,
+            DesktopSessionRequest s => s.CorrelationId,
+            HandshakeRequest h => h.CorrelationId,
+            UnsubscribeRequest u => u.CorrelationId,
+            ShutdownRequest s => s.CorrelationId,
+            _ => requestId,
+        };
+        using var requestDiagnostic = new OperationDiagnostics(DiagnosticPhase.IpcRequest, correlation);
+        OperationDiagnostics? diagnostic = null;
+        OperationDiagnostics? sending = null;
+        OperationDiagnostics? reply = null;
 
         var completion = new TaskCompletionSource<IpcServerMessage>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -468,7 +485,11 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     $"The IPC payload exceeds {MaximumFrameBytes} bytes.");
             }
 
+            diagnostic = new OperationDiagnostics(DiagnosticPhase.IpcLock, correlation);
             await writeLock.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            diagnostic.Finish();
+            diagnostic.Dispose();
+            sending = new OperationDiagnostics(DiagnosticPhase.IpcSend, correlation);
             try
             {
                 requestCancellation.Token.ThrowIfCancellationRequested();
@@ -497,10 +518,21 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 writeLock.Release();
             }
 
-            return await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            sending.Finish();
+            sending.Dispose();
+            sending = null;
+            reply = new OperationDiagnostics(DiagnosticPhase.IpcReply, correlation);
+            var response = await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            reply.Finish();
+            requestDiagnostic.Finish();
+            return response;
         }
         catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or EngineIpcException)
         {
+            var reason = cancellationToken.IsCancellationRequested ? DiagnosticResult.Cancelled
+                : deadline.IsCancellationRequested ? DiagnosticResult.Deadline : DiagnosticResult.Failed;
+            (reply ?? sending ?? diagnostic ?? requestDiagnostic).Finish(reason);
+            requestDiagnostic.Finish(reason);
             if (commandOutcomeUnknown && frameStarted)
             {
                 throw new EngineIpcException(
@@ -520,6 +552,9 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
         finally
         {
+            reply?.Dispose();
+            sending?.Dispose();
+            diagnostic?.Dispose();
             pending.TryRemove(requestId, out _);
             // Observe a pending failure even when cancellation won the response wait.
             completion.TrySetCanceled();

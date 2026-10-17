@@ -1,4 +1,5 @@
 using System.IO;
+using Eitmad.Platform.Windows.LocalIpc;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -26,7 +27,7 @@ public sealed partial class WorkflowEnvironmentTests
         var directory = Path.Combine(root!, "receptionist");
         var bridge = WindowsEngineBridge.Create(["--engine", enginePath!, "--runtime-directory", directory]);
         var sessions = new DesktopSessionController(bridge);
-        try
+        OperationDiagnostics.RunWithCleanupAsync(() =>
         {
             WpfTestHost.Run(1338, 753, window =>
             {
@@ -58,8 +59,45 @@ public sealed partial class WorkflowEnvironmentTests
                 }
                 Finish(sessions.StopAsync());
             }, showSignIn: true, engine: bridge, sessions: sessions);
-        }
-        finally { sessions.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+            return Task.CompletedTask;
+        }, () => sessions.DisposeAsync()).GetAwaiter().GetResult();
+    }
+
+    [TestMethod]
+    [TestCategory("WorkflowEnvironment")]
+    public void DiagnosticAccountSwitchAndConfirmation()
+    {
+        var root = Environment.GetEnvironmentVariable("EITMAD_E2E_ROOT");
+        if (string.IsNullOrWhiteSpace(root)) Assert.Inconclusive("Run tools/workflow-environment.ps1 Start -DiagnosticActivation.");
+        var engine = Environment.GetEnvironmentVariable("EITMAD_E2E_ENGINE");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(engine));
+        using var secrets = JsonDocument.Parse(File.ReadAllText(Path.Combine(root!, "secrets.json")));
+        var bridge = WindowsEngineBridge.Create(["--engine", Path.GetFullPath(engine!), "--runtime-directory", Path.Combine(root!, "receptionist")]);
+        var sessions = new DesktopSessionController(bridge);
+        OperationDiagnostics.RunWithCleanupAsync(() =>
+        {
+            WpfTestHost.Run(1338, 753, window =>
+            {
+                Finish(sessions.StartAsync());
+                Finish(WaitForConnection(bridge));
+                var generation = bridge.Snapshot.Generation;
+                foreach (var (name, surface) in new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) })
+                {
+                    using var diagnostic = new OperationDiagnostics(DiagnosticPhase.Activation);
+                    SignIn(window, name, secrets.RootElement.GetProperty($"{name}_password").GetString()!, surface, bridge);
+                    // A nonempty synthetic term exercises Home's catalog source too.
+                    var searchedHome = bridge.QueryAsync(Query.ForHomeRead(new() { Term = "\u062a\u0634\u062e\u064a\u0635" }));
+                    Finish(searchedHome);
+                    Assert.AreEqual(CommandOutcomeStatus.Succeeded, searchedHome.Result.Outcome.Status);
+                    Finish(ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }), result => result.AsOrders()!.ServerAvailable));
+                    SwitchAccount(window, bridge);
+                    Assert.AreEqual(generation, bridge.Snapshot.Generation, "Diagnostic account switching restarted the engine.");
+                    diagnostic.Finish();
+                }
+                Finish(sessions.StopAsync());
+            }, showSignIn: true, engine: bridge, sessions: sessions);
+            return Task.CompletedTask;
+        }, () => sessions.DisposeAsync()).GetAwaiter().GetResult();
     }
 
     private static async Task CreateEditAndUseCustomer(IEngineShellBridge bridge)

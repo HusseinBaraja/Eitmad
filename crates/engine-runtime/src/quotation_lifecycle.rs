@@ -3,10 +3,12 @@ use super::{
     Arc, Command, CommandResult, ContractError, DispatchContext, Event, MutationContext,
     ProductDispatcher, QueryResult, RetryDisposition, contract_error,
 };
+use crate::diagnostic_blocking;
 use eitmad_contracts::{
     identity::AuthorizationContext,
     quotation_lifecycle::{ConfirmQuotation, ListQuotations, QuotationAction, QuotationNotice},
 };
+use eitmad_observability_audit::operation_diagnostics::DiagnosticSource as Source;
 use eitmad_pricing::{QuotationError as E, QuotationServer};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -71,7 +73,7 @@ impl ProductDispatcher {
             idempotency_key: mutation.idempotency_key,
             action,
         };
-        let value = tokio::task::spawn_blocking(move || {
+        let value = diagnostic_blocking(context.correlation_id, Source::Quotations, move || {
             server.quotation_transition(&actor, &request, deadline)
         })
         .await
@@ -104,9 +106,11 @@ impl ProductDispatcher {
         let deadline = context.deadline;
         let copy = query.clone();
         let result = if let Some(server) = self.quotation_server.clone() {
-            tokio::task::spawn_blocking(move || server.quotations(&actor, &copy, deadline))
-                .await
-                .map_err(|_| failure(E::Unavailable, context))?
+            diagnostic_blocking(context.correlation_id, Source::Quotations, move || {
+                server.quotations(&actor, &copy, deadline)
+            })
+            .await
+            .map_err(|_| failure(E::Unavailable, context))?
         } else {
             Err(E::Unavailable)
         };

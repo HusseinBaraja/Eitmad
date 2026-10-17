@@ -56,12 +56,14 @@ public partial class SignInView : UserControl
         signInCancellation?.Cancel();
         signInCancellation?.Dispose();
         signInCancellation = new CancellationTokenSource();
+        using var diagnostic = new OperationDiagnostics(DiagnosticPhase.SignIn);
         SetBusy(true);
         try
         {
             var surface = await AuthenticateAsync(username, password, signInCancellation.Token);
             SignInError.Visibility = Visibility.Collapsed;
             SignedIn?.Invoke(this, surface);
+            diagnostic.Finish();
         }
         catch (OperationCanceledException) when (signInCancellation.IsCancellationRequested)
         {

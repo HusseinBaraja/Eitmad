@@ -597,6 +597,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
     {
         while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
         {
+            if (OperationDiagnostics.ForwardEngineLine(line)) continue;
             ContractError? error;
             try
             {

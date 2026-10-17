@@ -95,7 +95,7 @@ fn budget(deadline: UnixMillis) -> Result<Instant, E> {
     Ok(Instant::now()
         + Duration::from_millis(u64::try_from(ms.min(10_000)).map_err(|_| E::Unavailable)?))
 }
-fn error(e: HttpError) -> E {
+fn error(e: &HttpError) -> E {
     match e {
         HttpError::Denied => E::Denied,
         HttpError::Invalid => E::Invalid,
@@ -126,7 +126,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
                 &input,
                 budget(deadline)?,
             )
-            .map_err(error)?;
+            .map_err(|e| error(&e))?;
         if let Some(a) = &mut result {
             Self::localize(actor, a);
         }
@@ -149,7 +149,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
                 },
                 budget(deadline)?,
             )
-            .map_err(error)?;
+            .map_err(|e| error(&e))?;
         for a in &mut page.items {
             Self::localize(actor, a);
         }
@@ -364,7 +364,7 @@ fn quotation_http_error(e: HttpError) -> eitmad_pricing::QuotationError {
     match e {
         HttpError::StalePrice => eitmad_pricing::QuotationError::StalePrice,
         HttpError::ApprovalRequired => eitmad_pricing::QuotationError::ApprovalRequired,
-        e => quotation_error(error(e)),
+        e => quotation_error(error(&e)),
     }
 }
 
@@ -392,7 +392,7 @@ impl eitmad_orders::OrderServer for DirectDiscountApprovalClient {
                 },
                 budget(deadline).map_err(order_error)?,
             )
-            .map_err(|e| order_error(error(e)))?;
+            .map_err(|e| order_error(error(&e)))?;
         for value in &mut page.items {
             if actor.scope.kind.as_str() == "branch" {
                 value.scope = actor.scope.clone();
@@ -423,7 +423,7 @@ impl eitmad_orders::OrderServer for DirectDiscountApprovalClient {
                 &input,
                 budget(deadline).map_err(order_error)?,
             )
-            .map_err(|e| order_error(error(e)))?;
+            .map_err(|e| order_error(error(&e)))?;
         Self::localize_order(actor, &mut value);
         Ok(value)
     }
@@ -452,7 +452,7 @@ impl eitmad_orders::OrderServer for DirectDiscountApprovalClient {
                 },
                 budget(deadline).map_err(order_error)?,
             )
-            .map_err(|e| order_error(error(e)))?;
+            .map_err(|e| order_error(error(&e)))?;
         for value in &mut page.items {
             Self::localize_order(actor, value);
         }

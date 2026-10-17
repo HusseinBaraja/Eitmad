@@ -1,4 +1,5 @@
 mod diagnostics;
+pub mod operation_diagnostics;
 
 pub use diagnostics::{
     ObservationContract, ObservationContractError, ObservationFieldContract, ObservationValue,

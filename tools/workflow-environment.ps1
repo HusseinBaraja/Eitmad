@@ -8,11 +8,16 @@ param(
     [ValidateRange(1024, 65535)][int]$ServerPort = 58443,
     [switch]$SkipBuild,
     [switch]$VerifySignIn,
+    [switch]$DiagnosticActivation,
     [switch]$ServicesOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path $PSScriptRoot -Parent
+if ($DiagnosticActivation) {
+    if ($ServicesOnly -or $Action -ne 'Start') { throw 'DiagnosticActivation requires Start with the desktop verification environment.' }
+    $VerifySignIn = $true
+}
 if ($ServicesOnly -and $VerifySignIn) { throw 'ServicesOnly cannot verify desktop sign-in.' }
 $allowed = [IO.Path]::GetFullPath((Join-Path $workspace 'tests/engine-integration/artifacts'))
 if (-not $StateDirectory) { $StateDirectory = Join-Path $allowed 'workflow-e2e' }
@@ -61,9 +66,10 @@ function Start-Owned([string]$File, [string[]]$Arguments, [string]$Name, [switch
         if ($_ -match '["\r\n]') { throw 'Invalid process argument.' }
         '"' + $_ + '"'
     })
+    $launch = "$Name-$([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ'))-$([Guid]::NewGuid().ToString('N'))"
     $process = Start-Process -FilePath $File -ArgumentList $quoted -WindowStyle $(if ($Visible) { 'Normal' } else { 'Hidden' }) -PassThru `
-        -RedirectStandardOutput (Join-Path $root "$Name.stdout.log") `
-        -RedirectStandardError (Join-Path $root "$Name.stderr.log")
+        -RedirectStandardOutput (Join-Path $root "$launch.stdout.log") `
+        -RedirectStandardError (Join-Path $root "$launch.stderr.log")
     return $process
 }
 function Find-Owned($Entry) {
@@ -169,7 +175,7 @@ if (-not (Test-Path -LiteralPath $secretsFile)) {
 }
 $owned = @()
 $previous = @{}
-$names = @('PGPASSWORD', 'CARGO_INCREMENTAL', 'CARGO_TARGET_DIR', 'EITMAD_E2E_ROOT') +
+$names = @('PGPASSWORD', 'CARGO_INCREMENTAL', 'CARGO_TARGET_DIR', 'EITMAD_E2E_ROOT', 'EITMAD_DIAGNOSTICS') +
     @(Get-ChildItem Env:EITMAD_* | ForEach-Object Name) + @(
     'EITMAD_SERVER_DATABASE_URL', 'EITMAD_SERVER_TOKEN_KEY', 'EITMAD_SERVER_LISTEN',
     'EITMAD_SERVER_TLS_CERTIFICATE', 'EITMAD_SERVER_TLS_PRIVATE_KEY', 'EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY',
@@ -224,7 +230,7 @@ try {
     }
     & (Join-Path $PostgresBin 'pg_ctl.exe') -D $cluster status *> $null
     if ($LASTEXITCODE -ne 0) {
-        $start = Start-Owned (Join-Path $PostgresBin 'pg_ctl.exe') @('-D', $cluster, '-l', (Join-Path $root 'postgres.log'), '-o', "-h 127.0.0.1 -p $DatabasePort -c log_statement=none -c log_min_error_statement=panic", '-w', 'start') 'postgres-start'
+        $start = Start-Owned (Join-Path $PostgresBin 'pg_ctl.exe') @('-D', $cluster, '-l', (Join-Path $root ('postgres-' + [Guid]::NewGuid().ToString('N') + '.log')), '-o', "-h 127.0.0.1 -p $DatabasePort -c log_statement=none -c log_min_error_statement=panic", '-w', 'start') 'postgres-start'
         $start.WaitForExit()
         if ($start.ExitCode -ne 0) { throw 'Isolated PostgreSQL startup failed. Check port availability and private logs.' }
     }
@@ -299,14 +305,26 @@ try {
     }
     if ($VerifySignIn) {
         $env:EITMAD_E2E_ENGINE = $engine
-        $filter = 'FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork'
+        $testName = if ($DiagnosticActivation) { 'DiagnosticAccountSwitchAndConfirmation' } else { 'OneDesktopSwitchesAccountsAndRetainsServerConfirmedWork' }
+        $filter = "FullyQualifiedName=Eitmad.WindowsShell.Tests.Rendered.WorkflowEnvironmentTests.$testName"
+        if ($DiagnosticActivation) { $env:EITMAD_DIAGNOSTICS = '1' }
         $results = Join-Path $root ('launch-check-' + [Guid]::NewGuid().ToString('N'))
-        Run-Tool 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx')
+        if ($DiagnosticActivation) {
+            $testProcess = Start-Owned 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx') 'activation-diagnostic'
+            $testProcess.WaitForExit()
+            if ($testProcess.ExitCode -ne 0) { throw 'Activation diagnostic failed. Retain the distinct activation-diagnostic stdout/stderr and TRX evidence.' }
+        } else {
+            Run-Tool 'dotnet' @('vstest', $testAssembly, "--TestCaseFilter:$filter", "--ResultsDirectory:$results", '--Logger:trx;LogFileName=workflow.trx')
+        }
         [xml]$result = Get-Content -LiteralPath (Join-Path $results 'workflow.trx') -Raw
         $counts = $result.TestRun.ResultSummary.Counters
         if ([int]$counts.total -lt 1 -or [int]$counts.passed -ne [int]$counts.total) {
             throw 'Workflow verification did not pass every selected test.'
         }
+    }
+    if ($DiagnosticActivation) {
+        Write-Host "Activation diagnostic passed. Retain stdout/stderr logs and TRX in: $root"
+        return
     }
     $directory = Join-Path $root 'receptionist'
     $client = Start-Owned $shell @('--engine', $engine, '--runtime-directory', $directory) 'desktop' -Visible

@@ -1,8 +1,12 @@
+use eitmad_observability_audit::operation_diagnostics::{
+    DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
+};
 mod authenticated_http;
 mod catalog_image;
 mod catalog_sync;
 mod customer_sync;
 mod desktop_connection;
+mod diagnostics;
 pub use catalog_sync::DirectCatalogSyncClient;
 pub use customer_sync::DirectCustomerSyncClient;
 pub use desktop_connection::DesktopConnectionSettings;
@@ -140,12 +144,19 @@ fn resolve_before(
     resolve: impl FnOnce() -> std::io::Result<Vec<SocketAddr>> + Send + 'static,
     deadline: Instant,
 ) -> Result<Vec<SocketAddr>, TransportFailure> {
-    remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
+    let mut span = DiagnosticSpan::start(DiagnosticPhase::Dns);
+    remaining_io(deadline).map_err(|_| {
+        span.finish(DiagnosticResult::Deadline);
+        unavailable(FailurePhase::Connect)
+    })?;
     DNS_WORKERS
         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
             (count < 2).then_some(count + 1)
         })
-        .map_err(|_| unavailable(FailurePhase::Connect))?;
+        .map_err(|_| {
+            span.finish(DiagnosticResult::GateBusy);
+            unavailable(FailurePhase::Connect)
+        })?;
     let admission = DnsAdmission;
     let (sender, receiver) = mpsc::sync_channel(1);
     std::thread::Builder::new()
@@ -156,10 +167,24 @@ fn resolve_before(
             let _ = sender.send(result);
         })
         .map_err(|_| unavailable(FailurePhase::Connect))?;
-    receiver
-        .recv_timeout(remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?)
-        .map_err(|_| unavailable(FailurePhase::Connect))?
-        .map_err(|_| unavailable(FailurePhase::Connect))
+    let wait = remaining_io(deadline).map_err(|_| {
+        span.finish(DiagnosticResult::Deadline);
+        unavailable(FailurePhase::Connect)
+    })?;
+    let resolved = receiver.recv_timeout(wait).map_err(|_| {
+        span.finish(if Instant::now() >= deadline {
+            DiagnosticResult::Deadline
+        } else {
+            DiagnosticResult::Failed
+        });
+        unavailable(FailurePhase::Connect)
+    })?;
+    let addresses = resolved.map_err(|error| {
+        span.finish(diagnostics::io_result(&error, deadline));
+        unavailable(FailurePhase::Connect)
+    })?;
+    span.finish(DiagnosticResult::Succeeded);
+    Ok(addresses)
 }
 
 /// TLS trust and one scoped server sync route. The PEM file is an explicit trust anchor.
@@ -393,9 +418,7 @@ impl DirectServerDriver {
         // Different HTTP clients and subscriptions share one rotating token pair.
         // A busy refresh returns retryable unavailability without consuming an old token.
         let gate = credential_gate(&id)?;
-        let _refresh = gate
-            .try_lock()
-            .map_err(|_| unavailable(FailurePhase::Authentication))?;
+        let _refresh = diagnostics::admit(&gate, DiagnosticPhase::CredentialAdmission, deadline)?;
         let mut credential = self.load_credential(&id)?;
         if actor.identity.principal_kind != eitmad_contracts::identity::PrincipalKind::User
             || credential.user_id.value() != actor.identity.principal_id.value()
@@ -429,7 +452,10 @@ impl DirectServerDriver {
         let body =
             Zeroizing::new(serde_json::to_vec(&request).map_err(|_| authentication_failure())?);
         request.refresh_token.zeroize();
-        let result = self.post_refresh(&body, deadline).inspect_err(|failure| {
+        let result = diagnostics::measure(DiagnosticPhase::CredentialRefresh, deadline, || {
+            self.post_refresh(&body, deadline)
+        })
+        .inspect_err(|failure| {
             if failure.kind == TransportFailureKind::AuthenticationFailed {
                 let _ = self.store.delete(id);
             }
@@ -470,16 +496,28 @@ impl DirectServerDriver {
             "POST /v1/auth/refresh HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         );
-        stream
-            .write_all(header.as_bytes())
-            .and_then(|()| stream.write_all(body))
-            .and_then(|()| stream.flush())
-            .map_err(|_| unavailable(FailurePhase::Authentication))?;
+        diagnostics::measure_io(
+            DiagnosticPhase::Send,
+            FailurePhase::Authentication,
+            deadline,
+            || {
+                stream
+                    .write_all(header.as_bytes())
+                    .and_then(|()| stream.write_all(body))
+                    .and_then(|()| stream.flush())
+            },
+        )?;
         let mut response = Zeroizing::new(Vec::new());
-        stream
-            .take((MAX_AUTH_RESPONSE_BYTES + 1) as u64)
-            .read_to_end(&mut response)
-            .map_err(|_| unavailable(FailurePhase::Authentication))?;
+        diagnostics::measure_io(
+            DiagnosticPhase::Receive,
+            FailurePhase::Authentication,
+            deadline,
+            || {
+                stream
+                    .take((MAX_AUTH_RESPONSE_BYTES + 1) as u64)
+                    .read_to_end(&mut response)
+            },
+        )?;
         if response.len() > MAX_AUTH_RESPONSE_BYTES {
             return Err(authentication_failure());
         }
@@ -592,9 +630,11 @@ impl ConnectionDriver for DirectServerDriver {
             _ => return Err(authentication_failure()),
         };
         let gate = credential_gate(id)?;
-        let refresh = gate
-            .try_lock()
-            .map_err(|_| unavailable(FailurePhase::Authentication))?;
+        let refresh = diagnostics::admit(
+            &gate,
+            DiagnosticPhase::CredentialAdmission,
+            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
+        )?;
         let mut credential = self.load_credential(id)?;
         if credential.account_id != account_id || credential.device_id != device_id {
             return Err(authentication_failure());
@@ -805,8 +845,16 @@ fn connect_tls(
         }
     };
     for address in addresses {
-        let timeout = remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
-        if let Ok(stream) = TcpStream::connect_timeout(&address, timeout.min(CONNECT_TIMEOUT)) {
+        let connection = diagnostics::measure_io(
+            DiagnosticPhase::Connect,
+            FailurePhase::Connect,
+            deadline,
+            || {
+                let timeout = remaining_io(deadline)?;
+                TcpStream::connect_timeout(&address, timeout.min(CONNECT_TIMEOUT))
+            },
+        );
+        if let Ok(stream) = connection {
             stream
                 .set_read_timeout(Some(IO_TIMEOUT))
                 .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
@@ -818,16 +866,27 @@ fn connect_tls(
                 socket: stream,
                 deadline: Some(deadline),
             };
+            let mut tls = eitmad_observability_audit::operation_diagnostics::DiagnosticSpan::start(
+                DiagnosticPhase::Tls,
+            );
             connection.complete_io(&mut stream).map_err(|error| {
                 if error
                     .get_ref()
                     .is_some_and(<dyn std::error::Error + Send + Sync>::is::<rustls::Error>)
                 {
+                    tls.finish(
+                        eitmad_observability_audit::operation_diagnostics::DiagnosticResult::Denied,
+                    );
                     encryption_failure()
                 } else {
+                    tls.finish(diagnostics::io_result(&error, deadline));
                     unavailable(FailurePhase::Connect)
                 }
             })?;
+            tls.finish(
+                eitmad_observability_audit::operation_diagnostics::DiagnosticResult::Succeeded,
+            );
+            drop(tls);
             remaining_io(deadline).map_err(|_| unavailable(FailurePhase::Connect))?;
             return Ok(StreamOwned::new(connection, stream));
         }

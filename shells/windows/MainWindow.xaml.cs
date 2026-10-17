@@ -1,3 +1,4 @@
+using Eitmad.Platform.Windows.LocalIpc;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -164,26 +165,29 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ActivateAccountAsync(AuthenticatedSurface surface, CancellationToken cancellationToken)
+    private Task ActivateAccountAsync(AuthenticatedSurface surface, CancellationToken cancellationToken) =>
+        OperationDiagnostics.MeasureAsync(DiagnosticPhase.Activation, () => ActivateAccountCoreAsync(surface, cancellationToken), cancellationToken);
+
+    private async Task ActivateAccountCoreAsync(AuthenticatedSurface surface, CancellationToken cancellationToken)
     {
         SignInSurface.Visibility = Visibility.Collapsed;
         sessionActive = true;
         var session = ++accountGeneration;
         ShowAccount(surface);
-        if (home is not null) await home.ActivateAsync(includeCustomerSearch: surface == AuthenticatedSurface.Receptionist, cancellationToken);
+        if (home is not null) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Home, () => home.ActivateAsync(includeCustomerSearch: surface == AuthenticatedSurface.Receptionist, cancellationToken), cancellationToken);
         if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
-        if (surface == AuthenticatedSurface.Manager) await QuotationsSurface.ViewModel.ActivateDraftsAsync(cancellationToken);
-        else await ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync(cancellationToken);
+        if (surface == AuthenticatedSurface.Manager) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => QuotationsSurface.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
+        else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
         if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
-        if (surface == AuthenticatedSurface.Manager) { await OrdersSurface.ViewModel.ActivateAsync(cancellationToken); if (session != accountGeneration || cancellationToken.IsCancellationRequested) return; await WorkOrdersSurface.ViewModel.ActivateAsync(cancellationToken); }
-        else await ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync(cancellationToken);
+        if (surface == AuthenticatedSurface.Manager) { await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Orders, () => OrdersSurface.ViewModel.ActivateAsync(cancellationToken), cancellationToken); if (session != accountGeneration || cancellationToken.IsCancellationRequested) return; await OperationDiagnostics.MeasureAsync(DiagnosticPhase.WorkOrders, () => WorkOrdersSurface.ViewModel.ActivateAsync(cancellationToken), cancellationToken); }
+        else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Orders, () => ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync(cancellationToken), cancellationToken);
         if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
         if (surface != AuthenticatedSurface.Receptionist) return;
         try
         {
-            await ReceptionistSurface.ActivateCustomersAsync(cancellationToken);
+            await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Customers, () => ReceptionistSurface.ActivateCustomersAsync(cancellationToken), cancellationToken);
             if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
-            await ReceptionistSurface.ActivateCatalogAsync(cancellationToken);
+            await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Catalog, () => ReceptionistSurface.ActivateCatalogAsync(cancellationToken), cancellationToken);
         }
         catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
             or IOException or ObjectDisposedException)
@@ -245,6 +249,7 @@ public partial class MainWindow : Window
         {
             return;
         }
+        using var diagnostic = new OperationDiagnostics(DiagnosticPhase.AccountSwitch);
         switchingAccount = true;
         SignInSurface.IsEnabled = false;
         CommandManager.InvalidateRequerySuggested();
@@ -294,6 +299,7 @@ public partial class MainWindow : Window
             CommandManager.InvalidateRequerySuggested();
         }
         ShowSignIn(reason);
+        diagnostic.Finish(reason == SessionEndReason.RecoveryFailed ? DiagnosticResult.Failed : DiagnosticResult.Succeeded);
     }
 
     private static async Task ObserveAccountCleanupAsync(Task operation)

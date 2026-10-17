@@ -150,3 +150,7 @@ If sign-in reports **بيانات الدخول غير صحيحة أو انتهت
 If valid sign-in briefly opens an account screen and then returns to sign-in, check the engine connection state separately from credential rejection. The IPC reader must retain a partial frame while responses and events are delivered; cancelling that read caused intermittent startup disconnects. Rebuild the current source and use `-VerifySignIn` after stopping the environment. See [IPC framing and concurrency](../developer/subsystems/local-ipc.md#framing-concurrency-and-large-payloads) for the regression and safe reader behavior.
 
 Return to [operations](index.md) or inspect [server authority](../developer/subsystems/server-authority.md) and [Windows supervision](../developer/subsystems/windows-process-supervision.md) when changing this path.
+
+## Diagnose activation and account switching
+
+Use the [bounded activation diagnostic](../troubleshooting/local-ipc-failures.md#correlate-activation-account-switching-and-server-confirmation) with `Start -DiagnosticActivation` and a new synthetic state directory. It runs a focused WPF account-switch and server-confirmation test, saves distinct process output and TRX evidence, and leaves services available until explicit Stop. It does not open an interactive desktop window. Process and PostgreSQL output filenames are unique on every launch; prior logs are retained.

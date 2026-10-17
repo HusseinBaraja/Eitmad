@@ -53,6 +53,64 @@ Local IPC failures do not by themselves imply lost committed data. Stop new work
 
 Do not delete runtime files, expose bootstrap or bearer tokens, copy raw frames, or include customer records, paths, authorization graphs, or process environment values in support evidence.
 
+## Correlate activation, account switching, and server confirmation
+
+Use this path for Windows supervised development when activation is slow, an account switch fails, or Home returns cached data with `ServerAvailable=false`. It uses a new synthetic installation. Do not point it at a customer installation or copy saved databases, credentials, tokens, or old incident logs into it.
+
+Install the prerequisites in [connected workflow setup](../operations/run-workflow-test-environment.md). Use Rust 1.85.1, .NET 8, PowerShell 7.4 or later, and PostgreSQL 17. From the repository root:
+
+```powershell
+$env:RUSTC = (rustup which --toolchain 1.85.1 rustc)
+$env:RUSTDOC = (rustup which --toolchain 1.85.1 rustdoc)
+$env:CARGO_TARGET_DIR = "$PWD/target/toolchain-1.85.1"
+$env:CARGO_INCREMENTAL = '0'
+$diagnosticState = "$PWD/tests/engine-integration/artifacts/activation-$([Guid]::NewGuid().ToString('N'))"
+pwsh -File ./tools/workflow-environment.ps1 Start -DiagnosticActivation -StateDirectory $diagnosticState -PostgresBin '<PostgreSQL-17-bin>' -DatabasePort 55449 -ServerPort 58449
+```
+
+Choose two unused ports. The script builds the owners, provisions synthetic accounts and sample work, and runs `WorkflowEnvironmentTests.DiagnosticAccountSwitchAndConfirmation`. The test signs in as each role, awaits real WPF activation, runs a synthetic Arabic Home search to include catalog, confirms an order-list response from the TLS server, and switches accounts without restarting the engine. It changes session state through Rust; the diagnostic test does not create or edit business records. Existing environment provisioning rules still apply. Success requires a passing TRX result; a cached response alone is insufficient.
+
+Every launched process gets separate timestamp-and-random-suffix stdout/stderr files. PostgreSQL gets a separate server log per start, and each test gets its own `launch-check-*` TRX directory. Older logs and state remain intact. After success or failure, stop the services owned by this new installation:
+
+```powershell
+pwsh -File ./tools/workflow-environment.ps1 Stop -StateDirectory $diagnosticState
+```
+
+Retain the diagnostic stdout/stderr, TRX, and PostgreSQL log together. No reset or deletion is required. Correct the measured cause, then use a new run for verification. For code changes, omit `-SkipBuild`. That switch is valid only for unchanged verified outputs.
+
+### Read the bounded diagnostic events
+
+`EITMAD_DIAGNOSTICS=1` enables `eitmad.operation.v1` JSON events. The script sets it only for the diagnostic test and its child engine. It restores the caller's setting. Normal workflow verification is unchanged.
+
+- `operation` joins C# sign-in, activation stages, account-switch work, and IPC phases. Each IPC event also records the existing request `correlation`; the wire value is unchanged.
+- Rust workers explicitly receive that correlation before blocking work. Synchronous thread-local context is restored before the worker exits, including on panic. It is never kept across an async await.
+- Rust `source` is a fixed label: `Quotations`, `Orders`, `WorkOrders`, `Approvals`, `Catalog`, `Pricing`, or `Images`. Home can use one correlation for several sources; filter by both fields. `Unspecified` means this boundary has no propagated source and must not be attributed to a Home source by timing alone.
+- `phase` identifies IPC lock/send/reply, worker execution, driver/credential admission, credential work, DNS, TCP connect, TLS, HTTP send/receive, or confirmation. `elapsedMs` is monotonic duration within that process. Pair `Started` with its terminal event. There is no global timestamp or ordering guarantee across processes.
+
+| Terminal result or phase | Evidence and next safe action |
+| --- | --- |
+| `GateBusy` at `DriverAdmission`, `CredentialAdmission`, or `Dns` | Fail-fast local contention, not proof of a network failure. Compare the same source/correlation's overlapping work; preserve the current retry behavior. |
+| `Poisoned` | A local mutex was poisoned. Preserve this cause and inspect the initiating worker failure. |
+| `IoTimeout` at connect/TLS/send/receive | A socket returned `TimedOut` or `WouldBlock` before the total request budget expired. Check the peer and network; do not label this as total deadline exhaustion. |
+| `Deadline` | The request budget expired at the measured boundary. Compare prior phases to locate where the budget was spent. |
+| `Cancelled` on IPC | Caller cancellation was observed. An unconfirmed command still has its existing unknown-outcome rules. |
+| `Network`, `Denied`, `Server`, or `Invalid` | A safe transport, security, HTTP-status, or response-validation class. No raw error message or response body is collected. |
+| `Confirmation/Succeeded` | An authenticated HTTP success body decoded at the client. The diagnostic test separately checks the typed `ServerAvailable` result. This does not prove any unrelated mutation committed. |
+| `Worker/Succeeded` or `Activation/Succeeded` | The work returned normally. Capability results may still contain cached or unavailable state; inspect confirmation and admission events. |
+| A terminal `Failed` | The enclosing boundary failed; inspect the specific earlier phase. It is not a fabricated network diagnosis. |
+
+The internal HTTP error retains the original typed transport failure through diagnostic classification before the owning capability maps it to its existing public result. Public IPC contracts do not expose these internal details. Diagnostic/test cleanup preserves a single original error's type and stack. If both work and cleanup fail, an aggregate retains the initiating typed error first and the cleanup error second; do not report only the last exception.
+
+### Measurement and privacy limits
+
+The allowlist contains fixed enums, opaque diagnostic IDs, and duration only. It excludes payloads, routes, terms, account names, customer identifiers/values, authorization, tokens, certificates, raw frames, and underlying exception messages. The supervisor validates and re-emits only allowed engine fields; it never forwards arbitrary stderr as diagnostics.
+
+Each process emits at most 4096 diagnostic events through a 256-entry non-blocking queue. A full queue drops events. A background writer drains it; activation and shutdown do not wait for stderr. The supervisor already drains engine stderr concurrently with lifecycle output. A blocked sink, saturation, process exit, or disabled diagnostics can leave missing events. Absence is not evidence that work did not occur. Start a new bounded run if the relevant phase is missing; do not raise limits or timeouts to hide a cause.
+
+HTTP receive time includes TLS/network I/O, remote queueing, server work, and response transfer. There is no separate SQL/lock or server-handler timer, and server-local audit correlation can differ. This trace cannot distinguish those parts. Local desktop sign-in uses Rust's stored account state and has no network stage. Background subscription/sync work without an explicit context is not attributed to activation. No trace produced now establishes the source of an old 27-second read. Empty stderr or PostgreSQL logs without errors do not rule out slow queries.
+
+The focused regression proof is in `DiagnosticScenario.cs`, runtime blocking-worker tests, server-connection admission/loopback timeout tests, and observability output/redaction tests. Escalate only the relevant metadata interval and test result to the owner named below. Preserve original evidence privately; do not paste raw environment or TRX contents into support messages without checking them.
+
 ## Verify recovery
 
 Confirm a new engine generation reaches `Ready`, the handshake reports the expected version `1.13`, and `eitmad.capability.authorization-scopes.v1` plus operation-specific capabilities are present. Confirm that Rust returns the tenant, scope, principal, and session; the shell must not send these fields. Verify one synthetic scoped subscription receives an ordered event and a revoked synthetic member receives no later configuration event. Intentional shutdown must reach `Stopping → Stopped` with exit code `0`.
