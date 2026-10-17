@@ -32,6 +32,8 @@ try
     await tests.ShutdownTimeoutTerminatesProcessGroup();
     await IpcCancellationScenario.StalledShutdownStillCleansUpProcess();
     await tests.TerminationFailureStillCompletesCleanup();
+    await tests.CallerCancellationStillContainsTheProcess();
+    await tests.CleanupFailuresPreserveTheInitiatingFailure();
 
     if (args is ["--engine", var enginePath])
     {
@@ -328,16 +330,87 @@ internal sealed class SupervisionScenarios
     {
         var fixture = new SupervisorFixture();
         await fixture.Supervisor.StartAsync(fixture.Request);
-        fixture.Group.TerminationException = new Win32Exception(5);
-        using var cancellation = new CancellationTokenSource();
+        var failure = new Win32Exception(5);
+        fixture.Group.TerminationException = failure;
 
-        var stop = fixture.Supervisor.StopAsync(cancellation.Token);
+        var stop = fixture.Supervisor.StopAsync();
         fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(15));
-        cancellation.Cancel();
-        await Assert.ThrowsAsync<OperationCanceledException>(() => stop, "cancel stalled shutdown");
+        try
+        {
+            await stop.WaitAsync(TimeSpan.FromSeconds(2));
+            throw new InvalidOperationException("Expected termination failure.");
+        }
+        catch (Win32Exception error)
+        {
+            Assert.True(ReferenceEquals(failure, error), "original termination failure is preserved");
+        }
 
         Assert.True(fixture.Launcher.Current.Disposed, "failed termination still disposes process");
+        Assert.True(fixture.Group.Disposed, "failed termination still closes containment");
+        Assert.True(fixture.Launcher.Current.Exited, "kill-on-close fallback ends owned process");
         Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "failed termination stop state");
+    }
+
+    public async Task CallerCancellationStillContainsTheProcess()
+    {
+        var fixture = new SupervisorFixture();
+        await fixture.Supervisor.StartAsync(fixture.Request);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Supervisor.StopAsync(cancellation.Token), "pre-cancelled stop is not admitted");
+        Assert.False(fixture.Launcher.Current.InputClosed, "pre-cancelled stop leaves the session active");
+
+        using var admittedCancellation = new CancellationTokenSource();
+        var stop = fixture.Supervisor.StopAsync(admittedCancellation.Token);
+        admittedCancellation.Cancel();
+        Assert.False(stop.IsCompleted, "cancellation cannot abandon the process-exit wait");
+        fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(15));
+        try
+        {
+            await stop.WaitAsync(TimeSpan.FromSeconds(2));
+            throw new InvalidOperationException("Expected caller cancellation.");
+        }
+        catch (OperationCanceledException error)
+        {
+            Assert.Equal(admittedCancellation.Token, error.CancellationToken, "stop cancellation retains caller token");
+        }
+        Assert.True(fixture.Launcher.Current.Disposed && fixture.Launcher.Current.Exited, "cancelled stop releases owned process");
+        Assert.True(fixture.Group.Disposed && fixture.Group.Terminated, "cancelled stop retains deadline and containment");
+        Assert.Equal(1, fixture.Launcher.LaunchCount, "cancelled intentional stop never restarts");
+    }
+
+    public async Task CleanupFailuresPreserveTheInitiatingFailure()
+    {
+        foreach (var cancel in new[] { false, true })
+        {
+            var fixture = new SupervisorFixture();
+            await fixture.Supervisor.StartAsync(fixture.Request);
+            var process = fixture.Launcher.Current;
+            var initiating = new IOException("Synthetic stdin close failure.");
+            var disposal = new IOException("Synthetic process disposal failure.");
+            process.InputCloseException = initiating;
+            process.DisposalException = disposal;
+            using var cancellation = new CancellationTokenSource();
+            var stop = fixture.Supervisor.StopAsync(cancellation.Token);
+            Assert.True(fixture.Clock.HasPendingDelay(TimeSpan.FromSeconds(15)), "stdin failure must not skip the exit deadline");
+            if (cancel) cancellation.Cancel();
+            fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(15));
+            try
+            {
+                await stop.WaitAsync(TimeSpan.FromSeconds(2));
+                throw new InvalidOperationException("Expected cleanup failures.");
+            }
+            catch (Exception error) when (error is AggregateException or OperationCanceledException)
+            {
+                var failures = error as AggregateException ?? error.InnerException as AggregateException;
+                Assert.True(failures is not null, "cleanup errors remain available with cancellation");
+                Assert.SequenceEqual(new Exception[] { initiating, disposal }, failures!.InnerExceptions, "initiating failure precedes cleanup failure");
+                if (cancel) Assert.Equal(cancellation.Token, ((OperationCanceledException)error).CancellationToken, "cleanup failure retains cancellation token");
+            }
+            Assert.True(process.Disposed && process.Exited && fixture.Group.Disposed, "all cleanup stages run despite earlier failures");
+            Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "cleanup failure reaches stopped");
+            Assert.Equal(1, fixture.Launcher.LaunchCount, "failed intentional stop never restarts");
+        }
     }
 
     public async Task RealEngineStartsAndStopsCleanly(string enginePath)
@@ -951,6 +1024,9 @@ internal sealed class FakeEngineProcess(int processId, string lifecycleOutput = 
     public string IpcPipeName { get; } = $"fake-{processId}";
     public string IpcBootstrapToken { get; } = "fake-bootstrap-token";
     public bool InputClosed => input.IsClosed;
+    public bool Exited => exit.Task.IsCompleted;
+    public Exception? InputCloseException { get => input.CloseException; set => input.CloseException = value; }
+    public Exception? DisposalException { get; set; }
     public bool Disposed { get; private set; }
 
     public Task<int> WaitForExitAsync(CancellationToken cancellationToken) => exit.Task.WaitAsync(cancellationToken);
@@ -959,6 +1035,7 @@ internal sealed class FakeEngineProcess(int processId, string lifecycleOutput = 
     public ValueTask DisposeAsync()
     {
         Disposed = true;
+        if (DisposalException is { } error) throw error;
         input.Dispose();
         return ValueTask.CompletedTask;
     }
@@ -966,10 +1043,12 @@ internal sealed class FakeEngineProcess(int processId, string lifecycleOutput = 
     private sealed class TrackingWriter : StringWriter
     {
         public bool IsClosed { get; private set; }
+        public Exception? CloseException { get; set; }
         protected override void Dispose(bool disposing)
         {
             IsClosed = true;
             base.Dispose(disposing);
+            if (CloseException is { } error) throw error;
         }
     }
 }
@@ -983,6 +1062,7 @@ internal sealed class FakeProcessGroup : IProcessGroup
 {
     public List<FakeEngineProcess> Processes { get; set; } = [];
     public bool Terminated { get; private set; }
+    public bool Disposed { get; private set; }
     public Exception? TerminationException { get; set; }
     public void Assign(IEngineProcess process) { }
     public void Terminate()
@@ -999,7 +1079,12 @@ internal sealed class FakeProcessGroup : IProcessGroup
         }
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        Disposed = true;
+        // Match the production Job Object's kill-on-close containment.
+        foreach (var process in Processes) process.Exit(137);
+    }
 }
 
 internal static class Assert

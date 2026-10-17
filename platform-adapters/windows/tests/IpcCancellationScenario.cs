@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Pipes;
+using System.Reflection;
 using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.Platform.Windows.LocalIpc;
@@ -9,38 +10,80 @@ internal static class IpcCancellationScenario
 {
     public static async Task StalledShutdownStillCleansUpProcess()
     {
+        await ShutdownStillCleansUpProcessAsync(blockSend: false, cancel: false);
+        await ShutdownStillCleansUpProcessAsync(blockSend: true, cancel: false);
+        await ShutdownStillCleansUpProcessAsync(blockSend: false, cancel: true);
+        await ShutdownStillCleansUpProcessAsync(blockSend: true, cancel: true);
+    }
+
+    private static async Task ShutdownStillCleansUpProcessAsync(bool blockSend, bool cancel)
+    {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cancellation = new CancellationTokenSource();
         await using var server = new NamedPipeServerStream("fake-1001", PipeDirection.InOut, 1,
-            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096);
         var fixture = new SupervisorFixture();
         fixture.Launcher.LifecycleOutput = JsonSerializer.Serialize(new LifecycleSnapshot
         {
             Identity = new() { InstanceId = Guid.NewGuid() }, State = LifecycleState.Ready,
             Ready = true, Live = true, Checks = [],
         }, Converter.Settings) + "\n";
-        var serve = StallShutdownAsync(server, deadline.Token);
+        var serve = AcceptAsync(server, deadline.Token);
         await fixture.Supervisor.StartAsync(fixture.Request);
         while (!fixture.Supervisor.IpcConnected) await Task.Delay(5, deadline.Token);
-        var process = fixture.Launcher.Current;
-        var stop = fixture.Supervisor.StopAsync();
         await serve;
-        process.Exit(0);
-        await stop.WaitAsync(deadline.Token);
+        var process = fixture.Launcher.Current;
+        byte[]? padding = null;
+        SemaphoreSlim? writer = null;
+        if (blockSend)
+        {
+            // Fill the real pipe without owning the production writer lock. This isolates
+            // shutdown's own blocked transmission from a request queued behind a writer.
+            var client = PrivateField<EngineIpcClient>(fixture.Supervisor, "currentIpcClient");
+            var pipe = PrivateField<NamedPipeClientStream>(client, "pipe");
+            padding = new byte[pipe.OutBufferSize];
+            await pipe.WriteAsync(padding, deadline.Token);
+            writer = PrivateField<SemaphoreSlim>(client, "writeLock");
+            Assert.Equal(1, writer.CurrentCount, "shutdown writer is available");
+        }
+        var stop = fixture.Supervisor.StopAsync(cancellation.Token);
+        if (writer is not null) Assert.Equal(0, writer.CurrentCount, "shutdown owns the writer while its own frame is blocked");
+        if (!blockSend)
+        {
+            using var shutdown = await ReadFrameAsync(server, deadline.Token);
+            Assert.Equal(IpcClientMessage.IpcShutdownKind, shutdown.RootElement.GetProperty("kind").GetString(), "typed shutdown request");
+        }
+        Assert.False(stop.IsCompleted, "shutdown is stalled before cancellation or its IPC deadline");
+        if (cancel) cancellation.Cancel();
+        // Do not read from the pipe or let the process exit to release shutdown messaging.
+        while (!process.InputClosed || !fixture.Clock.HasPendingDelay(TimeSpan.FromSeconds(15)))
+        {
+            if (stop.IsCompleted) await stop; // Surface premature cancellation or failure.
+            await Task.Delay(5, deadline.Token);
+        }
+        Assert.False(stop.IsCompleted, "owned-process cleanup remains active after messaging ends");
+        if (cancel) fixture.Clock.CompleteDelay(TimeSpan.FromSeconds(15));
+        else process.Exit(0);
+        if (cancel) await ExpectCancellationAsync(stop, cancellation.Token);
+        else await stop.WaitAsync(deadline.Token);
         Assert.True(process.InputClosed, "IPC timeout must still close the stdin lifetime pipe");
         Assert.True(process.Disposed, "IPC timeout must still dispose the owned process");
         Assert.Equal(EngineSupervisionState.Stopped, fixture.Supervisor.Snapshot.State, "IPC timeout cleanup reaches stopped");
-        Assert.False(fixture.Group.Terminated, "stdin fallback allows a clean process exit");
+        Assert.Equal(cancel, fixture.Group.Terminated, "process deadline forces only the stalled process");
+        Assert.Equal(cancel, fixture.Supervisor.Snapshot.LastExit?.Forced, "forced exit metadata");
+        Assert.Equal(true, fixture.Supervisor.Snapshot.LastExit?.Intentional, "shutdown exit is intentional");
+        Assert.Equal(1, fixture.Launcher.LaunchCount, "intentional stop never restarts");
+        if (padding is not null)
+        {
+            await server.ReadExactlyAsync(padding, deadline.Token);
+            Assert.Equal(0, await server.ReadAsync(new byte[1], deadline.Token), "shutdown's own frame never passed the full pipe before transport closure");
+        }
+        else Assert.Equal(0, await server.ReadAsync(new byte[1], deadline.Token), "reply timeout or cancellation closes transport");
         await fixture.Supervisor.DisposeAsync();
     }
 
-    private static async Task StallShutdownAsync(NamedPipeServerStream server, CancellationToken token)
-    {
-        await server.WaitForConnectionAsync(token);
-        await HandshakeAsync(server, token);
-        using var shutdown = await ReadFrameAsync(server, token);
-        Assert.Equal(IpcClientMessage.IpcShutdownKind, shutdown.RootElement.GetProperty("kind").GetString(), "typed shutdown request");
-        Assert.Equal(0, await server.ReadAsync(new byte[1], token), "IPC shutdown deadline disposes the stalled transport");
-    }
+    private static T PrivateField<T>(object owner, string name) =>
+        (T)owner.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(owner)!;
 
     public static async Task CancelledWritePreservesTheNextFrame()
     {
