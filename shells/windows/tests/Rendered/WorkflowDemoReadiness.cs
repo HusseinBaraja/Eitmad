@@ -52,15 +52,25 @@ public sealed partial class WorkflowEnvironmentTests
 
     private static async Task<object> VerifyFamilyPurchase(IEngineShellBridge bridge, CatalogEntry[] catalog, bool manager)
     {
-        var quotations = (await ReadServerConfirmed(bridge, Query.ForQuotationList(new() { Limit = 100 }),
-            result => result.AsQuotations()!.ServerAvailable)).Outcome.Payload.AsQuotations()!.Items;
-        var orders = (await ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }),
-            result => result.AsOrders()!.ServerAvailable)).Outcome.Payload.AsOrders()!.Items;
-        var order = orders.Single();
-        var quotation = quotations.Single(value => value.Quotation.Id == order.Source.Quotation.Id);
+        var quotations = new List<QuotationRecord>();
+        Guid? after = null;
+        do
+        {
+            var page = (await ReadServerConfirmed(bridge, Query.ForQuotationList(new() { After = after, Limit = 100 }),
+                result => result.AsQuotations()!.ServerAvailable)).Outcome.Payload.AsQuotations()!;
+            quotations.AddRange(page.Items);
+            after = page.Next;
+        } while (after is not null);
+        var orders = new List<OrderRecord>();
+        do
+        {
+            var page = (await ReadServerConfirmed(bridge, Query.ForOrderList(new() { After = after, Limit = 100 }),
+                result => result.AsOrders()!.ServerAvailable)).Outcome.Payload.AsOrders()!;
+            orders.AddRange(page.Items);
+            after = page.Next;
+        } while (after is not null);
+        var (quotation, order) = SelectPreparedFamilyPurchase(quotations, orders);
         Assert.AreEqual(QuotationState.Converted, quotation.State);
-        Assert.AreEqual(OrderState.Ready, order.State, "Keep one order ready for the delivery scene.");
-        Assert.IsNull(order.Delivery);
         Assert.AreEqual(quotation.Quotation.Id, order.Source.Quotation.Id);
         var evaluation = quotation.Quotation.Evaluation;
         Assert.AreEqual("أسرة سامر السعدي", evaluation.Customer.Name);
@@ -114,9 +124,27 @@ public sealed partial class WorkflowEnvironmentTests
             Assert.IsTrue(furniture.Parts.Length > 0);
         }
         else CollectionAssert.Contains(order.PermittedActions, OrderPermittedAction.Deliver);
-        return new { customer = evaluation.Customer.Name, quotation = quotation.Number, order = order.Number,
+        return new { customer = evaluation.Customer.Name, quotation = quotation.Number, quotation_id = quotation.Quotation.Id,
+            order = order.Number, order_id = order.Id,
             work_order = order.Work[0].Number, total_yer = evaluation.Totals.TotalYer,
             catalog = purchasedCatalog.Select(item => new { item.Name, item.VariantName, item.Description,
                 price_yer = item.Price.SellingPriceYer, item.Dimensions, image_sha256 = item.Image.Sha256 }) };
+    }
+
+    private static (QuotationRecord Quotation, OrderRecord Order) SelectPreparedFamilyPurchase(
+        IEnumerable<QuotationRecord> quotations, IEnumerable<OrderRecord> orders)
+    {
+        // The retained demo runbook identifies this original issued story. Never choose by
+        // customer, amount, Ready state, or list position: practice can repeat all of them.
+        var prepared = quotations.Where(value => value.Number == "QT-2026-00001").ToArray();
+        Assert.AreEqual(1, prepared.Length, "Expected exactly one prepared family quotation QT-2026-00001; it is missing or ambiguous.");
+        var quotation = prepared[0];
+        var linked = orders.Where(value => value.Source.Quotation.Id == quotation.Quotation.Id).ToArray();
+        Assert.AreEqual(1, linked.Length, "Expected exactly one order sourced from the prepared family quotation; it is missing or ambiguous.");
+        var order = linked[0];
+        Assert.AreEqual(quotation.Number, order.Source.Number, "The prepared order source number must match its quotation identity.");
+        Assert.AreEqual(OrderState.Ready, order.State, "The original prepared family order must remain Ready; practice orders cannot replace it.");
+        Assert.IsNull(order.Delivery, "The original prepared family order must have no delivery.");
+        return (quotation, order);
     }
 }

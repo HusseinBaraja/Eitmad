@@ -4,6 +4,8 @@ param(
     [ValidateSet('Prepare', 'Start', 'Stop', 'Status')][string]$Action = 'Start',
     [string]$StateDirectory,
     [string]$PostgresBin,
+    [string]$DotNetOutputDirectory,
+    [string]$EnginePath,
     [ValidateRange(1024, 65535)][int]$DatabasePort = 55439,
     [ValidateRange(1024, 65535)][int]$ServerPort = 58443,
     [switch]$SkipBuild,
@@ -15,6 +17,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path $PSScriptRoot -Parent
+$dotNetBuildOptions = if ($DotNetOutputDirectory) {
+    $DotNetOutputDirectory = [IO.Path]::GetFullPath($DotNetOutputDirectory)
+    @("-p:BaseOutputPath=$DotNetOutputDirectory/")
+} else { @() }
 if ($Action -eq 'Prepare' -and $SkipBuild) { throw 'Prepare cannot skip builds.' }
 if ($VerifySignIn -and $VerifyDemo) { throw 'Select VerifySignIn or VerifyDemo, not both.' }
 if ($PrepareCustomization -and ($Action -ne 'Start' -or -not $VerifyDemo)) {
@@ -189,20 +195,26 @@ try {
     if (-not $SkipBuild) {
         Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server', '-p', 'eitmad-engine-cli')
         Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server-connection', '--example', 'workflow_environment')
-        Run-Tool 'dotnet' @('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo')
+        Run-Tool 'dotnet' (@('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo') + $dotNetBuildOptions)
         Run-Tool 'dotnet' @('build', 'tools/dev-certificate/Eitmad.DevCertificate.csproj', '--configuration', 'Release', '--nologo')
         if ($Action -eq 'Prepare' -or $VerifyDemo -or $VerifySignIn) {
-            Run-Tool 'dotnet' @('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1')
+            Run-Tool 'dotnet' (@('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1') + $dotNetBuildOptions)
         }
     }
     $metadata = & rustup run 1.85.1 cargo metadata --offline --format-version 1 --no-deps | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw 'Cargo metadata failed.' }
     $server = Join-Path $metadata.target_directory 'debug/eitmad-server.exe'
-    $engine = Join-Path $metadata.target_directory 'debug/eitmad-engine-cli.exe'
+    $engine = if ($EnginePath) { [IO.Path]::GetFullPath($EnginePath) } else {
+        Join-Path $metadata.target_directory 'debug/eitmad-engine-cli.exe'
+    }
     $provision = Join-Path $metadata.target_directory 'debug/examples/workflow_environment.exe'
     $shell = Join-Path $workspace 'shells/windows/bin/Release/net8.0-windows/Eitmad.WindowsShell.exe'
     $certificateTool = Join-Path $workspace 'tools/dev-certificate/bin/Release/net8.0/Eitmad.DevCertificate.dll'
     $testAssembly = Join-Path $workspace 'shells/windows/tests/bin/Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'
+    if ($DotNetOutputDirectory) {
+        $shell = Join-Path $DotNetOutputDirectory 'Release/net8.0-windows/Eitmad.WindowsShell.exe'
+        $testAssembly = Join-Path $DotNetOutputDirectory 'Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'
+    }
     $outputs = @($server, $engine, $provision, $shell, $certificateTool)
     if ($Action -eq 'Prepare' -or $VerifyDemo -or $VerifySignIn) { $outputs += $testAssembly }
     foreach ($file in $outputs) { if (-not (Test-Path -LiteralPath $file)) { throw 'A build output is missing. Run Prepare before Start -SkipBuild.' } }

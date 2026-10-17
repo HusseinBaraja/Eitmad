@@ -45,13 +45,15 @@ pwsh -NoProfile -File .\run-demo.ps1 Prepare
 
 Prepare builds the Rust server, engine, provisioning example, WPF shell, certificate tool, and test assembly. It does not start services or claim demo readiness. Repeat Prepare after changing relevant source or dependencies. Keep the prepared checkout and its build outputs on the demo PC.
 
+If another retained desktop locks the normal shell outputs, build the current shell/test source with a separate MSBuild `BaseOutputPath`. Pass that same directory to `run-demo.ps1` with `-DotNetOutputDirectory`, and use `-EnginePath` for a separately built clean engine executable. The workflow tool accepts the same options. Start checks the selected prebuilt outputs and runs the normal readiness gate; these options do not bypass verification or stop another environment. The certificate tool and Rust server/provisioning outputs keep their normal paths.
+
 From stopped services, use one launch command:
 
 ```powershell
 pwsh -NoProfile -File .\run-demo.ps1
 ```
 
-Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads confirmed prices and photo assets, and compares the linked family quotation, order, printable documents, and Manager work-order specifications. It permits separate catalog samples and quotations. It requires the family order to remain Ready and permits Receptionist delivery. Normal Start adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery. After rehearsing delivery, readiness fails until another purchase is prepared through normal authorized workflows; it never resets the delivered order.
+Start uses prebuilt outputs without a package restore or build. It starts the retained PostgreSQL cluster and local TLS server, provisions through Rust, and runs `DemoRolesCanReadFamilyPurchase` through the real supervised engine and authenticated routes. The check signs in as both roles, reads confirmed prices and photo assets, and compares the linked family quotation, order, printable documents, and Manager work-order specifications. The prepared story is the unique quotation `QT-2026-00001` and the unique order whose source quotation ID matches it. The check reads every quotation and order page through each role before selecting that story. Separate catalog samples, quotations, and practice orders, including Delivered orders, are permitted. The original order must remain Ready with no delivery, two matching catalog lines, zero discount, and a 280,000 YER total. Current photos, printable documents, Completed work specifications, and Receptionist delivery authority must still pass. A missing or ambiguous story, wrong state, denied query, or unavailable service fails readiness. Normal Start adds no customers, quotations, or orders. Restart preserves accepted work; it does not reseed or undo delivery.
 
 Wait for `DEMO READY` and exit code zero. The launcher requires every selected test to pass; a skipped or missing test cannot pass readiness. The private `demo-ready.json` links the fresh TRX result and `demo-workflow-proof.json`. A new launch clears old readiness proof, and Stop removes the ready marker. These files record a completed check, not continuous health monitoring. Leave PostgreSQL, the server, and the opened app running before the meeting. Local services use loopback and need no store internet after preparation. Actual disconnected operation still needs a rehearsal on the demo PC.
 
@@ -114,13 +116,13 @@ Switch to Manager and open Orders → `OR-2026-00001` → **فتح تصنيع ا
 
 The separate sample **خزانة السكينة حسب المقاس**, quotation `QT-2026-00002`, is Issued: 1400 × 2100 × 600 mm, walnut, brass handle, quantity one, zero discount, **200,000 YER**. Its smaller variant costs 185,000 YER plus the 15,000 YER handle. The larger variant with brass costs 240,000 YER. Use the issued sample for inspection; keep Presentation unchanged. In Rehearsal, this unconverted sample can be used for acceptance, conversion, production, and delivery practice. Once converted or delivered, create a fresh quotation through the app and use its newly issued numbers. Restart does not undo those transitions.
 
-The strict demo gate requires one family order in Ready state. After creating another rehearsal order or delivering the family order, resume the retained rehearsal without that gate:
+After creating or delivering a separate practice order, stop and resume Rehearsal with the normal named launcher. Its readiness gate still checks the original prepared story:
 
 ```powershell
-pwsh -NoProfile -File .\tools\workflow-environment.ps1 Start -StateDirectory "$PWD\tests\engine-integration\artifacts\demo-family-rehearsal" -SkipBuild
+pwsh -NoProfile -File .\run-demo.ps1 Start -Environment Rehearsal
 ```
 
-Stop that environment first if its processes are still running. This command preserves all work and opens the app to prepare fresh records; it does not claim the original Ready-order gate passed. Continue to use `run-demo.ps1 Stop -Environment Rehearsal` and `Status -Environment Rehearsal` for its owned services.
+If the original prepared order itself was delivered, normal readiness must fail, even if another Ready purchase exists. Keep the retained records and inspect the specific failure; do not reset data, undo delivery, substitute another order, or treat a failed launch as ready. For the original story, use the recorded fallback below or retain a separate prepared environment whose intended story is still Ready. Stop the failed environment before another Start.
 
 For a fresh manufacturing order in separate verification or Rehearsal state, a Manager can use Orders → **بدء أمر العمل** → **إكمال أمر العمل** after server confirmation. The [Orders guide](../developer/subsystems/orders.md#native-workflow) explains refresh sequencing, cached reads, and exact retry after an uncertain reply. A connected button-handler test verifies this direct route with test-generated WPF renders; it does not establish a physical click-through. The existing Presentation family work order is already Completed and must remain Ready for the meeting.
 

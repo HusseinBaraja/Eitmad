@@ -4,6 +4,8 @@ param(
     [ValidateSet('Prepare', 'Start', 'Stop', 'Status')][string]$Action = 'Start',
     [ValidateSet('Presentation', 'Rehearsal')][string]$Environment = 'Presentation',
     [string]$PostgresBin,
+    [string]$DotNetOutputDirectory,
+    [string]$EnginePath,
     [switch]$NoDesktop,
     [switch]$PrepareCustomization
 )
@@ -22,6 +24,8 @@ $options = @{
     ServerPort = $(if ($rehearsal) { 58479 } else { 58463 })
 }
 if ($PostgresBin) { $options.PostgresBin = $PostgresBin }
+if ($DotNetOutputDirectory) { $options.DotNetOutputDirectory = $DotNetOutputDirectory }
+if ($EnginePath) { $options.EnginePath = $EnginePath }
 if ($NoDesktop -and $Action -ne 'Start') { throw 'NoDesktop is only valid for Start.' }
 if ($PrepareCustomization -and $Action -ne 'Start') { throw 'PrepareCustomization is only valid for Start.' }
 if ($Action -eq 'Start') {
