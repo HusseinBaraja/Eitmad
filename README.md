@@ -25,6 +25,40 @@ Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short 
 
 For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`; no development accounts are added. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for the current provisioning boundary and synthetic test records. The normal local installation has no server connection until one is configured, so server-confirmed sales actions remain unavailable there.
 
+### Start the local services
+
+After completing the [connected workflow setup](docs/operations/run-workflow-test-environment.md), use PowerShell 7.4 or later from the repository root to start PostgreSQL and the TLS server:
+
+```powershell
+.\run-services.ps1
+```
+
+Wait for `SERVICES READY`. The command builds the required service tools, starts the retained database and server, checks TLS readiness, and refreshes the installation's connection references. It leaves the app closed and preserves business records. It requires completed setup and does not add test records.
+
+Then open the normal app against the same installation:
+
+```powershell
+.\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
+```
+
+Both commands support `-SkipBuild` when the relevant source and dependencies are unchanged. For another retained setup, pass `-StateDirectory <setup-directory>` to `run-services.ps1` and use its `receptionist` child as the app's `-RuntimeDirectory`.
+
+On Windows, another local server can lock the shared build executable. If a build reports `Access is denied` for `eitmad-server.exe`, stop that server through the command that started it, then retry. Use `-SkipBuild` only if the existing outputs match the current source and dependencies.
+
+Inspect the services:
+
+```powershell
+.\run-services.ps1 Status
+```
+
+Exit the app through its tray menu, then stop the services:
+
+```powershell
+.\run-services.ps1 Stop
+```
+
+Stop retains stored work and does not close the app. Start refuses an already running setup; use Status before restarting. Keep the same `-StateDirectory` for Start, Status, and Stop. These commands control the retained local development setup; they do not install system services.
+
 ## Furniture editor flow
 
 The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.

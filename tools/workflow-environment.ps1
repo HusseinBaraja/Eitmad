@@ -11,6 +11,7 @@ param(
     [switch]$SkipBuild,
     [switch]$VerifySignIn,
     [switch]$NoDesktop,
+    [switch]$ServicesOnly,
     [switch]$PrepareCustomization
 )
 Set-StrictMode -Version Latest
@@ -21,6 +22,9 @@ $dotNetBuildOptions = if ($DotNetOutputDirectory) {
     @("-p:BaseOutputPath=$DotNetOutputDirectory/")
 } else { @() }
 if ($Action -eq 'Prepare' -and $SkipBuild) { throw 'Prepare cannot skip builds.' }
+if ($ServicesOnly -and ($Action -eq 'Prepare' -or $VerifySignIn -or $PrepareCustomization)) {
+    throw 'ServicesOnly supports Start, Stop, and Status without workflow preparation or verification.'
+}
 if ($PrepareCustomization -and $Action -ne 'Start') {
     throw 'PrepareCustomization requires Start.'
 }
@@ -52,6 +56,17 @@ if (Test-Path -LiteralPath $root) {
         throw 'Refusing an existing directory without the exact disposable Eitmad test marker. No reset is supported.'
     }
 } elseif ($Action -notin 'Start', 'Prepare') { throw 'This disposable environment does not exist.' }
+if ($ServicesOnly -and $Action -eq 'Start') {
+    foreach ($file in 'secrets.json', 'provision.json', 'postgres/PG_VERSION') {
+        if (-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)) {
+            throw 'Services require an existing provisioned installation. Complete the connected workflow setup first.'
+        }
+    }
+    $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
+    if ($journal.seeded -ne $true) {
+        throw 'Services require completed provisioning. No business records were seeded.'
+    }
+}
 
 function Run-Tool([string]$File, [string[]]$Arguments) {
     & $File @Arguments
@@ -85,7 +100,9 @@ function Record-Process($Process, [string]$Name, [string]$Executable) {
 $owned = @()
 if (Test-Path -LiteralPath $processFile) { $owned = @(Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json) }
 if ($Action -eq 'Status') {
-    foreach ($entry in $owned) { Write-Host "$($entry.name): $(if (Find-Owned $entry) { 'running' } else { 'stopped' })" }
+    foreach ($entry in $owned | Where-Object { -not $ServicesOnly -or $_.name -eq 'server' }) {
+        Write-Host "$($entry.name): $(if (Find-Owned $entry) { 'running' } else { 'stopped' })"
+    }
     if (Test-Path -LiteralPath $secretsFile) {
         $settings = Get-Content -LiteralPath $secretsFile -Raw | ConvertFrom-Json
         & (Join-Path $settings.postgres_bin 'pg_ctl.exe') -D (Join-Path $root 'postgres') status *> $null
@@ -106,7 +123,7 @@ public static class EitmadTestShutdown {
     public static extern bool PostThreadMessage(uint thread, uint message, UIntPtr wParam, IntPtr lParam);
 }
 '@
-    foreach ($entry in $owned | Where-Object name -ne 'server') {
+    foreach ($entry in $owned | Where-Object { $_.name -ne 'server' -and -not $ServicesOnly }) {
         $process = Find-Owned $entry
         if ($process) {
             foreach ($thread in $process.Threads) { [void][EitmadTestShutdown]::PostThreadMessage([uint32]$thread.Id, 0x0012, [UIntPtr]::Zero, [IntPtr]::Zero) }
@@ -124,7 +141,8 @@ public static class EitmadTestShutdown {
         & (Join-Path $settings.postgres_bin 'pg_ctl.exe') -D (Join-Path $root 'postgres') status *> $null
         if ($LASTEXITCODE -eq 0) { throw 'PostgreSQL did not stop.' }
     }
-    Write-Host 'Clients, server, and PostgreSQL stopped. Accepted work is retained.'
+    if ($ServicesOnly) { Write-Host 'Server and PostgreSQL stopped. Accepted work is retained.' }
+    else { Write-Host 'Clients, server, and PostgreSQL stopped. Accepted work is retained.' }
     return
 }
 if (@($owned | Where-Object { Find-Owned $_ }).Count) { throw 'This environment has running processes. Use Stop before Start.' }
@@ -190,9 +208,13 @@ try {
     $env:CARGO_TARGET_DIR = Join-Path $workspace 'target/toolchain-1.85.1'
     $env:CARGO_INCREMENTAL = '0'
     if (-not $SkipBuild) {
-        Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server', '-p', 'eitmad-engine-cli')
+        $packages = @('-p', 'eitmad-server')
+        if (-not $ServicesOnly) { $packages += @('-p', 'eitmad-engine-cli') }
+        Run-Tool 'rustup' (@('run', '1.85.1', 'cargo', 'build', '--locked') + $packages)
         Run-Tool 'rustup' @('run', '1.85.1', 'cargo', 'build', '--locked', '-p', 'eitmad-server-connection', '--example', 'workflow_environment')
-        Run-Tool 'dotnet' (@('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo') + $dotNetBuildOptions)
+        if (-not $ServicesOnly) {
+            Run-Tool 'dotnet' (@('build', 'shells/windows/Eitmad.WindowsShell.csproj', '--configuration', 'Release', '--nologo') + $dotNetBuildOptions)
+        }
         Run-Tool 'dotnet' @('build', 'tools/dev-certificate/Eitmad.DevCertificate.csproj', '--configuration', 'Release', '--nologo')
         if ($Action -eq 'Prepare' -or $VerifySignIn) {
             Run-Tool 'dotnet' (@('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1') + $dotNetBuildOptions)
@@ -212,7 +234,8 @@ try {
         $shell = Join-Path $DotNetOutputDirectory 'Release/net8.0-windows/Eitmad.WindowsShell.exe'
         $testAssembly = Join-Path $DotNetOutputDirectory 'Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'
     }
-    $outputs = @($server, $engine, $provision, $shell, $certificateTool)
+    $outputs = @($server, $provision, $certificateTool)
+    if (-not $ServicesOnly) { $outputs += @($engine, $shell) }
     if ($Action -eq 'Prepare' -or $VerifySignIn) { $outputs += $testAssembly }
     foreach ($file in $outputs) { if (-not (Test-Path -LiteralPath $file)) { throw 'A build output is missing. Run Prepare before Start -SkipBuild.' } }
     if ($Action -eq 'Prepare') {
@@ -237,6 +260,7 @@ try {
     $exists = & (Join-Path $PostgresBin 'psql.exe') @connection '-tAc' "SELECT 1 FROM pg_roles WHERE rolname='eitmad_workflow'"
     if ($LASTEXITCODE -ne 0) { throw 'Isolated database authentication failed.' }
     if ($exists -notcontains '1') {
+        if ($ServicesOnly) { throw 'The provisioned database role is missing. No role was created.' }
         $roleFile = Join-Path $root 'create-role.sql'
         [IO.File]::WriteAllText($roleFile, "CREATE ROLE eitmad_workflow LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '$($settings.database_password)';")
         try { Run-Tool (Join-Path $PostgresBin 'psql.exe') ($connection + @('-f', $roleFile)) }
@@ -244,7 +268,10 @@ try {
     }
     $exists = & (Join-Path $PostgresBin 'psql.exe') @connection '-tAc' "SELECT 1 FROM pg_database WHERE datname='eitmad_workflow_test'"
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect disposable database.' }
-    if ($exists -notcontains '1') { Run-Tool (Join-Path $PostgresBin 'createdb.exe') @('-h', '127.0.0.1', '-p', "$DatabasePort", '-U', 'postgres', '-O', 'eitmad_workflow', 'eitmad_workflow_test') }
+    if ($exists -notcontains '1') {
+        if ($ServicesOnly) { throw 'The provisioned database is missing. No database was created.' }
+        Run-Tool (Join-Path $PostgresBin 'createdb.exe') @('-h', '127.0.0.1', '-p', "$DatabasePort", '-U', 'postgres', '-O', 'eitmad_workflow', 'eitmad_workflow_test')
+    }
     $env:EITMAD_SERVER_DATABASE_URL = $settings.database_url
     $env:EITMAD_SERVER_TOKEN_KEY = $settings.token_key
     $env:EITMAD_SERVER_LISTEN = "127.0.0.1:$ServerPort"
@@ -289,6 +316,11 @@ try {
     $env:EITMAD_E2E_ROOT = $root
     $provisionArguments = if ($PrepareCustomization) { @('--prepare-customization') } else { @() }
     Run-Tool $provision $provisionArguments
+    if ($ServicesOnly) {
+        Write-Host 'SERVICES READY: PostgreSQL and the TLS server are running. Connection references are refreshed; business records are retained.'
+        Write-Host "Open the app separately: .\run.ps1 -RuntimeDirectory `"$(Join-Path $root 'receptionist')`""
+        return
+    }
     $journal = Get-Content -LiteralPath (Join-Path $root 'provision.json') -Raw | ConvertFrom-Json
     $env:EITMAD_QUOTATION_ORGANIZATION_ID = $journal.organization
     $env:EITMAD_QUOTATION_BRANCH_ID = $journal.branch

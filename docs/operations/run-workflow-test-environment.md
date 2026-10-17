@@ -33,6 +33,12 @@ Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, th
 
 The setup tool is an integration-test harness. It starts the ordinary application with an isolated installation. It does not select an application mode or require any saved order to remain in a particular state. Keep existing state directories and evidence; no rename or reset is required.
 
+After initial setup, use `run-services.ps1` from PowerShell 7.4 or later to start only PostgreSQL and the TLS server. It accepts `Start` (default), `Status`, `Stop`, `-StateDirectory`, and `-SkipBuild` for unchanged Start outputs. The default state directory is the same `workflow-e2e` setup used below. The repository README lists the paired service and app commands.
+
+The service command reuses this tool with `-ServicesOnly`. Start requires the retained settings, completed provisioning journal, and PostgreSQL cluster. It builds only the server, Rust connection provisioning example, and certificate tool. It checks TLS readiness and refreshes existing account connection references through Rust. It does not seed business records, build or open WPF, or run workflow tests. Missing provisioning, a missing database, or an already running owned process fails without resetting state. Stop ends only the owned server and PostgreSQL; exit the app first. Existing databases and desktop state remain in place.
+
+Build outputs are shared across local setups. On Windows, a running server from another setup can block replacement of `eitmad-server.exe` with `Access is denied`. Stop that setup through its owning command before rebuilding. Do not stop unrelated processes by executable name. `-SkipBuild` is suitable only when source and dependencies are unchanged.
+
 Use `Prepare` to build without starting services. `Start -NoDesktop` starts the connected test services and provisions the retained installation without opening a desktop. `-PrepareCustomization` adds the optional customization fixture through Rust authority; it requires an already seeded catalog. These actions belong to test setup, not application startup.
 
 After setup, the engine installation contains Rust-owned `connection.json` references for the HTTPS endpoint, CA trust anchor, organization, branch, and credential route. Tokens and signing keys remain in Windows Credential Manager. Reopening this installation does not require inherited service environment variables. The local server and PostgreSQL must still be running.
