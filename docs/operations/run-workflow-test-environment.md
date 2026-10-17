@@ -137,7 +137,7 @@ Choose a new, unused directory below `tests/engine-integration/artifacts` and di
 pwsh -File .\tools\workflow-environment.ps1 Start -StateDirectory "$PWD\tests\engine-integration\artifacts\workflow-second" -PostgresBin 'C:\Program Files\PostgreSQL\17\bin' -DatabasePort 55440 -ServerPort 58444 -VerifySignIn
 ```
 
-Supply the same `-StateDirectory` to `Stop`, `Status`, and subsequent `Start` commands. Existing directories without the exact disposable marker and paths outside the test-artifact root are refused. Reparse points in the state path are refused. There is no reset, drop, truncate, restore, or recursive-delete action.
+Supply the same `-StateDirectory` to `Stop`, `Status`, and subsequent `Start` commands. Relative `-StateDirectory` and `run.ps1 -RuntimeDirectory` paths resolve from the current PowerShell folder. Existing directories without the exact disposable marker and paths outside the test-artifact root are refused. Reparse points in the state path are refused. There is no reset, drop, truncate, restore, or recursive-delete action.
 
 ## Recover a failed launch
 

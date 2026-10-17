@@ -21,7 +21,7 @@ if ($DiagnosticActivation) {
 if ($ServicesOnly -and $VerifySignIn) { throw 'ServicesOnly cannot verify desktop sign-in.' }
 $allowed = [IO.Path]::GetFullPath((Join-Path $workspace 'tests/engine-integration/artifacts'))
 if (-not $StateDirectory) { $StateDirectory = Join-Path $allowed 'workflow-e2e' }
-$root = [IO.Path]::GetFullPath($StateDirectory)
+$root = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($StateDirectory)
 if (-not $root.StartsWith($allowed + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Test state must be a named child of tests/engine-integration/artifacts. No state was changed.'
 }

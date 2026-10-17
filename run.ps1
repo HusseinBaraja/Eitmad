@@ -14,7 +14,7 @@ $previousTarget = $env:CARGO_TARGET_DIR
 $previousIncremental = $env:CARGO_INCREMENTAL
 
 if ($RuntimeDirectory) {
-    $RuntimeDirectory = [IO.Path]::GetFullPath($RuntimeDirectory)
+    $RuntimeDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($RuntimeDirectory)
     if (-not (Test-Path -LiteralPath (Join-Path $RuntimeDirectory 'eitmad.sqlite3') -PathType Leaf)) {
         throw 'RuntimeDirectory must contain an existing engine installation. No data was changed.'
     }
