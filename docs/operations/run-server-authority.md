@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -92,7 +92,7 @@ Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` an
 
 Success returns HTTP 200 after commit. Invalid input returns 400, denied scope or authority returns 403, and a stale revision, changed retry intent, or protected Owner returns 409. Invalid, revoked, or expired credentials return 401; unavailable authority returns 503. After a lost response, retry the identical request and key with a fresh device proof. Do not change the payload under the old key. After a conflict, read current state and submit a new intent with a new key. Exact retries preserve their original receipt, including terminal business errors. A revoked caller must first authenticate again.
 
-An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop account import and offline password/session synchronization remain separate work.
+An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. Offline sign-in retains its local verifier and does not synchronize account administration.
 
 ### Verify account administration
 
@@ -103,6 +103,36 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts server_ac
 ```
 
 This scenario uses the real handlers and PostgreSQL RLS. It verifies role separation, tenant isolation, stale revisions, concurrent exact retries, activation recovery, branch and role replacement, audit rollback, deactivation, pagination, and token/session revocation. It does not verify native rendering or TLS; the separate direct desktop connection scenario covers TLS.
+
+## Enroll or recover a Windows desktop
+
+Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
+
+1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
+2. Enter the server account name and password. Keep **العمل دون اتصال** unchecked.
+3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
+4. Select **دخول**. Rust validates server trust, registers this installation's device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
+5. Close and reopen the application under the same Windows user and runtime directory. Leave the setup section closed and sign in. Rust uses the retained connection references and renews server access with password login.
+
+For expired or missing account credentials, use the same normal online sign-in. The installation key is separate from account tokens. The flow preserves local records, pending changes, and device identity. After a failed or interrupted attempt, correct the input and retry; the password box is cleared, while connection inputs remain available. An initial settings commit can require one supervised engine restart. Cancellation or process interruption does not require deleting or recreating the database.
+
+| Symptom | Safe action |
+| --- | --- |
+| Trust or connection rejection | Verify the endpoint, hostname, CA file, and server availability with the administrator. Do not bypass certificate validation. |
+| Account or scope rejection | Verify the tenant code, credentials, active account status, organization, branch, and explicit operational role. Existing installation scope is not replaced. |
+| Existing settings have no tenant code | Expand setup once and supply the original connection, trust, organization, and branch plus the tenant code. |
+| Server is unavailable | Use **العمل دون اتصال** only with an already imported account and its retained verifier. Retry online sign-in when the server returns. |
+| Both device key and account credentials are lost | Preserve the runtime and contact the operator. Automatic replacement of the registered signing identity is not supported. |
+
+A new PC must enroll independently. Never clone another PC's runtime directory or copy token material between PCs. The [desktop enrollment authority](../developer/subsystems/server-authority.md#retained-desktop-connection) defines persistence and failure boundaries. The workflow environment remains a synthetic provisioning harness; it is not required for desktop enrollment.
+
+### Verify desktop enrollment
+
+Build the current engine and Windows test project. Prepare a fresh disposable PostgreSQL database and TLS certificates as described under [direct desktop connection testing](#run-the-direct-desktop-connection-test). Set `EITMAD_DESKTOP_ENROLLMENT_ENGINE` to the absolute path of that engine executable to include the Windows controller and named-pipe path, then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route desktop_enrollment_recovers_interruption_expiry_and_credential_loss -- --ignored
+```
 
 ## Start and verify
 

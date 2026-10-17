@@ -166,6 +166,34 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
     }
 
+    public async Task<bool> AuthenticateServerAsync(
+        string username, string password, DesktopEnrollmentSettings? connection,
+        CancellationToken cancellationToken = default)
+    {
+        await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ClearSessionActivity();
+            var requestId = Guid.NewGuid();
+            var response = await SendFrameAsync(IpcClientMessage.IpcDesktopSignInKind,
+                new DesktopSignInRequest { RequestId = requestId, CorrelationId = Guid.NewGuid(), Username = username,
+                    Password = password, ServerLogin = true, Connection = connection! },
+                requestId, DefaultRequestTimeout, cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
+            var result = response.AsIpcDesktopSessionResponse()
+                ?? throw ProtocolViolation("The engine returned an invalid server authentication response.");
+            ClearConfirmedSubscriptions();
+            Authorization = processAuthorization;
+            customerAuthorization = null;
+            accountRole = null;
+            if (result.Error is not null || result.Status is not (DesktopSessionStatus.Configured or DesktopSessionStatus.SignedOut))
+                throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
+                    "The engine rejected server authentication.", result.Error);
+            return result.Status == DesktopSessionStatus.Configured;
+        }
+        finally { sessionChangeLock.Release(); }
+    }
+
     public async Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default)
     {
         var result = await SendDesktopSessionRequestAsync(IpcClientMessage.IpcDesktopSessionStateKind, cancellationToken)

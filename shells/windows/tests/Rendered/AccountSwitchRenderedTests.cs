@@ -259,6 +259,7 @@ public sealed class AccountSwitchRenderedTests
 
     private sealed class SwitchSessions : IDesktopSessionController
     {
+        public Task<AuthenticatedSurface> ServerSignInAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default) => SignInAsync(username, password, cancellationToken);
         public event EventHandler<SessionEndedEventArgs>? SessionEnded;
         public int SignOutCount { get; private set; }
         public int StopCount { get; private set; }

@@ -41,6 +41,8 @@ Then open the normal app against the same installation:
 .\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
 ```
 
+For a new PC, start `run.ps1` with its own installation directory and use [desktop enrollment](docs/operations/run-server-authority.md#enroll-or-recover-a-windows-desktop). The launcher accepts a fresh directory and does not seed local accounts. Never copy another PC's runtime directory.
+
 Both commands support `-SkipBuild` when the relevant source and dependencies are unchanged. For another retained setup, pass `-StateDirectory <setup-directory>` to `run-services.ps1` and use its `receptionist` child as the app's `-RuntimeDirectory`.
 
 On Windows, another local server can lock the shared build executable. If a build reports `Access is denied` for `eitmad-server.exe`, stop that server through the command that started it, then retry. Use `-SkipBuild` only if the existing outputs match the current source and dependencies.

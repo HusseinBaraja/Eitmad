@@ -1191,6 +1191,7 @@ dependencies = [
  "eitmad-sync",
  "eitmad-sync-plane",
  "image",
+ "rand 0.9.3",
  "rusqlite",
  "rustls",
  "semver",

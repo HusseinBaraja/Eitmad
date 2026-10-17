@@ -148,6 +148,36 @@
                         </Border>
                     </controls:FormField>
 
+                    <CheckBox x:Name="OfflineSignIn" Content="العمل دون اتصال" Margin="0,12,0,0"
+                              automation:AutomationProperties.Name="العمل دون اتصال بالحساب المحفوظ" />
+                    <Expander x:Name="ConnectionSetup" Header="ربط هذا الجهاز بالمنشأة" Margin="0,12,0,0"
+                              automation:AutomationProperties.Name="إعداد اتصال المنشأة">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="أدخل الإعدادات التي حصلت عليها من مسؤول المنشأة. اتركها مغلقة لاستخدام الاتصال المحفوظ."
+                                       TextWrapping="Wrap" Margin="0,0,0,12" />
+                            <controls:FormField Label="عنوان الخادم">
+                                <TextBox x:Name="ServerEndpoint" Style="{StaticResource TextInput}" FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="عنوان الخادم" />
+                            </controls:FormField>
+                            <controls:FormField Label="ملف شهادة الثقة" Margin="0,8,0,0">
+                                <TextBox x:Name="TrustCertificate" Style="{StaticResource TextInput}" FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="مسار ملف شهادة الثقة" />
+                            </controls:FormField>
+                            <controls:FormField Label="رمز المنشأة" Margin="0,8,0,0">
+                                <TextBox x:Name="TenantCode" Style="{StaticResource TextInput}" FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="رمز المنشأة" />
+                            </controls:FormField>
+                            <controls:FormField Label="معرّف المنشأة" Margin="0,8,0,0">
+                                <TextBox x:Name="OrganizationId" Style="{StaticResource TextInput}" FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="معرّف المنشأة" />
+                            </controls:FormField>
+                            <controls:FormField Label="معرّف الفرع" Margin="0,8,0,0">
+                                <TextBox x:Name="BranchId" Style="{StaticResource TextInput}" FlowDirection="LeftToRight"
+                                         automation:AutomationProperties.Name="معرّف الفرع" />
+                            </controls:FormField>
+                        </StackPanel>
+                    </Expander>
+
                     <TextBlock x:Name="SignInError"
                                TextWrapping="Wrap"
                                Text="بيانات الدخول غير صحيحة."

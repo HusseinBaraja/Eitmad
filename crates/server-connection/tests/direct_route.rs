@@ -72,6 +72,8 @@ use uuid::Uuid;
 mod catalog_sync;
 #[path = "direct_route/credentials.rs"]
 mod credentials;
+#[path = "direct_route/desktop_enrollment.rs"]
+mod desktop_enrollment;
 #[path = "direct_route/projection_audit.rs"]
 mod projection_audit;
 use credentials::{TestCredentials, store_account_session, store_session};

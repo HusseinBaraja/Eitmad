@@ -416,6 +416,9 @@ impl LocalIpcServer {
                 }
                 IpcServerMessage::Handshake(response)
             }
+            IpcClientMessage::DesktopSignIn(request) if request.server_login => {
+                self.server_sign_in(session, request).await
+            }
             IpcClientMessage::DesktopSignIn(request) => self.sign_in(session, &request),
             IpcClientMessage::DesktopSessionState(request) => self.session_state(session, &request),
             IpcClientMessage::DesktopSignOut(request) => self.sign_out(session, &request),
@@ -480,6 +483,51 @@ impl LocalIpcServer {
             _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
         };
         desktop_session_response(request.request_id, request.correlation_id, outcome)
+    }
+
+    async fn server_sign_in(
+        &self,
+        session: &mut Option<Session>,
+        mut request: DesktopSignInRequest,
+    ) -> IpcServerMessage {
+        let request_id = request.request_id;
+        let correlation_id = request.correlation_id;
+        let Some(auth) = self.desktop_auth.clone().filter(|_| session.is_some()) else {
+            return desktop_session_response(
+                request_id,
+                correlation_id,
+                DesktopSessionOutcome::Failed(session_invalid(correlation_id)),
+            );
+        };
+        if let Some(previous) = session.as_mut().and_then(|s| s.user_authorization.take()) {
+            let _ = auth.sign_out(&previous, correlation_id, now());
+        }
+        let result = tokio::task::spawn_blocking(move || {
+            let result = auth.server_sign_in(&request);
+            // Password input remains transient even when online authentication fails.
+            request.password.clear();
+            result
+        })
+        .await
+        .unwrap_or(Err(DesktopAuthenticationError::Unavailable));
+        match result {
+            Ok(restart) => IpcServerMessage::DesktopSession(DesktopSessionResponse {
+                request_id,
+                correlation_id,
+                status: if restart {
+                    DesktopSessionStatus::Configured
+                } else {
+                    DesktopSessionStatus::SignedOut
+                },
+                state: None,
+                error: None,
+            }),
+            Err(error) => desktop_session_response(
+                request_id,
+                correlation_id,
+                DesktopSessionOutcome::Failed(desktop_auth_error(error, correlation_id)),
+            ),
+        }
     }
 
     fn session_state(
@@ -2025,6 +2073,8 @@ mod tests {
         let response = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "استقبال".into(),
@@ -2393,6 +2443,8 @@ mod tests {
         }) = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "مدير".into(),
@@ -2465,6 +2517,8 @@ mod tests {
         ));
         let sign_in = || {
             IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                server_login: false,
+                connection: None,
                 request_id: RequestId::new(uuid::Uuid::new_v4()),
                 correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                 username: "استقبال".into(),
@@ -2514,6 +2568,8 @@ mod tests {
         let sign_in = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(eitmad_contracts::ipc::DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "استقبال".to_owned(),

@@ -193,6 +193,7 @@ pub fn router(state: ServerState) -> Router {
         .route("/readyz", get(ready))
         .route("/v1/auth/activate", post(activate))
         .route("/v1/auth/login", post(login))
+        .route("/v1/auth/desktop-profile", post(desktop_profile))
         .route("/v1/auth/refresh", post(refresh))
         .route("/v1/accounts/list", post(list_accounts))
         .route("/v1/accounts/transition", post(change_account))
@@ -352,6 +353,21 @@ async fn list_accounts(
         .control
         .identity
         .list_accounts(&actor, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+async fn desktop_profile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<RegisterBranchRequest>,
+) -> Result<Json<eitmad_contracts::server::DesktopEnrollmentProfile>, ApiError> {
+    let actor = authenticate_headers(&state, &headers).await?;
+    state
+        .control
+        .identity
+        .desktop_profile(&actor, &request)
         .await
         .map(Json)
         .map_err(map_account)

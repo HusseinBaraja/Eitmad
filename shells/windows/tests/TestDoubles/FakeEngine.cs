@@ -68,6 +68,9 @@ internal sealed class FakeEngine : IEngineShellBridge
     }
     public int SignOutCount { get; private set; }
     public int SignInCount { get; private set; }
+    public Func<CancellationToken, Task<bool>>? ServerAuthentication { get; set; }
+    public Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default) =>
+        ServerAuthentication?.Invoke(cancellationToken) ?? Task.FromResult(false);
     public bool RequireReadyForSignIn { get; set; }
     public Func<CancellationToken, Task>? SignOutBarrier { get; set; }
     public Action? Stopped { get; set; }

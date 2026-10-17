@@ -2927,6 +2927,9 @@ namespace Eitmad.Contracts
     /// </summary>
     public partial class DesktopSignInRequest
     {
+        [JsonPropertyName("connection")]
+        public DesktopEnrollmentSettings Connection { get; set; }
+
         [JsonPropertyName("correlationId")]
         public Guid CorrelationId { get; set; }
 
@@ -2936,8 +2939,33 @@ namespace Eitmad.Contracts
         [JsonPropertyName("requestId")]
         public Guid RequestId { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("serverLogin")]
+        public bool? ServerLogin { get; set; }
+
         [JsonPropertyName("username")]
         public string Username { get; set; }
+    }
+
+    /// <summary>
+    /// Non-secret operator inputs. Rust validates trust and the server-assigned scope.
+    /// </summary>
+    public partial class DesktopEnrollmentSettings
+    {
+        [JsonPropertyName("branch")]
+        public Guid Branch { get; set; }
+
+        [JsonPropertyName("endpoint")]
+        public string Endpoint { get; set; }
+
+        [JsonPropertyName("organization")]
+        public Guid Organization { get; set; }
+
+        [JsonPropertyName("tenantCode")]
+        public string TenantCode { get; set; }
+
+        [JsonPropertyName("trustedCertificate")]
+        public string TrustedCertificate { get; set; }
     }
 
     public partial class HandshakeRequest
@@ -4596,7 +4624,7 @@ namespace Eitmad.Contracts
 
     public enum CommandOutcomeStatus { Failed, Succeeded };
 
-    public enum DesktopSessionStatus { Active, Failed, SignedOut };
+    public enum DesktopSessionStatus { Active, Configured, Failed, SignedOut };
 
     public enum PayloadKind { AuthenticationFailed, AuthenticationRequired, Negotiation };
 
@@ -6373,6 +6401,8 @@ namespace Eitmad.Contracts
             {
                 case "active":
                     return DesktopSessionStatus.Active;
+                case "configured":
+                    return DesktopSessionStatus.Configured;
                 case "failed":
                     return DesktopSessionStatus.Failed;
                 case "signedOut":
@@ -6387,6 +6417,9 @@ namespace Eitmad.Contracts
             {
                 case DesktopSessionStatus.Active:
                     JsonSerializer.Serialize(writer, "active", options);
+                    return;
+                case DesktopSessionStatus.Configured:
+                    JsonSerializer.Serialize(writer, "configured", options);
                     return;
                 case DesktopSessionStatus.Failed:
                     JsonSerializer.Serialize(writer, "failed", options);

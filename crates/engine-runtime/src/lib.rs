@@ -15,7 +15,9 @@ pub use accounts::{DesktopAccountError, DesktopAccountService};
 pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };
-pub use desktop_auth::{DesktopAuthenticationError, DesktopAuthenticator};
+pub use desktop_auth::{
+    DesktopAuthenticationError, DesktopAuthenticator, DesktopServerAuthentication,
+};
 pub use dispatcher::ProductDispatcher;
 pub use recovery::{ManualRecovery, RecoveryError};
 

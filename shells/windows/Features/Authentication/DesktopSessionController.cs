@@ -35,6 +35,7 @@ public interface IDesktopSessionController : IAsyncDisposable
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
     Task<AuthenticatedSurface> SignInAsync(string username, string password, CancellationToken cancellationToken = default);
+    Task<AuthenticatedSurface> ServerSignInAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
 
@@ -108,6 +109,31 @@ public sealed class DesktopSessionController : IDesktopSessionController
         {
             transition.Release();
         }
+    }
+
+    public async Task<AuthenticatedSurface> ServerSignInAsync(string username, string password,
+        DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default)
+    {
+        await transition.WaitAsync(cancellationToken);
+        try
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (recoveryFailure is not null) throw recoveryFailure;
+            DeactivateLocalState();
+            await AwaitEngineReadyAsync(cancellationToken);
+            if (await engine.AuthenticateServerAsync(username, password, connection, cancellationToken))
+            {
+                await StopAsync(cancellationToken);
+                await engine.StartAsync(cancellationToken);
+                await AwaitEngineReadyAsync(cancellationToken);
+            }
+            var session = await engine.SignInAsync(username, password, cancellationToken);
+            var surface = ResolveSurface(session.AccountRole);
+            active = true;
+            ScheduleExpiry(session.ExpiresAt);
+            return surface;
+        }
+        finally { transition.Release(); }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)

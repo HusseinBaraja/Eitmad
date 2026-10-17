@@ -593,6 +593,7 @@ fn persist_connection(
         credential,
         organization: journal.organization,
         branch: journal.branch,
+        tenant_code: Some(checked(TenantCode::parse("workflow-e2e"), "tenant code")?),
     };
     let bytes = checked(
         serde_json::to_vec(&connection),

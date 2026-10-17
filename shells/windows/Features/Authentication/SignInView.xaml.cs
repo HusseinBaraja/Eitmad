@@ -20,6 +20,7 @@ public partial class SignInView : UserControl
     private CancellationTokenSource? signInCancellation;
 
     public Func<string, string, CancellationToken, Task<AuthenticatedSurface>>? AuthenticateAsync { get; set; }
+    public Func<string, string, Eitmad.Contracts.DesktopEnrollmentSettings?, CancellationToken, Task<AuthenticatedSurface>>? ServerAuthenticateAsync { get; set; }
 
     public event EventHandler<AuthenticatedSurface>? SignedIn;
 
@@ -60,7 +61,22 @@ public partial class SignInView : UserControl
         SetBusy(true);
         try
         {
-            var surface = await AuthenticateAsync(username, password, signInCancellation.Token);
+            Eitmad.Contracts.DesktopEnrollmentSettings? connection = null;
+            if (ConnectionSetup.IsExpanded && OfflineSignIn.IsChecked != true)
+            {
+                if (!Guid.TryParse(OrganizationId.Text, out var organization) || !Guid.TryParse(BranchId.Text, out var branch))
+                {
+                    ShowError("أدخل معرّف المنشأة ومعرّف الفرع كما استلمتهما من المسؤول.");
+                    return;
+                }
+                connection = new Eitmad.Contracts.DesktopEnrollmentSettings {
+                    Endpoint = ServerEndpoint.Text.Trim(), TrustedCertificate = TrustCertificate.Text.Trim(),
+                    TenantCode = TenantCode.Text.Trim(), Organization = organization, Branch = branch,
+                };
+            }
+            var surface = OfflineSignIn.IsChecked == true || ServerAuthenticateAsync is null
+                ? await AuthenticateAsync(username, password, signInCancellation.Token)
+                : await ServerAuthenticateAsync(username, password, connection, signInCancellation.Token);
             SignInError.Visibility = Visibility.Collapsed;
             SignedIn?.Invoke(this, surface);
             diagnostic.Finish();
@@ -74,7 +90,7 @@ public partial class SignInView : UserControl
         }
         catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.AuthenticationRejected)
         {
-            ShowError("بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.");
+            ShowError("تعذر التحقق من الحساب أو اتصال المنشأة. راجع كلمة المرور وإعدادات الخادم وشهادة الثقة ثم أعد المحاولة. تبقى بياناتك محفوظة.");
         }
         catch (EngineIpcException)
         {
@@ -114,6 +130,7 @@ public partial class SignInView : UserControl
     {
         SignInError.Text = message;
         SignInError.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(() => SignInButton.BringIntoView(), DispatcherPriority.Loaded);
     }
 
     private void SetBusy(bool busy)
@@ -121,6 +138,8 @@ public partial class SignInView : UserControl
         UsernameBox.IsEnabled = !busy;
         PasswordInput.IsEnabled = !busy;
         SignInButton.IsEnabled = !busy;
+        ConnectionSetup.IsEnabled = !busy;
+        OfflineSignIn.IsEnabled = !busy;
         SignInButton.Content = busy ? "جارٍ تسجيل الدخول…" : "دخول";
         SignInProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }

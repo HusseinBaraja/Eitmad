@@ -48,6 +48,49 @@ struct Attempt<'a> {
 }
 
 impl IdentityService {
+    /// Returns this active account's explicit desktop assignment, never another account's data.
+    /// # Errors
+    /// Denies foreign organizations, unknown branches, and absent or ambiguous desktop roles.
+    pub async fn desktop_profile(
+        &self,
+        actor: &AuthenticatedServerSession,
+        request: &eitmad_contracts::server::RegisterBranchRequest,
+    ) -> Result<eitmad_contracts::server::DesktopEnrollmentProfile, ServerAccountError> {
+        use eitmad_contracts::server_accounts::ServerAccountStatus;
+        let mut tx = crate::database::tenant_transaction(&self.pool, actor.tenant_id).await?;
+        let account = account_projection::read(&mut tx, actor.tenant_id, actor.account_id).await?;
+        if account.user_id != actor.user_id || account.status != ServerAccountStatus::Active {
+            return Err(ServerAccountError::Denied);
+        }
+        let organization = account
+            .organizations
+            .iter()
+            .find(|o| o.organization_id == request.organization_id)
+            .ok_or(ServerAccountError::Denied)?;
+        let branch: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM control.branches WHERE tenant_id=$1 AND organization_id=$2 AND branch_id=$3)")
+            .bind(actor.tenant_id.value()).bind(request.organization_id.value()).bind(request.branch_id.value()).fetch_one(&mut *tx).await?;
+        let mut roles = organization.assignments.iter().filter(|assignment| {
+            assignment.role == eitmad_contracts::accounts::DesktopAccountRole::Manager
+                || assignment.branch_ids.contains(&request.branch_id)
+        });
+        let assignment = roles
+            .next()
+            .filter(|_| branch)
+            .ok_or(ServerAccountError::Denied)?;
+        if roles.next().is_some() {
+            return Err(ServerAccountError::Denied);
+        }
+        let result = eitmad_contracts::server::DesktopEnrollmentProfile {
+            session: actor.clone(),
+            organization: request.organization_id,
+            branch: request.branch_id,
+            username: account.username,
+            role: assignment.role,
+        };
+        tx.commit().await?;
+        Ok(result)
+    }
+
     /// Lists one bounded tenant account page after checking the current Owner relationship.
     /// # Errors
     /// Fails closed on denied access, invalid pagination, or unavailable audit/storage.

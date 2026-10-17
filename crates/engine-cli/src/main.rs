@@ -8,6 +8,7 @@ use std::{
 
 mod connection;
 mod customer_sync;
+mod desktop_enrollment;
 
 #[cfg(debug_assertions)]
 use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
@@ -24,9 +25,9 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_engine_runtime::{
-    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, DesktopAuthenticator,
-    ManualRecovery, ProductDispatcher, RecoveryError, RuntimeBuilder, RuntimeDirectoryHealthCheck,
-    RuntimeFailure, ShutdownReason, default_runtime_directory,
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ManualRecovery,
+    ProductDispatcher, RecoveryError, RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure,
+    ShutdownReason, default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
 use eitmad_observability_audit::{ObservationContract, ObservationFieldContract, ObservationValue};
@@ -551,7 +552,7 @@ async fn run(
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
-                .with_desktop_auth(DesktopAuthenticator::new(store.clone()))
+                .with_desktop_auth(desktop_enrollment::authenticator(&directory, &store))
                 .with_event_broker(event_broker)
                 .run(ipc_cancel_receiver),
         )
@@ -605,9 +606,37 @@ async fn prepare_local_ipc(
     let bootstrap_token = read_ipc_bootstrap_token()
         .await
         .map_err(|_| LocalIpcStartupError::Authentication)?;
-    let mut authorization = store
-        .local_authorization_context(current_time())
-        .map_err(|_| LocalIpcStartupError::Identity)?;
+    let mut authorization = if store
+        .has_local_installation()
+        .map_err(|_| LocalIpcStartupError::Identity)?
+    {
+        store
+            .existing_local_authorization_context()
+            .map_err(|_| LocalIpcStartupError::Identity)?
+    } else {
+        // The bootstrap-authenticated process can enroll, but has no stored user or product authority.
+        use eitmad_contracts::identity::{
+            DeviceId, ScopeId, ScopeKind, ScopeRef, SessionId, TenantId,
+        };
+        let device = DeviceId::new(uuid::Uuid::new_v4());
+        let tenant = TenantId::new(uuid::Uuid::new_v4());
+        eitmad_contracts::identity::AuthorizationContext {
+            session_id: SessionId::new(uuid::Uuid::new_v4()),
+            identity: AuthenticatedIdentity {
+                principal_id: PrincipalId::new(device.value()),
+                principal_kind: PrincipalKind::Device,
+                device_id: Some(device),
+                service_id: None,
+            },
+            tenant_id: tenant,
+            workspace_id: None,
+            scope: ScopeRef {
+                kind: ScopeKind::parse("organization")
+                    .map_err(|_| LocalIpcStartupError::Identity)?,
+                id: ScopeId::new(tenant.value()),
+            },
+        }
+    };
     let device_id = authorization
         .identity
         .device_id

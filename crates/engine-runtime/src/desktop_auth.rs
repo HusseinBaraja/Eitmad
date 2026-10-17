@@ -17,6 +17,18 @@ const DESKTOP_SESSION_TTL_MS: i64 = 8 * 60 * 60 * 1_000;
 #[derive(Clone)]
 pub struct DesktopAuthenticator {
     store: AuthorityStore,
+    server: Option<std::sync::Arc<dyn DesktopServerAuthentication>>,
+}
+
+/// Rust-owned online authentication, called only after the local IPC handshake.
+pub trait DesktopServerAuthentication: Send + Sync {
+    /// Returns true when saved routes require an engine restart.
+    /// # Errors
+    /// Rejects untrusted peers, mismatched identities, and incomplete credential persistence.
+    fn sign_in(
+        &self,
+        request: &eitmad_contracts::ipc::DesktopSignInRequest,
+    ) -> Result<bool, DesktopAuthenticationError>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,7 +40,29 @@ pub enum DesktopAuthenticationError {
 impl DesktopAuthenticator {
     #[must_use]
     pub const fn new(store: AuthorityStore) -> Self {
-        Self { store }
+        Self {
+            store,
+            server: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_server(mut self, server: std::sync::Arc<dyn DesktopServerAuthentication>) -> Self {
+        self.server = Some(server);
+        self
+    }
+
+    /// Runs the configured online boundary without creating a local user session.
+    /// # Errors
+    /// Returns the sanitized online authentication failure.
+    pub fn server_sign_in(
+        &self,
+        request: &eitmad_contracts::ipc::DesktopSignInRequest,
+    ) -> Result<bool, DesktopAuthenticationError> {
+        self.server
+            .as_ref()
+            .ok_or(DesktopAuthenticationError::Unavailable)?
+            .sign_in(request)
     }
 
     /// Verifies a local desktop credential and starts a bounded user session.

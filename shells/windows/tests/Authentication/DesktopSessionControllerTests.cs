@@ -1,4 +1,5 @@
 using Eitmad.Contracts;
+using Eitmad.Platform.Windows.LocalIpc;
 using Eitmad.WindowsShell.Features.Authentication;
 using Eitmad.WindowsShell.Tests.TestDoubles;
 
@@ -7,6 +8,18 @@ namespace Eitmad.WindowsShell.Tests.Authentication;
 [TestClass]
 public sealed class DesktopSessionControllerTests
 {
+    [TestMethod]
+    public async Task ServerRejectionDoesNotStartALocalSessionOrResetTheEngine()
+    {
+        var engine = new FakeEngine { ServerAuthentication = _ => Task.FromException<bool>(
+            new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected, "Synthetic rejection.")) };
+        await using var sessions = new DesktopSessionController(engine);
+        await sessions.StartAsync(); engine.Connect();
+        await Assert.ThrowsAsync<EngineIpcException>(() => sessions.ServerSignInAsync("manager", "synthetic", null));
+        Assert.AreEqual(0, engine.SignInCount);
+        Assert.AreEqual(0, engine.StopCount);
+    }
+
     [TestMethod]
     public async Task AdmittedStopDoesNotStartAnotherSessionEnd()
     {

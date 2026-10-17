@@ -48,6 +48,9 @@
     "confirm_quotation": {
       "$ref": "#/definitions/ConfirmQuotation"
     },
+    "desktop_enrollment_profile": {
+      "$ref": "#/definitions/DesktopEnrollmentProfile"
+    },
     "diagnostic_report": {
       "$ref": "#/definitions/DiagnosticReport"
     },
@@ -182,6 +185,7 @@
     "server_account_result",
     "activate_account_request",
     "authentication_result",
+    "desktop_enrollment_profile",
     "confirm_order",
     "read_orders",
     "read_work_orders",
@@ -3287,6 +3291,67 @@
         "revision"
       ]
     },
+    "DesktopEnrollmentProfile": {
+      "description": "Only the authenticated account's assignment for the requested installation scope.",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organization": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        },
+        "session": {
+          "$ref": "#/definitions/AuthenticatedServerSession"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "session",
+        "organization",
+        "branch",
+        "username",
+        "role"
+      ]
+    },
+    "DesktopEnrollmentSettings": {
+      "description": "Non-secret operator inputs. Rust validates trust and the server-assigned scope.",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "trustedCertificate": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "endpoint",
+        "trustedCertificate",
+        "tenantCode",
+        "organization",
+        "branch"
+      ]
+    },
     "DesktopSessionRequest": {
       "type": "object",
       "properties": {
@@ -3387,6 +3452,7 @@
       "type": "string",
       "enum": [
         "active",
+        "configured",
         "signedOut",
         "failed"
       ]
@@ -3395,6 +3461,17 @@
       "description": "Password input is transient and must never be logged or persisted by a shell.",
       "type": "object",
       "properties": {
+        "connection": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopEnrollmentSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "correlationId": {
           "type": "string",
           "format": "uuid"
@@ -3405,6 +3482,10 @@
         "requestId": {
           "type": "string",
           "format": "uuid"
+        },
+        "serverLogin": {
+          "type": "boolean",
+          "default": false
         },
         "username": {
           "type": "string"
@@ -13580,6 +13661,10 @@
         "scope",
         "records"
       ]
+    },
+    "TenantCode": {
+      "description": "Stable, operator-assigned tenant sign-in code.",
+      "type": "string"
     },
     "TransitionOrderWork": {
       "type": "object",

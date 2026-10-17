@@ -78,7 +78,11 @@ public partial class MainWindow : Window
             ManagerTitleBar.SetBinding(Controls.ShellTitleBar.ApprovalCountProperty,
                 new System.Windows.Data.Binding(nameof(Features.Home.HomeViewModel.ApprovalCount)) { Source = home });
         }
-        if (sessions is not null) SignInSurface.AuthenticateAsync = sessions.SignInAsync;
+        if (sessions is not null)
+        {
+            SignInSurface.AuthenticateAsync = sessions.SignInAsync;
+            SignInSurface.ServerAuthenticateAsync = sessions.ServerSignInAsync;
+        }
         if (sessions is not null) sessions.SessionEnded += SessionEnded;
         Closed += (_, _) =>
         {

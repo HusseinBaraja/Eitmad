@@ -122,6 +122,14 @@ public sealed class EngineSupervisor : IAsyncDisposable
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         GetConnectedClient().GetSessionStateAsync(cancellationToken);
 
+    public async Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection,
+        CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        return await client.AuthenticateServerAsync(username, password, connection, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         var client = GetConnectedClient();

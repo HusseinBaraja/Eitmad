@@ -20,6 +20,8 @@ keywords:
 
 Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, the real `eitmad-server` TLS host, and one real WPF client with one supervised Rust engine. Sign in as Manager or Receptionist in the same window. Rust returns the account role and authorizes its operations. Stop and restart use the same state; neither action resets a database or a directory.
 
+For a fresh PC that joins an existing organization, use [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). It generates an independent device identity through the normal Arabic sign-in screen. Do not copy this harness's runtime directory to another PC. Its direct account import remains synthetic environment preparation.
+
 ## Prerequisites
 
 - Windows with an interactive desktop and access to Windows Credential Manager. Run all commands as the same Windows user.
@@ -145,7 +147,7 @@ Run `Status`, inspect the stage-specific error, and stop this environment before
 
 If provisioning committed in PostgreSQL but its local journal could not be saved, setup fails closed. Preserve that environment for diagnosis. Use a new named disposable environment for a fresh test; do not hand-edit business tables or delete the old state. Keep the Windows credential store and the private state directory together under the same user. Moving only SQLite files to another account does not transfer authentication.
 
-If sign-in reports **بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.**, use `manager` or `receptionist` with its matching field value from the same environment's protected file. `admin` is not an account in this environment. A deactivated account stays deactivated after restart; use user management from an active Manager account to inspect its status. `-VerifySignIn` expects both original accounts to remain active with their original roles and credentials; omit it when intentionally testing changed account access. A server-route failure must be diagnosed separately from local credential rejection; do not replace tokens, weaken authentication, or reset data to hide it.
+If sign-in reports **بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.**, use `manager` or `receptionist` with its matching field value from the same environment's protected file. `admin` is not an account in this environment. A deactivated account stays deactivated after restart; use user management from an active Manager account to inspect its status. `-VerifySignIn` expects both original accounts to remain active with their original roles and credentials; omit it when intentionally testing changed account access. Normal sign-in authenticates online and repairs account credentials. Keep setup closed for retained settings. Use **العمل دون اتصال** to check the existing local verifier separately. Do not replace tokens, weaken authentication, or reset data to hide a failure.
 
 If valid sign-in briefly opens an account screen and then returns to sign-in, check the engine connection state separately from credential rejection. The IPC reader must retain a partial frame while responses and events are delivered; cancelling that read caused intermittent startup disconnects. Rebuild the current source and use `-VerifySignIn` after stopping the environment. See [IPC framing and concurrency](../developer/subsystems/local-ipc.md#framing-concurrency-and-large-payloads) for the regression and safe reader behavior.
 

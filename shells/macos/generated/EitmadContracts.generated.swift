@@ -3342,20 +3342,41 @@ public struct DesktopSessionRequest: Codable, Sendable {
 /// Password input is transient and must never be logged or persisted by a shell.
 // MARK: - DesktopSignInRequest
 public struct DesktopSignInRequest: Codable, Sendable {
-    public let correlationID, password, requestID, username: String
+    public let connection: DesktopEnrollmentSettings?
+    public let correlationID, password, requestID: String
+    public let serverLogin: Bool?
+    public let username: String
 
     public enum CodingKeys: String, CodingKey {
+        case connection
         case correlationID = "correlationId"
         case password
         case requestID = "requestId"
-        case username
+        case serverLogin, username
     }
 
-    public init(correlationID: String, password: String, requestID: String, username: String) {
+    public init(connection: DesktopEnrollmentSettings?, correlationID: String, password: String, requestID: String, serverLogin: Bool?, username: String) {
+        self.connection = connection
         self.correlationID = correlationID
         self.password = password
         self.requestID = requestID
+        self.serverLogin = serverLogin
         self.username = username
+    }
+}
+
+/// Non-secret operator inputs. Rust validates trust and the server-assigned scope.
+// MARK: - DesktopEnrollmentSettings
+public struct DesktopEnrollmentSettings: Codable, Sendable {
+    public let branch, endpoint, organization, tenantCode: String
+    public let trustedCertificate: String
+
+    public init(branch: String, endpoint: String, organization: String, tenantCode: String, trustedCertificate: String) {
+        self.branch = branch
+        self.endpoint = endpoint
+        self.organization = organization
+        self.tenantCode = tenantCode
+        self.trustedCertificate = trustedCertificate
     }
 }
 
@@ -3527,6 +3548,7 @@ public struct DesktopSessionState: Codable, Sendable {
 
 public enum DesktopSessionStatus: String, Codable, Sendable {
     case active = "active"
+    case configured = "configured"
     case failed = "failed"
     case signedOut = "signedOut"
 }
