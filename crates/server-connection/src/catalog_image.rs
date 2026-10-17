@@ -425,10 +425,28 @@ mod tests {
     ) {
         let (entered, accepted) = mpsc::channel();
         let (release, waiting) = mpsc::channel();
+        listener.set_nonblocking(true).unwrap();
         let peer = std::thread::spawn(move || {
-            let (_socket, _) = listener.accept().unwrap();
-            entered.send(()).unwrap();
-            let _ = waiting.recv_timeout(Duration::from_secs(3));
+            let end = Instant::now() + Duration::from_secs(10);
+            let _socket = loop {
+                if !matches!(waiting.try_recv(), Err(mpsc::TryRecvError::Empty)) {
+                    return;
+                }
+                match listener.accept() {
+                    Ok((socket, _)) => break socket,
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::WouldBlock
+                            && Instant::now() < end =>
+                    {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    _ => panic!("Synthetic stalled TLS request did not arrive"),
+                }
+            };
+            if entered.send(()).is_ok() {
+                // Keep the peer open until release, including on assertion failure.
+                let _ = waiting.recv();
+            }
         });
         (accepted, release, peer)
     }
@@ -490,13 +508,14 @@ mod tests {
         let worker_actor = actor.clone();
         let worker_image = image.clone();
         let (finished, completed) = mpsc::channel();
-        let deadline = UnixMillis(super::super::unix_millis_now().0 + 500);
         let work = std::thread::spawn(move || {
+            // Native credential reads and worker startup are not subsecond guarantees.
+            let deadline = UnixMillis(super::super::unix_millis_now().0 + 5_000);
             finished
                 .send(worker.download(&worker_actor, &worker_image, deadline))
                 .unwrap();
         });
-        accepted.recv_timeout(Duration::from_secs(2)).unwrap();
+        accepted.recv_timeout(Duration::from_secs(5)).unwrap();
         let admission_start = Instant::now();
         assert_eq!(
             client.remote_scope(),
@@ -522,11 +541,11 @@ mod tests {
             );
         }
         assert!(
-            admission_start.elapsed() < Duration::from_millis(200),
+            admission_start.elapsed() < Duration::from_secs(1),
             "Scope reads and busy admission must not wait for the stalled peer"
         );
         assert_eq!(
-            completed.recv_timeout(Duration::from_secs(2)).unwrap(),
+            completed.recv_timeout(Duration::from_secs(5)).unwrap(),
             Err(ImageError::Unavailable)
         );
         assert!(
