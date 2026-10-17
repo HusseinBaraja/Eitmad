@@ -4,7 +4,7 @@ using System.Threading.Channels;
 
 namespace Eitmad.Platform.Windows.LocalIpc;
 
-public enum DiagnosticPhase { Activation, Home, Drafts, Orders, WorkOrders, Customers, Catalog, AccountSwitch, SignIn, IpcRequest, IpcLock, IpcSend, IpcReply, Worker, DriverAdmission, CredentialAdmission, CredentialRefresh, Dns, Connect, Tls, Send, Receive, Confirmation }
+public enum DiagnosticPhase { Activation, Home, Drafts, Orders, WorkOrders, Customers, Catalog, AccountSwitch, SignIn, IpcRequest, IpcLock, IpcSend, IpcReply, DriverAdmission, CredentialAdmission, CredentialRefresh, Dns, Connect, Tls, Send, Receive, Confirmation }
 public enum DiagnosticSource { Unspecified, Quotations, Orders, WorkOrders, Approvals, Catalog, Pricing, Images }
 public enum DiagnosticResult { Started, Succeeded, GateBusy, Poisoned, Deadline, Cancelled, Network, IoTimeout, Denied, Invalid, Server, Failed }
 

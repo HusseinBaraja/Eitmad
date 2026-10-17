@@ -992,15 +992,7 @@ where
         eitmad_observability_audit::operation_diagnostics::with_diagnostic_context(
             correlation,
             source,
-            || {
-                use eitmad_observability_audit::operation_diagnostics::{
-                    DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
-                };
-                let mut span = DiagnosticSpan::start(DiagnosticPhase::Worker);
-                let result = action();
-                span.finish(DiagnosticResult::Succeeded);
-                result
-            },
+            action,
         )
     })
 }

@@ -195,12 +195,9 @@ async fn prepare() -> Result<()> {
     }
     let manager_client = local_client(&root, &settings, &journal, manager, true, false)?;
     let reception_client = local_client(&root, &settings, &journal, reception, false, false)?;
-    let seeded = journal.seeded;
     checked(
         tokio::task::spawn_blocking(move || {
-            if !seeded {
-                seed::run(&manager_client, &reception_client)?;
-            }
+            seed::run(&manager_client, &reception_client)?;
             seed::verify(&manager_client, &reception_client)
         })
         .await,

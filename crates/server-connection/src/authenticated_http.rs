@@ -1,4 +1,4 @@
-use super::diagnostics::{failure_result, measure};
+use super::diagnostics::failure_result;
 use super::{
     DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
     parse_http_response, remaining_io,
@@ -130,13 +130,12 @@ impl AuthenticatedHttpClient {
         {
             return Err(HttpError::Denied);
         }
-        let (_, credential) = measure(DiagnosticPhase::CredentialRefresh, budget, || {
-            driver.account_credential(&self.credential_id, actor, budget)
-        })
-        .map_err(|failure| match failure.kind {
-            eitmad_sync::TransportFailureKind::AuthenticationFailed => HttpError::Denied,
-            _ => HttpError::Unavailable(failure),
-        })?;
+        let (_, credential) = driver
+            .account_credential(&self.credential_id, actor, budget)
+            .map_err(|failure| match failure.kind {
+                eitmad_sync::TransportFailureKind::AuthenticationFailed => HttpError::Denied,
+                _ => HttpError::Unavailable(failure),
+            })?;
         remaining_io(budget)
             .map_err(|_| HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation)))?;
         let mut url = driver.config.endpoint.clone();

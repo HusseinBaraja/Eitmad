@@ -199,35 +199,21 @@ public sealed partial class WorkflowEnvironmentTests
     {
         var quotations = ReadServerConfirmed(bridge, Query.ForQuotationList(new() { Limit = 100 }),
             result => result.AsQuotations()!.ServerAvailable);
-        Finish(quotations, TimeSpan.FromMinutes(2));
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Result.Outcome.Status);
-        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.ServerAvailable);
+        Finish(quotations);
         Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 1);
         var orders = ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }),
             result => result.AsOrders()!.ServerAvailable);
-        Finish(orders, TimeSpan.FromMinutes(2));
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, orders.Result.Outcome.Status);
-        Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.ServerAvailable);
+        Finish(orders);
         Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.Items.Length >= 1);
     }
 
     private static async Task<QueryResponseEnvelope> ReadServerConfirmed(
         IEngineShellBridge bridge, Query query, Func<QueryResult, bool> confirmed)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-        var cachedReads = 0;
-        while (true)
-        {
-            var response = await bridge.QueryAsync(query, deadline.Token);
-            Assert.AreEqual(CommandOutcomeStatus.Succeeded, response.Outcome.Status);
-            if (confirmed(response.Outcome.Payload))
-            {
-                Console.WriteLine($"Server confirmed {query.Kind}; preceding cached reads: {cachedReads}.");
-                return response;
-            }
-            ++cachedReads;
-            await Task.Delay(TimeSpan.FromSeconds(1), deadline.Token);
-        }
+        var response = await bridge.QueryAsync(query);
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, response.Outcome.Status);
+        Assert.IsTrue(confirmed(response.Outcome.Payload), "The first response must be server-confirmed.");
+        return response;
     }
 
     private static void SwitchAccount(MainWindow window, IEngineShellBridge bridge)

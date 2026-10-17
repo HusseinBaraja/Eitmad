@@ -52,7 +52,6 @@ fn enqueue(line: String) {
 
 #[derive(Clone, Copy, Debug)]
 pub enum DiagnosticPhase {
-    Worker,
     DriverAdmission,
     CredentialAdmission,
     CredentialRefresh,
@@ -159,7 +158,7 @@ mod tests {
         let second = CorrelationId::new(Uuid::from_u128(2));
         with_diagnostic_context(first, DiagnosticSource::Orders, || {
             assert_eq!(
-                DiagnosticSpan::start(DiagnosticPhase::Worker).correlation,
+                DiagnosticSpan::start(DiagnosticPhase::Confirmation).correlation,
                 first
             );
             let _ = std::panic::catch_unwind(|| {

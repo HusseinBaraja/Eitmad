@@ -85,7 +85,7 @@ Retain the diagnostic stdout/stderr, TRX, and PostgreSQL log together. No reset 
 - `operation` joins C# sign-in, activation stages, account-switch work, and IPC phases. Each IPC event also records the existing request `correlation`; the wire value is unchanged.
 - Rust workers explicitly receive that correlation before blocking work. Synchronous thread-local context is restored before the worker exits, including on panic. It is never kept across an async await.
 - Rust `source` is a fixed label: `Quotations`, `Orders`, `WorkOrders`, `Approvals`, `Catalog`, `Pricing`, or `Images`. Home can use one correlation for several sources; filter by both fields. `Unspecified` means this boundary has no propagated source and must not be attributed to a Home source by timing alone.
-- `phase` identifies IPC lock/send/reply, worker execution, driver/credential admission, credential work, DNS, TCP connect, TLS, HTTP send/receive, or confirmation. `elapsedMs` is monotonic duration within that process. Pair `Started` with its terminal event. There is no global timestamp or ordering guarantee across processes.
+- `phase` identifies IPC lock/send/reply, driver/credential admission, credential refresh, DNS, TCP connect, TLS, HTTP send/receive, or confirmation. `CredentialRefresh` measures an actual refresh request; loading a fresh credential emits admission events only. `elapsedMs` is monotonic duration within that process. Pair `Started` with its terminal event. There is no global timestamp or ordering guarantee across processes.
 
 | Terminal result or phase | Evidence and next safe action |
 | --- | --- |
@@ -101,7 +101,7 @@ Retain the diagnostic stdout/stderr, TRX, and PostgreSQL log together. No reset 
 | `Cancelled` on IPC | Caller cancellation was observed. An unconfirmed command still has its existing unknown-outcome rules. |
 | `Network`, `Denied`, `Server`, or `Invalid` | A safe transport, security, HTTP-status, or response-validation class. No raw error message or response body is collected. |
 | `Confirmation/Succeeded` | An authenticated HTTP success body decoded at the client. The diagnostic test separately checks the typed `ServerAvailable` result. This does not prove any unrelated mutation committed. |
-| `Worker/Succeeded` or `Activation/Succeeded` | The work returned normally. Capability results may still contain cached or unavailable state; inspect confirmation and admission events. |
+| `Activation/Succeeded` | Activation returned normally. Capability results may still contain cached or unavailable state; inspect confirmation and admission events. The diagnostic test requires server confirmation from each checked response without retrying cached reads. |
 | A terminal `Failed` | The enclosing boundary failed; inspect the specific earlier phase. It is not a fabricated network diagnosis. |
 
 The internal HTTP error retains the original typed transport failure through diagnostic classification before the owning capability maps it to its existing public result. Public IPC contracts do not expose these internal details. Diagnostic/test cleanup preserves a single original error's type and stack. If both work and cleanup fail, an aggregate retains the initiating typed error first and the cleanup error second; do not report only the last exception.
