@@ -14,6 +14,8 @@ public sealed record DraftResult<T>(T? Value, DraftFailure Failure, QuotationFie
 
 public sealed class QuotationDraftClient : IAsyncDisposable
 {
+    // The editor, list and subscription refreshes share one Rust credential route.
+    private readonly SemaphoreSlim requests = new(1, 1);
     private readonly IEngineShellBridge engine;
     private readonly EngineChangeFeed changes;
     private readonly EngineChangeFeed approvals;
@@ -114,11 +116,13 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     private async Task<DraftResult<T>> RequestAsync<T>(Func<Task<DraftResult<T>>> request, CancellationToken token) where T : class
     {
         if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1)) return new(null, DraftFailure.Unavailable, []);
+        await requests.WaitAsync(token);
         try { return await request(); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (EngineIpcException e) { return Result<T>(CommandOutcomeStatus.Failed, null, e.ContractError?.Code, e.ContractError?.Detail); }
         catch (Exception e) when (e is IOException or InvalidOperationException or ObjectDisposedException or JsonException)
         { return new(null, DraftFailure.Unavailable, []); }
+        finally { requests.Release(); }
     }
     private static DraftResult<T> Result<T>(CommandOutcomeStatus status, T? value, string? code, ErrorDetail? detail) where T : class =>
         status == CommandOutcomeStatus.Succeeded && value is not null ? new(value, DraftFailure.None, []) : new(null, code switch {
