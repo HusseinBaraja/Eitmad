@@ -61,7 +61,7 @@ Stop retains stored work and does not close the app. Start refuses an already ru
 
 ## Furniture editor flow
 
-The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set selling prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ ونشر` from the read-only review step.
+The Windows Furniture editor uses six steps: `المعلومات`, `الأجزاء`, `المقاسات`, `الخيارات`, `التسعير`, and `المراجعة`. Managers set proposed prices for each fixed variant, then choose `حفظ كمسودة` or `حفظ التعريف` from the read-only review step. Saving the definition does not publish a selling price. Use `فتح التسعير` after saving an active definition, publish each variant's selling price, and wait for server confirmation before Receptionist sales. See [Furniture](docs/developer/subsystems/furniture.md) for the definition and publication boundaries.
 
 ## Ready-made Products manager
 
