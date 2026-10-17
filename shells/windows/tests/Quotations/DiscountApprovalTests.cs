@@ -12,14 +12,13 @@ public sealed class DiscountApprovalTests
 {
     [TestMethod]
     [Timeout(30000)]
-    public async Task ApprovalSubmissionWaitsForTheSharedClientReadAndCancelsQueuedReads()
+    public async Task PendingApprovalReadDoesNotBlockDecisionSubmission()
     {
         var authority = new ConfirmedAuthority(); await using var engine = authority.Engine();
         await using var client = new QuotationDraftClient(engine);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var queries = 0;
-        engine.QueryBarrier = _ => { ++queries; entered.TrySetResult(); return release.Task; };
+        engine.QueryBarrier = _ => { entered.TrySetResult(); return release.Task; };
         var read = client.ApprovalsAsync(null); await entered.Task;
         var submitted = false;
         engine.CommandHandler = _ => {
@@ -28,18 +27,14 @@ public sealed class DiscountApprovalTests
                 Payload = CommandResult.ForDiscountApproval(new() { State = DiscountApprovalState.Approved }) } };
         };
         var decision = client.ApprovalAsync(Command.ForQuotationApprovalDecide(new()), Guid.NewGuid());
-        using var cancellation = new CancellationTokenSource();
-        var cancelled = client.ApprovalsAsync(null, cancellation.Token); cancellation.Cancel();
         try
         {
-            Assert.IsFalse(submitted, "The command must wait for the shared client's current read, rather than hit Rust's fail-fast credential admission.");
-            Assert.IsFalse(decision.IsCompleted);
+            Assert.IsTrue((await decision.WaitAsync(TimeSpan.FromSeconds(2))).Succeeded);
+            Assert.IsTrue(submitted, "Rust owns credential admission; an unrelated shell read must not delay the command.");
+            Assert.IsFalse(read.IsCompleted);
         }
         finally { release.TrySetResult(); }
         await read;
-        Assert.IsTrue((await decision).Succeeded);
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () => await cancelled);
-        Assert.AreEqual(1, queries, "A cancelled queued read must not reach the engine.");
     }
     internal sealed class ConfirmedAuthority
     {

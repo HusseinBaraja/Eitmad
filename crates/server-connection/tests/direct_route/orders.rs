@@ -612,13 +612,7 @@ fn start_production(clients: &ApprovalClients, order: &OrderRecord) -> (OrderRec
     };
     let (first, second) = std::thread::scope(|threads| {
         let first = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &start));
-        let second = threads.spawn(|| {
-            send(
-                &*clients.competing_manager,
-                &clients.manager_actor,
-                &competing,
-            )
-        });
+        let second = threads.spawn(|| send(&*clients.manager, &clients.manager_actor, &competing));
         (first.join().unwrap(), second.join().unwrap())
     });
     assert!(matches!(

@@ -260,7 +260,7 @@ fn verify_cancellation_race(
             )
         });
         let revise_task = threads.spawn(|| {
-            clients.competing_manager.quotation_transition(
+            clients.manager.quotation_transition(
                 &clients.manager_actor,
                 &competing,
                 UnixMillis(i64::MAX),

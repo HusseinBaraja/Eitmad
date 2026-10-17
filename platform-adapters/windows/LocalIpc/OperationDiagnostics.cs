@@ -4,7 +4,7 @@ using System.Threading.Channels;
 
 namespace Eitmad.Platform.Windows.LocalIpc;
 
-public enum DiagnosticPhase { Activation, Home, Drafts, Orders, WorkOrders, Customers, Catalog, AccountSwitch, SignIn, IpcRequest, IpcLock, IpcSend, IpcReply, Worker, DriverAdmission, CredentialAdmission, CredentialRefresh, Dns, Connect, Tls, Send, Receive, Confirmation, Cleanup }
+public enum DiagnosticPhase { Activation, Home, Drafts, Orders, WorkOrders, Customers, Catalog, AccountSwitch, SignIn, IpcRequest, IpcLock, IpcSend, IpcReply, Worker, DriverAdmission, CredentialAdmission, CredentialRefresh, Dns, Connect, Tls, Send, Receive, Confirmation }
 public enum DiagnosticSource { Unspecified, Quotations, Orders, WorkOrders, Approvals, Catalog, Pricing, Images }
 public enum DiagnosticResult { Started, Succeeded, GateBusy, Poisoned, Deadline, Cancelled, Network, IoTimeout, Denied, Invalid, Server, Failed }
 
@@ -13,7 +13,7 @@ public sealed class OperationDiagnostics : IDisposable
 {
     private static readonly AsyncLocal<Guid?> Current = new();
     private static int events;
-    private static readonly Channel<string> Output = CreateOutput();
+    private static readonly Lazy<Channel<string>> Output = new(() => CreateOutput());
     internal static Channel<string> CreateOutput(TextWriter? sink = null)
     {
         var channel = Channel.CreateBounded<string>(new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
@@ -65,11 +65,7 @@ public sealed class OperationDiagnostics : IDisposable
             if (observed == count) break;
             count = observed;
         }
-        try
-        {
-            Output.Writer.TryWrite(JsonSerializer.Serialize(new { diagnostic = "eitmad.operation.v1", operation, correlation, source = source.ToString(), phase = phase.ToString(), result = result.ToString(), elapsedMs }));
-        }
-        catch (IOException) { /* Diagnostic output cannot change product behavior. */ }
+        Output.Value.Writer.TryWrite(JsonSerializer.Serialize(new { diagnostic = "eitmad.operation.v1", operation, correlation, source = source.ToString(), phase = phase.ToString(), result = result.ToString(), elapsedMs }));
     }
 
     /// <summary>Re-emits only validated engine metadata; never forwards a raw stderr line.</summary>
@@ -104,14 +100,4 @@ public sealed class OperationDiagnostics : IDisposable
         catch (OperationCanceledException) { span.Finish(DiagnosticResult.Cancelled); throw; }
     }
 
-    /// <summary>Retains the original typed error first when cleanup also fails.</summary>
-    public static async Task RunWithCleanupAsync(Func<Task> action, Func<ValueTask> cleanup)
-    {
-        Exception? primary = null;
-        try { await action().ConfigureAwait(false); }
-        catch (Exception error) { primary = error; }
-        try { await cleanup().ConfigureAwait(false); }
-        catch (Exception secondary) when (primary is not null) { throw new AggregateException(primary, secondary); }
-        if (primary is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
-    }
 }

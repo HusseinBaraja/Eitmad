@@ -326,34 +326,27 @@ fn configured_dispatcher(
     let pricing = connection::ServerRoute::load("PRICING", installation)?;
     let media_enabled = media.is_some() || pricing.is_some();
     if let Some(route) = media {
-        let configured = (|| {
-            let scope = eitmad_contracts::identity::ScopeRef {
-                kind: eitmad_contracts::identity::ScopeKind::parse("organization")
-                    .map_err(|_| ())?,
-                id: eitmad_contracts::identity::ScopeId::new(
-                    store.local_organization_id().map_err(|_| ())?.value(),
-                ),
-            };
-            let config = eitmad_server_connection::DirectServerConfig::new(
-                &route.endpoint,
-                scope,
-                eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-image.v1")
-                    .map_err(|_| ())?,
-                1,
-                &route.trust,
-            )
-            .map_err(|_| ())?;
-            let secrets =
-                eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
-            Ok::<_, ()>(
-                eitmad_server_connection::DirectCatalogImageClient::from_config(
-                    config,
-                    secrets,
-                    route.credential,
-                ),
-            )
-        })();
-        let client = configured?;
+        let scope = eitmad_contracts::identity::ScopeRef {
+            kind: eitmad_contracts::identity::ScopeKind::parse("organization").map_err(|_| ())?,
+            id: eitmad_contracts::identity::ScopeId::new(
+                store.local_organization_id().map_err(|_| ())?.value(),
+            ),
+        };
+        let config = eitmad_server_connection::DirectServerConfig::new(
+            &route.endpoint,
+            scope,
+            eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-image.v1")
+                .map_err(|_| ())?,
+            1,
+            &route.trust,
+        )
+        .map_err(|_| ())?;
+        let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
+        let client = eitmad_server_connection::DirectCatalogImageClient::from_config(
+            config,
+            secrets,
+            route.credential,
+        );
         dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(client));
     }
     if let Some(route) = pricing {

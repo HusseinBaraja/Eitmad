@@ -183,18 +183,9 @@ public partial class MainWindow : Window
         else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Orders, () => ReceptionistSurface.PreviewOrders.ViewModel.ActivateAsync(cancellationToken), cancellationToken);
         if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
         if (surface != AuthenticatedSurface.Receptionist) return;
-        try
-        {
-            await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Customers, () => ReceptionistSurface.ActivateCustomersAsync(cancellationToken), cancellationToken);
-            if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
-            await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Catalog, () => ReceptionistSurface.ActivateCatalogAsync(cancellationToken), cancellationToken);
-        }
-        catch (Exception error) when (error is Eitmad.Platform.Windows.LocalIpc.EngineIpcException
-            or IOException or ObjectDisposedException)
-        {
-            if (!cancellationToken.IsCancellationRequested)
-                ShowToast(Features.Customers.CustomerClient.ArabicMessage(Features.Customers.CustomerFailureKind.Unavailable));
-        }
+        await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Customers, () => ReceptionistSurface.ActivateCustomersAsync(cancellationToken), cancellationToken);
+        if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
+        await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Catalog, () => ReceptionistSurface.ActivateCatalogAsync(cancellationToken), cancellationToken);
     }
 
     private void CanSwitchAccount(object sender, CanExecuteRoutedEventArgs eventArgs) =>
@@ -276,7 +267,7 @@ public partial class MainWindow : Window
             or IOException or ObjectDisposedException or OperationCanceledException)
         {
             // Never use an expired token: a pre-cancelled stop leaves the session active.
-            // Issue-2 supervision owns bounded transport/process containment after admission.
+            // Supervision owns bounded transport/process containment after admission.
             try
             {
                 if (reason != SessionEndReason.RecoveryFailed)

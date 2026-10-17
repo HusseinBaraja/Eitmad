@@ -27,7 +27,7 @@ public sealed partial class WorkflowEnvironmentTests
         var directory = Path.Combine(root!, "receptionist");
         var bridge = WindowsEngineBridge.Create(["--engine", enginePath!, "--runtime-directory", directory]);
         var sessions = new DesktopSessionController(bridge);
-        OperationDiagnostics.RunWithCleanupAsync(() =>
+        RunWithCleanupAsync(() =>
         {
             WpfTestHost.Run(1338, 753, window =>
             {
@@ -74,7 +74,7 @@ public sealed partial class WorkflowEnvironmentTests
         using var secrets = JsonDocument.Parse(File.ReadAllText(Path.Combine(root!, "secrets.json")));
         var bridge = WindowsEngineBridge.Create(["--engine", Path.GetFullPath(engine!), "--runtime-directory", Path.Combine(root!, "receptionist")]);
         var sessions = new DesktopSessionController(bridge);
-        OperationDiagnostics.RunWithCleanupAsync(() =>
+        RunWithCleanupAsync(() =>
         {
             WpfTestHost.Run(1338, 753, window =>
             {
@@ -150,16 +150,6 @@ public sealed partial class WorkflowEnvironmentTests
                 : Command.ForQuotationApprovalRequest(new() { DraftId = draft.Snapshot.Id, ExpectedRevision = draft.Snapshot.Revision });
             var key = Guid.NewGuid();
             var confirmed = await bridge.SubmitCommandAsync(command, key);
-            // Live screen queries share the approval route's fail-fast admission. A busy
-            // route is retryable; retain the key so an accepted request cannot be duplicated.
-            var retryUntil = DateTime.UtcNow.AddSeconds(15);
-            while (confirmed.Outcome.Status == CommandOutcomeStatus.Failed
-                && confirmed.Outcome.Payload.Code == ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalUnavailableV1
-                && DateTime.UtcNow < retryUntil)
-            {
-                await Task.Delay(100);
-                confirmed = await bridge.SubmitCommandAsync(command, key);
-            }
             Assert.AreEqual(CommandOutcomeStatus.Succeeded, confirmed.Outcome.Status,
                 $"The server must accept the customer's current revision without an engine restart (discount {discount}, error {confirmed.Outcome.Payload.Code}).");
         }
@@ -280,6 +270,17 @@ public sealed partial class WorkflowEnvironmentTests
             }
         }
         finally { bridge.StateChanged -= Changed; }
+    }
+
+    // Retain the test failure if session disposal also fails.
+    private static async Task RunWithCleanupAsync(Func<Task> action, Func<ValueTask> cleanup)
+    {
+        Exception? primary = null;
+        try { await action().ConfigureAwait(false); }
+        catch (Exception error) { primary = error; }
+        try { await cleanup().ConfigureAwait(false); }
+        catch (Exception secondary) when (primary is not null) { throw new AggregateException(primary, secondary); }
+        if (primary is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
     }
 
     private static void Finish(Task task, TimeSpan? timeout = null)

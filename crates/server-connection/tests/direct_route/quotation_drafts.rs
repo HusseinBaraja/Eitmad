@@ -729,8 +729,6 @@ async fn lifecycle_clients(
     let manager_auth = approval_manager(scenario).await;
     let manager_connection =
         approval_connection(manager_directory, manager_auth.clone(), [12; 32], scenario);
-    let competing_manager =
-        approval_connection(manager_directory, manager_auth.clone(), [12; 32], scenario);
     let mut manager_actor = reception.actor.clone();
     manager_actor.identity.principal_id = PrincipalId::new(manager_auth.session.user_id.value());
     manager_actor.identity.device_id = Some(manager_auth.session.device_id);
@@ -751,7 +749,6 @@ async fn lifecycle_clients(
     ApprovalClients {
         reception: reception_connection,
         manager: manager_connection,
-        competing_manager,
         manager_actor,
         manager_auth,
         pure_reception,
@@ -767,7 +764,6 @@ struct ApprovalClients {
     pricing_actor: AuthorizationContext,
     reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
-    competing_manager: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     manager_actor: AuthorizationContext,
     pure_reception: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     pure_actor: AuthorizationContext,

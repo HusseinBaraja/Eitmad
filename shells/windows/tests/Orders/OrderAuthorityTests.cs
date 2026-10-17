@@ -65,19 +65,12 @@ public sealed class OrderAuthorityTests
         model.OpenOrder(model.VisibleOrders.Single());
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Query? first = null; var reads = 0;
-        engine.QueryBarrier = query => {
-            ++reads;
-            if (first is null) { first = query; entered.TrySetResult(); return release.Task; }
+        var reads = 0;
+        engine.QueryBarrier = _ => {
+            if (++reads == 1) { entered.TrySetResult(); return release.Task; }
             return Task.CompletedTask;
         };
-        engine.QueryHandler = _ => {
-            var page = QuotationDraftTests.Copy(fixture.Page);
-            // The Rust route rejects concurrent credential admission. Such a read
-            // correctly returns confirmed cache without permission to mutate.
-            if (!release.Task.IsCompleted) { page.ServerAvailable = false; page.Items[0].PermittedActions = []; }
-            return SalesCatalogAuthorityTests.Response(QueryResult.ForOrders(page));
-        };
+        engine.QueryHandler = _ => SalesCatalogAuthorityTests.Response(QueryResult.ForOrders(QuotationDraftTests.Copy(fixture.Page)));
         engine.CommandHandler = command => {
             fixture.Order.Revision++;
             fixture.Order.State = command.Kind == Command.OrderWorkStartKind ? OrderState.InProduction : OrderState.Ready;
@@ -92,7 +85,7 @@ public sealed class OrderAuthorityTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             subscription!.SignalResync();
             Assert.IsFalse(start.IsCompleted, "Start must await the current read and its queued confirmation read.");
-            Assert.AreEqual(1, reads, "Subscription and post-command refreshes must not compete for the Rust route.");
+            Assert.AreEqual(1, reads, "Subscription and post-command notices must share the current list refresh.");
         }
         finally { release.TrySetResult(); await start.WaitAsync(TimeSpan.FromSeconds(5)); }
         Assert.AreEqual("", model.ListState);

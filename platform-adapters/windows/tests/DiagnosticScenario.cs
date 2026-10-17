@@ -62,28 +62,6 @@ internal static partial class IpcCancellationScenario
         finally { Console.SetError(stderr); Environment.SetEnvironmentVariable("EITMAD_DIAGNOSTICS", previous); }
     }
 
-    public static async Task DiagnosticCleanupPreservesBothTypedFailures()
-    {
-        var primary = new EngineIpcException(EngineIpcFailureKind.Timeout, "synthetic initiating failure");
-        var cleanup = new IOException("synthetic cleanup failure");
-        try
-        {
-            await OperationDiagnostics.RunWithCleanupAsync(() => Task.FromException(primary), () => ValueTask.FromException(cleanup));
-            throw new InvalidOperationException("Expected both failures.");
-        }
-        catch (AggregateException error)
-        {
-            Assert.True(ReferenceEquals(primary, error.InnerExceptions[0]), "initiating typed error retained first");
-            Assert.True(ReferenceEquals(cleanup, error.InnerExceptions[1]), "cleanup typed error retained second");
-        }
-        try
-        {
-            await OperationDiagnostics.RunWithCleanupAsync(() => Task.FromException(primary), () => ValueTask.CompletedTask);
-            throw new InvalidOperationException("Expected initiating failure.");
-        }
-        catch (EngineIpcException error) { Assert.True(ReferenceEquals(primary, error), "single failure keeps type and identity"); }
-    }
-
     public static async Task DiagnosticQueueNeverWaitsForBlockedStderr()
     {
         using var sink = new BlockedWriter();

@@ -40,12 +40,7 @@ try {
         }
     }
 
-    $cargoMetadata = & rustup run 1.85.1 cargo metadata --offline --format-version 1 --no-deps | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 0) {
-        throw "Cargo metadata failed with exit code $LASTEXITCODE."
-    }
-
-    $enginePath = Join-Path $cargoMetadata.target_directory "debug\eitmad-engine-cli.exe"
+    $enginePath = Join-Path $env:CARGO_TARGET_DIR "debug\eitmad-engine-cli.exe"
     $shellPath = Join-Path $repositoryRoot 'shells/windows/bin/Release/net8.0-windows/Eitmad.WindowsShell.exe'
     foreach ($file in $enginePath, $shellPath) {
         if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
@@ -63,7 +58,7 @@ try {
         Write-Host 'Local development sign-in names: admin and rec. Use the existing credentials after account changes.'
     }
 
-    & dotnet run --project $shellProject --configuration Release --no-build -- @shellArguments
+    & $shellPath @shellArguments
     if ($LASTEXITCODE -ne 0) {
         throw "The Windows app stopped with exit code $LASTEXITCODE."
     }

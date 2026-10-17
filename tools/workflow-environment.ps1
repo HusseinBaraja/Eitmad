@@ -135,13 +135,13 @@ public static class EitmadTestShutdown {
     return
 }
 if (@($owned | Where-Object { Find-Owned $_ }).Count) { throw 'This environment has running processes. Use Stop before Start.' }
-if (-not $PostgresBin) { $PostgresBin = Join-Path $workspace 'target/direct-order-test/pgsql/bin' }
 if (Test-Path -LiteralPath $secretsFile) {
     $settings = Get-Content -LiteralPath $secretsFile -Raw | ConvertFrom-Json
     $PostgresBin = $settings.postgres_bin
     $DatabasePort = $settings.database_port
     $ServerPort = $settings.server_port
 }
+if (-not $PostgresBin) { throw 'Supply -PostgresBin with the PostgreSQL 17 binary directory for initial setup.' }
 $PostgresBin = [IO.Path]::GetFullPath($PostgresBin)
 foreach ($tool in 'initdb', 'pg_ctl', 'psql', 'createdb') {
     if (-not (Test-Path -LiteralPath (Join-Path $PostgresBin "$tool.exe"))) {
@@ -209,11 +209,9 @@ try {
             Run-Tool 'dotnet' @('build', 'shells/windows/tests/Eitmad.WindowsShell.Tests.csproj', '--configuration', 'Release', '--nologo', '-m:1')
         }
     }
-    $metadata = & rustup run 1.85.1 cargo metadata --offline --format-version 1 --no-deps | ConvertFrom-Json
-    if ($LASTEXITCODE -ne 0) { throw 'Cargo metadata failed.' }
-    $server = Join-Path $metadata.target_directory 'debug/eitmad-server.exe'
-    $engine = Join-Path $metadata.target_directory 'debug/eitmad-engine-cli.exe'
-    $provision = Join-Path $metadata.target_directory 'debug/examples/workflow_environment.exe'
+    $server = Join-Path $env:CARGO_TARGET_DIR 'debug/eitmad-server.exe'
+    $engine = Join-Path $env:CARGO_TARGET_DIR 'debug/eitmad-engine-cli.exe'
+    $provision = Join-Path $env:CARGO_TARGET_DIR 'debug/examples/workflow_environment.exe'
     $shell = Join-Path $workspace 'shells/windows/bin/Release/net8.0-windows/Eitmad.WindowsShell.exe'
     $certificateTool = Join-Path $workspace 'tools/dev-certificate/bin/Release/net8.0/Eitmad.DevCertificate.dll'
     $testAssembly = Join-Path $workspace 'shells/windows/tests/bin/Release/net8.0-windows/Eitmad.WindowsShell.Tests.dll'

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-17"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -127,7 +127,7 @@ The live test uses distinct authenticated principals and separate clients, real 
 
 ## Server-confirmed lifecycle
 
-If **طلب موافقة** returns Pending but the editor then loses the pending label, check overlapping editor, list, and subscription requests through `QuotationDraftClient`. These callers share a Rust credential route with fail-fast admission. The client serializes its reads and commands asynchronously; cancellation removes a queued request before engine submission. An unavailable result remains a failure and does not infer approval or trigger an automatic command retry. `DiscountApprovalTests.ApprovalSubmissionWaitsForTheSharedClientReadAndCancelsQueuedReads` holds a read open and checks that a decision waits and a cancelled queued read never reaches the engine. Connected handler tests must await actual submission and the current list refresh before checking the selected approval; awaiting a previous completed handler task does not prove a decision.
+Editor, list, and subscription requests through `QuotationDraftClient` can overlap. Rust owns deadline-bounded credential admission and uses an independent HTTP socket per request; the shell does not queue commands behind unrelated reads. An unavailable result remains a failure and does not infer approval or trigger an automatic command retry. `DiscountApprovalTests.PendingApprovalReadDoesNotBlockDecisionSubmission` holds a read open and checks that a decision can complete. Connected handler tests must await actual submission and the current list refresh before checking the selected approval; awaiting a previous completed handler task does not prove a decision.
 
 `crates/contracts/src/quotation_lifecycle.rs` owns the generated lifecycle contract. Protocol minor 22 is required for `eitmad.capability.quotation-lifecycle.v1` and `eitmad.schema.quotation-lifecycle.v1`. Rust exposes typed issue, validity, revision, cancellation, and acceptance commands, a scoped quotation query, and quotation-change subscriptions. Each reply supplies the actions permitted for the authenticated actor. WPF renders these actions and does not derive authorization from role flags.
 

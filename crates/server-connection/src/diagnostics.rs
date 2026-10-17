@@ -75,11 +75,6 @@ mod tests {
         let network = super::super::unavailable(FailurePhase::Connect);
         assert_eq!(failure_result(&network, past), DiagnosticResult::Deadline);
         assert_eq!(failure_result(&network, future), DiagnosticResult::Network);
-        let mapped = crate::authenticated_http::HttpError::Unavailable(network.clone());
-        let crate::authenticated_http::HttpError::Unavailable(retained) = mapped else {
-            panic!("cause lost")
-        };
-        assert_eq!(retained, network);
     }
     #[test]
     fn withheld_loopback_reply_reports_io_timeout_before_the_request_deadline() {
