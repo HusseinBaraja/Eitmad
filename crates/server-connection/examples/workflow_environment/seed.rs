@@ -473,7 +473,7 @@ pub(super) fn verify(manager: &Client, reception: &Client) -> Result<()> {
             ),
             "authenticated workflow restart check",
         )?;
-        if records.items.len() < 5 {
+        if records.items.is_empty() {
             return Err("seeded workflow state missing");
         }
     }

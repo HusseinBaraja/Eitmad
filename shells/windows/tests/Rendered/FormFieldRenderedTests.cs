@@ -62,7 +62,7 @@ public sealed class FormFieldRenderedTests
     {
         WpfTestHost.Run(width, height, window =>
         {
-            foreach (var (page, action, inputName) in new[] { ("Materials", "إضافة مادة خام", "EditorNameBox"), ("Parts", "إضافة جزء", "EditorNameBox"), ("Furniture", "إضافة منتج", "FurnitureNameBox"), ("Products", "إضافة منتج", "ProductNameBox"), ("Pricing", "تعديل سعر البيع", "PriceInput") })
+            foreach (var (page, action, inputName) in new[] { ("Materials", "إضافة مادة خام", "EditorNameBox"), ("Parts", "إضافة جزء", "EditorNameBox"), ("Furniture", "إضافة أثاث", "FurnitureNameBox"), ("Products", "إضافة منتج", "ProductNameBox"), ("Pricing", "تعديل سعر البيع", "PriceInput") })
             {
                 WpfTestHost.FindByName<Button>(window, page + "NavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 if (page == "Products")

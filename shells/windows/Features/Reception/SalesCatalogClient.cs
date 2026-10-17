@@ -12,7 +12,6 @@ public sealed class SalesCatalogClient : IAsyncDisposable
 {
     private readonly IEngineShellBridge engine;
     private readonly EngineChangeFeed changes;
-    private SynchronizationContext? context;
     internal Features.CatalogImages.CatalogImageClient Images { get; }
     public SalesCatalogClient(IEngineShellBridge engine)
     {
@@ -25,9 +24,9 @@ public sealed class SalesCatalogClient : IAsyncDisposable
     public event EventHandler? Changed;
     public event EventHandler? ProjectionInvalidated;
     /// <summary>Starts the change feed and captures the UI context for projection invalidation.</summary>
-    public Task ActivateAsync() { context = SynchronizationContext.Current; return changes.ActivateAsync(); }
+    public Task ActivateAsync(CancellationToken cancellationToken = default) => changes.ActivateAsync(cancellationToken);
     /// <summary>Delivers projection invalidation on the captured UI context after access or session loss.</summary>
-    private void Invalidate() { if (context is null) ProjectionInvalidated?.Invoke(this, EventArgs.Empty); else context.Post(_ => ProjectionInvalidated?.Invoke(this, EventArgs.Empty), null); }
+    private void Invalidate() => ProjectionInvalidated?.Invoke(this, EventArgs.Empty);
     public Task DeactivateAsync() => changes.DeactivateAsync();
     public ValueTask DisposeAsync() => changes.DisposeAsync();
     public Task<PricingResult<SalesCatalogPage>> LoadAsync(string term, string? category, Guid? after, CancellationToken token) =>

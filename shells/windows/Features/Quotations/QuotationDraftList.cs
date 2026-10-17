@@ -38,13 +38,13 @@ public sealed partial class QuotationsViewModel
     }
     private void DraftsChanged(object? sender, EventArgs e) { if (draftsActive) LastDraftLoad = LoadDraftsAsync(); }
     private void DraftsInvalidated(object? sender, EventArgs e) => ClearDrafts();
-    public async Task ActivateDraftsAsync()
+    public async Task ActivateDraftsAsync(CancellationToken cancellationToken = default)
     {
         if (draftClient is null) return;
         var session = approvalSession;
         draftsActive = true;
-        await draftClient.ActivateAsync();
-        if (!draftsActive || session != approvalSession) return;
+        await draftClient.ActivateAsync(cancellationToken);
+        if (!draftsActive || session != approvalSession || cancellationToken.IsCancellationRequested) return;
         LastDraftLoad = LoadDraftsAsync(); await LastDraftLoad;
     }
     public void ClearDrafts()

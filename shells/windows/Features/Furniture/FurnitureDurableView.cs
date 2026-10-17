@@ -150,7 +150,7 @@ public partial class FurnitureView
             if (!activated || session != sessionVersion) return;
             if (result != FurnitureFailureKind.Unavailable) ViewModel.SaveResolved();
             if (result == FurnitureFailureKind.Denied) { ClearRestrictedData(); ViewModel.Unavailable(FurnitureClient.ArabicMessage(result)); }
-            else if (result == FurnitureFailureKind.None) { ViewModel.Saved(input.State == FurnitureState.Draft); await RefreshAsync(); RestartFeedbackTimer(); }
+            else if (result == FurnitureFailureKind.None) { ViewModel.Saved(input.State, input.Name); await RefreshAsync(); RestartFeedbackTimer(); }
             else ViewModel.Fail(result == FurnitureFailureKind.Unavailable ? "لم تتأكد نتيجة الحفظ. أعد محاولة الحفظ بنفس البيانات." : FurnitureClient.ArabicMessage(result));
         }
         catch (FurnitureViewModel.UnsavedCategoryException) { ViewModel.Fail(FurnitureViewModel.UnsavedCategoryMessage); }

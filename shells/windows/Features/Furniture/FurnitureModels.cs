@@ -36,7 +36,7 @@ public sealed record FurnitureListItem(
 
     public string SellingPriceAmountLabel => SellingPrice.ToString("N0", CultureInfo.InvariantCulture);
 
-    public string StatusLabel => IsArchived ? "مؤرشف" : IsDraft ? "مسودة" : "نشط";
+    public string StatusLabel => IsArchived ? FurnitureViewModel.ArchivedStatus : IsDraft ? FurnitureViewModel.DraftStatus : FurnitureViewModel.ActiveStatus;
 }
 
 public sealed record FurniturePartOption(Guid Id, string Name, string Category, decimal UnitCost)

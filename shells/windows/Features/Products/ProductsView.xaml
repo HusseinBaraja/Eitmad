@@ -56,7 +56,6 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding AvailabilityMessage}" Foreground="#9A5C22" FontSize="13" />
                     <TextBlock Grid.Column="1" Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                 </Grid>
                 <Border Grid.Row="2" VerticalAlignment="Top" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" ClipToBounds="True">
@@ -68,7 +67,8 @@
                             </Grid.RowDefinitions>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <Grid>
-                                    <controls:OperationsTable ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="ProductRowInvoked" automation:AutomationProperties.Name="الصورة">
+                                    <controls:EmptyState x:Name="ProductLoadStatus" Heading="{Binding AvailabilityMessage}" Visibility="{Binding ShowLoadStatus, Converter={StaticResource BooleanToVisibility}}" />
+                                    <controls:OperationsTable x:Name="ProductResults" Visibility="{Binding IsDataReady, Converter={StaticResource BooleanToVisibility}}" ItemsSource="{Binding VisibleProducts}" SelectedValuePath="Id" MaxHeight="460" IsRowInvocationEnabled="True" RowInvoked="ProductRowInvoked" automation:AutomationProperties.Name="الصورة">
                                         <controls:OperationsTable.EmptyContent>
                                             <controls:EmptyState Heading="لا توجد منتجات مطابقة" Description="جرّب تغيير البحث أو عوامل التصفية." />
                                         </controls:OperationsTable.EmptyContent>
@@ -78,46 +78,31 @@
                                                     <DataTemplate>
                                                         <Border x:Name="RowSurface" MinHeight="82" Background="Transparent" BorderBrush="{StaticResource LineBrush}" BorderThickness="0">
                                                             <Border x:Name="ContrastCell1" Width="54" Height="54" CornerRadius="10" Background="#F2E7DC" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <Grid><Grid>
-    <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Image}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Grid.Style>
-
-                                                                    <Grid x:Name="MattressThumb" Visibility="Collapsed">
-                                                                        <Border x:Name="ContrastCell2" Width="42" Height="25" CornerRadius="5" Background="#DCE6E4" BorderBrush="#7A958F" BorderThickness="1" />
-                                                                        <Path Data="M8,26 L39,26 M11,16 L11,30 M36,16 L36,30" Stroke="#825A39" StrokeThickness="2" Stretch="Uniform" Width="40" Height="28" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="PillowThumb" Visibility="Collapsed">
-                                                                        <Path Data="M7,17 C10,9 33,9 38,17 C42,24 37,35 29,34 C21,37 9,34 7,27 C5,23 5,20 7,17Z" Fill="#FAF8F3" Stroke="#B89572" StrokeThickness="1.4" Stretch="Uniform" Width="42" Height="36" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="VaseThumb" Visibility="Collapsed">
-                                                                        <Path Data="M15,4 L29,4 C28,10 27,12 31,17 C37,25 33,41 22,44 C11,41 7,25 13,17 C17,12 16,10 15,4Z" Fill="#C98550" Stroke="#8B4D24" StrokeThickness="1.4" Stretch="Uniform" Width="34" Height="42" />
-                                                                    </Grid>
-                                                                    <Grid x:Name="LampThumb" Visibility="Collapsed">
-                                                                        <Path Data="M11,6 L32,6 L37,22 L6,22Z" Fill="#D5AA6D" Stroke="#79512A" StrokeThickness="1.4" />
-                                                                        <Path Data="M21,22 L21,39 M13,40 L29,40" Stroke="#79512A" StrokeThickness="2" />
-                                                                    </Grid>
-                                                                </Grid><Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="{Binding Name}"/></Grid>
+                                                                <Grid>
+                                                                    <TextBlock x:Name="MissingImage" Text="الصورة غير متاحة" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="3" FontSize="10" Foreground="{DynamicResource MutedBrush}">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding Image}" Value="{x:Null}">
+                                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                    <Image Source="{Binding Image}" Stretch="Uniform" FlowDirection="LeftToRight" automation:AutomationProperties.Name="{Binding Name}" />
+                                                                </Grid>
                                                             </Border>
                                                         </Border>
                                                         <DataTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Mattress">
-                                                                <Setter TargetName="MattressThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Pillow">
-                                                                <Setter TargetName="PillowThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Vase">
-                                                                <Setter TargetName="VaseThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding ThumbnailKind}" Value="Lamp">
-                                                                <Setter TargetName="LampThumb" Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.56" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
                                                                 <Setter TargetName="ContrastCell1" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
-                                                                <Setter TargetName="ContrastCell2" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
+                                                                <Setter TargetName="MissingImage" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
                                                             </DataTrigger>
                                                         </DataTemplate.Triggers>
                                                     </DataTemplate>
@@ -266,13 +251,48 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <controls:PageHeader Grid.Row="0" Title="{Binding EditorTitle}" ShowSubtitle="False"></controls:PageHeader>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel IsEnabled="{Binding CanEdit}" Margin="28,16,28,18" MaxWidth="970" HorizontalAlignment="Stretch">
+            <controls:PageHeader Grid.Row="0" Title="{Binding EditorTitle}" Subtitle="{Binding EditorName}">
+                <controls:PageHeader.Style>
+                    <Style TargetType="controls:PageHeader" BasedOn="{StaticResource {x:Type controls:PageHeader}}">
+                        <Setter Property="ShowSubtitle" Value="False" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                <Setter Property="Height" Value="Auto" />
+                                <Setter Property="MinHeight" Value="64" />
+                                <Setter Property="Padding" Value="16,8" />
+                                <Setter Property="FontSize" Value="20" />
+                                <Setter Property="ShowSubtitle" Value="True" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </controls:PageHeader.Style>
+            </controls:PageHeader>
+            <ScrollViewer x:Name="EditorBody" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel IsEnabled="{Binding CanEdit}" MaxWidth="970" HorizontalAlignment="Stretch">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Margin" Value="28,16,28,18" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <Setter Property="Margin" Value="16,12" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <Border Style="{StaticResource Card}" Padding="16">
                         <Grid>
                             <StackPanel FlowDirection="RightToLeft">
-                                <TextBlock Text="المعلومات الأساسية" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock Text="المعلومات الأساسية" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <layout:AdaptiveFieldsPanel MinItemWidth="220" Spacing="12">
                                     <controls:FormField Label="اسم المنتج">
                                         <TextBox x:Name="ProductNameBox" Text="{Binding EditorName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" automation:AutomationProperties.Name="اسم المنتج" />
@@ -329,7 +349,7 @@
                                             <RowDefinition Height="0" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" MaxHeight="460" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource LineBrush}" automation:AutomationProperties.Name="اسم الخيار">
+                                        <controls:OperationsTable Grid.Row="1" ItemsSource="{Binding Variants}" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource LineBrush}" automation:AutomationProperties.Name="اسم الخيار">
                                             <DataGrid.Columns>
                                                 <DataGridTemplateColumn Header="اسم الخيار" Width="1.45*" MinWidth="160" SortMemberPath="Name">
                                                     <DataGridTemplateColumn.CellTemplate>

@@ -917,6 +917,7 @@ version = "0.0.0"
 dependencies = [
  "argon2",
  "clap",
+ "eitmad-authorization",
  "eitmad-contracts",
  "eitmad-customer",
  "eitmad-engine-runtime",

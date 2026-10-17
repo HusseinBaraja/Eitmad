@@ -1,3 +1,5 @@
+use crate::diagnostic_blocking;
+use eitmad_observability_audit::operation_diagnostics::DiagnosticSource as Source;
 use std::sync::Arc;
 #[path = "discount_approval.rs"]
 mod discount_approval;
@@ -220,7 +222,7 @@ impl ProductDispatcher {
                 .saturating_sub(1_000)
                 .min(now().0.saturating_add(10_000)),
         );
-        tokio::task::spawn_blocking(move || {
+        diagnostic_blocking(context.correlation_id, Source::Catalog, move || {
             // Validate and authorize before network work. Recheck after replication.
             match &query {
                 Query::SalesCatalog(q) => {
@@ -284,7 +286,7 @@ impl ProductDispatcher {
                         .saturating_sub(1000)
                         .min(now().0.saturating_add(10_000)),
                 );
-                tokio::task::spawn_blocking(move || {
+                diagnostic_blocking(context.correlation_id, Source::Catalog, move || {
                     let catalog_actor = pricing.authorize_quotation(&actor)?;
                     let available = replication
                         .as_ref()
@@ -307,7 +309,7 @@ impl ProductDispatcher {
                 let deadline = context.deadline;
                 let correlation_id = context.correlation_id;
                 let replication = self.catalog_replication.clone();
-                tokio::task::spawn_blocking(move || {
+                diagnostic_blocking(context.correlation_id, Source::Pricing, move || {
                     let mut server_available = false;
                     if query.after.is_none() {
                         if let Some(replication) = &replication {
@@ -380,11 +382,12 @@ impl ProductDispatcher {
         let pricing = self.pricing.clone();
         let actor = mutation.clone();
         let deadline = context.deadline;
-        let result =
-            tokio::task::spawn_blocking(move || pricing.publish(&actor, &command, deadline))
-                .await
-                .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
-                .map_err(|e| pricing_error(e, context))?;
+        let result = diagnostic_blocking(context.correlation_id, Source::Pricing, move || {
+            pricing.publish(&actor, &command, deadline)
+        })
+        .await
+        .map_err(|_| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?
+        .map_err(|e| pricing_error(e, context))?;
         self.publish_pending(context, mutation.idempotency_key)
             .map_err(|()| pricing_error(eitmad_pricing::PricingError::Unconfirmed, context))?;
         Ok(CommandResult::PricePublished(result))
@@ -835,7 +838,7 @@ impl ProductDispatcher {
         let images = self.images.clone();
         let actor = context.authorization.clone();
         let deadline = context.deadline;
-        tokio::task::spawn_blocking(move || {
+        diagnostic_blocking(context.correlation_id, Source::Images, move || {
             let _permit = permit;
             images.get(&actor, &input, deadline)
         })
@@ -857,7 +860,7 @@ impl ProductDispatcher {
         let images = self.images.clone();
         let mutation = mutation.clone();
         let deadline = context.deadline;
-        tokio::task::spawn_blocking(move || {
+        diagnostic_blocking(context.correlation_id, Source::Images, move || {
             // The permit survives IPC timeout until the actual worker exits.
             let _permit = permit;
             images.import(&mutation, &input, deadline)

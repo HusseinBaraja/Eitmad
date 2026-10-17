@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Parts capability maintainers"
-last_verified: "2026-10-05"
+last_verified: "2026-10-16"
 review_triggers:
   - "Parts domain contracts, Rust projections, or Windows Parts UI behavior change"
 keywords:
@@ -60,6 +60,8 @@ Opening the screen loads Rust parts, separate categories, and durable material/u
 Save, edit, duplicate, and archive use typed Rust commands. Duplicate remains an unsaved editor until the Manager saves it. Validation, denial, reference, and revision failures keep unsaved fields and show Arabic errors. A lost save response keeps the reviewed data frozen for **إعادة محاولة الحفظ** with the original key. Category and part saves retain separate retry payloads and keys, so an unknown category outcome cannot block a part save. Retry a category with its original name to resolve an unknown outcome before changing that category request. Cost-reference refresh retains the selected saved unit when the active picker omits it; a matching refreshed unit supplies its current revision. Rust still decides whether the retained reference is permitted. Account switching clears part data and editor state. Loading, unavailable, denied, and empty results have explicit presentation states.
 
 ## Focused verification
+
+After a category save succeeds, the editor retains the intended category selection until a refreshed Rust projection contains it. A subscription refresh can cancel the save handler's own refresh; it must not clear the selected category or force the Manager to select it again. `ConfirmedCategorySelectionSurvivesEitherRefreshOrder` covers both response orders.
 
 Run `cargo test -p eitmad-part --offline` for multi-material restart, exact retry, approved costs, conversion and rounding, invalid quantities/references, historical cost protection, concurrent edits, and audit rollback. The focused dispatcher test `routes_material_and_part_mutations_and_denies_receptionist_write` covers typed saves, queries, notices, and Receptionist denial. Regenerate and verify contract bindings with the commands in the [developer guide](../index.md#choose-the-smallest-normal-proof).
 

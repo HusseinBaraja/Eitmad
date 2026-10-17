@@ -57,7 +57,7 @@ use eitmad_postgres_support as sqlx;
 use eitmad_secret_storage::{FallbackEncryptionKey, SecretStore};
 use eitmad_server::{ServerState, router};
 use eitmad_server_audit::AuditDatabase;
-use eitmad_server_connection::{DirectServerConfig, DirectServerDriver, store_session};
+use eitmad_server_connection::{DirectServerConfig, DirectServerDriver};
 use eitmad_storage::AuthorityStore;
 use eitmad_sync::{
     HealthStatus, ReceiveOutcome, RetryPolicy, SyncAuthorization, SyncEngine, SyncTransport,
@@ -70,8 +70,11 @@ use eitmad_sync_plane::{
 use uuid::Uuid;
 #[path = "direct_route/catalog_sync.rs"]
 mod catalog_sync;
+#[path = "direct_route/credentials.rs"]
+mod credentials;
 #[path = "direct_route/projection_audit.rs"]
 mod projection_audit;
+use credentials::{TestCredentials, store_account_session, store_session};
 
 struct TestDomain;
 
@@ -706,6 +709,7 @@ async fn assert_reconnect_after_shutdown(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires a disposable PostgreSQL database and a generated trusted development certificate"]
 async fn real_server_authentication_tls_sync_and_reconnect() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL")
         .expect("set EITMAD_DIRECT_TEST_DATABASE_URL to an empty disposable PostgreSQL database");
@@ -805,6 +809,7 @@ async fn real_server_authentication_tls_sync_and_reconnect() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires an empty disposable PostgreSQL database and generated development certificates"]
 async fn customer_changes_use_the_real_route_and_postgres_scope() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
     let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
@@ -985,6 +990,7 @@ fn customer_test_transport(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn revoked_session_cannot_submit_on_an_established_websocket() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
     let server = provision_server(
@@ -1463,6 +1469,7 @@ async fn assert_receptionist_customer_branches(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires an empty disposable PostgreSQL database and development certificates"]
 async fn two_isolated_customer_engines_recover_and_preserve_conflicts() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database_url = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
     let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
@@ -1548,8 +1555,7 @@ fn catalog_image_client(
         SecretKind::parse("catalog-image-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
-        .unwrap();
+    store_account_session(&secrets, &credential, authentication, seed).unwrap();
     let config = DirectServerConfig::new(
         endpoint,
         remote_scope.clone(),
@@ -1858,6 +1864,7 @@ async fn concurrent_catalog_uploads_respect_retention_and_exact_retries(
 async fn catalog_image_transfers_between_authorized_clients_and_survives_restart() {
     use eitmad_catalog_image::{CatalogImageService, CatalogImageTransfer, ImageError};
     use eitmad_contracts::catalog_image::GetCatalogImage;
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
     let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
@@ -1980,7 +1987,7 @@ fn pricing_test_client(
         SecretKind::parse("pricing-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    eitmad_server_connection::store_account_session(
+    store_account_session(
         &secrets,
         &credential,
         server.authentication.clone(),
@@ -2186,6 +2193,7 @@ async fn pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptio
         product::{ProductId, ProductReference, ProductVariantId},
     };
     use eitmad_pricing::{PriceConfirmation, PricingError};
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
     let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");

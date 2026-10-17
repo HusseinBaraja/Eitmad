@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using Eitmad.Contracts;
 using Eitmad.WindowsShell.Features.Quotations;
+using Eitmad.WindowsShell.Features.WorkOrders;
 
 namespace Eitmad.WindowsShell.Features.Orders;
 
@@ -10,6 +11,8 @@ public sealed partial class OrdersViewModel
     private OrderClient? client;
     private bool active, busy;
     private long generation, loadVersion;
+    private Task? loadOperation;
+    private bool loadRequested;
     private string listState = "", actionNotice = "", fulfillmentNote = "", recipient = "", reason = "", assignment = "", deliveryNote = "";
     private DateTime dueDate = DateTime.Today.AddDays(7);
     private Command? retryCommand;
@@ -61,17 +64,17 @@ public sealed partial class OrdersViewModel
     public void Attach(OrderClient source)
     {
         client = source; UsePreviewOrders(new ObservableCollection<OrderListItem>());
-        source.Changed += (_, _) => { if (active) LastLoad = LoadAsync(); };
+        source.Changed += (_, _) => { if (active) RequestLoad(); };
         source.Invalidated += (_, _) => ClearOrders();
         Raise(nameof(IsLive)); Raise(nameof(ListSubtitle)); Raise(nameof(DetailSubtitle));
     }
-    public async Task ActivateAsync()
+    public async Task ActivateAsync(CancellationToken cancellationToken = default)
     {
         if (client is null) return;
         var session = generation;
-        active = true; await client.ActivateAsync();
-        if (!active || session != generation) return;
-        LastLoad = LoadAsync(); await LastLoad;
+        active = true; await client.ActivateAsync(cancellationToken);
+        if (!active || session != generation || cancellationToken.IsCancellationRequested) return;
+        await RequestLoad();
     }
     public async Task OpenByIdAsync(Guid id)
     {
@@ -89,14 +92,31 @@ public sealed partial class OrdersViewModel
         if (client is null) return;
         DocumentsInvalidated?.Invoke(this, EventArgs.Empty);
         active = false; ++generation; ++loadVersion; busy = false; retryCommand = null; pending = [];
+        loadRequested = false; loadOperation = null; LastLoad = Task.CompletedTask;
         CloseOrder(); orders.Clear(); RefreshVisibleOrders(); ListState = "الطلبات غير متاحة."; ActionNotice = "";
         Recipient = ""; DeliveryNote = ""; FulfillmentNote = ""; CancellationReason = ""; Assignment = ""; RaiseActions();
     }
     public async Task DeactivateAsync() { ClearOrders(); if (client is not null) await client.DeactivateAsync(); }
-    private async Task LoadAsync()
+    private Task RequestLoad()
+    {
+        ++loadVersion; loadRequested = true;
+        return LastLoad = loadOperation is { IsCompleted: false } ? loadOperation : loadOperation = DrainLoadsAsync(generation);
+    }
+    // Subscription notices and command confirmation share one read sequence.
+    // Only requested refreshes run; an unavailable result does not schedule a retry.
+    private async Task DrainLoadsAsync(long session)
+    {
+        await Task.Yield();
+        while (active && generation == session && loadRequested)
+        {
+            loadRequested = false;
+            await LoadAsync(loadVersion);
+        }
+    }
+    private async Task LoadAsync(long version)
     {
         if (client is null || !active) return;
-        var version = ++loadVersion; var session = generation; Guid? cursor = null;
+        var session = generation; Guid? cursor = null;
         var items = new List<OrderListItem>(); var available = true; IReadOnlyList<OrderPending> requests = [];
         ListState = "جارٍ تحميل الطلبات...";
         do {
@@ -139,7 +159,7 @@ public sealed partial class OrdersViewModel
     {
         var start = action == OrderPermittedAction.StartWork;
         if (value.Work.FirstOrDefault(w => w.State == (start ? WorkState.Planned : WorkState.InProgress)) is not { } work) return null;
-        var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = new DateTimeOffset(DateTime.SpecifyKind(DueDate.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(3)).ToUnixTimeMilliseconds() };
+        var input = new TransitionOrderWork { OrderId = value.Id, ExpectedRevision = value.Revision, WorkId = work.Id, Assignment = Assignment, DueAt = WorkOrderDueDate.EndOfAdenDay(DueDate) };
         return start ? Command.ForOrderWorkStart(input) : Command.ForOrderWorkComplete(input);
     }
     public void Retry() => LastAction = RetryAsync(false);
@@ -159,9 +179,9 @@ public sealed partial class OrdersViewModel
         try {
             var result = await client.SendAsync(retryCommand, retryKey);
             if (!active || session != generation) return;
-            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure);
+            ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure, retryCommand);
             if (result.Succeeded || result.Failure != DraftFailure.Unavailable) retryCommand = null;
-            LastLoad = LoadAsync(); await LastLoad;
+            await RequestLoad();
         }
         finally { if (session == generation) { busy = false; RaiseActions(); } }
     }

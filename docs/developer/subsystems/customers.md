@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "customer capability maintainers"
-last_verified: "2026-09-28"
+last_verified: "2026-10-16"
 review_triggers:
   - "customer contracts, search normalization, permissions, storage, sync, or lifecycle rules change"
 keywords:
@@ -20,7 +20,7 @@ keywords:
 
 The customer capability provides durable, branch-scoped contact create, update, get, bounded search, and change notification. Rust owns customer identity, validation, optimistic revisions, ReBAC checks, derived search forms, audit, SQLite state, idempotency replay, event publication, and local-first sync work.
 
-This slice implements contact create and edit plus the Windows projection for customer selection and details. It does not implement archive, restore, merge, extra branch association, or durable quotation attachment. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
+This slice implements contact create and edit plus the Windows projection for customer selection and details. Durable quotation drafts reference the confirmed customer UUID and revision. Archive, restore, merge, extra branch association, and organization-wide desktop customer search are not implemented. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
 
 ## Ownership and authority
 
@@ -96,7 +96,7 @@ Audit contains stable operation, scope, actor, customer UUID, changed field iden
 
 ## Local-first synchronization
 
-Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. `CustomerSyncCycle` stages committed outbox changes in the durable shared `SyncEngine`, submits each through the authenticated direct WAN route, pulls incremental server pages, and acknowledges applied checkpoints. The cycle maps each client's local branch scope to the registered server branch and maps downloaded records back to the local scope. The caller must supply the owner-registered server branch and session and invoke the cycle from a Rust worker thread; this repository does not yet persist desktop enrollment or start a customer sync scheduler during normal engine startup.
+Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. `CustomerSyncCycle` stages committed outbox changes in the durable shared `SyncEngine`, submits each through the authenticated direct WAN route, pulls incremental server pages, and acknowledges applied checkpoints. The cycle maps each client's local branch scope to the registered server branch and maps downloaded records back to the local scope. The caller must supply the owner-registered server branch and session and invoke the cycle from a Rust worker thread. The [workflow environment](../../operations/run-workflow-test-environment.md) supplies the route configuration and starts the Rust customer retry worker; automatic desktop enrollment remains outside this slice.
 
 The server registers the customer schema and handler. The handler validates the payload identity and revision and resolves the branch through the tenant-scoped `control.branches` registry. A Manager has access through the owning organization relationship; a Receptionist needs the exact branch relationship. PostgreSQL row-level security isolates tenant data. The server preserves the client's change ID and idempotency key, so an exact retry has one effect. A stale revision creates an explicit durable conflict; the server does not overwrite the current record or merge fields automatically. The local contact remains visible with `Conflicted` state and its outbox entry is held for resolution. Domain denial or invalid content becomes `Rejected`. This conservative conflict policy covers same-field concurrent edits and can also flag edits to different fields; no field-aware merge is claimed.
 

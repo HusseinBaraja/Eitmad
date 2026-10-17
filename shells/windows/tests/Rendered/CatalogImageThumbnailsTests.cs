@@ -94,7 +94,7 @@ public sealed class CatalogImageThumbnailsTests
     {
         WpfTestHost.Run(720, 560, _ =>
         {
-            var product = new ProductListItem(Guid.NewGuid(), "مرتبة", "مراتب", 100, "مفرد", "", false, true);
+            var product = new ProductListItem(Guid.NewGuid(), "مرتبة", "مراتب", 100, "مفرد", false, true);
             var furniture = new FurnitureListItem(Guid.NewGuid(), "كرسي", "كراسي", 1, 100, "", false, false);
             var products = new HashSet<ProductListItem> { product };
             var furnishings = new HashSet<FurnitureListItem> { furniture };

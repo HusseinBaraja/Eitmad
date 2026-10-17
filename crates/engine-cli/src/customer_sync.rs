@@ -1,46 +1,38 @@
 use eitmad_contracts::{
-    identity::{ScopeId, ScopeKind, ScopeRef},
+    identity::{ScopeKind, ScopeRef},
     transport::SchemaId,
 };
 use eitmad_engine_runtime::ProductDispatcher;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{DirectCustomerSyncClient, DirectServerConfig};
 use eitmad_storage::AuthorityStore;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
-};
+use std::{path::Path, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
 pub(super) fn configure(
     store: &AuthorityStore,
     directory: &Path,
+    installation: Option<&eitmad_server_connection::DesktopConnectionSettings>,
 ) -> Result<Option<Arc<DirectCustomerSyncClient>>, ()> {
-    let Some(endpoint) = std::env::var_os("EITMAD_CUSTOMER_SERVER") else {
+    let Some(route) = crate::connection::ServerRoute::load("CUSTOMER", installation)? else {
         return Ok(None);
     };
-    let trust = std::env::var_os("EITMAD_CUSTOMER_TRUST_PEM").ok_or(())?;
-    let credential = std::env::var("EITMAD_CUSTOMER_CREDENTIAL_ID").map_err(|_| ())?;
-    let branch = std::env::var("EITMAD_CUSTOMER_BRANCH_ID")
-        .map_err(|_| ())?
-        .parse()
-        .map_err(|_| ())?;
+    let branch = crate::connection::branch("CUSTOMER", installation)?;
     let config = DirectServerConfig::new(
-        endpoint.to_str().ok_or(())?,
+        &route.endpoint,
         ScopeRef {
             kind: ScopeKind::parse("branch").map_err(|_| ())?,
-            id: ScopeId::new(branch),
+            id: branch,
         },
         SchemaId::parse(eitmad_customer::CUSTOMER_SCHEMA_ID).map_err(|_| ())?,
         1,
-        &PathBuf::from(trust),
+        &route.trust,
     )
     .map_err(|_| ())?;
     Ok(Some(Arc::new(DirectCustomerSyncClient::from_config(
         config,
         SecretStore::open(directory, None).map_err(|_| ())?,
-        serde_json::from_str(&credential).map_err(|_| ())?,
+        route.credential,
         store.clone(),
     ))))
 }

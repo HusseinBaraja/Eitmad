@@ -1,3 +1,4 @@
+use super::diagnostics::failure_result;
 use super::{
     DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
     parse_http_response, remaining_io,
@@ -8,12 +9,15 @@ use eitmad_contracts::{
     identity::{AuthorizationContext, ScopeRef},
     secrets::SecretId,
 };
+use eitmad_observability_audit::operation_diagnostics::{
+    DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
+};
+use eitmad_sync::{FailurePhase, TransportFailure};
 use std::{
     io::{Read as _, Write as _},
-    sync::Mutex,
     time::Instant,
 };
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum HttpError {
     Denied,
     Invalid,
@@ -21,10 +25,11 @@ pub(crate) enum HttpError {
     Conflict,
     StalePrice,
     ApprovalRequired,
-    Unavailable,
+    Unavailable(TransportFailure),
+    Server,
 }
 pub(crate) struct AuthenticatedHttpClient {
-    pub(super) driver: Mutex<DirectServerDriver>,
+    pub(super) driver: DirectServerDriver,
     credential_id: SecretId,
     remote_scope: ScopeRef,
 }
@@ -33,7 +38,7 @@ impl AuthenticatedHttpClient {
     pub fn new(driver: DirectServerDriver, credential_id: SecretId) -> Self {
         Self {
             remote_scope: driver.config.scope.clone(),
-            driver: Mutex::new(driver),
+            driver,
             credential_id,
         }
     }
@@ -89,10 +94,33 @@ impl AuthenticatedHttpClient {
         input: &impl serde::Serialize,
         budget: Instant,
     ) -> Result<T, HttpError> {
-        remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
-        // Do not spend another image worker waiting behind a network operation.
-        let driver = self.driver.try_lock().map_err(|_| HttpError::Unavailable)?;
-        remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
+        let mut span = DiagnosticSpan::start(DiagnosticPhase::Confirmation);
+        let result = self.request_inner(actor, route, input, budget);
+        span.finish(match &result {
+            Ok(_) => DiagnosticResult::Succeeded,
+            Err(HttpError::Unavailable(cause)) => match failure_result(cause, budget) {
+                // Detailed connect/TLS/I/O spans retain the measured source cause.
+                DiagnosticResult::Network => DiagnosticResult::Failed,
+                result => result,
+            },
+            Err(HttpError::Denied) => DiagnosticResult::Denied,
+            Err(HttpError::Server) => DiagnosticResult::Server,
+            Err(_) => DiagnosticResult::Invalid,
+        });
+        result
+    }
+
+    fn request_inner<T: serde::de::DeserializeOwned>(
+        &self,
+        actor: &AuthorizationContext,
+        route: &str,
+        input: &impl serde::Serialize,
+        budget: Instant,
+    ) -> Result<T, HttpError> {
+        remaining_io(budget)
+            .map_err(|_| HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation)))?;
+        // HTTP owns a fresh socket per request and only reads the driver.
+        let driver = &self.driver;
         if !(actor.scope.kind.as_str() == "organization"
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"
@@ -106,14 +134,15 @@ impl AuthenticatedHttpClient {
             .account_credential(&self.credential_id, actor, budget)
             .map_err(|failure| match failure.kind {
                 eitmad_sync::TransportFailureKind::AuthenticationFailed => HttpError::Denied,
-                _ => HttpError::Unavailable,
+                _ => HttpError::Unavailable(failure),
             })?;
-        remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
+        remaining_io(budget)
+            .map_err(|_| HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation)))?;
         let mut url = driver.config.endpoint.clone();
         url.set_path(route);
         let mut stream =
-            connect_tls(&url, &driver.config.tls, budget).map_err(|_| HttpError::Unavailable)?;
-        let host = host_header(&url).map_err(|_| HttpError::Unavailable)?;
+            connect_tls(&url, &driver.config.tls, budget).map_err(HttpError::Unavailable)?;
+        let host = host_header(&url).map_err(HttpError::Unavailable)?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(&credential)).map_err(|_| HttpError::Invalid)?,
         );
@@ -128,11 +157,13 @@ impl AuthenticatedHttpClient {
             credential.access_token,
             body.len()
         );
-        stream
-            .write_all(header.as_bytes())
-            .and_then(|()| stream.write_all(&body))
-            .and_then(|()| stream.flush())
-            .map_err(|_| HttpError::Unavailable)?;
+        super::diagnostics::measure_io(DiagnosticPhase::Send, FailurePhase::Send, budget, || {
+            stream
+                .write_all(header.as_bytes())
+                .and_then(|()| stream.write_all(&body))
+                .and_then(|()| stream.flush())
+        })
+        .map_err(HttpError::Unavailable)?;
         let maximum = if route == "/v1/pricing/read"
             || route.starts_with("/v1/quotation-approvals/")
             || route.starts_with("/v1/quotations/")
@@ -142,46 +173,62 @@ impl AuthenticatedHttpClient {
         } else {
             IMAGE_CHUNK_BYTES * 2 + 8192
         };
+        let mut receiving = DiagnosticSpan::start(DiagnosticPhase::Receive);
         let mut response = Vec::new();
         let mut buffer = [0; 8192];
         while response.len() <= maximum {
-            remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
+            remaining_io(budget).map_err(|_| {
+                receiving.finish(DiagnosticResult::Deadline);
+                HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation))
+            })?;
             let limit = buffer.len().min(maximum + 1 - response.len());
-            let count = stream
-                .read(&mut buffer[..limit])
-                .map_err(|_| HttpError::Unavailable)?;
+            let count = stream.read(&mut buffer[..limit]).map_err(|error| {
+                let cause = super::unavailable(FailurePhase::Receive);
+                receiving.finish(super::diagnostics::io_result(&error, budget));
+                HttpError::Unavailable(cause)
+            })?;
             if count == 0 {
                 break;
             }
             response.extend_from_slice(&buffer[..count]);
         }
-        remaining_io(budget).map_err(|_| HttpError::Unavailable)?;
+        remaining_io(budget).map_err(|_| {
+            receiving.finish(DiagnosticResult::Deadline);
+            HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation))
+        })?;
         if response.len() > maximum {
             return Err(HttpError::Invalid);
         }
+        receiving.finish(DiagnosticResult::Succeeded);
+        drop(receiving);
         let (status, bytes) = parse_http_response(&response).map_err(|_| HttpError::Invalid)?;
-        match status {
-            200 => serde_json::from_slice(&bytes).map_err(|_| HttpError::Invalid),
-            401 | 403 => Err(HttpError::Denied),
-            400 => Err(HttpError::Invalid),
-            404 => Err(HttpError::NotFound),
-            409 => {
-                let code = serde_json::from_slice::<serde_json::Value>(&bytes)
-                    .ok()
-                    .and_then(|v| {
-                        v.get("code")
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned)
-                    });
-                Err(match code.as_deref() {
-                    Some("eitmad.error.quotation-stale-price.v1") => HttpError::StalePrice,
-                    Some("eitmad.error.quotation-approval-required.v1") => {
-                        HttpError::ApprovalRequired
-                    }
-                    _ => HttpError::Conflict,
-                })
-            }
-            _ => Err(HttpError::Unavailable),
+        decode_response(status, &bytes)
+    }
+}
+
+fn decode_response<T: serde::de::DeserializeOwned>(
+    status: u16,
+    bytes: &[u8],
+) -> Result<T, HttpError> {
+    match status {
+        200 => serde_json::from_slice(bytes).map_err(|_| HttpError::Invalid),
+        401 | 403 => Err(HttpError::Denied),
+        400 => Err(HttpError::Invalid),
+        404 => Err(HttpError::NotFound),
+        409 => {
+            let code = serde_json::from_slice::<serde_json::Value>(bytes)
+                .ok()
+                .and_then(|v| {
+                    v.get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                });
+            Err(match code.as_deref() {
+                Some("eitmad.error.quotation-stale-price.v1") => HttpError::StalePrice,
+                Some("eitmad.error.quotation-approval-required.v1") => HttpError::ApprovalRequired,
+                _ => HttpError::Conflict,
+            })
         }
+        _ => Err(HttpError::Server),
     }
 }

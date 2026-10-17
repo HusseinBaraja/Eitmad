@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Quotation capability maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-17"
 review_triggers:
   - "Quotation contracts, approval rules, or Windows quotation UI behavior change"
 keywords:
@@ -75,7 +75,9 @@ cargo test -p eitmad-server-connection --test direct_route quotation_drafts_rest
 
 **+ عرض سعر جديد** opens an independent catalog editor. The main catalog editor keeps its current local choices. Product variants and Furniture sizes, colors, handles, dimensions, quantities, and stable line identities form the generated evaluator intent. Customer selection and creation still use the [Customer capability](customers.md); an existing contact's address and notes are read-only here and can be edited through Customer Detail. Draft contracts preserve the public customer address and omit private notes.
 
-**حفظ كمسودة** sends `CreateQuotationDraft` or `UpdateQuotationDraft` with the retained expected revision. Rust evaluates and saves in one transaction. WPF accepts amounts, customer snapshots, identity, and revision only from the successful reply. It reports locally saved/pending sync separately from server-confirmed sync. Changes made during a save remain local and are labeled unsaved. Closing a separate editor discards local edits; it does not change the stored draft.
+**حفظ كمسودة** sends `CreateQuotationDraft` or `UpdateQuotationDraft` with the retained expected revision. Rust evaluates and saves in one transaction. WPF accepts amounts, customer snapshots, identity, and revision only from the successful reply. It reports locally saved/pending sync separately from server-confirmed sync. Changes made during a save remain local and are labeled unsaved.
+
+Closing a live quotation editor with unsaved changes or an unconfirmed save opens **تعديلات غير محفوظة**. **حفظ** uses the same draft command and closes only after confirmed success with no newer edits. Validation failures, conflicts, and unavailable replies keep the editor and its input open. Close requests during a draft operation cannot dispose the editor. **تجاهل التعديلات** closes without another save and leaves the stored draft unchanged. **متابعة التعديل** and Escape dismiss the question and retain the fields and lines. An unchanged saved draft closes directly. Session or authority invalidation still closes protected editors immediately. `QuotationEditorClosingTests` exercises these close paths with synthetic engine replies; it does not prove real storage or synchronization.
 
 Reopening queries `GetQuotationDraft` and retains the saved prices, exact references, discount basis points, options, quantities, and dimensions. It does not silently substitute current catalog prices. **تعديل** loads current public variants and preserves compatible selected options and dimensions. The original quotation line stays unchanged until the user accepts the checked selection. The user must then save the draft. Changed or withdrawn definitions and stale price revisions produce explicit Rust field failures. Refresh/review is required; a price failure does not overwrite the saved draft.
 
@@ -124,6 +126,8 @@ cargo test -p eitmad-server-connection --test direct_route discount_approval_cro
 The live test uses distinct authenticated principals and separate clients, real TLS, and a disposable PostgreSQL role without superuser or `BYPASSRLS`. Lifecycle checks also cover exact issuance retry, competing issue and cancellation/revision requests, frozen snapshots, required approval, expiry on both clients, and stale catalog prices. It checks live request and decision delivery, approval, rejection, exact retry, duplicate and stale decisions, commercial invalidation, self-decision, Receptionist denial, immutable history, audit, and tenant isolation. `DiscountApprovalTests` verifies shell confirmation, subscription return, retry identity, and session fencing. `DiscountApprovalRenderedTests` checks the changed native controls at the three baseline sizes.
 
 ## Server-confirmed lifecycle
+
+Editor, list, and subscription requests through `QuotationDraftClient` can overlap. Rust owns deadline-bounded credential admission and uses an independent HTTP socket per request; the shell does not queue commands behind unrelated reads. An unavailable result remains a failure and does not infer approval or trigger an automatic command retry. `DiscountApprovalTests.PendingApprovalReadDoesNotBlockDecisionSubmission` holds a read open and checks that a decision can complete. Connected handler tests must await actual submission and the current list refresh before checking the selected approval; awaiting a previous completed handler task does not prove a decision.
 
 `crates/contracts/src/quotation_lifecycle.rs` owns the generated lifecycle contract. Protocol minor 22 is required for `eitmad.capability.quotation-lifecycle.v1` and `eitmad.schema.quotation-lifecycle.v1`. Rust exposes typed issue, validity, revision, cancellation, and acceptance commands, a scoped quotation query, and quotation-change subscriptions. Each reply supplies the actions permitted for the authenticated actor. WPF renders these actions and does not derive authorization from role flags.
 

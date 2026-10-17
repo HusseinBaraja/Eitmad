@@ -977,3 +977,72 @@ mod tests {
             .expect("shutdown");
     }
 }
+
+// Tokio blocking workers do not inherit a caller's thread-local state.
+fn diagnostic_blocking<F, T>(
+    correlation: eitmad_contracts::transport::CorrelationId,
+    source: eitmad_observability_audit::operation_diagnostics::DiagnosticSource,
+    action: F,
+) -> tokio::task::JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        eitmad_observability_audit::operation_diagnostics::with_diagnostic_context(
+            correlation,
+            source,
+            action,
+        )
+    })
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    #[tokio::test]
+    async fn blocking_workers_keep_distinct_request_correlations() {
+        use eitmad_contracts::transport::CorrelationId;
+        use eitmad_observability_audit::operation_diagnostics::diagnostic_correlation;
+        let first = CorrelationId::new(uuid::Uuid::from_u128(1));
+        let second = CorrelationId::new(uuid::Uuid::from_u128(2));
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let other = barrier.clone();
+        let a = super::diagnostic_blocking(
+            first,
+            eitmad_observability_audit::operation_diagnostics::DiagnosticSource::Quotations,
+            move || {
+                barrier.wait();
+                (
+                    diagnostic_correlation(),
+                    eitmad_observability_audit::operation_diagnostics::diagnostic_source(),
+                )
+            },
+        );
+        let b = super::diagnostic_blocking(
+            second,
+            eitmad_observability_audit::operation_diagnostics::DiagnosticSource::Orders,
+            move || {
+                other.wait();
+                (
+                    diagnostic_correlation(),
+                    eitmad_observability_audit::operation_diagnostics::diagnostic_source(),
+                )
+            },
+        );
+        assert_eq!(
+            a.await.unwrap(),
+            (
+                Some(first),
+                eitmad_observability_audit::operation_diagnostics::DiagnosticSource::Quotations
+            )
+        );
+        assert_eq!(
+            b.await.unwrap(),
+            (
+                Some(second),
+                eitmad_observability_audit::operation_diagnostics::DiagnosticSource::Orders
+            )
+        );
+        assert_eq!(diagnostic_correlation(), None);
+    }
+}

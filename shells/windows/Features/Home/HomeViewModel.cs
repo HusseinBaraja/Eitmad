@@ -26,6 +26,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? load;
     private SynchronizationContext? context;
     private bool active;
+    private bool includeCustomerSearch = true;
     private long generation;
     private long sessionGeneration;
     private HomeSnapshot? snapshot;
@@ -69,7 +70,7 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         yield return ("عروض الأسعار", snapshot.Quotations);
         yield return ("الطلبات", snapshot.Orders);
         if (term.Length == 0) yield break;
-        yield return ("العملاء", snapshot.Customers);
+        if (includeCustomerSearch) yield return ("العملاء", snapshot.Customers);
         yield return ("الكتالوج", snapshot.Catalog);
     }
     private static string SectionNotice(string name, HomeSection section)
@@ -82,11 +83,13 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         return messages.Count == 0 ? "" : name + ": " + string.Join("، ", messages) + ".";
     }
 
-    public async Task ActivateAsync()
+    public async Task ActivateAsync(bool includeCustomerSearch = true, CancellationToken cancellationToken = default)
     {
+        // This selects shell destinations only; Rust still authorizes every source read.
+        this.includeCustomerSearch = includeCustomerSearch;
         active = true; context = SynchronizationContext.Current;
         var session = ++sessionGeneration;
-        foreach (var feed in feeds) { await feed.ActivateAsync(); if (!active || session != sessionGeneration) return; }
+        foreach (var feed in feeds) { await feed.ActivateAsync(cancellationToken); if (!active || session != sessionGeneration || cancellationToken.IsCancellationRequested) return; }
         Refresh(); await LastLoad;
     }
     public void Search(string query)
@@ -120,7 +123,10 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
         else
         {
             var sections = new[] { ("عروض الأسعار", value.Quotations), ("الطلبات", value.Orders), ("الموافقات", value.Approvals) };
-            if (term.Length > 0) sections = [.. sections, ("العملاء", value.Customers), ("الكتالوج", value.Catalog)];
+            if (term.Length > 0) {
+                if (includeCustomerSearch) sections = [.. sections, ("العملاء", value.Customers)];
+                sections = [.. sections, ("الكتالوج", value.Catalog)];
+            }
             var messages = new List<string>();
             foreach (var (name, section) in sections)
             {
@@ -147,6 +153,6 @@ public sealed class HomeViewModel : ObservableObject, IAsyncDisposable
     {
         active = false; ++sessionGeneration; ++generation; load?.Cancel(); term = ""; Apply(null);
     }
-    public async Task DeactivateAsync() { Clear(); foreach (var feed in feeds) await feed.DeactivateAsync(); }
-    public async ValueTask DisposeAsync() { Clear(); foreach (var feed in feeds) await feed.DisposeAsync(); load?.Dispose(); }
+    public Task DeactivateAsync() { Clear(); return Task.WhenAll(feeds.Select(feed => feed.DeactivateAsync())); }
+    public async ValueTask DisposeAsync() { Clear(); await Task.WhenAll(feeds.Select(feed => feed.DisposeAsync().AsTask())); load?.Dispose(); }
 }

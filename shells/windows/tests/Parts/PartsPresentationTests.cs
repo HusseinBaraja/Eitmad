@@ -8,6 +8,29 @@ namespace Eitmad.WindowsShell.Tests.Parts;
 public sealed class PartsPresentationTests
 {
     [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void ConfirmedCategorySelectionSurvivesEitherRefreshOrder(bool projectionFirst)
+    {
+        var fixture = new PartFixtures();
+        var model = new PartsViewModel();
+        model.ApplyDurableData(fixture.Snapshot());
+        model.BeginCreate();
+        model.EditorName = "جانب تحقق";
+        var created = new PartCategory { Id = Guid.NewGuid(), Scope = fixture.Scope, Name = "فئة جديدة", Revision = 1 };
+        var snapshot = fixture.Snapshot();
+        var refreshed = snapshot with { Categories = new PartCategories { Items = [fixture.Category, created] } };
+        if (projectionFirst) model.ApplyDurableData(refreshed);
+        model.CategorySaved(created.Name);
+        if (!projectionFirst) model.ApplyDurableData(refreshed);
+        model.ApplyDurableData(refreshed);
+
+        Assert.AreEqual(created.Id, model.SaveInput().CategoryId);
+        Assert.IsTrue(model.MoveToMaterials());
+        Assert.AreEqual("جانب تحقق", model.EditorName);
+    }
+
+    [TestMethod]
     public async Task UnknownCategoryAndPartSavesKeepIndependentRetryState()
     {
         var fixture = new PartFixtures();

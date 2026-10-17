@@ -320,7 +320,7 @@ impl AuthorityStore {
     }
 
     /// Loads one bounded page of active mutation events awaiting publication.
-    /// Retired demo events remain stored but do not block product recovery.
+    /// Retired reference-marker events remain stored but do not block product recovery.
     ///
     /// # Errors
     ///
@@ -746,7 +746,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn retired_demo_outbox_does_not_block_product_recovery_or_delete_data() {
+    fn retired_reference_marker_outbox_does_not_block_product_recovery_or_delete_data() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let connection = Connection::open(store.path()).unwrap();

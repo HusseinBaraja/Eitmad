@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text.Json;
 using Eitmad.Contracts;
@@ -17,11 +18,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private readonly SemaphoreSlim sessionChangeLock = new(1, 1);
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<IpcServerMessage>> pending = new();
     private readonly ConcurrentDictionary<Guid, EngineSubscription> subscriptions = new();
-    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<EventEnvelope>> earlySubscriptionEvents = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentQueue<object>> earlySubscriptionEvents = new();
     private readonly object subscriptionHandoff = new();
+    private readonly object transportGate = new();
     private readonly CancellationTokenSource lifetime = new();
     private readonly Task reader;
     private bool disposed;
+    private EngineIpcException? transportFailure;
     private AuthorizationContext processAuthorization = null!;
 
     private EngineIpcClient(NamedPipeClientStream pipe)
@@ -116,9 +119,10 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 ?? throw ProtocolViolation("The engine omitted protocol negotiation details.");
             return client;
         }
-        catch
+        catch (Exception primary)
         {
-            await client.DisposeAsync().ConfigureAwait(false);
+            try { await client.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception cleanup) { throw new AggregateException(primary, cleanup); }
             throw;
         }
     }
@@ -142,6 +146,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             EnsureKind(response, IpcServerMessage.IpcDesktopSessionResponseKind);
             var result = response.AsIpcDesktopSessionResponse()
                 ?? throw ProtocolViolation("The engine returned an invalid desktop session response.");
+            ClearConfirmedSubscriptions();
             if (result.Status != DesktopSessionStatus.Active || result.State?.Authorization is null)
             {
                 Authorization = processAuthorization;
@@ -189,6 +194,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             if (result.Status != DesktopSessionStatus.SignedOut)
                 throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected,
                     "The engine could not close the desktop session.", result.Error);
+            ClearConfirmedSubscriptions();
             Authorization = processAuthorization;
             customerAuthorization = null;
             accountRole = null;
@@ -204,11 +210,13 @@ public sealed class EngineIpcClient : IAsyncDisposable
         var error = new EngineIpcException(
             EngineIpcFailureKind.SessionChanged,
             "The desktop session changed before the operation completed.");
-        FailPending(error);
-        lock (subscriptionHandoff)
-        {
-            earlySubscriptionEvents.Clear();
-        }
+        // Events already on the wire remain valid until Rust's ordered closure/response.
+        FailPending(error, retainClosingSubscriptions: true);
+    }
+
+    private void ClearConfirmedSubscriptions()
+    {
+        lock (subscriptionHandoff) subscriptions.Clear();
     }
 
     private async Task<DesktopSessionResponse> SendDesktopSessionRequestAsync(string kind, CancellationToken cancellationToken)
@@ -266,19 +274,28 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ApplySession(request.Authorization, request.ProtocolVersion);
-        var earlyEvents = new ConcurrentQueue<EventEnvelope>();
-        if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
-        {
-            throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
-        }
+        var budget = timeout ?? DefaultRequestTimeout;
+        if (budget <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        var started = Stopwatch.GetTimestamp();
+        // Confirm the stream before a session transition can discard its handoff.
+        if (!await sessionChangeLock.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
+            throw new EngineIpcException(EngineIpcFailureKind.Timeout, "The subscription deadline elapsed while waiting for the session transition.");
+        var earlyEvents = new ConcurrentQueue<object>();
         try
         {
+            var remaining = budget - Stopwatch.GetElapsedTime(started);
+            if (remaining <= TimeSpan.Zero)
+                throw new EngineIpcException(EngineIpcFailureKind.Timeout, "The subscription deadline elapsed before transmission.");
+            ApplySession(request.Authorization, request.ProtocolVersion);
+            if (!earlySubscriptionEvents.TryAdd(request.CorrelationId, earlyEvents))
+            {
+                throw ProtocolViolation("A subscription with the same correlation identifier is pending.");
+            }
             var response = await SendFrameAsync(
                 IpcClientMessage.IpcSubscribeKind,
                 request,
                 request.RequestId,
-                timeout ?? DefaultRequestTimeout,
+                remaining,
                 cancellationToken,
                 commandOutcomeUnknown: false).ConfigureAwait(false);
             EnsureKind(response, IpcServerMessage.IpcSubscribeResponseKind);
@@ -313,8 +330,17 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 {
                     while (earlyEvents.TryDequeue(out var delivered))
                     {
-                        if (delivered.SubscriptionId != subscriptionId || !subscription.TryPublish(delivered))
-                            throw ProtocolViolation("The engine emitted an invalid early subscription event.");
+                        if (delivered is EventEnvelope notice && notice.SubscriptionId == subscriptionId)
+                        {
+                            if (!subscription.TryPublish(notice))
+                                throw ProtocolViolation("The engine exceeded the early subscription event capacity.");
+                        }
+                        else if (delivered is SubscriptionClosedEnvelope closed && closed.SubscriptionId == subscriptionId)
+                        {
+                            subscriptions.TryRemove(subscriptionId, out _);
+                            subscription.Complete(SubscriptionClosedError(closed));
+                        }
+                        else throw ProtocolViolation("The engine emitted an invalid early subscription event.");
                     }
                 }
                 catch
@@ -328,9 +354,19 @@ public sealed class EngineIpcClient : IAsyncDisposable
 
             return subscription;
         }
+        catch (Exception error) when (error is OperationCanceledException
+            or EngineIpcException { Kind: EngineIpcFailureKind.Timeout or EngineIpcFailureKind.SessionChanged })
+        {
+            // An unconfirmed subscribe can still create a remote stream. Do not leave
+            // an unknown stream on a reusable connection after discarding its handoff.
+            InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                "The pending subscription ended without a confirmed stream."));
+            throw;
+        }
         finally
         {
             earlySubscriptionEvents.TryRemove(request.CorrelationId, out _);
+            sessionChangeLock.Release();
         }
     }
 
@@ -340,27 +376,40 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(subscription);
-        var requestId = Guid.NewGuid();
-        var response = await SendFrameAsync(
-            IpcClientMessage.IpcUnsubscribeKind,
-            new UnsubscribeRequest
-            {
-                RequestId = requestId,
-                CorrelationId = Guid.NewGuid(),
-                SubscriptionId = subscription.SubscriptionId,
-            },
-            requestId,
-            timeout ?? DefaultRequestTimeout,
-            cancellationToken,
-            commandOutcomeUnknown: false).ConfigureAwait(false);
-        EnsureKind(response, IpcServerMessage.IpcUnsubscribeResponseKind);
-        if (response.AsIpcUnsubscribeResponse()?.Accepted != true)
+        lock (subscriptionHandoff)
         {
-            throw ProtocolViolation("The engine did not recognize the active subscription.");
+            // Retain this registered slot as a discard sink until the ordered close/ack.
+            // No extra tombstone collection can grow when a peer withholds replies.
+            subscription.StopDelivery();
+            if (!subscriptions.TryGetValue(subscription.SubscriptionId, out var registered)
+                || !ReferenceEquals(registered, subscription)) return;
         }
-
-        subscriptions.TryRemove(subscription.SubscriptionId, out _);
-        subscription.Complete();
+        var requestId = Guid.NewGuid();
+        try
+        {
+            var response = await SendFrameAsync(
+                IpcClientMessage.IpcUnsubscribeKind,
+                new UnsubscribeRequest
+                {
+                    RequestId = requestId,
+                    CorrelationId = Guid.NewGuid(),
+                    SubscriptionId = subscription.SubscriptionId,
+                },
+                requestId,
+                timeout ?? DefaultRequestTimeout,
+                cancellationToken,
+                commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessage.IpcUnsubscribeResponseKind);
+            // A stream can already have closed (for example, authorization was revoked).
+            // An ordered negative acknowledgement still confirms that no stream remains.
+            subscriptions.TryRemove(subscription.SubscriptionId, out _);
+        }
+        catch
+        {
+            InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                "The closing subscription could not be confirmed."));
+            throw;
+        }
     }
 
     public async Task RequestShutdownAsync(
@@ -396,11 +445,38 @@ public sealed class EngineIpcClient : IAsyncDisposable
         CancellationToken cancellationToken,
         bool commandOutcomeUnknown)
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
         if (timeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout));
         }
+
+        CancellationToken transportToken;
+        lock (transportGate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (transportFailure is { } failure) throw failure;
+            transportToken = lifetime.Token;
+        }
+        using var deadline = new CancellationTokenSource(timeout);
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token, transportToken);
+        using var frameCancellation = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, transportToken);
+        var frameStarted = false;
+        var correlation = payload switch
+        {
+            QueryEnvelope q => q.CorrelationId,
+            CommandEnvelope c => c.CorrelationId,
+            SubscriptionEnvelope s => s.CorrelationId,
+            DesktopSignInRequest s => s.CorrelationId,
+            DesktopSessionRequest s => s.CorrelationId,
+            HandshakeRequest h => h.CorrelationId,
+            UnsubscribeRequest u => u.CorrelationId,
+            ShutdownRequest s => s.CorrelationId,
+            _ => requestId,
+        };
+        using var requestDiagnostic = new OperationDiagnostics(DiagnosticPhase.IpcRequest, correlation);
+        OperationDiagnostics? diagnostic = null;
+        OperationDiagnostics? sending = null;
+        OperationDiagnostics? reply = null;
 
         var completion = new TaskCompletionSource<IpcServerMessage>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -420,53 +496,93 @@ public sealed class EngineIpcClient : IAsyncDisposable
                     $"The IPC payload exceeds {MaximumFrameBytes} bytes.");
             }
 
-            await writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            diagnostic = new OperationDiagnostics(DiagnosticPhase.IpcLock, correlation);
+            await writeLock.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            diagnostic.Finish();
+            diagnostic.Dispose();
+            sending = new OperationDiagnostics(DiagnosticPhase.IpcSend, correlation);
             try
             {
+                requestCancellation.Token.ThrowIfCancellationRequested();
+                // A session transition can invalidate this request while it waits for the writer.
+                if (completion.Task.IsCompleted) return await completion.Task.ConfigureAwait(false);
                 var header = new byte[sizeof(uint)];
                 BinaryPrimitives.WriteUInt32LittleEndian(header, (uint)bytes.Length);
-                await pipe.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-                await pipe.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-                await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);
+                // Caller cancellation cannot truncate a live frame. Its original deadline
+                // still bounds transmission; an interrupted frame invalidates the transport.
+                frameStarted = true;
+                try
+                {
+                    await pipe.WriteAsync(header, frameCancellation.Token).ConfigureAwait(false);
+                    await pipe.WriteAsync(bytes, frameCancellation.Token).ConfigureAwait(false);
+                    await pipe.FlushAsync(frameCancellation.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                    InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                        "The IPC transport closed because a request frame could not finish."));
+                    throw;
+                }
             }
             finally
             {
                 writeLock.Release();
             }
 
-            using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            requestCancellation.CancelAfter(timeout);
-            try
-            {
-                return await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
+            sending.Finish();
+            sending.Dispose();
+            sending = null;
+            reply = new OperationDiagnostics(DiagnosticPhase.IpcReply, correlation);
+            var response = await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            reply.Finish();
+            requestDiagnostic.Finish();
+            return response;
+        }
+        catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or EngineIpcException)
+        {
+            var reason = cancellationToken.IsCancellationRequested ? DiagnosticResult.Cancelled
+                : deadline.IsCancellationRequested ? DiagnosticResult.Deadline : DiagnosticResult.Failed;
+            (reply ?? sending ?? diagnostic ?? requestDiagnostic).Finish(reason);
+            requestDiagnostic.Finish(reason);
+            if (commandOutcomeUnknown && frameStarted)
             {
                 throw new EngineIpcException(
-                    commandOutcomeUnknown
-                        ? EngineIpcFailureKind.CommandOutcomeUnknown
-                        : EngineIpcFailureKind.Timeout,
-                    commandOutcomeUnknown
-                        ? "The command deadline elapsed; its final outcome is unknown. Retry only with the same idempotency key."
-                        : "The IPC request deadline elapsed.",
+                    EngineIpcFailureKind.CommandOutcomeUnknown,
+                    "The command response was not confirmed; its final outcome is unknown. Retry only with the same idempotency key.",
                     innerException: error);
             }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (deadline.IsCancellationRequested)
+                throw new EngineIpcException(EngineIpcFailureKind.Timeout,
+                    "The IPC request deadline elapsed.", innerException: error);
+            if (transportToken.IsCancellationRequested)
+            {
+                lock (transportGate) throw transportFailure!;
+            }
+            throw;
         }
         finally
         {
+            reply?.Dispose();
+            sending?.Dispose();
+            diagnostic?.Dispose();
             pending.TryRemove(requestId, out _);
+            // Observe a pending failure even when cancellation won the response wait.
+            completion.TrySetCanceled();
+            _ = completion.Task.Exception;
         }
     }
 
     /// <summary>Routes typed replies and subscription frames; session-changing closures invalidate pending consumers.</summary>
     private async Task ReadResponsesAsync()
     {
+        var transportToken = lifetime.Token;
         try
         {
             var header = new byte[sizeof(uint)];
-            while (!lifetime.IsCancellationRequested)
+            while (!transportToken.IsCancellationRequested)
             {
-                await pipe.ReadExactlyAsync(header, lifetime.Token).ConfigureAwait(false);
+                await pipe.ReadExactlyAsync(header, transportToken).ConfigureAwait(false);
                 var length = BinaryPrimitives.ReadUInt32LittleEndian(header);
                 if (length > MaximumFrameBytes)
                 {
@@ -474,7 +590,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 }
 
                 var payload = new byte[length];
-                await pipe.ReadExactlyAsync(payload, lifetime.Token).ConfigureAwait(false);
+                await pipe.ReadExactlyAsync(payload, transportToken).ConfigureAwait(false);
                 var message = JsonSerializer.Deserialize<IpcServerMessage>(payload, Converter.Settings)
                     ?? throw ProtocolViolation("The engine returned an empty IPC response.");
                 if (message.Kind == IpcServerMessage.IpcEventKind)
@@ -502,18 +618,17 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 if (message.Kind == IpcServerMessage.IpcSubscriptionClosedKind)
                 {
                     var closed = message.AsIpcSubscriptionClosed();
-                    var error = new EngineIpcException(
-                        closed?.Reason switch
-                        {
-                            SubscriptionCloseReason.ProjectionInvalidated or SubscriptionCloseReason.AuthorizationRevoked => EngineIpcFailureKind.SessionChanged,
-                            SubscriptionCloseReason.EngineStopping => EngineIpcFailureKind.EngineStopping,
-                            _ => EngineIpcFailureKind.SubscriptionBackpressure,
-                        },
-                        "The engine closed the subscription; its projection may require a fresh query.");
-                    if (closed?.SubscriptionId is { } subscriptionId
-                        && subscriptions.TryRemove(subscriptionId, out var subscription))
+                    if (closed is null) throw ProtocolViolation("The engine emitted an invalid subscription closure.");
+                    lock (subscriptionHandoff)
                     {
-                        subscription.Complete(error);
+                        if (earlySubscriptionEvents.TryGetValue(closed.CorrelationId, out var earlyEvents))
+                        {
+                            if (earlyEvents.Count >= EngineSubscription.Capacity)
+                                throw ProtocolViolation("The engine exceeded the early subscription event capacity.");
+                            earlyEvents.Enqueue(closed);
+                        }
+                        else if (subscriptions.TryRemove(closed.SubscriptionId, out var subscription))
+                            subscription.Complete(SubscriptionClosedError(closed));
                     }
                     continue;
                 }
@@ -531,19 +646,22 @@ public sealed class EngineIpcClient : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException) when (lifetime.IsCancellationRequested)
+        catch (OperationCanceledException) when (transportToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (transportToken.IsCancellationRequested)
         {
         }
         catch (Exception error) when (error is IOException or EndOfStreamException or JsonException)
         {
-            FailPending(new EngineIpcException(
+            InvalidateTransport(new EngineIpcException(
                 EngineIpcFailureKind.ConnectionLost,
                 "The engine IPC connection closed before pending requests completed.",
                 innerException: error));
         }
         catch (EngineIpcException error)
         {
-            FailPending(error);
+            InvalidateTransport(error);
         }
     }
 
@@ -554,6 +672,14 @@ public sealed class EngineIpcClient : IAsyncDisposable
         protocol.Major = NegotiatedSession.Protocol.Major;
         protocol.Minor = NegotiatedSession.Protocol.Minor;
     }
+
+    private static EngineIpcException SubscriptionClosedError(SubscriptionClosedEnvelope closed) => new(
+        closed.Reason switch
+        {
+            SubscriptionCloseReason.ProjectionInvalidated or SubscriptionCloseReason.AuthorizationRevoked => EngineIpcFailureKind.SessionChanged,
+            SubscriptionCloseReason.EngineStopping => EngineIpcFailureKind.EngineStopping,
+            _ => EngineIpcFailureKind.SubscriptionBackpressure,
+        }, "The engine closed the subscription; its projection may require a fresh query.");
 
     private static void EnsureKind(IpcServerMessage response, string expected)
     {
@@ -582,7 +708,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
             ?? throw ProtocolViolation("A generated IPC payload could not be converted.");
     }
 
-    private void FailPending(EngineIpcException error)
+    private void FailPending(EngineIpcException error, bool retainClosingSubscriptions = false)
     {
         foreach (var pair in pending)
         {
@@ -593,7 +719,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
         }
         foreach (var pair in subscriptions)
         {
-            if (subscriptions.TryRemove(pair.Key, out var subscription))
+            if (retainClosingSubscriptions) pair.Value.StopDelivery(error);
+            else if (subscriptions.TryRemove(pair.Key, out var subscription))
             {
                 subscription.Complete(error);
             }
@@ -603,16 +730,28 @@ public sealed class EngineIpcClient : IAsyncDisposable
     private static EngineIpcException ProtocolViolation(string message) =>
         new(EngineIpcFailureKind.ProtocolViolation, message);
 
+    private void InvalidateTransport(EngineIpcException error)
+    {
+        lock (transportGate)
+        {
+            if (transportFailure is not null) return;
+            transportFailure = error;
+            FailPending(error);
+            lifetime.Cancel();
+            pipe.Dispose();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
-        if (disposed)
+        lock (transportGate)
         {
-            return;
+            if (disposed) return;
+            disposed = true;
         }
 
-        disposed = true;
-        lifetime.Cancel();
-        pipe.Dispose();
+        InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+            "The engine IPC transport was disposed before pending requests completed."));
         try
         {
             await reader.ConfigureAwait(false);
@@ -621,8 +760,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
         {
         }
         lifetime.Dispose();
-        writeLock.Dispose();
-        sessionChangeLock.Dispose();
+        // In-flight calls can still release these managed semaphores after the reader exits.
+        // No wait handles are created; let them be collected with this client.
         foreach (var subscription in subscriptions.Values)
         {
             subscription.Complete();

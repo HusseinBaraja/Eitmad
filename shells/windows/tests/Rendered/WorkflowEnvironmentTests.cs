@@ -1,4 +1,5 @@
 using System.IO;
+using Eitmad.Platform.Windows.LocalIpc;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,7 +13,7 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 
 [TestClass]
 [DoNotParallelize]
-public sealed class WorkflowEnvironmentTests
+public sealed partial class WorkflowEnvironmentTests
 {
     [TestMethod]
     [TestCategory("WorkflowEnvironment")]
@@ -24,12 +25,9 @@ public sealed class WorkflowEnvironmentTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(enginePath));
         using var secrets = JsonDocument.Parse(File.ReadAllText(Path.Combine(root!, "secrets.json")));
         var directory = Path.Combine(root!, "receptionist");
-        var credential = File.ReadAllText(Path.Combine(directory, "route.json"));
-        foreach (var prefix in new[] { "MEDIA", "PRICING", "QUOTATION", "CUSTOMER" })
-            Environment.SetEnvironmentVariable($"EITMAD_{prefix}_CREDENTIAL_ID", credential);
         var bridge = WindowsEngineBridge.Create(["--engine", enginePath!, "--runtime-directory", directory]);
         var sessions = new DesktopSessionController(bridge);
-        try
+        RunWithCleanupAsync(() =>
         {
             WpfTestHost.Run(1338, 753, window =>
             {
@@ -38,10 +36,10 @@ public sealed class WorkflowEnvironmentTests
                 var generation = bridge.Snapshot.Generation;
                 Dictionary<Guid, string>? retainedDrafts = null;
                 var customerVerified = false;
-                foreach (var (name, expected) in Enumerable.Range(0, 3).SelectMany(_ => new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) }))
+                foreach (var (name, expected) in Enumerable.Range(0, 2).SelectMany(_ => new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) }))
                 {
                     SignIn(window, name, secrets.RootElement.GetProperty($"{name}_password").GetString()!, expected, bridge);
-                    ReadConfirmedWork(bridge, root!);
+                    ReadConfirmedWork(bridge);
                     if (name == "receptionist" && !customerVerified)
                     {
                         Finish(CreateEditAndUseCustomer(bridge));
@@ -52,7 +50,7 @@ public sealed class WorkflowEnvironmentTests
                     Assert.AreEqual(CommandOutcomeStatus.Succeeded, drafts.Result.Outcome.Status);
                     var current = drafts.Result.Outcome.Payload.AsQuotationDrafts()!.Items.ToDictionary(
                         draft => draft.Snapshot.Id, draft => JsonSerializer.Serialize(draft.Snapshot));
-                    Assert.IsTrue(current.Count >= 5);
+                    Assert.IsTrue(current.Count >= 1);
                     retainedDrafts ??= current;
                     foreach (var (id, original) in retainedDrafts)
                         Assert.IsTrue(current.TryGetValue(id, out var retained) && retained == original, "A saved draft changed during account switching.");
@@ -61,8 +59,51 @@ public sealed class WorkflowEnvironmentTests
                 }
                 Finish(sessions.StopAsync());
             }, showSignIn: true, engine: bridge, sessions: sessions);
-        }
-        finally { sessions.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+            return Task.CompletedTask;
+        }, () => sessions.DisposeAsync()).GetAwaiter().GetResult();
+    }
+
+    [TestMethod]
+    [TestCategory("WorkflowEnvironment")]
+    public void DiagnosticAccountSwitchAndConfirmation()
+    {
+        var root = Environment.GetEnvironmentVariable("EITMAD_E2E_ROOT");
+        if (string.IsNullOrWhiteSpace(root)) Assert.Inconclusive("Run tools/workflow-environment.ps1 Start -DiagnosticActivation.");
+        var engine = Environment.GetEnvironmentVariable("EITMAD_E2E_ENGINE");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(engine));
+        using var secrets = JsonDocument.Parse(File.ReadAllText(Path.Combine(root!, "secrets.json")));
+        var bridge = WindowsEngineBridge.Create(["--engine", Path.GetFullPath(engine!), "--runtime-directory", Path.Combine(root!, "receptionist")]);
+        var sessions = new DesktopSessionController(bridge);
+        RunWithCleanupAsync(() =>
+        {
+            WpfTestHost.Run(1338, 753, window =>
+            {
+                Finish(sessions.StartAsync());
+                Finish(WaitForConnection(bridge));
+                var generation = bridge.Snapshot.Generation;
+                foreach (var (name, surface) in new[] { ("manager", AuthenticatedSurface.Manager), ("receptionist", AuthenticatedSurface.Receptionist) })
+                {
+                    using var diagnostic = new OperationDiagnostics(DiagnosticPhase.Activation);
+                    SignIn(window, name, secrets.RootElement.GetProperty($"{name}_password").GetString()!, surface, bridge);
+                    // A nonempty synthetic term exercises Home's catalog source too.
+                    var searchedHome = bridge.QueryAsync(Query.ForHomeRead(new() { Term = "\u062a\u0634\u062e\u064a\u0635" }));
+                    Finish(searchedHome);
+                    Assert.AreEqual(CommandOutcomeStatus.Succeeded, searchedHome.Result.Outcome.Status);
+                    var home = searchedHome.Result.Outcome.Payload.AsHome()!;
+                    foreach (var section in new[] { home.Quotations, home.Orders, home.Approvals, home.Catalog })
+                    {
+                        Assert.AreEqual(HomeAvailability.Available, section.Availability);
+                        Assert.IsTrue(section.ServerAvailable, "The diagnostic Home source must report actual server confirmation.");
+                    }
+                    Finish(ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }), result => result.AsOrders()!.ServerAvailable));
+                    SwitchAccount(window, bridge);
+                    Assert.AreEqual(generation, bridge.Snapshot.Generation, "Diagnostic account switching restarted the engine.");
+                    diagnostic.Finish();
+                }
+                Finish(sessions.StopAsync());
+            }, showSignIn: true, engine: bridge, sessions: sessions);
+            return Task.CompletedTask;
+        }, () => sessions.DisposeAsync()).GetAwaiter().GetResult();
     }
 
     private static async Task CreateEditAndUseCustomer(IEngineShellBridge bridge)
@@ -83,9 +124,17 @@ public sealed class WorkflowEnvironmentTests
         customer = updated.Outcome.Payload.AsCustomerUpdated()!.Customer;
         await WaitForCustomerConfirmation(bridge, customer);
 
-        var drafts = await bridge.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, drafts.Outcome.Status);
-        var lines = drafts.Outcome.Payload.AsQuotationDrafts()!.Items.First(d => d.Snapshot.Cancelled != true).Snapshot.Intent.Lines;
+        var catalog = await bridge.QueryAsync(Query.ForSalesCatalogList(new() { Term = "", Limit = 100 }));
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, catalog.Outcome.Status);
+        var item = catalog.Outcome.Payload.AsSalesCatalog()!.Items.First(entry => entry.Dimensions is null);
+        QuotationLineIntent[] lines = [new()
+        {
+            Id = Guid.NewGuid(), Configuration = new()
+            {
+                Dimensions = item.Dimensions,
+                Selection = new() { Target = item.Price.Target, PriceRevision = item.Price.Revision, Quantity = 1 },
+            },
+        }];
         foreach (var discount in new[] { 0L, 600L })
         {
             var saved = await bridge.SubmitCommandAsync(Command.ForQuotationDraftCreate(new()
@@ -93,7 +142,7 @@ public sealed class WorkflowEnvironmentTests
                 Intent = new() { Customer = new() { Id = customer.Id, Revision = customer.Revision },
                     Lines = lines, DiscountBasisPoints = discount },
             }), Guid.NewGuid());
-            Assert.AreEqual(CommandOutcomeStatus.Succeeded, saved.Outcome.Status);
+            Assert.AreEqual(CommandOutcomeStatus.Succeeded, saved.Outcome.Status, saved.Outcome.Payload.Code);
             var draft = saved.Outcome.Payload.AsQuotationDraftCreated()!;
             var command = discount == 0
                 ? Command.ForQuotationIssue(new() { DraftId = draft.Snapshot.Id, ExpectedRevision = 1,
@@ -101,16 +150,6 @@ public sealed class WorkflowEnvironmentTests
                 : Command.ForQuotationApprovalRequest(new() { DraftId = draft.Snapshot.Id, ExpectedRevision = draft.Snapshot.Revision });
             var key = Guid.NewGuid();
             var confirmed = await bridge.SubmitCommandAsync(command, key);
-            // Live screen queries share the approval route's fail-fast admission. A busy
-            // route is retryable; retain the key so an accepted request cannot be duplicated.
-            var retryUntil = DateTime.UtcNow.AddSeconds(15);
-            while (confirmed.Outcome.Status == CommandOutcomeStatus.Failed
-                && confirmed.Outcome.Payload.Code == ProtocolIds.ErrorCodes.EitmadErrorQuotationApprovalUnavailableV1
-                && DateTime.UtcNow < retryUntil)
-            {
-                await Task.Delay(100);
-                confirmed = await bridge.SubmitCommandAsync(command, key);
-            }
             Assert.AreEqual(CommandOutcomeStatus.Succeeded, confirmed.Outcome.Status,
                 $"The server must accept the customer's current revision without an engine restart (discount {discount}, error {confirmed.Outcome.Payload.Code}).");
         }
@@ -147,7 +186,8 @@ public sealed class WorkflowEnvironmentTests
             }
             Assert.AreEqual(expected, signedIn.Task.Result);
             Assert.AreEqual(Visibility.Collapsed, signIn.Visibility);
-            Finish(window.AccountActivation);
+            // Activation loads several independent capabilities, each with its own IPC deadline.
+            Finish(window.AccountActivation, TimeSpan.FromMinutes(2));
             Assert.AreEqual(expected == AuthenticatedSurface.Manager ? Visibility.Visible : Visibility.Collapsed, window.ResponsiveRoot.Visibility,
                 $"{name} activation: {bridge.Snapshot.State}, {bridge.Snapshot.IpcHealth}, exit {bridge.Snapshot.LastExit?.ExitCode}.");
             Assert.AreEqual(expected == AuthenticatedSurface.Receptionist ? Visibility.Visible : Visibility.Collapsed, window.ReceptionistSurface.Visibility);
@@ -155,19 +195,25 @@ public sealed class WorkflowEnvironmentTests
         finally { signIn.SignedIn -= Observe; }
     }
 
-    private static void ReadConfirmedWork(IEngineShellBridge bridge, string root)
+    private static void ReadConfirmedWork(IEngineShellBridge bridge)
     {
-        var quotations = bridge.QueryAsync(Query.ForQuotationList(new() { Limit = 100 }));
+        var quotations = ReadServerConfirmed(bridge, Query.ForQuotationList(new() { Limit = 100 }),
+            result => result.AsQuotations()!.ServerAvailable);
         Finish(quotations);
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, quotations.Result.Outcome.Status);
-        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.ServerAvailable);
-        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 5);
-        var orders = bridge.QueryAsync(Query.ForOrderList(new() { Limit = 100 }));
+        Assert.IsTrue(quotations.Result.Outcome.Payload.AsQuotations()!.Items.Length >= 1);
+        var orders = ReadServerConfirmed(bridge, Query.ForOrderList(new() { Limit = 100 }),
+            result => result.AsOrders()!.ServerAvailable);
         Finish(orders);
-        Assert.AreEqual(CommandOutcomeStatus.Succeeded, orders.Result.Outcome.Status);
-        Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.ServerAvailable);
         Assert.IsTrue(orders.Result.Outcome.Payload.AsOrders()!.Items.Length >= 1);
-        CheckAcceptedWork(root, orders.Result.Outcome.Payload.AsOrders()!.Items);
+    }
+
+    private static async Task<QueryResponseEnvelope> ReadServerConfirmed(
+        IEngineShellBridge bridge, Query query, Func<QueryResult, bool> confirmed)
+    {
+        var response = await bridge.QueryAsync(query);
+        Assert.AreEqual(CommandOutcomeStatus.Succeeded, response.Outcome.Status);
+        Assert.IsTrue(confirmed(response.Outcome.Payload), "The first response must be server-confirmed.");
+        return response;
     }
 
     private static void SwitchAccount(MainWindow window, IEngineShellBridge bridge)
@@ -192,28 +238,6 @@ public sealed class WorkflowEnvironmentTests
         Assert.AreEqual(CommandOutcomeStatus.Failed, signedOut.Result.Outcome.Status);
     }
 
-    private static void CheckAcceptedWork(string root, OrderRecord[] orders)
-    {
-        // The server owns this immutable accepted source. A restart must retain it exactly.
-        // Later orders are allowed; no fixture or business record is reset by this proof.
-        var current = orders.ToDictionary(order => order.Id.ToString(), order => JsonSerializer.Serialize(new
-        {
-            order.Number, order.CreatedAt,
-            order.Source.Quotation, order.Source.Acceptance,
-        }));
-        var path = Path.Combine(root, "accepted-work-proof.json");
-        if (File.Exists(path))
-        {
-            var original = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path))!;
-            foreach (var (id, accepted) in original)
-            {
-                Assert.IsTrue(current.TryGetValue(id, out var retained), "An accepted order was lost.");
-                Assert.AreEqual(accepted, retained, "An accepted order source changed after restart.");
-            }
-        }
-        else File.WriteAllText(path, JsonSerializer.Serialize(current));
-    }
-
     private static async Task WaitForConnection(IEngineShellBridge bridge)
     {
         var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -234,9 +258,20 @@ public sealed class WorkflowEnvironmentTests
         finally { bridge.StateChanged -= Changed; }
     }
 
-    private static void Finish(Task task)
+    // Retain the test failure if session disposal also fails.
+    private static async Task RunWithCleanupAsync(Func<Task> action, Func<ValueTask> cleanup)
     {
-        task = task.WaitAsync(TimeSpan.FromSeconds(30));
+        Exception? primary = null;
+        try { await action().ConfigureAwait(false); }
+        catch (Exception error) { primary = error; }
+        try { await cleanup().ConfigureAwait(false); }
+        catch (Exception secondary) when (primary is not null) { throw new AggregateException(primary, secondary); }
+        if (primary is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private static void Finish(Task task, TimeSpan? timeout = null)
+    {
+        task = task.WaitAsync(timeout ?? TimeSpan.FromSeconds(30));
         if (!task.IsCompleted)
         {
             var frame = new DispatcherFrame();

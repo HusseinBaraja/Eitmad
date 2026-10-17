@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Windows UI and platform maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-17"
 review_triggers:
   - "Windows shell frame, availability copy, reconnect, resync, query support, or shutdown behavior changes"
 keywords:
@@ -84,6 +84,8 @@ The dashboard contains labelled preview values. It has no live engine, configura
 
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
+| Account switching or session end waits on activation or unsubscribe | The peer has not completed an account operation | Run `AccountSwitchRenderedTests`, `DesktopSessionControllerTests`, and the adapter subscription cleanup scenarios | The shell cancels local delivery immediately and uses one five-second transition budget, then supervised stop if needed. Healthy switching keeps the engine. See the [account transition contract](../developer/subsystems/windows-process-supervision.md#ownership-and-boundaries) |
+| **تعذر إنهاء الجلسة بأمان. أنهِ الاعتماد من أيقونة البرنامج ثم افتحه من جديد.** and sign-in disabled | Supervised cleanup reported an expected native, I/O, or aggregate cleanup failure; containment is uncertain | Preserve only exception types, native error codes, and typed supervision state | Use **إنهاء الاعتماد** in the tray, then restart the app. Do not bypass the disabled sign-in or treat `Stopped` alone as proof of containment. Escalate recurring cleanup failure without deleting saved data |
 | Sign-in after connection loss, same generation | Named-pipe session ended while the engine stayed ready | Observe whether `IpcHealth` returns to `Connected` inside the bounded attempts | Wait for automatic reconnect; if it exhausts, exit through the tray and start one new normal session |
 | `ReconnectExhausted`, lifecycle still `Ready` | Three same-generation reconnect attempts failed | Run the real-engine boundary suite and capture only typed failure kinds | Restart through normal supervision; escalate recurring failures to Windows platform maintainers |
 | `RestartExhausted`, restart count `3` | Four unexpected engine exits occurred inside 60 seconds | Match the last typed Rust error with engine diagnostics | Correct the engine failure, exit through the tray, then start one new normal session |

@@ -25,5 +25,6 @@ tokio = { version = "=1.49.0", features = ["io-std", "io-util", "macros", "rt-mu
 uuid = { version = "=1.23.4", features = ["v4"] }
 
 [dev-dependencies]
+eitmad-authorization = { path = "../authorization" }
 rusqlite = { version = "=0.39.0", default-features = false, features = ["bundled"] }
 tempfile = "=3.24.0"

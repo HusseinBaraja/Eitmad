@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-17"
 review_triggers:
   - "account provisioning, desktop startup, server routes, workflow seeding, or test prerequisites change"
 keywords:
@@ -31,13 +31,35 @@ Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, th
 
 ## Start and sign in
 
+The setup tool is an integration-test harness. It starts the ordinary application with an isolated installation. Keep existing state directories and evidence; no rename or reset is required.
+
+After initial setup, use `run-services.ps1` from PowerShell 7.4 or later to start only PostgreSQL and the TLS server. It accepts `Start` (default), `Status`, `Stop`, `-StateDirectory`, and `-SkipBuild` for unchanged Start outputs. The default state directory is the same `workflow-e2e` setup used below. The repository README lists the paired service and app commands.
+
+The service command reuses this tool with `-ServicesOnly`. Start requires the retained settings, completed provisioning journal, and PostgreSQL cluster. It builds only the server, Rust connection provisioning example, and certificate tool. It checks TLS readiness and refreshes existing account connection references through Rust. It does not seed business records, build or open WPF, or run workflow tests. Missing provisioning, a missing database, or an already running owned process fails without resetting state. Stop ends only the owned server and PostgreSQL; exit the app first. Existing databases and desktop state remain in place.
+
+Build outputs are shared across local setups. On Windows, a running server from another setup can block replacement of `eitmad-server.exe` with `Access is denied`. Stop that setup through its owning command before rebuilding. Do not stop unrelated processes by executable name. `-SkipBuild` is suitable only when source and dependencies are unchanged.
+
+After setup, the engine installation contains Rust-owned `connection.json` references for the HTTPS endpoint, CA trust anchor, organization, branch, and credential route. Tokens and signing keys remain in Windows Credential Manager. Reopening this installation does not require inherited service environment variables. The local server and PostgreSQL must still be running.
+
+Open that existing installation through the normal launcher:
+
+```powershell
+.\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
+```
+
+This builds the current engine and shell, then opens the usual sign-in screen without provisioning development accounts or changing saved work. For unchanged built source, add `-SkipBuild`. Supply the same installation directory on subsequent starts. A runtime-directory argument selects stored installation data, not a different product workflow.
+
+`RetainedConnectionStartsWithoutLauncherEnvironment` verifies both role sign-ins, server-confirmed catalog, quotations and orders, signed-out denial, and unchanged order records across two engine starts with all inherited `EITMAD_*` variables cleared. It does not require fixed record numbers, totals, or delivery states. Run it through the existing test assembly with `EITMAD_E2E_ROOT` and `EITMAD_E2E_ENGINE` set to the prepared test installation and current engine. It performs no desktop interaction.
+
+### Verify connected account switching
+
 Supply the PostgreSQL binary directory on the first launch. For an installation at `C:\Program Files\PostgreSQL\17\bin`:
 
 ```powershell
 pwsh -File .\tools\workflow-environment.ps1 Start -PostgresBin 'C:\Program Files\PostgreSQL\17\bin' -VerifySignIn
 ```
 
-The command builds the server, engine, provisioning example, and WPF shell. It uses the stable `target/toolchain-1.85.1` Rust cache to isolate the required compiler from other installed toolchains. Server readiness is checked over TLS with the generated CA trust anchor. `-VerifySignIn` runs the focused real-WPF integration test before it opens the interactive client. The test alternates Manager and Receptionist sign-ins for three rounds without restarting the engine. It checks role routing, sign-out denial, cleared controls, retained drafts, and server-confirmed quotations and orders through IPC and TLS. It also creates and edits a customer as Receptionist, waits for each revision to be confirmed, then issues a quotation and requests discount approval with the new revision. No preview engine or fake confirmation is used.
+The command builds the server, engine, provisioning example, and WPF shell. It uses the stable `target/toolchain-1.85.1` Rust cache to isolate the required compiler from other installed toolchains. Server readiness is checked over TLS with the generated CA trust anchor. `-VerifySignIn` runs the focused real-WPF integration test before it opens the interactive client. The test alternates Manager and Receptionist sign-ins for two rounds without restarting the engine. It checks role routing, sign-out denial, cleared controls, retained drafts, and server-confirmed quotations and orders through IPC and TLS. It also creates and edits a customer as Receptionist, waits for each revision to be confirmed, then issues a quotation and requests discount approval with the new revision. No preview engine or fake confirmation is used.
 
 Sign in with username `manager` or `receptionist`. The passwords are generated independently. Open `tests/engine-integration/artifacts/workflow-e2e/secrets.json` locally to read the matching `manager_password` or `receptionist_password` value. Enter only the value, without JSON quotes or commas. Do not print this file to a terminal, include it in logs, commit it, or paste its contents into a support report. Passwords, device signing seeds, and the server token key are retained only in this ACL-protected, ignored directory. Authenticated token pairs use Rust-owned Windows Credential Manager entries derived from the route and user identity.
 
@@ -51,11 +73,10 @@ The default state is explicitly identified as disposable test state by `disposab
 | --- | --- |
 | `postgres/` | Dedicated PostgreSQL cluster; database `eitmad_workflow_test` |
 | `manager/` | Retained provisioning authority and original Manager data; no interactive client starts here |
-| `receptionist/` | Shared interactive desktop authority for both accounts, including saved Receptionist drafts, audit, checkpoints, and route reference |
+| `receptionist/` | Shared interactive desktop authority for both accounts, including saved Receptionist drafts, audit, checkpoints, and connection references |
 | `certificates/` | Private test TLS key and explicit CA trust anchor; renewed at startup |
 | `secrets.json`, `provision.json` | Private settings and resumable provisioning journal |
 | `processes.json` | Process IDs, executable paths, and start times used to identify owned processes |
-| `accepted-work-proof.json` | Synthetic accepted order sources saved by the sign-in test and compared on later runs |
 | `*.log` | Private service output; no passwords, access tokens, or raw IPC frames are printed |
 
 The PostgreSQL application role is `NOSUPERUSER NOBYPASSRLS`. Rust applies the normal migrations and tenant isolation. The launcher clears server database credentials and token keys before it starts the shells.
@@ -72,14 +93,13 @@ The initial Manager is also the tenant bootstrap owner so it can provision the t
 | Arabic furniture category and wardrobe with a fixed size | Active definition with a server-published selling price |
 | Arabic product category and mattress variant | Ready-made definition with a server-published selling price |
 | Arabic customer contact | Branch-scoped, server-confirmed customer |
-| Five quotations | Draft, pending discount approval above 5%, issued, accepted, and converted |
-| Ready-made order | Created from the accepted quotation through server confirmation |
+| Quotation lifecycle fixtures | A draft, a pending discount request, an issued quotation, an accepted quotation, and a ready-made order |
 
-Images are not seeded. These records contain synthetic Arabic text only. The environment is intended for the [accepted Manager and Receptionist workflows](../developer/subsystems/manager-receptionist-workflows.md), not production operation.
+The fixtures are fictional and exist only for integration tests. Later starts preserve saved work and do not require fixed quotation or order states. Use the normal catalog, quotation, order, and production screens to test changes.
 
 Seed mutations use stable idempotency keys. After successful seeding, later starts refresh server credentials and import only missing local accounts. Existing account identity must match, including inactive accounts. Setup preserves local role, display name, password verifier, activation state, relationships, revision, and sessions. It does not sign in to local fixture accounts or restore their initial access. Existing accepted work is not replaced. A failure preserves local outboxes, journals, audits, and PostgreSQL state.
 
-The running engine retries pending customer changes on a Rust worker every two seconds when idle. The launcher supplies `EITMAD_CUSTOMER_SERVER`, `EITMAD_CUSTOMER_TRUST_PEM`, `EITMAD_CUSTOMER_CREDENTIAL_ID`, and `EITMAD_CUSTOMER_BRANCH_ID`. The credential setting is a route reference. Rust resolves each original author's account credential and checks current branch permission before transfer. Connection failure retains pending work for retry. Customer revisions must reach server confirmation before quotation validation can use them; restarting the environment is not required.
+The running engine retries pending customer changes on a Rust worker every two seconds when idle. Rust loads the saved connection references for customer transfer. For an installation without a connection file, the existing `EITMAD_CUSTOMER_SERVER`, `EITMAD_CUSTOMER_TRUST_PEM`, `EITMAD_CUSTOMER_CREDENTIAL_ID`, and `EITMAD_CUSTOMER_BRANCH_ID` environment configuration remains available. The credential setting is a route reference. Rust resolves each original author's account credential and checks current branch permission before transfer. Connection failure retains pending work for retry. Customer revisions must reach server confirmation before quotation validation can use them; restarting the environment is not required.
 
 For existing two-window environments, the launcher retains both directories and uses the existing `receptionist/` database as the shared desktop. It registers Manager on that device through authenticated server login, imports the verified account, and transfers catalog definitions through the supported authenticated catalog operations. Receptionist drafts and server-accepted work stay in place. Original Manager-only local data remains in `manager/`; this is not a general database merge or restore tool.
 
@@ -117,7 +137,7 @@ Choose a new, unused directory below `tests/engine-integration/artifacts` and di
 pwsh -File .\tools\workflow-environment.ps1 Start -StateDirectory "$PWD\tests\engine-integration\artifacts\workflow-second" -PostgresBin 'C:\Program Files\PostgreSQL\17\bin' -DatabasePort 55440 -ServerPort 58444 -VerifySignIn
 ```
 
-Supply the same `-StateDirectory` to `Stop`, `Status`, and subsequent `Start` commands. Existing directories without the exact disposable marker and paths outside the test-artifact root are refused. Reparse points in the state path are refused. There is no reset, drop, truncate, restore, or recursive-delete action.
+Supply the same `-StateDirectory` to `Stop`, `Status`, and subsequent `Start` commands. Relative `-StateDirectory` and `run.ps1 -RuntimeDirectory` paths resolve from the current PowerShell folder. Existing directories without the exact disposable marker and paths outside the test-artifact root are refused. Reparse points in the state path are refused. There is no reset, drop, truncate, restore, or recursive-delete action.
 
 ## Recover a failed launch
 
@@ -130,3 +150,7 @@ If sign-in reports **بيانات الدخول غير صحيحة أو انتهت
 If valid sign-in briefly opens an account screen and then returns to sign-in, check the engine connection state separately from credential rejection. The IPC reader must retain a partial frame while responses and events are delivered; cancelling that read caused intermittent startup disconnects. Rebuild the current source and use `-VerifySignIn` after stopping the environment. See [IPC framing and concurrency](../developer/subsystems/local-ipc.md#framing-concurrency-and-large-payloads) for the regression and safe reader behavior.
 
 Return to [operations](index.md) or inspect [server authority](../developer/subsystems/server-authority.md) and [Windows supervision](../developer/subsystems/windows-process-supervision.md) when changing this path.
+
+## Diagnose activation and account switching
+
+Use the [bounded activation diagnostic](../troubleshooting/local-ipc-failures.md#correlate-activation-account-switching-and-server-confirmation) with `Start -DiagnosticActivation` and a new synthetic state directory. It runs a focused WPF account-switch and server-confirmation test, saves distinct process output and TRX evidence, and leaves services available until explicit Stop. It does not open an interactive desktop window. Process and PostgreSQL output filenames are unique on every launch; prior logs are retained.

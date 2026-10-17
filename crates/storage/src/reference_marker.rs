@@ -1,4 +1,4 @@
-//! Immutable schema history for the retired reference-marker demo.
+//! Immutable schema history for the retired reference-marker feature.
 
 use crate::migrations::Migration;
 

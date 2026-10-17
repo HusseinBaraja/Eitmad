@@ -39,8 +39,8 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 today.AddDays(9),
                 WorkOrderStatus.New,
                 [
-                    new("خزانة كبيرة", "كبير", "200 × 220 × 60 سم", "جوزي", "مقبض نحاسي", 1, FurnitureIllustration.Wardrobe),
-                    new("مكتب عمل", "بثلاثة أدراج", "140 × 75 × 65 سم", "جوزي", "مقبض نحاسي", 1, FurnitureIllustration.Table),
+                    new("خزانة كبيرة", "كبير", "200 × 220 × 60 سم", "جوزي", "مقبض نحاسي", 1),
+                    new("مكتب عمل", "بثلاثة أدراج", "140 × 75 × 65 سم", "جوزي", "مقبض نحاسي", 1),
                 ],
                 [
                     new("جانب الخزانة الكبيرة", 2),
@@ -60,7 +60,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "علي",
                 today.AddDays(4),
                 WorkOrderStatus.InProgress,
-                [new("طاولة طعام", "ستة مقاعد", "180 × 90 × 76 سم", "بلوط طبيعي", "بدون مقبض", 1, FurnitureIllustration.Table)],
+                [new("طاولة طعام", "ستة مقاعد", "180 × 90 × 76 سم", "بلوط طبيعي", "بدون مقبض", 1)],
                 [new("سطح الطاولة", 1), new("رجل الطاولة", 4), new("دعامة سفلية", 2)],
                 "الحواف مستديرة وآمنة للأطفال حسب اتفاق الطلب."),
             new(
@@ -71,7 +71,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "يوسف",
                 today.AddDays(-2),
                 WorkOrderStatus.Completed,
-                [new("سرير مزدوج", "ملكي", "200 × 180 سم", "أبيض مطفي", "بدون مقبض", 1, FurnitureIllustration.Bed)],
+                [new("سرير مزدوج", "ملكي", "200 × 180 سم", "أبيض مطفي", "بدون مقبض", 1)],
                 [new("لوح الرأس", 1), new("جانب السرير", 2), new("قاعدة شرائح", 1)],
                 "ثبت لوح الرأس دون فراغ ظاهر عند الحافة."),
             new(
@@ -82,7 +82,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "غير مسند",
                 today.AddDays(15),
                 WorkOrderStatus.Cancelled,
-                [new("خزانة أطفال", "ثلاثة أبواب", "160 × 190 × 55 سم", "أبيض", "مقبض خشبي", 1, FurnitureIllustration.Wardrobe)],
+                [new("خزانة أطفال", "ثلاثة أبواب", "160 × 190 × 55 سم", "أبيض", "مقبض خشبي", 1)],
                 [new("جانب الخزانة", 2), new("باب الخزانة", 3), new("رف داخلي", 4)],
                 "أُلغي أمر العمل قبل بدء التصنيع."),
             new(
@@ -93,7 +93,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
                 "خالد",
                 today.AddDays(-1),
                 WorkOrderStatus.New,
-                [new("مكتبة جدارية", "خمسة أقسام", "240 × 230 × 40 سم", "بني داكن", "مقبض أسود", 1, FurnitureIllustration.Wardrobe)],
+                [new("مكتبة جدارية", "خمسة أقسام", "240 × 230 × 40 سم", "بني داكن", "مقبض أسود", 1)],
                 [new("جانب المكتبة", 2), new("رف طويل", 10), new("باب سفلي", 4)],
                 "راجع فتحة الكهرباء في القسم الأوسط قبل القص."),
         ];
@@ -131,8 +131,7 @@ public sealed partial class WorkOrdersViewModel : ObservableObject
     private static WorkOrderListItem CreateOrderFixture(Features.Orders.OrderListItem order, string number, WorkOrderStatus status, IReadOnlyList<WorkOrderPart>? parts = null) =>
         new(Guid.NewGuid(), number, order.Number, order.Customer, "نجار تجريبي", DateOnly.FromDateTime(DateTime.Today).AddDays(7), status,
             order.Items.Where(item => item.IsFurniture).Select(item => new WorkOrderFurnitureItem(item.Product,
-                item.Variant, item.Dimensions, item.Color, item.Handle, item.Quantity,
-                item.ThumbnailKind == "Bed" ? FurnitureIllustration.Bed : item.ThumbnailKind == "Table" ? FurnitureIllustration.Table : FurnitureIllustration.Wardrobe)).ToArray(),
+                item.Variant, item.Dimensions, item.Color, item.Handle, item.Quantity)).ToArray(),
             parts ?? [], parts is { Count: > 0 } ? "مواصفات وأجزاء تجريبية مرتبطة بالطلب — لا يوجد حفظ فعلي" : "معاينة مرتبطة بالطلب — قائمة الأجزاء لم تُجهّز بعد");
 
     public WorkOrderListItem? ForOrder(string number) => workOrders.FirstOrDefault(item => item.OrderNumber == number);

@@ -6,6 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod connection;
 mod customer_sync;
 
 #[cfg(debug_assertions)]
@@ -259,10 +260,15 @@ fn seed_development_account(
     password: &str,
     now: UnixMillis,
 ) -> Result<(), eitmad_storage::StorageError> {
-    if let Some(existing) = store.desktop_account(installer.tenant_id, username)? {
+    if let Some(existing) = store
+        .list_desktop_accounts(installer.tenant_id)?
+        .accounts
+        .into_iter()
+        .find(|existing| existing.username == username || existing.account_id == account.account_id)
+    {
         return if existing.account_id == account.account_id
             && existing.user_id == account.user_id
-            && existing.role == account.role
+            && existing.username == username
         {
             Ok(())
         } else {
@@ -307,46 +313,19 @@ fn configured_dispatcher(
     event_broker: &EventBroker,
 ) -> Result<ConfiguredDispatcher, ()> {
     let mut dispatcher = ProductDispatcher::new(store.clone(), event_broker.clone());
-    let media_endpoint = std::env::var_os("EITMAD_MEDIA_SERVER");
-    let media_enabled =
-        media_endpoint.is_some() || std::env::var_os("EITMAD_PRICING_SERVER").is_some();
-    if let Some(endpoint) = media_endpoint {
-        let configured = (|| {
-            let trust = std::env::var_os("EITMAD_MEDIA_TRUST_PEM").ok_or(())?;
-            let credential = std::env::var("EITMAD_MEDIA_CREDENTIAL_ID").map_err(|_| ())?;
-            let scope = eitmad_contracts::identity::ScopeRef {
-                kind: eitmad_contracts::identity::ScopeKind::parse("organization")
-                    .map_err(|_| ())?,
-                id: eitmad_contracts::identity::ScopeId::new(
-                    store.local_organization_id().map_err(|_| ())?.value(),
-                ),
-            };
-            let config = eitmad_server_connection::DirectServerConfig::new(
-                endpoint.to_str().ok_or(())?,
-                scope,
-                eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-image.v1")
-                    .map_err(|_| ())?,
-                1,
-                &PathBuf::from(trust),
-            )
-            .map_err(|_| ())?;
-            let secrets =
-                eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
-            let credential =
-                serde_json::from_str::<eitmad_contracts::secrets::SecretId>(&credential)
-                    .map_err(|_| ())?;
-            Ok::<_, ()>(
-                eitmad_server_connection::DirectCatalogImageClient::from_config(
-                    config, secrets, credential,
-                ),
-            )
-        })();
-        let client = configured?;
-        dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(client));
+    let installation =
+        eitmad_server_connection::DesktopConnectionSettings::load(directory).map_err(|_| ())?;
+    if installation
+        .as_ref()
+        .is_some_and(|settings| store.local_organization_id().ok() != Some(settings.organization))
+    {
+        return Err(());
     }
-    if let Some(endpoint) = std::env::var_os("EITMAD_PRICING_SERVER") {
-        let trust = std::env::var_os("EITMAD_PRICING_TRUST_PEM").ok_or(())?;
-        let credential = std::env::var("EITMAD_PRICING_CREDENTIAL_ID").map_err(|_| ())?;
+    let installation = installation.as_ref();
+    let media = connection::ServerRoute::load("MEDIA", installation)?;
+    let pricing = connection::ServerRoute::load("PRICING", installation)?;
+    let media_enabled = media.is_some() || pricing.is_some();
+    if let Some(route) = media {
         let scope = eitmad_contracts::identity::ScopeRef {
             kind: eitmad_contracts::identity::ScopeKind::parse("organization").map_err(|_| ())?,
             id: eitmad_contracts::identity::ScopeId::new(
@@ -354,17 +333,40 @@ fn configured_dispatcher(
             ),
         };
         let config = eitmad_server_connection::DirectServerConfig::new(
-            endpoint.to_str().ok_or(())?,
+            &route.endpoint,
+            scope,
+            eitmad_contracts::transport::SchemaId::parse("eitmad.schema.catalog-image.v1")
+                .map_err(|_| ())?,
+            1,
+            &route.trust,
+        )
+        .map_err(|_| ())?;
+        let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
+        let client = eitmad_server_connection::DirectCatalogImageClient::from_config(
+            config,
+            secrets,
+            route.credential,
+        );
+        dispatcher = dispatcher.with_catalog_image_transfer(Arc::new(client));
+    }
+    if let Some(route) = pricing {
+        let scope = eitmad_contracts::identity::ScopeRef {
+            kind: eitmad_contracts::identity::ScopeKind::parse("organization").map_err(|_| ())?,
+            id: eitmad_contracts::identity::ScopeId::new(
+                store.local_organization_id().map_err(|_| ())?.value(),
+            ),
+        };
+        let config = eitmad_server_connection::DirectServerConfig::new(
+            &route.endpoint,
             scope,
             eitmad_contracts::transport::SchemaId::parse("eitmad.schema.pricing.v1")
                 .map_err(|_| ())?,
             1,
-            &PathBuf::from(trust),
+            &route.trust,
         )
         .map_err(|_| ())?;
         let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
-        let credential = serde_json::from_str::<eitmad_contracts::secrets::SecretId>(&credential)
-            .map_err(|_| ())?;
+        let credential = route.credential;
         dispatcher = dispatcher.with_catalog_replication(Arc::new(
             eitmad_server_connection::DirectCatalogSyncClient::from_config(
                 config.clone(),
@@ -377,48 +379,49 @@ fn configured_dispatcher(
             eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
         ));
     }
-    dispatcher = configured_quotations(dispatcher, directory)?;
+    dispatcher = configured_quotations(dispatcher, directory, installation)?;
     Ok(ConfiguredDispatcher {
         dispatcher: Arc::new(dispatcher),
         media_enabled,
-        customers: customer_sync::configure(store, directory)?,
+        customers: customer_sync::configure(store, directory, installation)?,
     })
 }
 
 fn configured_quotations(
     mut dispatcher: ProductDispatcher,
     directory: &std::path::Path,
+    installation: Option<&eitmad_server_connection::DesktopConnectionSettings>,
 ) -> Result<ProductDispatcher, ()> {
-    if let Some(endpoint) = std::env::var_os("EITMAD_QUOTATION_SERVER") {
-        let trust = std::env::var_os("EITMAD_QUOTATION_TRUST_PEM").ok_or(())?;
-        let credential = std::env::var("EITMAD_QUOTATION_CREDENTIAL_ID").map_err(|_| ())?;
-        let organization = std::env::var("EITMAD_QUOTATION_ORGANIZATION_ID")
-            .map_err(|_| ())?
-            .parse()
-            .map_err(|_| ())?;
-        let branch = std::env::var("EITMAD_QUOTATION_BRANCH_ID")
-            .map_err(|_| ())?
-            .parse()
-            .map_err(|_| ())?;
+    if let Some(route) = connection::ServerRoute::load("QUOTATION", installation)? {
+        let organization = installation.map_or_else(
+            || {
+                std::env::var("EITMAD_QUOTATION_ORGANIZATION_ID")
+                    .map_err(|_| ())?
+                    .parse()
+                    .map_err(|_| ())
+            },
+            |settings| Ok(settings.organization.value()),
+        )?;
+        let branch = connection::branch("QUOTATION", installation)?;
         let scope = eitmad_contracts::identity::ScopeRef {
             kind: eitmad_contracts::identity::ScopeKind::parse("organization").map_err(|_| ())?,
             id: eitmad_contracts::identity::ScopeId::new(organization),
         };
         let branch = eitmad_contracts::identity::ScopeRef {
             kind: eitmad_contracts::identity::ScopeKind::parse("branch").map_err(|_| ())?,
-            id: eitmad_contracts::identity::ScopeId::new(branch),
+            id: branch,
         };
         let config = eitmad_server_connection::DirectServerConfig::new(
-            endpoint.to_str().ok_or(())?,
+            &route.endpoint,
             scope,
             eitmad_contracts::transport::SchemaId::parse("eitmad.schema.quotation-approval.v1")
                 .map_err(|_| ())?,
             1,
-            &PathBuf::from(trust),
+            &route.trust,
         )
         .map_err(|_| ())?;
         let secrets = eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?;
-        let credential = serde_json::from_str(&credential).map_err(|_| ())?;
+        let credential = route.credential;
         let quotations = Arc::new(
             eitmad_server_connection::DirectDiscountApprovalClient::from_config(
                 config, secrets, credential, branch,

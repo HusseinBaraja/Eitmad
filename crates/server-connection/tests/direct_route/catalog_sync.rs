@@ -38,8 +38,7 @@ fn replication(
         SecretKind::parse("catalog-sync-test").unwrap(),
         SecretReferenceId::new(Uuid::new_v4()),
     );
-    eitmad_server_connection::store_account_session(&secrets, &credential, authentication, seed)
-        .unwrap();
+    store_account_session(&secrets, &credential, authentication, seed).unwrap();
     let config = DirectServerConfig::new(
         endpoint,
         scope.clone(),
@@ -328,6 +327,7 @@ fn page(store: &AuthorityStore, actor: &AuthorizationContext) -> PricePage {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn catalog_reaches_separate_receptionist_and_recovers_without_private_fields() {
+    let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
     scenario.transfer_dependencies().await;
