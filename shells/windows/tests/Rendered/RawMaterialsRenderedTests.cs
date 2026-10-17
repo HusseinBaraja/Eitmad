@@ -15,6 +15,87 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class RawMaterialsRenderedTests
 {
     [TestMethod]
+    [DataRow(1920, 1080, false)]
+    [DataRow(1338, 753, false)]
+    [DataRow(720, 560, false)]
+    [DataRow(1920, 1080, true)]
+    [DataRow(1338, 753, true)]
+    [DataRow(720, 560, true)]
+    public void ReopeningEditorDiscardsCancelledCostText(int width, int height, bool creating)
+    {
+        var data = RawMaterials.MaterialFixtures.Snapshot();
+        var submissions = 0;
+        var engine = new FakeEngine
+        {
+            QueryHandler = query => new QueryResponseEnvelope
+            {
+                Outcome = new QueryOutcome { Status = CommandOutcomeStatus.Succeeded,
+                    Payload = query.Kind == Query.MaterialReferenceListKind
+                        ? QueryResult.ForMaterialReferences(data.References)
+                        : QueryResult.ForMaterials(new MaterialPage { Items = data.Materials.ToArray() }) },
+            },
+            CommandHandler = _ =>
+            {
+                submissions++;
+                return new CommandResponseEnvelope
+                {
+                    Outcome = new CommandOutcome { Status = CommandOutcomeStatus.Failed,
+                        Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 } },
+                };
+            },
+        };
+        WpfTestHost.Run(width, height, window =>
+        {
+            var dpi = VisualTreeHelper.GetDpi(window);
+            Console.WriteLine($"Display before capture: {SystemParameters.PrimaryScreenWidth * dpi.DpiScaleX}x{SystemParameters.PrimaryScreenHeight * dpi.DpiScaleY} px; scaling {dpi.DpiScaleX * 100}%.");
+            if (width == 1920)
+            {
+                window.Left = 0;
+                window.WindowState = WindowState.Maximized;
+                WpfTestHost.CompleteLayout(window);
+            }
+            Console.WriteLine($"Cost reset: requested {width}x{height} DIP; actual {window.ActualWidth}x{window.ActualHeight} DIP. Captures use a 96-DPI render target.");
+            WpfTestHost.FindByName<Button>(window, "MaterialsNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            var view = WpfTestHost.Descendants<RawMaterialsView>(window).Single();
+            var model = view.ViewModel;
+            var material = model.VisibleMaterials.Single(item => item.Name == "لوح MDF سماكة 18 مم");
+            var expectedCost = creating ? 0L : 25_000L;
+            var expectedText = creating ? "0" : "25000";
+            void OpenEditor()
+            {
+                if (creating) model.BeginCreate();
+                else model.BeginEdit(material);
+                WpfTestHost.CompleteLayout(window);
+            }
+            OpenEditor();
+            var cost = WpfTestHost.FindByName<TextBox>(view, "EditorCostBox");
+            Assert.AreEqual(expectedText, cost.Text);
+            cost.SetCurrentValue(TextBox.TextProperty, creating ? "8500" : "7654321");
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual((decimal)expectedCost, model.EditorCost);
+
+            WpfTestHost.FindByName<Button>(view, "CancelEditorButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsFalse(model.IsEditorOpen);
+            Assert.AreEqual((decimal)expectedCost, model.EditorCost);
+            Assert.AreEqual(25_000m, material.CurrentCost);
+            Assert.AreEqual(0, submissions);
+            OpenEditor();
+            Assert.IsTrue(model.IsEditorOpen);
+            Assert.AreEqual((decimal)expectedCost, model.EditorCost);
+            Assert.AreEqual(expectedText, cost.Text, "A new form must reset local textbox text even when the model cost is unchanged.");
+            WpfTestHost.Capture(window, $"material-cost-reset-{(creating ? "create" : "edit")}-{width}x{height}");
+
+            if (creating) model.EditorName = "مادة تجريبية";
+            WpfTestHost.FindByName<Button>(view, "SaveEditorButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(1, submissions);
+            Assert.AreEqual(expectedCost, engine.LastCommand!.AsMaterialSave()!.CurrentCostYer);
+        }, engine: engine);
+    }
+
+    [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
     [DataRow(720, 560)]

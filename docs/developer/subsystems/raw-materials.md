@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "material capability maintainers"
-last_verified: "2026-10-16"
+last_verified: "2026-10-17"
 review_triggers:
   - "material contracts, unit rules, storage, permission, or Windows editor changes"
 keywords:
@@ -33,7 +33,7 @@ Protocol `1.10` advertises optional `eitmad.capability.material.v1` and `eitmad.
 
 Names reject empty values, surrounding whitespace, control and bidirectional formatting characters, and excess UTF-8 bytes. Category names are unique within one scope, including archived records; unit names follow the same rule. Unit factors are positive integer numerator and denominator values to one canonical unit of their declared dimension. The dimensions are count, length, area, volume, and mass. No cross-dimension conversion is allowed. `MaterialQuantity` accepts a positive invariant decimal with at most six fractional digits and rejects exponent notation and rounding. The material form stores no quantity. Current cost is a non-negative signed 64-bit count of whole Yemeni rials per selected unit. The shell rejects fractional input before sending the command; Rust validates the canonical integer. A cost change never changes a selling price.
 
-The native cost field displays the stored value through a one-way binding. Save parses its text with the existing whole-YER parser, including Arabic and Persian digits. WPF must not apply a second culture-dependent decimal conversion on focus loss: valid Arabic digits previously showed a false red validation border even though Save accepted them. `InputErrorsStayWithTheirFieldsAndAuthorityFailuresUseSummary` checks valid input feedback and the exact submitted integer while retaining fractional and overflow rejection.
+The native cost field displays the stored value through a one-way binding. Each create or edit form explicitly refreshes that binding, even when the model cost is unchanged, so reopening after Cancel discards typed cost text. Save parses its text with the existing whole-YER parser, including Arabic and Persian digits. WPF must not apply a second culture-dependent decimal conversion on focus loss: valid Arabic digits previously showed a false red validation border even though Save accepted them. `InputErrorsStayWithTheirFieldsAndAuthorityFailuresUseSummary` checks valid input feedback and the exact submitted integer while retaining fractional and overflow rejection. `ReopeningEditorDiscardsCancelledCostText` checks edit and create resets at the WPF binding boundary and verifies that a later Save submits the intended cost.
 
 Rust derives Arabic search text separately from the stored display name. It folds alef variants, alef maqsura, ta marbuta, tatweel, combining marks, Persian letter variants, digits, and whitespace. A material search checks its name and the current category and unit names. For example, **اخشاب** finds a material in **أخشاب طبيعية** without changing the stored Arabic.
 
