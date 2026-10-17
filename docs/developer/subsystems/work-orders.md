@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Work Orders capability maintainers"
-last_verified: "2026-10-16"
+last_verified: "2026-10-17"
 review_triggers:
   - "Work Order contracts, manufacturing lifecycle rules, or Windows Work Orders UI behavior change"
 keywords:
@@ -55,6 +55,8 @@ Furniture pictures show **الصورة غير متاحة**. The manufacturing pr
 The existing RTL list provides Arabic-normalized search, status/date filters, customer and Order links, assignment, due date, and multi-Furniture details. **مخطط**, **قيد التنفيذ**, **مكتمل**, and **ملغي** reflect Rust state. Planned work exposes assignment and date inputs before **تغيير حالة أمر العمل**. The related Order link opens the exact Manager Order; **فتح أمر العمل** returns to production.
 
 Loading, empty, denied, offline, conflict, and pending-confirmation states use explicit Arabic messages. Retry controls appear for pending operations. Offline rows show the last confirmed state with disabled transitions. Synthetic preview state is available only without an attached engine client and remains clearly labeled.
+
+Production confirmation and subscription notices share one serialized list refresh. A notice during a read requests a subsequent authorized read; actions stay busy until that read completes. This prevents Start Work from enabling another action against the previous revision while a replacement projection is still loading. An unavailable read does not schedule an automatic retry. `ProductionConfirmationAwaitsTheLatestSubscriptionRefresh` checks the overlapping notice and immediate completion path.
 
 ## Focused verification
 

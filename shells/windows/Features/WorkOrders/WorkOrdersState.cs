@@ -9,6 +9,8 @@ public sealed partial class WorkOrdersViewModel
     private OrderClient? client;
     private bool active, busy;
     private long generation, loadVersion;
+    private Task? loadOperation;
+    private bool loadRequested;
     private string listState = "بيانات تجريبية للمعاينة فقط", assignment = "", actionNotice = "";
     private DateTime dueDate = DateTime.Today.AddDays(7);
     private Command? retryCommand;
@@ -29,7 +31,7 @@ public sealed partial class WorkOrdersViewModel
     public void Attach(OrderClient source)
     {
         client = source; workOrders.Clear(); CloseWorkOrder(); RefreshVisibleWorkOrders();
-        source.Changed += (_, _) => { if (active) LastLoad = LoadAsync(); };
+        source.Changed += (_, _) => { if (active) RequestLoad(); };
         source.Invalidated += (_, _) => ClearWorkOrders();
         Raise(nameof(IsLive)); Raise(nameof(IsPreview));
     }
@@ -39,19 +41,35 @@ public sealed partial class WorkOrdersViewModel
         var session = generation;
         active = true; await client.ActivateAsync(cancellationToken);
         if (!active || session != generation || cancellationToken.IsCancellationRequested) return;
-        LastLoad = LoadAsync(); await LastLoad;
+        await RequestLoad();
     }
     public void ClearWorkOrders()
     {
         if (client is null) return;
         active = false; ++generation; ++loadVersion; busy = false; retryCommand = null; pending = [];
+        loadRequested = false; loadOperation = null; LastLoad = Task.CompletedTask;
         CloseWorkOrder(); workOrders.Clear(); RefreshVisibleWorkOrders(); Assignment = ""; ActionNotice = "";
         ListState = "أوامر العمل غير متاحة."; RaiseActions();
     }
-    private async Task LoadAsync()
+    private Task RequestLoad()
+    {
+        ++loadVersion; loadRequested = true;
+        return LastLoad = loadOperation is { IsCompleted: false } ? loadOperation : loadOperation = DrainLoadsAsync(generation);
+    }
+    // Keep production actions busy until notices and confirmation share the latest read.
+    private async Task DrainLoadsAsync(long session)
+    {
+        await Task.Yield();
+        while (active && generation == session && loadRequested)
+        {
+            loadRequested = false;
+            await LoadAsync(loadVersion);
+        }
+    }
+    private async Task LoadAsync(long version)
     {
         if (client is null || !active) return;
-        var version = ++loadVersion; var session = generation; Guid? cursor = null;
+        var session = generation; Guid? cursor = null;
         var items = new List<WorkOrderListItem>(); var available = true;
         IReadOnlyList<OrderPending> requests = [];
         ListState = "جارٍ تحميل أوامر العمل...";
@@ -76,7 +94,7 @@ public sealed partial class WorkOrdersViewModel
     private async Task OpenProductionAsync(Guid orderId)
     {
         var session = generation;
-        await LoadAsync();
+        await RequestLoad();
         if (active && session == generation && workOrders.FirstOrDefault(w => w.Record?.OrderId == orderId) is { } work) OpenWorkOrder(work);
     }
     private async Task AdvanceAsync()
@@ -105,7 +123,7 @@ public sealed partial class WorkOrdersViewModel
             if (!active || session != generation) return;
             ActionNotice = result.Succeeded ? "أكد الخادم العملية." : OrderClient.Message(result.Failure, retryCommand);
             if (result.Succeeded || result.Failure != DraftFailure.Unavailable) retryCommand = null;
-            LastLoad = LoadAsync(); await LastLoad;
+            await RequestLoad();
         }
         finally { if (session == generation) { busy = false; RaiseActions(); } }
     }

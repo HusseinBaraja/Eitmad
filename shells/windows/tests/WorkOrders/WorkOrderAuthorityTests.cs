@@ -45,6 +45,54 @@ public sealed class WorkOrderAuthorityTests
         Assert.IsNotNull(engine.LastCommand); model.ClearWorkOrders();
     }
     [TestMethod]
+    public async Task ProductionConfirmationAwaitsTheLatestSubscriptionRefresh()
+    {
+        var fixture = new Fixture();
+        await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
+        FakeSubscription? subscription = null;
+        engine.SubscribeHook = (_, value) => subscription = value;
+        var model = new WorkOrdersViewModel(); model.Attach(client); await model.ActivateAsync();
+        model.OpenWorkOrder(model.VisibleWorkOrders.Single());
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subsequent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var latest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
+        engine.QueryBarrier = _ => {
+            if (Interlocked.Increment(ref reads) == 1) { entered.TrySetResult(); return release.Task; }
+            subsequent.TrySetResult(); return latest.Task;
+        };
+        engine.CommandHandler = command => {
+            var input = command.AsOrderWorkStart() ?? command.AsOrderWorkComplete()!;
+            var expectedRevision = fixture.Work.Revision;
+            Assert.AreEqual(expectedRevision, input.ExpectedRevision);
+            fixture.Work.Revision++;
+            fixture.Work.State = command.Kind == Command.OrderWorkStartKind ? WorkState.InProgress : WorkState.Completed;
+            fixture.Work.CanStart = false;
+            fixture.Work.CanComplete = fixture.Work.State == WorkState.InProgress;
+            return new() { Outcome = new() { Status = CommandOutcomeStatus.Succeeded,
+                Payload = CommandResult.ForOrder(QuotationDraftTests.Copy(fixture.Order)) } };
+        };
+        model.AdvanceSelectedStatus(); var start = model.LastAction;
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            subscription!.SignalResync();
+            release.SetResult();
+            await subsequent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.IsTrue(await Task.WhenAny(start, Task.Delay(100)) != start,
+                "Production confirmation must wait for the latest authorized projection before enabling another action.");
+            Assert.IsFalse(model.ActionsAvailable);
+        }
+        finally { release.TrySetResult(); latest.TrySetResult(); await start.WaitAsync(TimeSpan.FromSeconds(5)); await model.LastLoad; }
+        Assert.AreEqual(WorkOrderStatus.InProgress, model.SelectedWorkOrder!.Status);
+        model.AdvanceSelectedStatus(); await model.LastAction.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(Command.OrderWorkCompleteKind, engine.LastCommand!.Kind);
+        Assert.AreEqual(WorkOrderStatus.Completed, model.SelectedWorkOrder!.Status);
+        Assert.IsFalse(model.HasPending);
+        model.ClearWorkOrders();
+    }
+    [TestMethod]
     public async Task LostProductionReplyRetainsExactWorkAndRevisionAcrossRestart()
     {
         var fixture = new Fixture(); await using var engine = fixture.Engine; await using var client = new OrderClient(engine);
