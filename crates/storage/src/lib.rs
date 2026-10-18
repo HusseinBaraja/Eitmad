@@ -18,7 +18,7 @@ mod pricing;
 mod quotation_draft;
 mod quotation_lifecycle;
 mod work_orders;
-pub use quotation_draft::QuotationDraftCommit;
+pub use quotation_draft::{PendingQuotationDraft, QuotationDraftCommit};
 mod product;
 mod recovery;
 mod reference_marker;

@@ -114,6 +114,7 @@ fn schema_id() -> SchemaId {
 fn hello() -> PeerHello {
     let capabilities = [
         "eitmad.capability.sync.v1",
+        "eitmad.capability.shared-accounts.v1",
         "eitmad.capability.server-connection.v1",
         "eitmad.capability.server-device-proof.v1",
         "eitmad.capability.server-snapshot-chunks.v1",

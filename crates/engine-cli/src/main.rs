@@ -306,6 +306,9 @@ impl ConfiguredDispatcher {
             self.customers.as_ref().map(|client| {
                 customer_sync::start(client.clone(), self.dispatcher.clone(), cancel.clone())
             }),
+            self.dispatcher
+                .clone()
+                .start_quotation_draft_recovery(cancel.clone()),
         ]
         .into_iter()
         .flatten()

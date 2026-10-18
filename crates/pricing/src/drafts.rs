@@ -57,9 +57,10 @@ impl From<PricingError> for QuotationDraftError {
 
 #[derive(Clone)]
 pub struct QuotationDraftService {
-    store: AuthorityStore,
-    authorization: AuthorizationService,
+    pub(super) store: AuthorityStore,
+    pub(super) authorization: AuthorizationService,
     pricing: PricingService,
+    pub(super) recovery_cursor: std::sync::Arc<std::sync::Mutex<i64>>,
 }
 impl QuotationDraftService {
     #[must_use]
@@ -68,6 +69,7 @@ impl QuotationDraftService {
             pricing: PricingService::new(store.clone(), authorization.clone()),
             store,
             authorization,
+            recovery_cursor: std::sync::Arc::new(std::sync::Mutex::new(0)),
         }
     }
     /// Creates an unnumbered evaluated branch draft with an engine-assigned UUID.

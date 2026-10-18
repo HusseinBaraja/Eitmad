@@ -2,6 +2,8 @@
 mod lifecycle;
 #[path = "orders.rs"]
 mod orders;
+#[path = "quotation_recovery.rs"]
+mod recovery;
 use super::*;
 use eitmad_contracts::{
     quotation::{EvaluateQuotation, QuotationCustomerIntent, QuotationLineIntent},
@@ -689,6 +691,7 @@ async fn discount_approval_cross_client_live_replay_invalidation_and_rejection()
     let final_request = tokio::task::spawn_blocking(move || {
         let mut reception =
             DraftTestClient::new(reception, auth, [11; 32], (&endpoint, &trust, &catalog));
+        recovery::run(&reception, customer.id, target.clone(), &clients);
         let result = run_approval_workflow(&mut reception, customer.id, target.clone(), &clients);
         lifecycle::run(
             &mut reception,

@@ -12,6 +12,7 @@ pub use approval::{
     approval_fingerprint, decide_approval, same_commercial_terms,
 };
 pub use quotation::validate_draft_snapshot;
+mod draft_recovery;
 mod draft_sync;
 mod drafts;
 pub use draft_sync::{QuotationDraftSyncCycle, QuotationDraftSyncError};
