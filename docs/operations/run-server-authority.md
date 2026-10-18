@@ -92,7 +92,7 @@ Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` an
 
 Success returns HTTP 200 after commit. Invalid input returns 400, denied scope or authority returns 403, and a stale revision, changed retry intent, or protected Owner returns 409. Invalid, revoked, or expired credentials return 401; unavailable authority returns 503. After a lost response, retry the identical request and key with a fresh device proof. Do not change the payload under the old key. After a conflict, read current state and submit a new intent with a new key. Exact retries preserve their original receipt, including terminal business errors. A revoked caller must first authenticate again.
 
-An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. Offline sign-in retains its local verifier and does not synchronize account administration.
+An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. Offline sign-in retains its local verifier. Connected engines receive account changes through authenticated watches; disconnected PCs follow the [offline authorization limit](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
 
 ### Verify account administration
 
@@ -103,6 +103,22 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts server_ac
 ```
 
 This scenario uses the real handlers and PostgreSQL RLS. It verifies role separation, tenant isolation, stale revisions, concurrent exact retries, activation recovery, branch and role replacement, audit rollback, deactivation, pagination, and token/session revocation. It does not verify native rendering or TLS; the separate direct desktop connection scenario covers TLS.
+
+### Use the native Users screen
+
+Sign in online with an account that has both a Manager surface assignment and tenant Owner authority. Open **المستخدمون**. Use **إضافة مستخدم** to create a shared account with a display name, username, password, and role. Use **تعديل** for display-name or role changes and **تعطيل** for confirmed deactivation. Rust sends the intent to the authenticated server and waits for its committed receipt. A role change closes that user's active sessions; sign in again for the current role. Owner deactivation remains unsupported.
+
+During an outage, account changes remain disabled and retained rows show **غير مؤكد**. **إعادة التحميل** restores current state after connectivity returns. A denial clears the account list. Do not treat retained rows as confirmation or copy another device's data to restore access. Account changes propagate to connected engines and clear protected views when access is removed; the [disconnected limit](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit) still applies.
+
+### Verify connected desktop accounts
+
+Build the current Rust engine and Windows test project. Prepare a fresh disposable PostgreSQL database and TLS certificates using the [direct connection prerequisites](#run-the-direct-desktop-connection-test). Set `EITMAD_DESKTOP_ENROLLMENT_ENGINE` to the absolute engine executable path. Then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship -- --ignored
+```
+
+The scenario starts two isolated engines, uses real Windows IPC and controller clients, creates a shared account, edits its role through Users, and deactivates it. It also interrupts the server, creates pending local work, changes access while disconnected, restores the connection, checks denied cached reads and closed subscriptions, and verifies retained records and exact original authorship. It asserts no application restart after enrollment. Run `UsersPresentationTests`, `DesktopSessionControllerTests`, and `UsersRenderedTests` for the native presentation, session fencing, Arabic copy, and rendered controls. Rendered tests use synthetic data; record actual display size and scaling with captures.
 
 ## Enroll or recover a Windows desktop
 

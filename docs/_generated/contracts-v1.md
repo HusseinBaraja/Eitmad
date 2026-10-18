@@ -124,6 +124,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Subscriptions
 
+- `eitmad.desktop-account.changed.subscribe.v1`
 - `eitmad.pricing.changed.subscribe.v1`
 - `eitmad.config.changed.subscribe.v1`
 - `eitmad.permissions.changed.subscribe.v1`
@@ -140,6 +141,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Events
 
+- `eitmad.desktop-account.changed.event.v1`
 - `eitmad.pricing.changed.event.v1`
 - `eitmad.config.changed.event.v1`
 - `eitmad.permissions.changed.event.v1`
@@ -183,6 +185,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.shared-accounts.v1`
 - `eitmad.capability.home.v1`
 - `eitmad.capability.work-orders.v1`
 - `eitmad.capability.orders.v1`
@@ -297,6 +300,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Schema identifiers
 
+- `eitmad.schema.desktop-accounts.v1`
 - `eitmad.schema.order.v1`
 - `eitmad.schema.work-order.v1`
 - `eitmad.schema.quotation-lifecycle.v1`

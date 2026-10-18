@@ -52,6 +52,12 @@ public partial class RawMaterialsView : UserControl
         await RefreshAsync();
     }
 
+    public void ClearSession()
+    {
+        refreshCancellation?.Cancel(); ++refreshVersion;
+        ViewModel.ClearSession();
+    }
+
     public async ValueTask DisposeAsync()
     {
         refreshCancellation?.Cancel(); refreshCancellation?.Dispose();

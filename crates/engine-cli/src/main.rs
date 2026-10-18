@@ -6,6 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod accounts;
 mod connection;
 mod customer_sync;
 mod desktop_enrollment;
@@ -290,11 +291,15 @@ struct ConfiguredDispatcher {
     dispatcher: Arc<ProductDispatcher>,
     media_enabled: bool,
     customers: Option<Arc<eitmad_server_connection::DirectCustomerSyncClient>>,
+    accounts: Option<accounts::ConnectedAccounts>,
 }
 
 impl ConfiguredDispatcher {
     fn start_workers(&self, cancel: &watch::Receiver<bool>) -> Vec<tokio::task::JoinHandle<()>> {
         [
+            self.accounts
+                .as_ref()
+                .map(|accounts| accounts.start(cancel.clone())),
             self.media_enabled
                 .then(|| start_media_uploads(self.dispatcher.clone(), cancel.clone())),
             self.customers.as_ref().map(|client| {
@@ -380,10 +385,15 @@ fn configured_dispatcher(
             eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
         ));
     }
+    let accounts = accounts::configure(store, directory, installation, event_broker)?;
+    if let Some(accounts) = &accounts {
+        dispatcher = dispatcher.with_account_authority(accounts.client.clone());
+    }
     dispatcher = configured_quotations(dispatcher, directory, installation)?;
     Ok(ConfiguredDispatcher {
         dispatcher: Arc::new(dispatcher),
         media_enabled,
+        accounts,
         customers: customer_sync::configure(store, directory, installation)?,
     })
 }

@@ -251,7 +251,7 @@ async fn assert_retained_recovery(
     let before = saved_work(&installation.store);
     assert!(before.1 > 0, "The scenario must contain pending work");
     let mut wrong_password = request(None);
-    wrong_password.password = "incorrect-test-password".into();
+    wrong_password.password = "synthetic-incorrect-password".into();
     assert!(installation.sign_in(wrong_password).await.is_err());
     let mut foreign = inputs.clone();
     foreign.organization = OrganizationId::new(Uuid::new_v4());
@@ -382,4 +382,164 @@ async fn assert_server_access(
             .await
             .unwrap();
     assert_eq!(connected, expected);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "requires disposable PostgreSQL, TLS certificates, and the current Windows engine and shell tests"]
+async fn shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let certificate = required_path("EITMAD_DIRECT_TEST_CERTIFICATE");
+    let private_key = required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY");
+    let server = provision_server(&database, &certificate, &private_key).await;
+    let inputs = serde_json::to_string(&inputs_for_shell(&server)).unwrap();
+    let first = Installation::new();
+    let second = Installation::new();
+    let signals = tempfile::tempdir().unwrap();
+    let root = signals.path().to_owned();
+    let first_path = first.directory.path().to_owned();
+    let second_path = second.directory.path().to_owned();
+    let signal_path = root.clone();
+    let engine =
+        env::var_os("EITMAD_DESKTOP_ENROLLMENT_ENGINE").expect("set the current engine executable");
+    let mut shell = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("dotnet")
+            .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .args([
+                "test",
+                "shells/windows/tests/Eitmad.WindowsShell.Tests.csproj",
+                "--configuration",
+                "Release",
+                "--no-build",
+                "--nologo",
+                "--filter",
+                "FullyQualifiedName~TwoEnginesShareAccountsAndRevokeCachedAccessWithoutRestart",
+            ])
+            .env("EITMAD_SHARED_ACCOUNT_INPUT", inputs)
+            .env("EITMAD_SHARED_ACCOUNT_DIRECTORY", signal_path)
+            .env("EITMAD_SHARED_ACCOUNT_FIRST", first_path)
+            .env("EITMAD_SHARED_ACCOUNT_SECOND", second_path)
+            .env("EITMAD_DESKTOP_ENROLLMENT_ENGINE", engine)
+            .output()
+            .unwrap()
+    });
+    wait_shared_phase(&root, "ready-offline", &mut shell).await;
+    server.handle.handle.shutdown();
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    std::fs::write(root.join("server-offline"), b"ready").unwrap();
+    wait_shared_phase(&root, "pending-created", &mut shell).await;
+    let author = downgrade_offline_author(&database, &server, &second.store).await;
+    let restarted = start_server(
+        server.address,
+        server.state.clone(),
+        &certificate,
+        &private_key,
+    )
+    .await;
+    std::fs::write(root.join("server-online"), b"ready").unwrap();
+    let result = shell.await.unwrap();
+    assert!(
+        result.status.success(),
+        "Shared account clients failed: {}",
+        String::from_utf8_lossy(&result.stdout)
+    );
+    assert_ne!(first.device(), second.device());
+    assert!(
+        saved_work(&second.store).0 >= 2,
+        "Protected records must remain in durable storage"
+    );
+    assert!(
+        second
+            .store
+            .pending_catalog_actors()
+            .unwrap()
+            .contains(&author),
+        "Pending work must retain the exact original authorization context"
+    );
+    assert!(
+        !eitmad_engine_runtime::DesktopAuthenticator::new(second.store.clone())
+            .active(&author, eitmad_authorization::now())
+            .unwrap()
+    );
+    restarted.handle.shutdown();
+}
+
+async fn downgrade_offline_author(
+    database: &str,
+    server: &ProvisionedServer,
+    store: &AuthorityStore,
+) -> AuthorizationContext {
+    let control = ControlPlane::new(
+        ControlDatabase::connect(database, 4).await.unwrap().pool(),
+        TokenKey::new([9; 32]),
+    );
+    let page = control
+        .identity
+        .list_accounts(
+            &server.authentication.session,
+            &eitmad_contracts::server_accounts::ListServerAccounts {
+                after: None,
+                limit: 100,
+            },
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_authorization::now(),
+        )
+        .await
+        .unwrap();
+    let account = page
+        .accounts
+        .into_iter()
+        .find(|a| a.username == "shared.operator")
+        .unwrap();
+    let pending_before = store.pending_catalog_actors().unwrap();
+    let author = pending_before
+        .iter()
+        .find(|a| a.identity.principal_id.value() == account.user_id.value())
+        .unwrap()
+        .clone();
+    control
+        .identity
+        .change_account(
+            &server.authentication.session,
+            &eitmad_contracts::server_accounts::ChangeServerAccount {
+                idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                change: eitmad_contracts::server_accounts::ServerAccountChange::Assign {
+                    account_id: account.account_id,
+                    expected_revision: account.revision,
+                    organization_id: OrganizationId::new(server.scope.id.value()),
+                    assignments: vec![eitmad_contracts::server_accounts::ServerRoleAssignment {
+                        role: eitmad_contracts::accounts::DesktopAccountRole::Receptionist,
+                        branch_ids: vec![server.branch_scope.id],
+                    }],
+                },
+            },
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_authorization::now(),
+        )
+        .await
+        .unwrap();
+    author
+}
+
+async fn wait_shared_phase(
+    root: &Path,
+    name: &str,
+    shell: &mut tokio::task::JoinHandle<std::process::Output>,
+) {
+    let deadline = Instant::now() + Duration::from_secs(90);
+    while !root.join(name).exists() {
+        if shell.is_finished() {
+            let result = shell.await.unwrap();
+            panic!(
+                "Windows client stopped before phase {name}: {} {}",
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Windows client did not reach phase {name}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }

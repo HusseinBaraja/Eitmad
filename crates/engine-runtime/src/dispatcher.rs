@@ -141,6 +141,15 @@ impl ProductDispatcher {
     }
 
     #[must_use]
+    pub fn with_account_authority(
+        mut self,
+        server: Arc<dyn crate::DesktopAccountAuthority>,
+    ) -> Self {
+        self.accounts = self.accounts.with_server(server);
+        self
+    }
+
+    #[must_use]
     pub const fn authorization(&self) -> &AuthorizationService {
         &self.authorization
     }
@@ -880,6 +889,7 @@ impl CommandDispatcher for ProductDispatcher {
         command: Command,
     ) -> Result<CommandResult, ContractError> {
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
+        let fallback_context = context.clone();
         match command {
             Command::ImportCatalogImage(input) => {
                 self.import_catalog_image(&context, &mutation, input).await
@@ -962,12 +972,19 @@ impl CommandDispatcher for ProductDispatcher {
             Command::SaveMaterial(command) => self
                 .save_material(&context, &mutation, &command)
                 .map_err(|error| *error),
-            Command::CreateDesktopAccount(command) => self
-                .create_desktop_account(&context, &mutation, &command)
-                .map_err(|error| *error),
-            command @ (Command::UpdateDesktopAccount(_) | Command::DeactivateDesktopAccount(_)) => {
-                self.dispatch_account_change(&context, &mutation, command)
-                    .map_err(|e| *e)
+            command @ (Command::CreateDesktopAccount(_)
+            | Command::UpdateDesktopAccount(_)
+            | Command::DeactivateDesktopAccount(_)) => {
+                let dispatcher = self.clone();
+                tokio::task::spawn_blocking(move || match command {
+                    Command::CreateDesktopAccount(input) => {
+                        dispatcher.create_desktop_account(&context, &mutation, &input)
+                    }
+                    other => dispatcher.dispatch_account_change(&context, &mutation, other),
+                })
+                .await
+                .map_err(|_| unsupported(&fallback_context))?
+                .map_err(|e| *e)
             }
         }
     }
@@ -1058,11 +1075,15 @@ impl QueryDispatcher for ProductDispatcher {
                 .references(&context.authorization)
                 .map(QueryResult::MaterialReferences)
                 .map_err(|error| material_error(error, &context)),
-            Query::DesktopAccounts(query) => self
-                .accounts
-                .list(&context.authorization, &query)
-                .map(QueryResult::DesktopAccounts)
-                .map_err(|error| desktop_account_error(error, &context)),
+            Query::DesktopAccounts(query) => {
+                let accounts = self.accounts.clone();
+                let actor = context.authorization.clone();
+                tokio::task::spawn_blocking(move || accounts.list(&actor, &query))
+                    .await
+                    .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &context))?
+                    .map(QueryResult::DesktopAccounts)
+                    .map_err(|e| desktop_account_error(e, &context))
+            }
         };
         self.audit_query_result(&context, operation, &result)
             .map_err(|e| *e)?;
@@ -1075,7 +1096,28 @@ impl QueryDispatcher for ProductDispatcher {
         context: SubscriptionContext,
         subscription: &Subscription,
     ) -> Result<(), ContractError> {
+        if matches!(subscription, Subscription::DesktopAccounts(_)) {
+            let accounts = self.accounts.clone();
+            let actor = context.authorization.clone();
+            let checking = DispatchContext {
+                authorization: actor.clone(),
+                correlation_id: context.correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                protocol_version: context.protocol_version,
+                deadline: now(),
+            };
+            tokio::task::spawn_blocking(move || {
+                accounts.list(&actor, &eitmad_contracts::accounts::ListDesktopAccounts {})
+            })
+            .await
+            .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &checking))?
+            .map_err(|e| desktop_account_error(e, &checking))?;
+        }
         let permission = match subscription {
+            Subscription::DesktopAccounts(_) => {
+                eitmad_authorization::DESKTOP_ACCOUNTS_MANAGE_PERMISSION
+            }
             Subscription::Configuration(_) => CONFIG_READ_PERMISSION,
             Subscription::Permissions(_) => PERMISSIONS_READ_PERMISSION,
             Subscription::Customers(_) => CUSTOMER_READ_PERMISSION,

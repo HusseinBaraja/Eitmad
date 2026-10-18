@@ -32,10 +32,28 @@ pub enum DesktopAccountError {
     Unavailable,
 }
 
-#[derive(Clone, Debug)]
+/// Authenticated server authority for connected installations. No local fallback is permitted.
+pub trait DesktopAccountAuthority: Send + Sync {
+    /// Lists accounts only after the server confirms current administration authority.
+    /// # Errors
+    /// Returns denial, invalid input, or unavailable authority without a local fallback.
+    fn list(&self, actor: &AuthorizationContext)
+    -> Result<DesktopAccountPage, DesktopAccountError>;
+    /// Returns the committed server receipt for the authenticated actor's exact intent.
+    /// # Errors
+    /// Returns authorization, validation, revision, retry-intent, or availability failures.
+    fn change(
+        &self,
+        context: &MutationContext,
+        command: &eitmad_contracts::commands::Command,
+    ) -> Result<DesktopAccountSummary, DesktopAccountError>;
+}
+
+#[derive(Clone)]
 pub struct DesktopAccountService {
     store: AuthorityStore,
     authorization: AuthorizationService,
+    server: Option<std::sync::Arc<dyn DesktopAccountAuthority>>,
 }
 
 impl DesktopAccountService {
@@ -44,7 +62,14 @@ impl DesktopAccountService {
         Self {
             store,
             authorization,
+            server: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_server(mut self, server: std::sync::Arc<dyn DesktopAccountAuthority>) -> Self {
+        self.server = Some(server);
+        self
     }
 
     /// Lists the desktop accounts visible to the authorized manager.
@@ -58,6 +83,9 @@ impl DesktopAccountService {
         authorization: &AuthorizationContext,
         _query: &ListDesktopAccounts,
     ) -> Result<DesktopAccountPage, DesktopAccountError> {
+        if let Some(server) = &self.server {
+            return server.list(authorization);
+        }
         self.authorize(authorization)?;
         self.store
             .list_desktop_accounts(authorization.tenant_id)
@@ -75,6 +103,12 @@ impl DesktopAccountService {
         context: &MutationContext,
         command: &CreateDesktopAccount,
     ) -> Result<DesktopAccountSummary, DesktopAccountError> {
+        if let Some(server) = &self.server {
+            return server.change(
+                context,
+                &eitmad_contracts::commands::Command::CreateDesktopAccount(command.clone()),
+            );
+        }
         self.authorize_mutation(context, CREATE_OPERATION, None)?;
         let display_name = validate_display_name(&command.display_name)
             .ok_or_else(|| self.invalid(context, CREATE_OPERATION, None))?;
@@ -95,7 +129,7 @@ impl DesktopAccountService {
             user_id: eitmad_contracts::identity::UserId::new(Uuid::new_v4()),
             display_name,
             username,
-            role: command.role,
+            role: Some(command.role),
             active: true,
             revision: 1,
         };
@@ -120,6 +154,12 @@ impl DesktopAccountService {
         context: &MutationContext,
         command: &UpdateDesktopAccount,
     ) -> Result<DesktopAccountSummary, DesktopAccountError> {
+        if let Some(server) = &self.server {
+            return server.change(
+                context,
+                &eitmad_contracts::commands::Command::UpdateDesktopAccount(command.clone()),
+            );
+        }
         self.authorize_mutation(context, UPDATE_OPERATION, Some(command.account_id.value()))?;
         let display_name = validate_display_name(&command.display_name).ok_or_else(|| {
             self.invalid(context, UPDATE_OPERATION, Some(command.account_id.value()))
@@ -134,7 +174,7 @@ impl DesktopAccountService {
             })?;
         let summary = DesktopAccountSummary {
             display_name,
-            role: command.role,
+            role: Some(command.role),
             revision: command
                 .expected_revision
                 .checked_add(1)
@@ -162,6 +202,12 @@ impl DesktopAccountService {
         context: &MutationContext,
         command: &DeactivateDesktopAccount,
     ) -> Result<DesktopAccountSummary, DesktopAccountError> {
+        if let Some(server) = &self.server {
+            return server.change(
+                context,
+                &eitmad_contracts::commands::Command::DeactivateDesktopAccount(command.clone()),
+            );
+        }
         self.authorize_mutation(
             context,
             DEACTIVATE_OPERATION,

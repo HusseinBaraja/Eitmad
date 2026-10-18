@@ -754,6 +754,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityPricingV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
+                ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1,
             ],
             RequiredCapabilities =
             [

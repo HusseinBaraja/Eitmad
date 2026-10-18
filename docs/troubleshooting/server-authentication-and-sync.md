@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 review_triggers:
   - "server error identifiers, authentication, tenant isolation, compatibility, or sync recovery changes"
 keywords:
@@ -37,6 +37,9 @@ Record the UTC time, stable error identifier, HTTP status, correlation ID, tenan
 | `eitmad.error.server-device-proof-invalid.v1` | Wrong key, stale timestamp, reused nonce, changed signed bytes, or device ID collision | Compare canonical proof construction, server time, and registered public-key fingerprint | Correct clock or signing code; re-enroll through an authorized flow if the key changed |
 | Direct route reports `EncryptionRequired` | The server certificate is untrusted, expired, or issued for another host | Check the HTTPS host name and the configured PEM trust anchor against the server certificate; do not collect its private key | Replace the local trust anchor or server certificate through the approved deployment process; never disable validation |
 | Direct route reports `AuthenticationFailed` | The stored session is absent, rejected, or cannot be refreshed | Check device registration, account/device IDs, server time, and redacted authentication audit | Activate or sign in again through the Rust-owned credential flow |
+| **المستخدمون** rejects a Manager | Shared administration requires tenant Owner authority | Verify server account authority and organization assignment; a role label grants no Owner relationship | Sign in with an authorized Owner; do not grant local permissions to bypass the server |
+| A role change is not visible on another connected PC | Account watch unavailable or shared-account capability not negotiated | Check protocol `1.25`, `eitmad.capability.shared-accounts.v1`, server availability, and redacted revocation audit | Restore the connection, retry online sign-in, and verify the new role; preserve the runtime and queued work |
+| A disconnected PC still permits protected local work after server deactivation | The PC has not received confirmed denial and retains offline grants | Check connectivity and the [offline authorization limit](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit) | Reconnect for revalidation; do not promise immediate offline revocation or delete cached work |
 | `eitmad.error.authorization-denied.v1` | Missing owner/member/domain relation or wrong tenant/scope | Inspect the redacted denial audit and relationship path | Repair the relationship through its owner-authorized API; never alter the request claim only |
 | Cross-tenant request returns data | Critical isolation defect or privileged database role bypass | Stop traffic and reproduce with synthetic tenants and the normal application role | Contain the deployment, rotate exposed credentials, preserve evidence, and repair Rust checks plus RLS before restart |
 | `eitmad.error.server-client-incompatible.v1` | No protocol overlap, a required capability is missing, or schema range is absent | Compare both hello messages with protocol `1.4` requirements | Upgrade the older peer; do not translate or ignore required behavior |

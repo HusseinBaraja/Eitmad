@@ -144,6 +144,9 @@
     "server_account_result": {
       "$ref": "#/definitions/ServerAccountResult"
     },
+    "server_account_watch": {
+      "$ref": "#/definitions/ServerAccountWatch"
+    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
@@ -176,9 +179,14 @@
     },
     "upload_catalog_image": {
       "$ref": "#/definitions/UploadCatalogImage"
+    },
+    "watch_server_accounts": {
+      "$ref": "#/definitions/WatchServerAccounts"
     }
   },
   "required": [
+    "watch_server_accounts",
+    "server_account_watch",
     "change_server_account",
     "list_server_accounts",
     "server_account_page",
@@ -3231,6 +3239,26 @@
         "decision"
       ]
     },
+    "DesktopAccountChangeNotice": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "revision"
+      ]
+    },
+    "DesktopAccountChanges": {
+      "type": "object"
+    },
     "DesktopAccountPage": {
       "type": "object",
       "properties": {
@@ -3271,7 +3299,14 @@
           "minimum": 0
         },
         "role": {
-          "$ref": "#/definitions/DesktopAccountRole"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopAccountRole"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "userId": {
           "type": "string",
@@ -3286,7 +3321,6 @@
         "userId",
         "displayName",
         "username",
-        "role",
         "active",
         "revision"
       ]
@@ -4318,6 +4352,22 @@
     },
     "Event": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -11774,6 +11824,9 @@
           "type": "string",
           "format": "uuid"
         },
+        "displayName": {
+          "type": "string"
+        },
         "organizations": {
           "type": "array",
           "items": {
@@ -11805,6 +11858,7 @@
         "accountId",
         "userId",
         "username",
+        "displayName",
         "status",
         "revision",
         "organizations"
@@ -11812,6 +11866,60 @@
     },
     "ServerAccountChange": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "account": {
+              "$ref": "#/definitions/CreateDesktopAccount"
+            },
+            "branchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operation": {
+              "type": "string",
+              "const": "createDesktop"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "branchId",
+            "account"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "account": {
+              "$ref": "#/definitions/UpdateDesktopAccount"
+            },
+            "branchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operation": {
+              "type": "string",
+              "const": "updateDesktop"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "branchId",
+            "account"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -12022,6 +12130,23 @@
         "active",
         "disabled",
         "locked"
+      ]
+    },
+    "ServerAccountWatch": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/DesktopEnrollmentProfile"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "profile",
+        "revision"
       ]
     },
     "ServerClientMessage": {
@@ -12535,6 +12660,22 @@
     },
     "Subscription": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -14184,6 +14325,24 @@
         "scope",
         "reference",
         "base64"
+      ]
+    },
+    "WatchServerAccounts": {
+      "type": "object",
+      "properties": {
+        "registration": {
+          "$ref": "#/definitions/RegisterBranchRequest"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "registration",
+        "revision"
       ]
     },
     "WorkOrderFurniture": {

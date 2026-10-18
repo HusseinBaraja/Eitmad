@@ -40,6 +40,7 @@ pub struct ServerAccount {
     pub account_id: AccountId,
     pub user_id: UserId,
     pub username: String,
+    pub display_name: String,
     pub status: ServerAccountStatus,
     pub revision: u64,
     pub organizations: Vec<ServerAccountOrganization>,
@@ -62,6 +63,18 @@ pub struct ServerAccountPage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "operation", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ServerAccountChange {
+    #[serde(rename_all = "camelCase")]
+    CreateDesktop {
+        organization_id: OrganizationId,
+        branch_id: ScopeId,
+        account: crate::accounts::CreateDesktopAccount,
+    },
+    #[serde(rename_all = "camelCase")]
+    UpdateDesktop {
+        organization_id: OrganizationId,
+        branch_id: ScopeId,
+        account: crate::accounts::UpdateDesktopAccount,
+    },
     #[serde(rename_all = "camelCase")]
     Invite {
         organization_id: OrganizationId,
@@ -109,4 +122,18 @@ pub struct ServerAccountReceipt {
 pub struct ServerAccountResult {
     pub receipt: ServerAccountReceipt,
     pub activation_token: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WatchServerAccounts {
+    pub registration: crate::server::RegisterBranchRequest,
+    pub revision: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerAccountWatch {
+    pub profile: crate::server::DesktopEnrollmentProfile,
+    pub revision: u64,
 }

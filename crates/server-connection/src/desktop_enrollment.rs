@@ -381,7 +381,6 @@ impl DesktopEnrollment {
             {
                 if account.account_id != auth.session.account_id
                     || account.user_id != auth.session.user_id
-                    || account.role != profile.role.into()
                 {
                     return Err(authentication_failure());
                 }

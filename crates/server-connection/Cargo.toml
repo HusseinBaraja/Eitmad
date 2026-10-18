@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-engine-runtime = { path = "../engine-runtime" }
 argon2 = "=0.5.3"
 rand = "=0.9.3"
 eitmad-customer = { path = "../customer" }
@@ -36,7 +37,6 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
-eitmad-engine-runtime = { path = "../engine-runtime" }
 eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
 eitmad-furniture = { path = "../furniture" }

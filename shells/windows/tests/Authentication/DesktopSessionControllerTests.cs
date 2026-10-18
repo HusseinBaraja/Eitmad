@@ -9,6 +9,25 @@ namespace Eitmad.WindowsShell.Tests.Authentication;
 public sealed class DesktopSessionControllerTests
 {
     [TestMethod]
+    public async Task RevokedAccessStreamSignsOutWithoutRestartingTheEngine()
+    {
+        var engine = new FakeEngine { SupportedCapabilities = new HashSet<string> { ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1 } };
+        engine.Accounts.Add("manager", ("synthetic-password", Eitmad.Contracts.DesktopAccountRole.Manager));
+        FakeSubscription? access = null;
+        engine.SubscribeHook = (_, stream) => access = stream;
+        await using var sessions = new DesktopSessionController(engine);
+        var ended = new TaskCompletionSource<SessionEndReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sessions.SessionEnded += (_, e) => ended.TrySetResult(e.Reason);
+        await sessions.StartAsync(); engine.Connect();
+        await sessions.SignInAsync("manager", "synthetic-password");
+        Assert.IsNotNull(access);
+        access.FailRead();
+        Assert.AreEqual(SessionEndReason.AccessChanged, await ended.Task.WaitAsync(TimeSpan.FromSeconds(2)));
+        Assert.IsNull(await engine.GetSessionStateAsync());
+        Assert.AreEqual(0, engine.StopCount);
+    }
+
+    [TestMethod]
     public async Task ServerRejectionDoesNotStartALocalSessionOrResetTheEngine()
     {
         var engine = new FakeEngine { ServerAuthentication = _ => Task.FromException<bool>(

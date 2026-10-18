@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -40,7 +40,7 @@ Manager and Receptionist relationships produce distinct effective permissions. A
 
 ## Shared server account lifecycle
 
-`crates/contracts/src/server_accounts.rs` defines version-one server account administration. `server/control-plane/src/identity/accounts.rs` owns transitions; `account_projection.rs` reads current assignments. The host exposes authenticated `POST /v1/accounts/list` and `POST /v1/accounts/transition`. Invitation activation uses `POST /v1/auth/activate`. See [server account operations](../../operations/run-server-authority.md#manage-shared-server-accounts) for the request sequence.
+`crates/contracts/src/server_accounts.rs` defines version-one server account administration. `server/control-plane/src/identity/accounts.rs` owns transitions; `account_projection.rs` reads current assignments. The host exposes authenticated `POST /v1/accounts/list`, `POST /v1/accounts/transition`, and `POST /v1/accounts/watch`. Invitation activation uses `POST /v1/auth/activate`. See [server account operations](../../operations/run-server-authority.md#manage-shared-server-accounts) for the request sequence.
 
 Administration requires an active device-bound session and an explicit Owner relationship on the authenticated tenant. Payloads cannot select another tenant. Manager and Receptionist relationships, usernames, and UI role names grant no Owner authority. Owner alone grants no operational role. Owner transfer and Owner deactivation are unsupported; an Owner can receive operational assignments separately.
 
@@ -50,6 +50,8 @@ Listing uses an exclusive account UUID cursor and a limit of 1 through 100. It i
 
 | Change | Committed behavior |
 | --- | --- |
+| `createDesktop` | Create an active password account with a display name and one operational role for the selected organization and branch |
+| `updateDesktop` | Require the current revision; change display name and one operational role, preserve unseen organizations and branches, and revoke existing sessions |
 | `invite` | Create a pending account at revision 1, its organization membership, explicit role relationships, and a seven-day invitation |
 | `assign` | Require the current revision; replace Manager and Receptionist relationships only for the selected organization and its branches; preserve Owner and unrelated relationships |
 | `deactivate` | Require the current revision; disable a non-Owner account, consume pending invitations, remove its user relationships, and revoke sessions and token families |
@@ -65,7 +67,23 @@ Receipts bind tenant, actor user, idempotency key, and the exact typed request t
 
 Invitation credentials and initial session tokens use separate HMAC contexts, random IDs, and the protected server token key. Receipt rows store no plaintext secret. An exact activation retry binds the complete request, including password and device key, through a keyed fingerprint. It returns the original session and token pair only while the original access token is unexpired, the refresh token is unconsumed, and account, device, session, and token family remain usable. Changed, revoked, rotated, or expired activation results fail authentication; use ordinary login for recovery. Retries never create another session or restore access. Deliver invitations through a protected channel; email delivery remains unimplemented.
 
-Server account administration does not synchronize offline sessions. Online desktop sign-in imports the verified account through the [enrollment authority](server-authority.md#retained-desktop-connection), including a local verifier for explicit offline sign-in. A native server account-management screen remains separate work.
+### Connected desktop account administration
+
+Protocol `1.25` and `eitmad.capability.shared-accounts.v1` connect the native **المستخدمون** screen to server account authority. `DesktopAccountAuthority` keeps the existing typed desktop commands while `DirectAccountClient` resolves device-bound credentials for their authenticated author. A configured installation never falls back to local account administration during an outage. Creation and updates return only the committed server receipt. The server requires tenant Owner authority; a local Manager permission alone is insufficient. Local-only synthetic installations retain their existing Manager policy.
+
+`0017_desktop_accounts.sql` adds display names and a durable tenant account-change revision. Account creation, assignment, update, activation, deactivation, and session revocation increment that cursor in the same transaction as their state and audit. PostgreSQL notifications wake the host's shared listener without carrying account data. The authenticated watch waits up to three seconds and revalidates the session and selected desktop assignment before returning. Its durable cursor catches changes missed during an outage; it is not a promise of instantaneous delivery.
+
+The engine watches imported accounts with their own credentials. A confirmed authentication or assignment denial atomically disables the imported local account, closes its sessions, removes scoped grants, and writes a redacted audit record. Revision checks prevent an old watch response from disabling a newer import. Network and trust failures do not prove revocation and do not disable local accounts. Local IPC revalidates sessions and subscriptions, closes denied streams, and fences late responses. WPF returns to sign-in and clears protected lists and editors. A later server-confirmed sign-in imports the current role and permits use without an application restart.
+
+Business records, retained caches, and pending work are not erased on revocation or sign-out. Their original user, session, device, tenant, scope, and idempotency identities remain intact. A later user does not become their author. Server authority rechecks pending work under its original identity and can leave it pending or reject it.
+
+### Disconnected authorization limit
+
+The existing [offline session rule](../../decisions/0022-persistent-tenant-identity-and-safe-storage-recovery.md) permits an issued, unexpired, open local session. Desktop sessions last eight hours. A saved password verifier currently has no maximum age since the last server confirmation; explicit offline sign-in can issue another eight-hour session while its imported account remains active. Session expiry therefore does not impose a maximum offline revocation delay.
+
+A disconnected PC cannot receive a server account change. Protected local work can remain available under the retained grants until local closure or expiry, and a retained verifier can permit later offline sign-in. Connected account administration and server-confirmed business actions remain unavailable offline. After reconnection, confirmed denial removes imported access and prevents further offline sign-in until a successful authorized server import. Do not promise immediate revocation on a disconnected PC or delete its retained work to simulate revocation.
+
+The live `shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship` scenario uses independent runtime directories, device IDs, and credentials. It covers shared creation, role changes, deactivation, non-Owner denials, retained-cache denial, subscription closure, sign-out, and exact pending-work authorship without application restarts. See [the runnable procedure](../../operations/run-server-authority.md#verify-connected-desktop-accounts).
 
 Focused proof is `server/host/tests/accounts.rs`, using real PostgreSQL with a non-superuser, non-`BYPASSRLS` role and the real Axum handlers, token authentication, and signed device proofs. Only foreign-tenant fixtures and audit fault injection use SQL; account operations use supported routes. Re-run this proof when account contracts, authorization, revisions, retries, or revocation change.
 

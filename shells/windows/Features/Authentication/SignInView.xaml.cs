@@ -114,6 +114,8 @@ public partial class SignInView : UserControl
         PasswordInput.Clear();
         if (reason == SessionEndReason.RecoveryFailed)
             ShowError("تعذر إنهاء الجلسة بأمان. أنهِ الاعتماد من أيقونة البرنامج ثم افتحه من جديد.");
+        else if (reason == SessionEndReason.AccessChanged)
+            ShowError("تغيرت صلاحية حسابك أو انتهت جلسته. سجل الدخول للتحقق من الوصول.");
         else if (reason == SessionEndReason.Expired)
             ShowError("انتهت الجلسة. سجّل الدخول من جديد.");
         else if (reason == SessionEndReason.ConnectionLost)

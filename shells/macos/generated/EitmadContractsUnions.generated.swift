@@ -400,6 +400,7 @@ public enum CommandResult: Codable, Sendable {
     }
 }
 public enum Event: Codable, Sendable {
+    case desktopAccountChangedEvent(DesktopAccountChangeNotice)
     case pricingChangedEvent(PriceChangeNotice)
     case configChangedEvent(ConfigSnapshot)
     case permissionsChangedEvent(EffectivePermissions)
@@ -415,6 +416,7 @@ public enum Event: Codable, Sendable {
     case partChangedEvent(PartChangeNotice)
 
     private enum Kind: String, Codable, Sendable {
+        case desktopAccountChangedEvent = "eitmad.desktop-account.changed.event.v1"
         case pricingChangedEvent = "eitmad.pricing.changed.event.v1"
         case configChangedEvent = "eitmad.config.changed.event.v1"
         case permissionsChangedEvent = "eitmad.permissions.changed.event.v1"
@@ -438,6 +440,7 @@ public enum Event: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .desktopAccountChangedEvent: self = .desktopAccountChangedEvent(try container.decode(DesktopAccountChangeNotice.self, forKey: .payload))
         case .pricingChangedEvent: self = .pricingChangedEvent(try container.decode(PriceChangeNotice.self, forKey: .payload))
         case .configChangedEvent: self = .configChangedEvent(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .permissionsChangedEvent: self = .permissionsChangedEvent(try container.decode(EffectivePermissions.self, forKey: .payload))
@@ -457,6 +460,9 @@ public enum Event: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .desktopAccountChangedEvent(let payload):
+            try container.encode(Kind.desktopAccountChangedEvent, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingChangedEvent(let payload):
             try container.encode(Kind.pricingChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1256,6 +1262,7 @@ public enum QueryResult: Codable, Sendable {
     }
 }
 public enum Subscription: Codable, Sendable {
+    case desktopAccountChangedSubscribe(DesktopAccountChanges)
     case pricingChangedSubscribe(PriceChanges)
     case configChangedSubscribe(ConfigurationChanges)
     case permissionsChangedSubscribe(PermissionChanges)
@@ -1271,6 +1278,7 @@ public enum Subscription: Codable, Sendable {
     case partChangedSubscribe(PartChanges)
 
     private enum Kind: String, Codable, Sendable {
+        case desktopAccountChangedSubscribe = "eitmad.desktop-account.changed.subscribe.v1"
         case pricingChangedSubscribe = "eitmad.pricing.changed.subscribe.v1"
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
         case permissionsChangedSubscribe = "eitmad.permissions.changed.subscribe.v1"
@@ -1294,6 +1302,7 @@ public enum Subscription: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .desktopAccountChangedSubscribe: self = .desktopAccountChangedSubscribe(try container.decode(DesktopAccountChanges.self, forKey: .payload))
         case .pricingChangedSubscribe: self = .pricingChangedSubscribe(try container.decode(PriceChanges.self, forKey: .payload))
         case .configChangedSubscribe: self = .configChangedSubscribe(try container.decode(ConfigurationChanges.self, forKey: .payload))
         case .permissionsChangedSubscribe: self = .permissionsChangedSubscribe(try container.decode(PermissionChanges.self, forKey: .payload))
@@ -1313,6 +1322,9 @@ public enum Subscription: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .desktopAccountChangedSubscribe(let payload):
+            try container.encode(Kind.desktopAccountChangedSubscribe, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingChangedSubscribe(let payload):
             try container.encode(Kind.pricingChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1494,6 +1506,7 @@ public enum SubscriptionOutcome: Codable, Sendable {
 public struct AuthorizationPolicyChanges: Codable, Sendable {}
 public struct ConfigurationChanges: Codable, Sendable {}
 public struct CustomerChanges: Codable, Sendable {}
+public struct DesktopAccountChanges: Codable, Sendable {}
 public struct FurnitureChanges: Codable, Sendable {}
 public struct GetConfiguration: Codable, Sendable {}
 public struct GetEffectivePermissions: Codable, Sendable {}

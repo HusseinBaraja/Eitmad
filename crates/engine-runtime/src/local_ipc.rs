@@ -1426,6 +1426,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.part.v1",
             "eitmad.capability.material.v1",
             "eitmad.capability.desktop-account-management.v1",
+            "eitmad.capability.shared-accounts.v1",
         ]
         .into_iter()
         .map(|id| {

@@ -40,7 +40,7 @@ pub struct DesktopAccountSummary {
     pub user_id: UserId,
     pub display_name: String,
     pub username: String,
-    pub role: DesktopAccountRole,
+    pub role: Option<DesktopAccountRole>,
     pub active: bool,
     pub revision: u64,
 }
@@ -78,3 +78,13 @@ pub struct DeactivateDesktopAccount {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ListDesktopAccounts {}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct DesktopAccountChanges {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopAccountChangeNotice {
+    pub scope: crate::identity::ScopeRef,
+    pub revision: u64,
+}

@@ -29,6 +29,7 @@ pub struct MaterialChanges {}
 
 tagged_contract! {
     pub enum Subscription {
+        DesktopAccounts(crate::accounts::DesktopAccountChanges) => "eitmad.desktop-account.changed.subscribe.v1",
         Prices(crate::pricing::PriceChanges) => "eitmad.pricing.changed.subscribe.v1",
         Configuration(ConfigurationChanges) => "eitmad.config.changed.subscribe.v1",
         Permissions(PermissionChanges) => "eitmad.permissions.changed.subscribe.v1",
@@ -47,6 +48,7 @@ tagged_contract! {
 
 tagged_contract! {
     pub enum Event {
+        DesktopAccountChanged(crate::accounts::DesktopAccountChangeNotice) => "eitmad.desktop-account.changed.event.v1",
         PriceChanged(crate::pricing::PriceChangeNotice) => "eitmad.pricing.changed.event.v1",
         ConfigurationChanged(ConfigSnapshot) => "eitmad.config.changed.event.v1",
         PermissionsChanged(EffectivePermissions) => "eitmad.permissions.changed.event.v1",
@@ -68,7 +70,8 @@ impl Event {
     pub const fn is_coalescible(&self) -> bool {
         matches!(
             self,
-            Self::ConfigurationChanged(_)
+            Self::DesktopAccountChanged(_)
+                | Self::ConfigurationChanged(_)
                 | Self::PermissionsChanged(_)
                 | Self::AuthorizationPolicyChanged(_)
         )
@@ -78,6 +81,7 @@ impl Event {
     pub const fn subscription_kind(&self) -> &'static str {
         match self {
             Self::PriceChanged(_) => "eitmad.pricing.changed.subscribe.v1",
+            Self::DesktopAccountChanged(_) => "eitmad.desktop-account.changed.subscribe.v1",
             Self::ConfigurationChanged(_) => "eitmad.config.changed.subscribe.v1",
             Self::PermissionsChanged(_) => "eitmad.permissions.changed.subscribe.v1",
             Self::AuthorizationPolicyChanged(_) => {
@@ -101,7 +105,10 @@ impl Subscription {
     pub const fn is_coalescible(&self) -> bool {
         matches!(
             self,
-            Self::Configuration(_) | Self::Permissions(_) | Self::AuthorizationPolicy(_)
+            Self::DesktopAccounts(_)
+                | Self::Configuration(_)
+                | Self::Permissions(_)
+                | Self::AuthorizationPolicy(_)
         )
     }
 }

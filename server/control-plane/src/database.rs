@@ -4,6 +4,7 @@ use sqlx::{PgPool, Postgres, Row as _, Transaction, postgres::PgPoolOptions};
 
 const FOUNDATION_SQL: &str = include_str!("../migrations/0001_control_foundation.sql");
 const CUSTOMER_BRANCHES_SQL: &str = include_str!("../migrations/0005_customer_branches.sql");
+const DESKTOP_ACCOUNTS_SQL: &str = include_str!("../migrations/0017_desktop_accounts.sql");
 const ACCOUNTS_SQL: &str = include_str!("../migrations/0016_server_accounts.sql");
 
 #[derive(Clone)]
@@ -134,6 +135,7 @@ impl ControlDatabase {
             sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(16,'server.accounts.v1',$1)")
                 .bind(checksum).execute(&mut *transaction).await.map_err(ControlDatabaseError::Migration)?;
         }
+        migrate_desktop_accounts(&mut transaction).await?;
         transaction
             .commit()
             .await
@@ -144,6 +146,30 @@ impl ControlDatabase {
     pub fn pool(&self) -> PgPool {
         self.pool.clone()
     }
+}
+
+async fn migrate_desktop_accounts(
+    transaction: &mut Transaction<'_, Postgres>,
+) -> Result<(), ControlDatabaseError> {
+    let checksum = format!("{:x}", Sha256::digest(DESKTOP_ACCOUNTS_SQL.as_bytes()));
+    let existing: Option<String> =
+        sqlx::query_scalar("SELECT checksum FROM public.eitmad_server_migrations WHERE version=17")
+            .fetch_optional(&mut **transaction)
+            .await
+            .map_err(ControlDatabaseError::Migration)?;
+    if let Some(existing) = existing {
+        if existing != checksum {
+            return Err(ControlDatabaseError::MigrationChecksum);
+        }
+    } else {
+        sqlx::raw_sql(DESKTOP_ACCOUNTS_SQL)
+            .execute(&mut **transaction)
+            .await
+            .map_err(ControlDatabaseError::Migration)?;
+        sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(17,'server.desktop-accounts.v1',$1)")
+                .bind(checksum).execute(&mut **transaction).await.map_err(ControlDatabaseError::Migration)?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn tenant_transaction(

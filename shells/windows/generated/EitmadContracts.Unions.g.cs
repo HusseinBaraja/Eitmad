@@ -520,6 +520,14 @@ public partial class Event
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string DesktopAccountChangedEventKind = "eitmad.desktop-account.changed.event.v1";
+
+    public static Event ForDesktopAccountChangedEvent(DesktopAccountChangeNotice payload) =>
+        new() { Kind = DesktopAccountChangedEventKind, Payload = payload };
+
+    public DesktopAccountChangeNotice? AsDesktopAccountChangedEvent() =>
+        Kind == DesktopAccountChangedEventKind ? PayloadAs<DesktopAccountChangeNotice>() : null;
+
     public const string PricingChangedEventKind = "eitmad.pricing.changed.event.v1";
 
     public static Event ForPricingChangedEvent(PriceChangeNotice payload) =>
@@ -1575,6 +1583,14 @@ public partial class Subscription
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string DesktopAccountChangedSubscribeKind = "eitmad.desktop-account.changed.subscribe.v1";
+
+    public static Subscription ForDesktopAccountChangedSubscribe(DesktopAccountChanges payload) =>
+        new() { Kind = DesktopAccountChangedSubscribeKind, Payload = payload };
+
+    public DesktopAccountChanges? AsDesktopAccountChangedSubscribe() =>
+        Kind == DesktopAccountChangedSubscribeKind ? PayloadAs<DesktopAccountChanges>() : null;
+
     public const string PricingChangedSubscribeKind = "eitmad.pricing.changed.subscribe.v1";
 
     public static Subscription ForPricingChangedSubscribe(PriceChanges payload) =>
@@ -1696,6 +1712,10 @@ public partial class ConfigurationChanges
 }
 
 public partial class CustomerChanges
+{
+}
+
+public partial class DesktopAccountChanges
 {
 }
 

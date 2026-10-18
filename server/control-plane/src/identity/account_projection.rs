@@ -24,7 +24,7 @@ pub(super) async fn read(
     tenant: TenantId,
     account: AccountId,
 ) -> Result<ServerAccount, ServerAccountError> {
-    let row = sqlx::query("SELECT user_id,username,status,revision FROM control.accounts WHERE tenant_id=$1 AND account_id=$2")
+    let row = sqlx::query("SELECT user_id,username,display_name,status,revision FROM control.accounts WHERE tenant_id=$1 AND account_id=$2")
         .bind(tenant.value()).bind(account.value()).fetch_optional(&mut **tx).await?
         .ok_or(ServerAccountError::Denied)?;
     let user = UserId::new(row.get("user_id"));
@@ -46,6 +46,7 @@ pub(super) async fn read(
         account_id: account,
         user_id: user,
         username: row.get("username"),
+        display_name: row.get("display_name"),
         status,
         revision: u64::try_from(row.get::<i64, _>("revision"))
             .map_err(|_| ServerAccountError::Unavailable)?,

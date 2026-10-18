@@ -1,3 +1,5 @@
+mod accounts;
+pub use accounts::DirectAccountClient;
 use eitmad_observability_audit::operation_diagnostics::{
     DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
 };

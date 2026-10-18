@@ -100,6 +100,7 @@
     "eitmad.desktop-account.list.v1"
   ],
   "subscriptions": [
+    "eitmad.desktop-account.changed.subscribe.v1",
     "eitmad.pricing.changed.subscribe.v1",
     "eitmad.config.changed.subscribe.v1",
     "eitmad.permissions.changed.subscribe.v1",
@@ -115,6 +116,7 @@
     "eitmad.part.changed.subscribe.v1"
   ],
   "events": [
+    "eitmad.desktop-account.changed.event.v1",
     "eitmad.pricing.changed.event.v1",
     "eitmad.config.changed.event.v1",
     "eitmad.permissions.changed.event.v1",
@@ -155,6 +157,7 @@
     "eitmad.server.failure.v1"
   ],
   "capabilities": [
+    "eitmad.capability.shared-accounts.v1",
     "eitmad.capability.home.v1",
     "eitmad.capability.work-orders.v1",
     "eitmad.capability.orders.v1",
@@ -265,6 +268,7 @@
     "eitmad.relation.organization.owner.v1"
   ],
   "schemaIds": [
+    "eitmad.schema.desktop-accounts.v1",
     "eitmad.schema.order.v1",
     "eitmad.schema.work-order.v1",
     "eitmad.schema.quotation-lifecycle.v1",

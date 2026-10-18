@@ -1,3 +1,4 @@
+mod desktop;
 use eitmad_contracts::{
     identity::{AccountId, OrganizationId, TenantId, UserId},
     server::{AuthenticatedServerSession, DEFAULT_INVITE_TTL_MS, InviteId},
@@ -48,6 +49,29 @@ struct Attempt<'a> {
 }
 
 impl IdentityService {
+    /// Reads the durable account-change cursor for an authenticated tenant.
+    /// # Errors
+    /// Fails closed if the tenant cursor cannot be read.
+    pub async fn account_revision(&self, tenant: TenantId) -> Result<u64, ServerAccountError> {
+        let mut tx = crate::database::tenant_transaction(&self.pool, tenant).await?;
+        let revision: i64 =
+            sqlx::query_scalar("SELECT account_revision FROM control.tenants WHERE tenant_id=$1")
+                .bind(tenant.value())
+                .fetch_one(&mut *tx)
+                .await?;
+        tx.commit().await?;
+        u64::try_from(revision).map_err(|_| ServerAccountError::Unavailable)
+    }
+
+    /// Opens a host-owned wake channel. Notifications carry no identity or account data.
+    /// # Errors
+    /// Returns unavailable if the database listener cannot start.
+    pub async fn account_listener(&self) -> Result<sqlx::postgres::PgListener, ServerAccountError> {
+        let mut listener = sqlx::postgres::PgListener::connect_with(&self.pool).await?;
+        listener.listen("eitmad_accounts_changed").await?;
+        Ok(listener)
+    }
+
     /// Returns this active account's explicit desktop assignment, never another account's data.
     /// # Errors
     /// Denies foreign organizations, unknown branches, and absent or ambiguous desktop roles.
@@ -147,6 +171,8 @@ impl IdentityService {
     ) -> Result<ServerAccountResult, ServerAccountError> {
         let operation = match &request.change {
             ServerAccountChange::Invite { .. } => "eitmad.server.account.invite.v1",
+            ServerAccountChange::CreateDesktop { .. } => "eitmad.server.account.create.v1",
+            ServerAccountChange::UpdateDesktop { .. } => "eitmad.server.account.update.v1",
             ServerAccountChange::Assign { .. } => "eitmad.server.account.assign.v1",
             ServerAccountChange::Deactivate { .. } => "eitmad.server.account.deactivate.v1",
             ServerAccountChange::RevokeSessions { .. } => {
@@ -215,6 +241,15 @@ impl IdentityService {
             None,
         )
         .await?;
+        sqlx::query(
+            "UPDATE control.tenants SET account_revision=account_revision+1 WHERE tenant_id=$1",
+        )
+        .bind(actor.tenant_id.value())
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("SELECT pg_notify('eitmad_accounts_changed', '')")
+            .execute(&mut *tx)
+            .await?;
         tx.commit().await?;
         self.account_result(receipt)
     }
@@ -289,6 +324,14 @@ impl IdentityService {
         change: &ServerAccountChange,
     ) -> Result<ServerAccountReceipt, ServerAccountError> {
         let tenant = attempt.actor.tenant_id;
+        if let ServerAccountChange::CreateDesktop {
+            organization_id,
+            branch_id,
+            account,
+        } = change
+        {
+            return desktop::create(tx, attempt, *organization_id, *branch_id, account).await;
+        }
         let (account, invitation) = if let ServerAccountChange::Invite {
             organization_id,
             username,
@@ -363,7 +406,10 @@ impl IdentityService {
             | ServerAccountChange::RevokeSessions {
                 expected_revision, ..
             } => *expected_revision,
-            ServerAccountChange::Invite { .. } => return Err(ServerAccountError::Invalid),
+            ServerAccountChange::UpdateDesktop { account, .. } => account.expected_revision,
+            ServerAccountChange::Invite { .. } | ServerAccountChange::CreateDesktop { .. } => {
+                return Err(ServerAccountError::Invalid);
+            }
         };
         if expected != revision {
             return Err(ServerAccountError::RevisionConflict);
@@ -375,6 +421,13 @@ impl IdentityService {
             return Err(ServerAccountError::Invalid);
         }
         match change {
+            ServerAccountChange::UpdateDesktop {
+                organization_id,
+                branch_id,
+                account,
+            } => {
+                desktop::update(tx, attempt, *organization_id, *branch_id, account, user).await?;
+            }
             ServerAccountChange::Assign {
                 organization_id,
                 assignments,
@@ -408,7 +461,8 @@ impl IdentityService {
 
 fn target(change: &ServerAccountChange) -> Option<AccountId> {
     match change {
-        ServerAccountChange::Invite { .. } => None,
+        ServerAccountChange::Invite { .. } | ServerAccountChange::CreateDesktop { .. } => None,
+        ServerAccountChange::UpdateDesktop { account, .. } => Some(account.account_id),
         ServerAccountChange::Assign { account_id, .. }
         | ServerAccountChange::Deactivate { account_id, .. }
         | ServerAccountChange::RevokeSessions { account_id, .. } => Some(*account_id),

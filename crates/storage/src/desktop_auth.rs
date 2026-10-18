@@ -124,6 +124,38 @@ pub enum DesktopAccountCommitOutcome {
 }
 
 impl AuthorityStore {
+    /// Removes imported access after a confirmed server denial. Retains records, caches, and authorship.
+    /// # Errors
+    /// Fails atomically if identity, grant, session, or audit storage is unavailable.
+    pub fn revoke_connected_desktop_account(
+        &self,
+        actor: &AuthorizationContext,
+        expected_revision: u64,
+        now: UnixMillis,
+    ) -> Result<bool, StorageError> {
+        let observer = self.existing_local_authorization_context()?;
+        self.write_transaction(|connection| {
+            let tenant = actor.tenant_id.value().to_string();
+            let user = actor.identity.principal_id.value().to_string();
+            let changed = connection.execute("UPDATE desktop_accounts SET active=0
+                WHERE tenant_id=?1 AND user_id=?2 AND active=1 AND revision=?3", params![tenant,user,i64::try_from(expected_revision).map_err(|_| StorageError)?]).map_err(|_| StorageError)?;
+            if changed == 0 { return Ok(false); }
+            connection.execute("UPDATE identity_sessions SET closed_at=?3 WHERE tenant_id=?1 AND user_id=?2 AND closed_at IS NULL",
+                params![tenant,user,now.0]).map_err(|_| StorageError)?;
+            connection.execute("DELETE FROM scope_relationships WHERE principal_id=?1 AND
+                (scope_kind='organization' AND scope_id=?2 OR scope_kind='branch' AND scope_id IN
+                (SELECT branch_id FROM local_desktop_branch WHERE tenant_id=?2))",params![user,tenant]).map_err(|_| StorageError)?;
+            connection.execute("UPDATE authorization_scopes SET policy_version=policy_version+1 WHERE
+                scope_kind='organization' AND scope_id=?1 OR scope_kind='branch' AND scope_id IN
+                (SELECT branch_id FROM local_desktop_branch WHERE tenant_id=?1)",[tenant]).map_err(|_| StorageError)?;
+            insert_audit(connection, &MutationAuditRecord::from_authorization(&observer, now,
+                CorrelationId::new(Uuid::new_v4()), "eitmad.desktop.account.server-revoked.v1", AuditTarget {
+                    kind: "desktop-account".to_owned(), identifiers: vec![user],
+                }))?;
+            Ok(true)
+        })
+    }
+
     /// Persists one authenticated desktop session and its audit record.
     ///
     /// # Errors
@@ -278,18 +310,20 @@ impl AuthorityStore {
             let changed = connection.execute("INSERT INTO desktop_accounts(account_id, user_id, tenant_id, organization_id, canonical_username, password_hash, role, active, display_name, revision)
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?5, 1)
                 ON CONFLICT(account_id) DO UPDATE SET password_hash = excluded.password_hash,
-                    active = 1, revision = desktop_accounts.revision + 1
+                    active = 1, role = excluded.role, revision = desktop_accounts.revision + 1
                     WHERE desktop_accounts.user_id = excluded.user_id
                     AND desktop_accounts.tenant_id = excluded.tenant_id
                     AND desktop_accounts.organization_id = excluded.organization_id
-                    AND desktop_accounts.canonical_username = excluded.canonical_username
-                    AND desktop_accounts.role = excluded.role",
+                    AND desktop_accounts.canonical_username = excluded.canonical_username",
                 params![account_id, user, tenant, account.organization_id.value().to_string(), username, account.password_hash, account.role.as_str()]
             ).map_err(|_| StorageError)?;
             if changed != 1 { return Err(StorageError); }
             connection.execute("UPDATE identity_sessions SET closed_at = ?3
                 WHERE tenant_id = ?1 AND account_id = ?2 AND closed_at IS NULL",
                 params![tenant, account_id, created_at.0]).map_err(|_| StorageError)?;
+            connection.execute("DELETE FROM scope_relationships WHERE principal_id=?1
+                AND relation IN ('eitmad.relation.organization.manager.v1','eitmad.relation.organization.receptionist.v1')",
+                [&user]).map_err(|_| StorageError)?;
             let relation_changed = connection.execute("INSERT OR IGNORE INTO scope_relationships
                 (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
                 VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
@@ -607,7 +641,7 @@ fn apply_account_access(
                     tenant,
                     account.user_id.value().to_string(),
                     serde_json::to_string(&PrincipalKind::User).map_err(|_| StorageError)?,
-                    DesktopRole::from(account.role).relation()
+                    DesktopRole::from(account.role.ok_or(StorageError)?).relation()
                 ],
             )
             .map_err(|_| StorageError)?;
@@ -615,7 +649,7 @@ fn apply_account_access(
             connection,
             tenant,
             &account.user_id.value().to_string(),
-            DesktopRole::from(account.role),
+            DesktopRole::from(account.role.ok_or(StorageError)?),
         )?;
     } else {
         connection.execute(
@@ -771,7 +805,7 @@ fn create_account_state(
                 organization_id,
                 mutation.account.username,
                 password_hash,
-                DesktopRole::from(mutation.account.role).as_str(),
+                DesktopRole::from(mutation.account.role.ok_or(StorageError)?).as_str(),
                 mutation.account.display_name
             ],
         )
@@ -789,11 +823,11 @@ fn update_account_state(
     was_active: bool,
     mutation: &DesktopAccountMutation<'_>,
 ) -> Result<AccountApply, StorageError> {
-    let new_role = DesktopRole::from(mutation.account.role).as_str();
+    let new_role = DesktopRole::from(mutation.account.role.ok_or(StorageError)?).as_str();
     let access_changed = old_role != new_role || was_active != mutation.account.active;
     let removes_usable_manager = old_role == "manager"
         && was_active
-        && (!mutation.account.active || mutation.account.role != DesktopAccountRole::Manager);
+        && (!mutation.account.active || mutation.account.role != Some(DesktopAccountRole::Manager));
     if removes_usable_manager {
         let managers: i64 = connection
             .query_row(
@@ -907,11 +941,11 @@ fn decode_account_summary(
         user_id: UserId::new(Uuid::parse_str(&row.1).map_err(|_| StorageError)?),
         display_name: row.2,
         username: row.3,
-        role: match row.4.as_str() {
+        role: Some(match row.4.as_str() {
             "manager" => DesktopAccountRole::Manager,
             "receptionist" => DesktopAccountRole::Receptionist,
             _ => return Err(StorageError),
-        },
+        }),
         active: row.5,
         revision: u64::try_from(row.6).map_err(|_| StorageError)?,
     })

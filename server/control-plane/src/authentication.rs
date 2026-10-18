@@ -754,6 +754,17 @@ async fn activate_identity(
     .await
     .map_err(|_| AuthenticationError::Unavailable)?;
     sqlx::query(
+        "UPDATE control.tenants SET account_revision=account_revision+1 WHERE tenant_id=$1",
+    )
+    .bind(tenant_id.value())
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| AuthenticationError::Unavailable)?;
+    sqlx::query("SELECT pg_notify('eitmad_accounts_changed', '')")
+        .execute(&mut **transaction)
+        .await
+        .map_err(|_| AuthenticationError::Unavailable)?;
+    sqlx::query(
         "UPDATE control.invitations SET consumed_at = $3
              WHERE tenant_id = $1 AND invite_id = $2",
     )

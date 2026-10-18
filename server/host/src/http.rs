@@ -65,6 +65,7 @@ pub struct ServerState {
     relay: Option<RelayCoordinator>,
     updates: Option<UpdateCatalog>,
     administration: Option<AdministrationService>,
+    account_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
     approval_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
     quotation_expiry_checks: Arc<
         tokio::sync::Mutex<std::collections::HashMap<QuotationExpiryScope, std::time::Instant>>,
@@ -93,6 +94,7 @@ impl ServerState {
             relay: None,
             updates: None,
             administration: None,
+            account_notifications: Arc::new(tokio::sync::OnceCell::new()),
             approval_notifications: Arc::new(tokio::sync::OnceCell::new()),
             quotation_expiry_checks: Arc::new(tokio::sync::Mutex::new(
                 std::collections::HashMap::new(),
@@ -111,6 +113,32 @@ impl ServerState {
         self.updates = Some(updates);
         self.administration = Some(administration);
         self
+    }
+
+    async fn account_notifications(
+        &self,
+    ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_control_plane::ServerAccountError>
+    {
+        let notifications=self.account_notifications.get_or_try_init(|| async {
+            // One listener per host, counted in the sync pool, independent of client count.
+            let mut listener=self.control.identity.account_listener().await?;
+            let (wake,_)=tokio::sync::broadcast::channel(16);
+            let (stop,mut stopping)=tokio::sync::watch::channel(false);
+            let publish=wake.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _=stopping.changed()=>break,
+                        received=listener.recv()=> {
+                            let _=publish.send(());
+                            if received.is_err() {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
+                        }
+                    }
+                }
+            });
+            Ok::<_, eitmad_control_plane::ServerAccountError>(ApprovalNotifications{wake,stop})
+        }).await?;
+        Ok(notifications.wake.subscribe())
     }
 
     async fn approval_notifications(
@@ -196,6 +224,7 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/desktop-profile", post(desktop_profile))
         .route("/v1/auth/refresh", post(refresh))
         .route("/v1/accounts/list", post(list_accounts))
+        .route("/v1/accounts/watch", post(watch_accounts))
         .route("/v1/accounts/transition", post(change_account))
         .route(
             "/v1/catalog-images/upload",
@@ -373,17 +402,64 @@ async fn desktop_profile(
         .map_err(map_account)
 }
 
+async fn watch_accounts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::WatchServerAccounts>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountWatch>, ApiError> {
+    let mut changes = state.account_notifications().await.map_err(map_account)?;
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.shared-accounts.v1").await?;
+    state
+        .control
+        .identity
+        .desktop_profile(&actor, &request.registration)
+        .await
+        .map_err(map_account)?;
+    if state
+        .control
+        .identity
+        .account_revision(actor.tenant_id)
+        .await
+        .map_err(map_account)?
+        == request.revision
+    {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(3), changes.recv()).await;
+    }
+    let (token, _) = connection_credentials(&headers)?;
+    revalidate_stream(&state, &token, &actor).await?;
+    let profile = state
+        .control
+        .identity
+        .desktop_profile(&actor, &request.registration)
+        .await
+        .map_err(map_account)?;
+    let revision = state
+        .control
+        .identity
+        .account_revision(actor.tenant_id)
+        .await
+        .map_err(map_account)?;
+    Ok(Json(
+        eitmad_contracts::server_accounts::ServerAccountWatch { profile, revision },
+    ))
+}
+
 async fn change_account(
     State(state): State<ServerState>,
     headers: HeaderMap,
     Json(request): Json<eitmad_contracts::server_accounts::ChangeServerAccount>,
 ) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountResult>, ApiError> {
-    let actor = authenticate_negotiated(
-        &state,
-        &headers,
-        "eitmad.capability.server-administration.v1",
-    )
-    .await?;
+    let capability = if matches!(
+        request.change,
+        eitmad_contracts::server_accounts::ServerAccountChange::CreateDesktop { .. }
+            | eitmad_contracts::server_accounts::ServerAccountChange::UpdateDesktop { .. }
+    ) {
+        "eitmad.capability.shared-accounts.v1"
+    } else {
+        "eitmad.capability.server-administration.v1"
+    };
+    let actor = authenticate_negotiated(&state, &headers, capability).await?;
     state
         .control
         .identity
@@ -1660,7 +1736,9 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
+    let minimum_minor = if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
+        25
+    } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
         23
     } else if matches!(
         required_capability.as_str(),
@@ -1737,6 +1815,7 @@ async fn revalidate_stream(
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.shared-accounts.v1",
         "eitmad.capability.orders.v1",
         "eitmad.capability.work-orders.v1",
         "eitmad.capability.quotation-lifecycle.v1",

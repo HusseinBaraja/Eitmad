@@ -90,6 +90,7 @@ public partial class MainWindow : Window
             if (this.sessions is not null) this.sessions.SessionEnded -= SessionEnded;
             if (customerClient is not null) _ = customerClient.DisposeAsync();
             _ = RawMaterialsSurface.DisposeAsync();
+            _ = UsersSurface.DisposeAsync();
             _ = PartsSurface.DisposeAsync();
             _ = FurnitureSurface.DisposeAsync();
             _ = ProductsSurface.DisposeAsync();
@@ -363,6 +364,8 @@ public partial class MainWindow : Window
         FurnitureSurface.ClearSession();
         ProductsSurface.ClearSession();
         PricingSurface.ClearSession();
+        UsersSurface.ClearSession();
+        RawMaterialsSurface.ClearSession();
         ResponsiveRoot.Visibility = Visibility.Collapsed;
         ReceptionistSurface.Visibility = Visibility.Collapsed;
     }

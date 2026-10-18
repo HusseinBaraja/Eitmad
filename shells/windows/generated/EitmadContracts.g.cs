@@ -469,6 +469,10 @@ namespace Eitmad.Contracts
         public CustomerChangeNotice EventCustomerChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Event_DesktopAccountChangedEvent")]
+        public DesktopAccountChangeNotice EventDesktopAccountChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_FurnitureChangedEvent")]
         public FurnitureChangeNotice EventFurnitureChangedEvent { get; set; }
 
@@ -935,6 +939,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_CustomerChangedSubscribe")]
         public Dictionary<string, object> SubscriptionCustomerChangedSubscribe { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Subscription_DesktopAccountChangedSubscribe")]
+        public Dictionary<string, object> SubscriptionDesktopAccountChangedSubscribe { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_FurnitureChangedSubscribe")]
@@ -1821,7 +1829,7 @@ namespace Eitmad.Contracts
         public long Revision { get; set; }
 
         [JsonPropertyName("role")]
-        public DesktopAccountRole Role { get; set; }
+        public DesktopAccountRole? Role { get; set; }
 
         [JsonPropertyName("userId")]
         public Guid UserId { get; set; }
@@ -2693,6 +2701,15 @@ namespace Eitmad.Contracts
         [JsonPropertyName("customerId")]
         public Guid CustomerId { get; set; }
 
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class DesktopAccountChangeNotice
+    {
         [JsonPropertyName("revision")]
         public long Revision { get; set; }
 

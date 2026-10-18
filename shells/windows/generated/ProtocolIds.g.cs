@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 24;
+        public const long Minor = 25;
     }
 
     public static class IpcMessages
@@ -120,6 +120,7 @@ public static class ProtocolIds
 
     public static class Subscriptions
     {
+        public const string EitmadDesktopAccountChangedSubscribeV1 = "eitmad.desktop-account.changed.subscribe.v1";
         public const string EitmadPricingChangedSubscribeV1 = "eitmad.pricing.changed.subscribe.v1";
         public const string EitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1";
         public const string EitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1";
@@ -137,6 +138,7 @@ public static class ProtocolIds
 
     public static class Events
     {
+        public const string EitmadDesktopAccountChangedEventV1 = "eitmad.desktop-account.changed.event.v1";
         public const string EitmadPricingChangedEventV1 = "eitmad.pricing.changed.event.v1";
         public const string EitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1";
         public const string EitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1";
@@ -183,6 +185,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1";
         public const string EitmadCapabilityHomeV1 = "eitmad.capability.home.v1";
         public const string EitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1";
         public const string EitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1";
@@ -301,6 +304,7 @@ public static class ProtocolIds
 
     public static class SchemaIds
     {
+        public const string EitmadSchemaDesktopAccountsV1 = "eitmad.schema.desktop-accounts.v1";
         public const string EitmadSchemaOrderV1 = "eitmad.schema.order.v1";
         public const string EitmadSchemaWorkOrderV1 = "eitmad.schema.work-order.v1";
         public const string EitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1";

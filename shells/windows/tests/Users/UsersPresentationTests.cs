@@ -7,6 +7,22 @@ namespace Eitmad.WindowsShell.Tests.Users;
 [TestClass]
 public sealed class UsersPresentationTests
 {
+    [TestMethod]
+    public async Task SessionClearDiscardsAnAccountReadAlreadyInFlight()
+    {
+        var engine = Engine();
+        var release = new TaskCompletionSource();
+        engine.QueryBarrier = _ => release.Task;
+        var vm = new UsersViewModel(); vm.Attach(engine);
+        var loading = vm.LoadAsync();
+        vm.ClearSession();
+        release.SetResult();
+        Assert.IsFalse(await loading);
+        Assert.AreEqual(0, vm.VisibleUsers.Count);
+        Assert.IsFalse(vm.IsEditorOpen);
+        Assert.IsFalse(vm.IsDeactivationOpen);
+    }
+
     private static FakeEngine Engine()
     {
         var engine = new FakeEngine();

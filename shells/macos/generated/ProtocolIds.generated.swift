@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 24
+        public static let minor = 25
     }
 
     public enum IpcMessages {
@@ -111,6 +111,7 @@ public enum ProtocolIds {
     }
 
     public enum Subscriptions {
+        public static let eitmadDesktopAccountChangedSubscribeV1 = "eitmad.desktop-account.changed.subscribe.v1"
         public static let eitmadPricingChangedSubscribeV1 = "eitmad.pricing.changed.subscribe.v1"
         public static let eitmadConfigChangedSubscribeV1 = "eitmad.config.changed.subscribe.v1"
         public static let eitmadPermissionsChangedSubscribeV1 = "eitmad.permissions.changed.subscribe.v1"
@@ -127,6 +128,7 @@ public enum ProtocolIds {
     }
 
     public enum Events {
+        public static let eitmadDesktopAccountChangedEventV1 = "eitmad.desktop-account.changed.event.v1"
         public static let eitmadPricingChangedEventV1 = "eitmad.pricing.changed.event.v1"
         public static let eitmadConfigChangedEventV1 = "eitmad.config.changed.event.v1"
         public static let eitmadPermissionsChangedEventV1 = "eitmad.permissions.changed.event.v1"
@@ -170,6 +172,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1"
         public static let eitmadCapabilityHomeV1 = "eitmad.capability.home.v1"
         public static let eitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1"
         public static let eitmadCapabilityOrdersV1 = "eitmad.capability.orders.v1"
@@ -284,6 +287,7 @@ public enum ProtocolIds {
     }
 
     public enum SchemaIds {
+        public static let eitmadSchemaDesktopAccountsV1 = "eitmad.schema.desktop-accounts.v1"
         public static let eitmadSchemaOrderV1 = "eitmad.schema.order.v1"
         public static let eitmadSchemaWorkOrderV1 = "eitmad.schema.work-order.v1"
         public static let eitmadSchemaQuotationLifecycleV1 = "eitmad.schema.quotation-lifecycle.v1"
