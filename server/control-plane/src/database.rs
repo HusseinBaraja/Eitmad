@@ -2,6 +2,9 @@ use eitmad_contracts::identity::TenantId;
 use sha2::{Digest as _, Sha256};
 use sqlx::{PgPool, Postgres, Row as _, Transaction, postgres::PgPoolOptions};
 
+#[cfg(test)]
+mod tests;
+
 const FOUNDATION_SQL: &str = include_str!("../migrations/0001_control_foundation.sql");
 const CUSTOMER_BRANCHES_SQL: &str = include_str!("../migrations/0005_customer_branches.sql");
 const DESKTOP_ACCOUNTS_SQL: &str = include_str!("../migrations/0017_desktop_accounts.sql");
