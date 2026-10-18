@@ -132,6 +132,42 @@ pub fn decide_approval(
 /// Rust transport boundary: authenticated server results and a cancellable live subscription.
 pub trait DiscountApprovalServer: Send + Sync {
     /// # Errors
+    /// Reads confirmed resolution provenance and current state with ordinary draft-read authority.
+    fn draft_recovery(
+        &self,
+        _actor: &AuthorizationContext,
+        _id: eitmad_contracts::quotation_draft::QuotationDraftId,
+        _deadline: UnixMillis,
+    ) -> Result<Vec<eitmad_contracts::sync::ChangeRecord>, crate::QuotationDraftError> {
+        Err(crate::QuotationDraftError::Unavailable)
+    }
+    /// Identifies the installed server branch for local projection only.
+    fn is_connected_draft_branch(&self, _branch: eitmad_contracts::identity::ScopeId) -> bool {
+        false
+    }
+    /// # Errors
+    /// Requires the draft-resolution capability and current scoped Manager authority.
+    fn draft_review(
+        &self,
+        _actor: &AuthorizationContext,
+        _query: &eitmad_contracts::quotation_draft::GetQuotationDraftReview,
+        _deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::quotation_draft::QuotationDraftReview, crate::QuotationDraftError>
+    {
+        Err(crate::QuotationDraftError::Unavailable)
+    }
+    /// # Errors
+    /// Requires a server-confirmed, revision-checked explicit draft decision.
+    fn resolve_draft(
+        &self,
+        _actor: &AuthorizationContext,
+        _input: &eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        _deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::sync::ChangeRecord, crate::QuotationDraftError> {
+        Err(crate::QuotationDraftError::Unavailable)
+    }
+
+    /// # Errors
     /// Requires server confirmation; exact keys retain exact results.
     fn transition(
         &self,

@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 27
+        public static let minor = 28
     }
 
     public enum IpcMessages {
@@ -53,6 +53,7 @@ public enum ProtocolIds {
         public static let eitmadQuotationDraftUpdateV1 = "eitmad.quotation-draft.update.v1"
         public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
         public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
+        public static let eitmadQuotationDraftResolveV1 = "eitmad.quotation-draft.resolve.v1"
         public static let eitmadCustomerResolveConflictV1 = "eitmad.customer.resolve-conflict.v1"
         public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"
         public static let eitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1"
@@ -94,6 +95,7 @@ public enum ProtocolIds {
         public static let eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
         public static let eitmadCustomerGetV1 = "eitmad.customer.get.v1"
         public static let eitmadCustomerHistoryV1 = "eitmad.customer.history.v1"
+        public static let eitmadQuotationDraftReviewV1 = "eitmad.quotation-draft.review.v1"
         public static let eitmadCustomerConflictsV1 = "eitmad.customer.conflicts.v1"
         public static let eitmadCustomerSearchV1 = "eitmad.customer.search.v1"
         public static let eitmadFurnitureListV1 = "eitmad.furniture.list.v1"
@@ -183,6 +185,7 @@ public enum ProtocolIds {
         public static let eitmadCapabilityCustomerDocumentsV1 = "eitmad.capability.customer-documents.v1"
         public static let eitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1"
         public static let eitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1"
+        public static let eitmadCapabilityQuotationDraftResolutionV1 = "eitmad.capability.quotation-draft-resolution.v1"
         public static let eitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1"
         public static let eitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1"
         public static let eitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1"
@@ -275,6 +278,7 @@ public enum ProtocolIds {
         public static let eitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1"
         public static let eitmadPermissionQuotationDraftReadV1 = "eitmad.permission.quotation.draft.read.v1"
         public static let eitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1"
+        public static let eitmadPermissionQuotationDraftResolveV1 = "eitmad.permission.quotation.draft.resolve.v1"
         public static let eitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1"
     }
 

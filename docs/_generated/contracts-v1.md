@@ -66,6 +66,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.quotation-draft.update.v1`
 - `eitmad.customer.create.v1`
 - `eitmad.customer.update.v1`
+- `eitmad.quotation-draft.resolve.v1`
 - `eitmad.customer.resolve-conflict.v1`
 - `eitmad.material-category.save.v1`
 - `eitmad.material-unit.save.v1`
@@ -107,6 +108,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.authorization.relationships.list.v1`
 - `eitmad.customer.get.v1`
 - `eitmad.customer.history.v1`
+- `eitmad.quotation-draft.review.v1`
 - `eitmad.customer.conflicts.v1`
 - `eitmad.customer.search.v1`
 - `eitmad.furniture.list.v1`
@@ -196,6 +198,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.capability.customer-documents.v1`
 - `eitmad.capability.quotation-approval.v1`
 - `eitmad.capability.quotation-draft.v1`
+- `eitmad.capability.quotation-draft-resolution.v1`
 - `eitmad.capability.quotation-evaluation.v1`
 - `eitmad.capability.sales-catalog.v1`
 - `eitmad.capability.catalog-revisions.v1`
@@ -288,6 +291,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.catalog.draft.write.v1`
 - `eitmad.permission.quotation.draft.read.v1`
 - `eitmad.permission.quotation.draft.write.v1`
+- `eitmad.permission.quotation.draft.resolve.v1`
 - `eitmad.permission.desktop-accounts.manage.v1`
 
 ## Configuration keys

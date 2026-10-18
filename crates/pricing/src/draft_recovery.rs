@@ -53,6 +53,17 @@ impl QuotationDraftService {
             {
                 continue;
             }
+            let draft_id =
+                eitmad_contracts::quotation_draft::QuotationDraftId::new(change.record_id.value());
+            if self
+                .store
+                .get_quotation_draft(&actor.scope, draft_id)
+                .map_err(|_| ApprovalError::Unavailable)?
+                .is_some_and(|d| d.sync_state != QuotationDraftSyncState::Pending)
+            {
+                self.recover_blocked(&actor, draft_id, server, deadline)?;
+                continue;
+            }
             let payload = change.payload.as_ref().ok_or(ApprovalError::Invalid)?;
             let snapshot: QuotationDraftSnapshot = serde_json::from_slice(
                 &STANDARD
@@ -105,5 +116,29 @@ impl QuotationDraftService {
             }
         }
         failure.map_or(Ok(count), Err)
+    }
+
+    fn recover_blocked(
+        &self,
+        actor: &eitmad_contracts::identity::AuthorizationContext,
+        draft_id: eitmad_contracts::quotation_draft::QuotationDraftId,
+        server: &dyn DiscountApprovalServer,
+        deadline: UnixMillis,
+    ) -> Result<(), ApprovalError> {
+        match server.draft_recovery(actor, draft_id, deadline) {
+            Ok(changes) => {
+                for confirmed in changes {
+                    self.project_confirmed(
+                        actor,
+                        &confirmed,
+                        CorrelationId::new(uuid::Uuid::new_v4()),
+                    )
+                    .map_err(|_| ApprovalError::Unavailable)?;
+                }
+            }
+            Err(crate::QuotationDraftError::Unavailable | crate::QuotationDraftError::Denied) => {}
+            Err(_) => return Err(ApprovalError::Invalid),
+        }
+        Ok(())
     }
 }

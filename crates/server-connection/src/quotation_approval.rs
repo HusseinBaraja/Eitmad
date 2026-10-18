@@ -104,6 +104,121 @@ fn error(e: &HttpError) -> E {
     }
 }
 impl DiscountApprovalServer for DirectDiscountApprovalClient {
+    fn draft_recovery(
+        &self,
+        actor: &AuthorizationContext,
+        draft_id: eitmad_contracts::quotation_draft::QuotationDraftId,
+        deadline: UnixMillis,
+    ) -> Result<Vec<eitmad_contracts::sync::ChangeRecord>, eitmad_pricing::QuotationDraftError>
+    {
+        let mut changes: Vec<eitmad_contracts::sync::ChangeRecord> = self
+            .draft_resolution_http()
+            .request(
+                actor,
+                "/v1/quotation-drafts/recovery",
+                &eitmad_contracts::quotation_draft::ReadQuotationDraftRecovery {
+                    scope: self.remote(actor).map_err(draft_resolution_error)?,
+                    draft_id,
+                },
+                budget(deadline).map_err(draft_resolution_error)?,
+            )
+            .map_err(|error| draft_resolution_http_error(&error))?;
+        let catalog = ScopeRef {
+            kind: ScopeKind::parse("organization").expect("scope"),
+            id: ScopeId::new(actor.tenant_id.value()),
+        };
+        for change in &mut changes {
+            Self::map_draft_change(change, &actor.scope, &catalog)?;
+        }
+        Ok(changes)
+    }
+    fn is_connected_draft_branch(&self, branch: ScopeId) -> bool {
+        branch == self.branch.id
+    }
+    fn draft_review(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::quotation_draft::GetQuotationDraftReview,
+        deadline: UnixMillis,
+    ) -> Result<
+        eitmad_contracts::quotation_draft::QuotationDraftReview,
+        eitmad_pricing::QuotationDraftError,
+    > {
+        let mut query = query.clone();
+        if actor.scope.kind.as_str() == "branch" {
+            query.branch_id = self.branch.id;
+        }
+        let mut page: eitmad_contracts::quotation_draft::QuotationDraftReview = self
+            .draft_resolution_http()
+            .request(
+                actor,
+                "/v1/quotation-drafts/review",
+                &eitmad_contracts::quotation_draft::ReadQuotationDraftReview {
+                    scope: self.remote(actor).map_err(draft_resolution_error)?,
+                    query,
+                },
+                budget(deadline).map_err(draft_resolution_error)?,
+            )
+            .map_err(|error| draft_resolution_http_error(&error))?;
+        let branch = if actor.scope.kind.as_str() == "branch" {
+            actor.scope.clone()
+        } else {
+            page.current.evaluation.scope.clone()
+        };
+        let catalog = ScopeRef {
+            kind: ScopeKind::parse("organization").expect("scope"),
+            id: ScopeId::new(actor.tenant_id.value()),
+        };
+        Self::map_snapshot(&mut page.current, &branch, &catalog);
+        for item in &mut page.items {
+            Self::map_snapshot(&mut item.local, &branch, &catalog);
+            Self::map_snapshot(&mut item.remote, &branch, &catalog);
+        }
+        Ok(page)
+    }
+    fn resolve_draft(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        deadline: UnixMillis,
+    ) -> Result<eitmad_contracts::sync::ChangeRecord, eitmad_pricing::QuotationDraftError> {
+        let mut input = input.clone();
+        input.scope = self.remote(actor).map_err(draft_resolution_error)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.branch_id = self.branch.id;
+        }
+        if let eitmad_contracts::quotation_draft::QuotationDraftResolutionSource::PendingReview(
+            change,
+        ) = &mut input.command.source
+        {
+            let branch = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input.command.branch_id,
+            };
+            Self::map_draft_change(change, &branch, &self.config.scope)?;
+        }
+        let mut change: eitmad_contracts::sync::ChangeRecord = self
+            .draft_resolution_http()
+            .request(
+                actor,
+                "/v1/quotation-drafts/resolve",
+                &input,
+                budget(deadline).map_err(draft_resolution_error)?,
+            )
+            .map_err(|error| draft_resolution_http_error(&error))?;
+        let branch = if actor.scope.kind.as_str() == "branch" {
+            actor.scope.clone()
+        } else {
+            change.scope.clone()
+        };
+        let catalog = ScopeRef {
+            kind: ScopeKind::parse("organization").expect("scope"),
+            id: ScopeId::new(actor.tenant_id.value()),
+        };
+        Self::map_draft_change(&mut change, &branch, &catalog)?;
+        Ok(change)
+    }
+
     fn transition(
         &self,
         actor: &AuthorizationContext,
@@ -671,4 +786,52 @@ fn order_error(e: E) -> eitmad_orders::OrderError {
         E::Conflict => O::Conflict,
         E::Unavailable => O::Unavailable,
     }
+}
+
+impl DirectDiscountApprovalClient {
+    fn draft_resolution_http(&self) -> AuthenticatedHttpClient {
+        AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.quotation-draft-resolution.v1",
+            28,
+        )
+    }
+    fn map_draft_change(
+        change: &mut eitmad_contracts::sync::ChangeRecord,
+        branch: &ScopeRef,
+        catalog: &ScopeRef,
+    ) -> Result<(), eitmad_pricing::QuotationDraftError> {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let p = change
+            .payload
+            .as_mut()
+            .ok_or(eitmad_pricing::QuotationDraftError::Unavailable)?;
+        let mut snapshot: QuotationDraftSnapshot = serde_json::from_slice(
+            &STANDARD
+                .decode(&p.base64)
+                .map_err(|_| eitmad_pricing::QuotationDraftError::Unavailable)?,
+        )
+        .map_err(|_| eitmad_pricing::QuotationDraftError::Unavailable)?;
+        Self::map_snapshot(&mut snapshot, branch, catalog);
+        change.scope = branch.clone();
+        p.base64 = STANDARD.encode(
+            serde_json::to_vec(&snapshot)
+                .map_err(|_| eitmad_pricing::QuotationDraftError::Unavailable)?,
+        );
+        Ok(())
+    }
+}
+fn draft_resolution_error(error: E) -> eitmad_pricing::QuotationDraftError {
+    use eitmad_pricing::QuotationDraftError as D;
+    match error {
+        E::Denied => D::Denied,
+        E::Invalid => D::Invalid,
+        E::Conflict => D::UnresolvedConflict,
+        E::Unavailable => D::Unavailable,
+    }
+}
+fn draft_resolution_http_error(error: &HttpError) -> eitmad_pricing::QuotationDraftError {
+    draft_resolution_error(crate::quotation_approval::error(error))
 }

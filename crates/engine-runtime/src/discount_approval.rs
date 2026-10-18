@@ -355,3 +355,56 @@ pub(super) fn approval_error(e: ApprovalError, context: &DispatchContext) -> Con
 pub(super) fn empty_watch() -> Arc<Mutex<Option<ApprovalWatch>>> {
     Arc::new(Mutex::new(None))
 }
+
+impl ProductDispatcher {
+    pub(super) async fn draft_review(
+        &self,
+        context: &DispatchContext,
+        query: eitmad_contracts::quotation_draft::GetQuotationDraftReview,
+    ) -> Result<QueryResult, ContractError> {
+        self.require_approval(
+            context,
+            eitmad_authorization::QUOTATION_DRAFT_RESOLVE_PERMISSION,
+        )
+        .map_err(|e| *e)?;
+        let server = self.approval_server.clone().ok_or_else(|| {
+            draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context)
+        })?;
+        let drafts = self.drafts.clone();
+        let actor = context.authorization.clone();
+        let deadline = context.deadline;
+        let value = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            drafts.review(&actor, &query, server.as_ref(), deadline)
+        })
+        .await
+        .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?
+        .map_err(|e| draft_error(e, context))?;
+        Ok(QueryResult::QuotationDraftReview(Box::new(value)))
+    }
+    pub(super) async fn resolve_draft(
+        &self,
+        context: &DispatchContext,
+        mutation: MutationContext,
+        command: eitmad_contracts::quotation_draft::ResolveQuotationDraft,
+    ) -> Result<CommandResult, ContractError> {
+        self.require_approval(
+            context,
+            eitmad_authorization::QUOTATION_DRAFT_RESOLVE_PERMISSION,
+        )
+        .map_err(|e| *e)?;
+        let server = self.approval_server.clone().ok_or_else(|| {
+            draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context)
+        })?;
+        let drafts = self.drafts.clone();
+        let deadline = context.deadline;
+        let value = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            drafts.resolve(&mutation, &command, server.as_ref(), deadline)
+        })
+        .await
+        .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?
+        .map_err(|e| draft_error(e, context))?;
+        self.drain_pending_publications()
+            .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?;
+        Ok(CommandResult::QuotationDraftResolved(value))
+    }
+}

@@ -152,6 +152,7 @@ fn registry() -> Vec<Migration> {
         .chain(crate::orders::MIGRATIONS)
         .chain(crate::work_orders::MIGRATIONS)
         .chain(customer::RESOLUTION_MIGRATIONS)
+        .chain(crate::draft_resolution::MIGRATIONS)
         .copied()
         .collect()
 }
@@ -508,6 +509,54 @@ mod tests {
                 .execute("DELETE FROM order_confirmed_history", [])
                 .is_err()
         );
+        apply(&mut connection).unwrap();
+    }
+
+    #[test]
+    fn draft_resolution_migration_preserves_conflicts_queues_and_issued_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_registry(&mut connection, &registry()[..29]).unwrap();
+        connection
+            .execute(
+                "INSERT INTO quotation_drafts VALUES('branch','scope','draft',9,?1)",
+                [b"preserved conflict".as_slice()],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO quotation_draft_outbox VALUES('change','branch','scope','draft',9,?1)",
+                [b"exact queued input".as_slice()],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO quotation_confirmed_history VALUES('branch','scope','draft',1,?1)",
+                [b"issued commercial history".as_slice()],
+            )
+            .unwrap();
+        apply(&mut connection).unwrap();
+        for (table, column, expected) in [
+            (
+                "quotation_drafts",
+                "record_json",
+                b"preserved conflict".as_slice(),
+            ),
+            (
+                "quotation_draft_outbox",
+                "change_json",
+                b"exact queued input".as_slice(),
+            ),
+            (
+                "quotation_confirmed_history",
+                "record_json",
+                b"issued commercial history".as_slice(),
+            ),
+        ] {
+            let retained: Vec<u8> = connection
+                .query_row(&format!("SELECT {column} FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(retained, expected);
+        }
         apply(&mut connection).unwrap();
     }
 

@@ -68,6 +68,7 @@ pub const DISCOUNT_REQUEST_PERMISSION: &str = "eitmad.permission.quotation.appro
 pub const DISCOUNT_DECIDE_PERMISSION: &str = "eitmad.permission.quotation.approval.decide.v1";
 pub const DISCOUNT_READ_PERMISSION: &str = "eitmad.permission.quotation.approval.read.v1";
 pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
+pub const QUOTATION_DRAFT_RESOLVE_PERMISSION: &str = "eitmad.permission.quotation.draft.resolve.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
 /// Allows manual backup/restore for an owner or manager relationship in organization scope.
@@ -136,6 +137,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_READ_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
+    QUOTATION_DRAFT_RESOLVE_PERMISSION,
     DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
     STORAGE_RECOVERY_PERMISSION,
 ];
@@ -234,19 +236,15 @@ impl AuthorizationService {
             .store
             .relationships_for_subject(&context.scope, &subject)
             .map_err(|_| AuthorizationError::Unavailable)?;
-        let owner = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == OWNER_RELATION);
-        let config_manager = owner
-            || relationships
+        let has_relation = |relation| {
+            relationships
                 .iter()
-                .any(|relationship| relationship.relation.as_str() == CONFIG_MANAGER_RELATION);
-        let manager = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == MANAGER_RELATION);
-        let receptionist = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == RECEPTIONIST_RELATION);
+                .any(|r| r.relation.as_str() == relation)
+        };
+        let owner = has_relation(OWNER_RELATION);
+        let config_manager = owner || has_relation(CONFIG_MANAGER_RELATION);
+        let manager = has_relation(MANAGER_RELATION);
+        let receptionist = has_relation(RECEPTIONIST_RELATION);
         let member = config_manager
             || relationships.iter().any(|relationship| {
                 matches!(
@@ -294,7 +292,8 @@ impl AuthorizationService {
                     | QUOTATION_CONVERT_PERMISSION
                     | DELIVERY_RECORD_PERMISSION
                     | QUOTATION_ISSUE_PERMISSION => receptionist && branch_scope,
-                    CUSTOMER_RESOLVE_PERMISSION
+                    QUOTATION_DRAFT_RESOLVE_PERMISSION
+                    | CUSTOMER_RESOLVE_PERMISSION
                     | DISCOUNT_DECIDE_PERMISSION
                     | QUOTATION_VALIDITY_PERMISSION
                     | ORDER_CANCEL_PERMISSION

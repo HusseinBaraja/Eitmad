@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 27;
+        public const long Minor = 28;
     }
 
     public static class IpcMessages
@@ -60,6 +60,7 @@ public static class ProtocolIds
         public const string EitmadQuotationDraftUpdateV1 = "eitmad.quotation-draft.update.v1";
         public const string EitmadCustomerCreateV1 = "eitmad.customer.create.v1";
         public const string EitmadCustomerUpdateV1 = "eitmad.customer.update.v1";
+        public const string EitmadQuotationDraftResolveV1 = "eitmad.quotation-draft.resolve.v1";
         public const string EitmadCustomerResolveConflictV1 = "eitmad.customer.resolve-conflict.v1";
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";
         public const string EitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1";
@@ -102,6 +103,7 @@ public static class ProtocolIds
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
         public const string EitmadCustomerHistoryV1 = "eitmad.customer.history.v1";
+        public const string EitmadQuotationDraftReviewV1 = "eitmad.quotation-draft.review.v1";
         public const string EitmadCustomerConflictsV1 = "eitmad.customer.conflicts.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
         public const string EitmadFurnitureListV1 = "eitmad.furniture.list.v1";
@@ -196,6 +198,7 @@ public static class ProtocolIds
         public const string EitmadCapabilityCustomerDocumentsV1 = "eitmad.capability.customer-documents.v1";
         public const string EitmadCapabilityQuotationApprovalV1 = "eitmad.capability.quotation-approval.v1";
         public const string EitmadCapabilityQuotationDraftV1 = "eitmad.capability.quotation-draft.v1";
+        public const string EitmadCapabilityQuotationDraftResolutionV1 = "eitmad.capability.quotation-draft-resolution.v1";
         public const string EitmadCapabilityQuotationEvaluationV1 = "eitmad.capability.quotation-evaluation.v1";
         public const string EitmadCapabilitySalesCatalogV1 = "eitmad.capability.sales-catalog.v1";
         public const string EitmadCapabilityCatalogRevisionsV1 = "eitmad.capability.catalog-revisions.v1";
@@ -289,6 +292,7 @@ public static class ProtocolIds
         public const string EitmadPermissionCatalogDraftWriteV1 = "eitmad.permission.catalog.draft.write.v1";
         public const string EitmadPermissionQuotationDraftReadV1 = "eitmad.permission.quotation.draft.read.v1";
         public const string EitmadPermissionQuotationDraftWriteV1 = "eitmad.permission.quotation.draft.write.v1";
+        public const string EitmadPermissionQuotationDraftResolveV1 = "eitmad.permission.quotation.draft.resolve.v1";
         public const string EitmadPermissionDesktopAccountsManageV1 = "eitmad.permission.desktop-accounts.manage.v1";
     }
 

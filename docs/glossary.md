@@ -171,6 +171,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | مرحّل المزامنة | Sync relay | **Provisional UI term.** A tenant-isolated WAN coordination route that preserves authentication and encryption when direct server connectivity is unavailable. It rejects unauthenticated or plaintext WAN sessions and cannot change sync meaning or product authorization. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
 | مراجعة تعارض العميل | Customer conflict review | A Manager compares preserved inputs and the current server contact, selects or corrects each final field, then confirms against the current server revision. Later pending edits require separate review. |
+| مراجعة تعارض المسودة | Quotation-draft conflict review | A Manager reviews both preserved draft inputs and the current server snapshot, then explicitly keeps the current snapshot or uses the saved input. Later held revisions require separate review. This decision does not approve or issue the quotation. |
 | سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |

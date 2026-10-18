@@ -13,6 +13,7 @@ pub use approval::{
 };
 pub use quotation::validate_draft_snapshot;
 mod draft_recovery;
+mod draft_resolution;
 mod draft_sync;
 mod drafts;
 pub use draft_sync::{QuotationDraftSyncCycle, QuotationDraftSyncError};

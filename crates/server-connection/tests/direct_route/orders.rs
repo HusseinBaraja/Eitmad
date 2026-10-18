@@ -378,6 +378,7 @@ fn accept(
         .quotation_transition(actor, &request, UnixMillis(i64::MAX))
         .unwrap();
     assert_eq!(accepted.quotation, original.snapshot);
+    resolution::assert_final_unchanged(clients, actor, &accepted);
     assert_eq!(
         accepted.acceptance.as_ref().unwrap().document_revision,
         accepted.document_revision

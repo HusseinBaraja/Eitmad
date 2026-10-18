@@ -205,7 +205,7 @@ fn quotation_recovery_waits_for_customer_and_preserves_saved_revisions_after_res
     customers
         .mark_sync_exception(
             &actor,
-            saved.snapshot.intent.customer.as_ref().unwrap().id,
+            &dependency,
             eitmad_contracts::customer::CustomerSyncState::Rejected,
             mutation(actor.clone(), 1203).correlation_id,
             UnixMillis(1),

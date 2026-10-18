@@ -125,6 +125,7 @@ impl AuthenticatedHttpClient {
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"
                 && (route.starts_with("/v1/quotation-approvals/")
+                    || route.starts_with("/v1/quotation-drafts/")
                     || route.starts_with("/v1/quotations/")
                     || route.starts_with("/v1/orders/")
                     || matches!(route, "/v1/customers/conflicts" | "/v1/customers/resolve")))
@@ -168,6 +169,7 @@ impl AuthenticatedHttpClient {
         .map_err(HttpError::Unavailable)?;
         let maximum = if route == "/v1/pricing/read"
             || route.starts_with("/v1/quotation-approvals/")
+            || route.starts_with("/v1/quotation-drafts/")
             || route.starts_with("/v1/quotations/")
             || route.starts_with("/v1/orders/")
             || route.starts_with("/v1/customers/")

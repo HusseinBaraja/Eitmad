@@ -201,7 +201,7 @@ impl QuotationDraftService {
         }
         result
     }
-    fn audit_failure(
+    pub(super) fn audit_failure(
         &self,
         context: &MutationContext,
         operation: &str,
@@ -628,7 +628,7 @@ impl QuotationDraftService {
             })
     }
 }
-fn audit(
+pub(super) fn audit(
     context: &MutationContext,
     operation: &str,
     id: Option<QuotationDraftId>,

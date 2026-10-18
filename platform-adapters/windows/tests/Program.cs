@@ -593,6 +593,7 @@ internal sealed class SupervisionScenarios
         var list = await supervisor.QueryAsync(Query.ForQuotationDraftList(new() { Limit = 100 }));
         Assert.Equal(CommandOutcomeStatus.Succeeded, list.Outcome.Status, "Manager draft list uses authorized branch");
         Assert.Equal(0, list.Outcome.Payload.AsQuotationDrafts()!.Items.Length, "no synthetic quotation rows from Rust");
+        await VerifyDraftResolutionBoundary(supervisor, manager: true);
         await VerifyQuotationLifecycleBoundary(supervisor, manager: true);
         var intent = new EvaluateQuotation { Customer = new() { Id = customer.Id, Revision = customer.Revision + 1 }, Lines = [], DiscountBasisPoints = 0 };
         var denied = await supervisor.SubmitCommandAsync(Command.ForQuotationDraftCreate(new() { Intent = intent }), Guid.NewGuid());
@@ -610,6 +611,7 @@ internal sealed class SupervisionScenarios
         var reception = await supervisor.SignInAsync("rec", "rec");
         Assert.Equal(DesktopAccountRole.Receptionist, reception.AccountRole, "Rust receptionist role");
         Assert.Equal("branch", reception.CustomerAuthorization?.Scope.Kind, "Rust receptionist branch");
+        await VerifyDraftResolutionBoundary(supervisor, manager: false);
         await VerifyQuotationLifecycleBoundary(supervisor, manager: false);
         await VerifyOrderBoundary(supervisor, manager: false);
         var homeSearch = await supervisor.QueryAsync(Query.ForHomeRead(new() { Term = "تجريبي" }));
@@ -628,6 +630,22 @@ internal sealed class SupervisionScenarios
         Assert.Equal(ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftInvalidV1, failed.Outcome.Payload.Code, "Receptionist reaches draft field validation in branch");
         Assert.Equal(DetailKind.QuotationDraftValidation, failed.Outcome.Payload.Detail.Kind, "typed draft errors reach native client");
         Assert.True(failed.Outcome.Payload.Detail.Payload.Errors.Any(error => error.Field == QuotationField.Lines), "empty lines rejected by Rust");
+    }
+
+    private static async Task VerifyDraftResolutionBoundary(EngineSupervisor supervisor, bool manager)
+    {
+        Assert.True(supervisor.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftResolutionV1), "draft resolution capability negotiated");
+        var draft = Guid.NewGuid(); var branch = Guid.NewGuid();
+        var query = await supervisor.QueryAsync(Query.ForQuotationDraftReview(new() { DraftId = draft, BranchId = branch }));
+        var source = QuotationDraftResolutionSource.ForConflict(new() { ConflictId = Guid.NewGuid() });
+        var response = await supervisor.SubmitCommandAsync(Command.ForQuotationDraftResolve(new() {
+            DraftId = draft, BranchId = branch, ExpectedServerRevision = 1,
+            Source = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,object>>(System.Text.Json.JsonSerializer.Serialize(source))!,
+            Choice = QuotationDraftResolutionChoice.KeepCurrent,
+        }), Guid.NewGuid());
+        var expected = manager ? ProtocolIds.ErrorCodes.EitmadErrorQuotationDraftUnavailableV1 : ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1;
+        Assert.Equal(expected, query.Outcome.Payload.Code, "draft review requires Manager authority and a live server");
+        Assert.Equal(expected, response.Outcome.Payload.Code, "draft decision requires Manager authority and a live server");
     }
 
     private static async Task VerifyOrderBoundary(EngineSupervisor supervisor, bool manager = true)

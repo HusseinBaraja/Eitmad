@@ -18,6 +18,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.customer-documents.v1",
     "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
+    "eitmad.capability.quotation-draft-resolution.v1",
     "eitmad.capability.quotation-evaluation.v1",
     "eitmad.capability.sales-catalog.v1",
     "eitmad.capability.catalog-revisions.v1",
@@ -135,6 +136,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.catalog.draft.write.v1",
     "eitmad.permission.quotation.draft.read.v1",
     "eitmad.permission.quotation.draft.write.v1",
+    "eitmad.permission.quotation.draft.resolve.v1",
     "eitmad.permission.desktop-accounts.manage.v1",
 ];
 

@@ -3,6 +3,7 @@ mod approval;
 mod draft_sync;
 mod lifecycle;
 mod recovery;
+mod resolution;
 use eitmad_contracts::{
     commands::CreateCustomer,
     customer::{CustomerName, CustomerPhone},

@@ -1,0 +1,42 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Quotations.QuotationDraftResolutionView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+ FlowDirection="RightToLeft" Language="ar-YE">
+ <UserControl.Resources>
+  <DataTemplate x:Key="SnapshotFields"><StackPanel Margin="0,0,0,12">
+   <TextBlock Text="{Binding Label}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
+   <TextBlock Text="{Binding Value}" FlowDirection="{Binding Direction}" TextAlignment="{Binding Alignment}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+  </StackPanel></DataTemplate>
+ </UserControl.Resources>
+ <Grid Margin="20">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel Margin="0,0,0,16">
+   <TextBlock Text="مراجعة تعارض المسودة" Style="{StaticResource SectionTitle}"/>
+   <TextBlock Text="للمدير فقط. راجع نسخ المسودة واختر حلاً صريحاً. لا يعتمد هذا القرار الخصم ولا يصدر عرض السعر." TextWrapping="Wrap" Margin="0,8,0,0"/>
+  </StackPanel>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel>
+    <controls:FormField Label="التعارض أو التعديل المحفوظ"><ComboBox x:Name="Sources" DisplayMemberPath="Label" SelectionChanged="SourceChanged" Style="{StaticResource SelectInput}" AutomationProperties.Name="اختيار تعارض المسودة أو تعديل محفوظ"/></controls:FormField>
+    <Button x:Name="NextButton" Content="التعارضات التالية" Click="NextClick" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Visibility="Collapsed" AutomationProperties.Name="عرض صفحة تعارضات المسودة التالية"/>
+    <TextBlock x:Name="RevisionLabel" Margin="0,12" TextWrapping="Wrap"/>
+    <Expander Header="نسخة الخادم الحالية" IsExpanded="True" Margin="0,0,0,12"><ItemsControl x:Name="CurrentFields" ItemTemplate="{StaticResource SnapshotFields}" Margin="12"/></Expander>
+    <Expander Header="التعديل المحفوظ من الجهاز" IsExpanded="True" Margin="0,0,0,12"><ItemsControl x:Name="InputFields" ItemTemplate="{StaticResource SnapshotFields}" Margin="12"/></Expander>
+    <Expander Header="نسخة الخادم عند التعارض" Margin="0,0,0,12"><ItemsControl x:Name="RemoteFields" ItemTemplate="{StaticResource SnapshotFields}" Margin="12"/></Expander>
+    <controls:FormField Label="القرار الصريح"><ComboBox x:Name="Choice" Style="{StaticResource SelectInput}" AutomationProperties.Name="اختيار النسخة المطلوبة للمسودة">
+     <ComboBoxItem Content="الاحتفاظ بنسخة الخادم الحالية"/>
+     <ComboBoxItem Content="استخدام التعديل المحفوظ من الجهاز"/>
+    </ComboBox></controls:FormField>
+    <TextBlock Text="التعديلات اللاحقة تبقى محفوظة للمراجعة ولا يعاد إرسالها تلقائياً. راجع كل تعديل على حدة بعد هذا القرار." TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{DynamicResource MutedBrush}"/>
+   </StackPanel>
+  </ScrollViewer>
+  <StackPanel Grid.Row="2" Margin="0,12,0,0">
+   <TextBlock x:Name="Notice" TextWrapping="Wrap" Margin="0,0,0,12" AutomationProperties.LiveSetting="Polite"/>
+   <WrapPanel>
+    <Button x:Name="ConfirmButton" Content="تأكيد حل التعارض" Click="ConfirmClick" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" AutomationProperties.Name="تأكيد حل تعارض المسودة على الخادم"/>
+    <Button x:Name="ReloadButton" Content="تحديث المراجعة" Click="ReloadClick" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" AutomationProperties.Name="تحديث مراجعة المسودة من الخادم"/>
+    <Button Content="إغلاق" Click="CloseClick" Style="{StaticResource SecondaryButton}" Margin="0,0,0,8" AutomationProperties.Name="إغلاق مراجعة تعارض المسودة"/>
+   </WrapPanel>
+  </StackPanel>
+ </Grid>
+</UserControl>

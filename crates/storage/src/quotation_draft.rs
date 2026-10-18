@@ -145,7 +145,7 @@ impl AuthorityStore {
                    AND a.operation IN ('eitmad.quotation-draft.create.v1',
                      'eitmad.quotation-draft.update.v1', 'eitmad.quotation-draft.cancel.v1')
                    AND a.outcome='\"succeeded\"'
-                 WHERE o.rowid>?1 AND json_extract(CAST(d.record_json AS TEXT),'$.syncState')='pending'
+                 WHERE o.rowid>?1 AND json_extract(CAST(d.record_json AS TEXT),'$.syncState') IN ('pending','conflicted','rejected')
                    AND NOT EXISTS (SELECT 1 FROM quotation_draft_outbox earlier
                      WHERE earlier.scope_kind=o.scope_kind AND earlier.scope_id=o.scope_id
                        AND earlier.draft_id=o.draft_id AND earlier.revision<o.revision)
@@ -248,6 +248,7 @@ impl AuthorityStore {
             let (kind,id)=scope_parts(&incoming.scope);
             let draft_id=incoming.snapshot.id.value().to_string();
             let removed=tx.execute("DELETE FROM quotation_draft_outbox WHERE change_id=?1 AND scope_kind=?2 AND scope_id=?3 AND draft_id=?4", params![change.change_id.value().to_string(),kind,id,draft_id]).map_err(|_| StorageError)?;
+            let resolved = crate::draft_resolution::hold_resolution_inputs(tx, change)?;
             let pending: Option<Vec<u8>>=tx.query_row("SELECT change_json FROM quotation_draft_outbox WHERE scope_kind=?1 AND scope_id=?2 AND draft_id=?3 ORDER BY revision LIMIT 1", params![kind,id,draft_id], |r| r.get(0)).optional().map_err(|_| StorageError)?;
             let current=get_on(tx,&incoming.scope,incoming.snapshot.id)?;
             let mut target=incoming.clone();
@@ -261,7 +262,9 @@ impl AuthorityStore {
                         conflict.remote=Some(change.clone());
                     } else if removed == 0 { return Ok(false); }
                     target=local;
-                } else if local.snapshot.revision > incoming.snapshot.revision || (removed == 0 && local == *incoming) { return Ok(false); }
+                } else if resolved && local.sync_state == QuotationDraftSyncState::Confirmed && local.snapshot.revision > incoming.snapshot.revision {
+                    target=local;
+                } else if !resolved && (local.snapshot.revision > incoming.snapshot.revision || (removed == 0 && local == *incoming)) { return Ok(false); }
             }
             put_on(tx,&target)?;
             insert_audit(tx,audit)?;

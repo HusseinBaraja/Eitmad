@@ -9,6 +9,7 @@ mod boundary_audit;
 mod customer;
 mod customer_directory;
 mod customer_resolution;
+mod draft_resolution;
 mod orders;
 mod quotation_approval;
 mod quotation_lifecycle;

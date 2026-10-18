@@ -745,6 +745,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationEvaluationV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1,
+                ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftResolutionV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1,

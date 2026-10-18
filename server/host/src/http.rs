@@ -264,6 +264,9 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/customers/read", post(customer_read))
         .route("/v1/customers/conflicts", post(customer_conflicts))
         .route("/v1/customers/resolve", post(customer_resolve))
+        .route("/v1/quotation-drafts/recovery", post(draft_recovery))
+        .route("/v1/quotation-drafts/review", post(draft_review))
+        .route("/v1/quotation-drafts/resolve", post(draft_resolve))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
         .route("/v1/admin/update-manifests", post(publish_update_manifest))
@@ -1741,27 +1744,30 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.customer.v1" {
-        27
-    } else if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
-        25
-    } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
-        23
-    } else if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
-    ) {
-        22
-    } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
-        20
-    } else if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-    ) {
-        17
-    } else {
-        5
-    };
+    let minimum_minor =
+        if required_capability.as_str() == "eitmad.capability.quotation-draft-resolution.v1" {
+            28
+        } else if required_capability.as_str() == "eitmad.capability.customer.v1" {
+            27
+        } else if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
+            25
+        } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
+            23
+        } else if matches!(
+            required_capability.as_str(),
+            "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
+        ) {
+            22
+        } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
+            20
+        } else if matches!(
+            required_capability.as_str(),
+            "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
+        ) {
+            17
+        } else {
+            5
+        };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {
@@ -1828,6 +1834,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
         "eitmad.capability.work-orders.v1",
         "eitmad.capability.quotation-lifecycle.v1",
         "eitmad.capability.quotation-approval.v1",
+        "eitmad.capability.quotation-draft-resolution.v1",
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
         "eitmad.capability.pricing.v1",
@@ -1861,6 +1868,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                         | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"
                         | "eitmad.capability.quotation-approval.v1"
+                        | "eitmad.capability.quotation-draft-resolution.v1"
                         | "eitmad.capability.catalog-image.v1"
                         | "eitmad.capability.pricing.v1"
                         | "eitmad.capability.catalog-revisions.v1"
@@ -2190,6 +2198,88 @@ fn map_order(e: eitmad_orders::OrderError) -> ApiError {
         },
         eitmad_orders::error_code(e),
     )
+}
+
+async fn draft_review(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ReadQuotationDraftReview>,
+) -> Result<Json<eitmad_contracts::quotation_draft::QuotationDraftReview>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .quotation_draft_review(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+async fn draft_resolve(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution>,
+) -> Result<Json<ChangeRecord>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .resolve_quotation_draft(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+fn map_draft_resolution(error: &eitmad_pricing::QuotationDraftError) -> ApiError {
+    use eitmad_pricing::QuotationDraftError as E;
+    let (status, code) = match error {
+        E::Denied => (
+            StatusCode::FORBIDDEN,
+            "eitmad.error.authorization-denied.v1",
+        ),
+        E::Conflict { .. } | E::UnresolvedConflict => (
+            StatusCode::CONFLICT,
+            "eitmad.error.quotation-draft-conflict.v1",
+        ),
+        E::NotFound => (
+            StatusCode::NOT_FOUND,
+            "eitmad.error.quotation-draft-not-found.v1",
+        ),
+        E::Unavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.quotation-draft-unavailable.v1",
+        ),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            "eitmad.error.quotation-draft-invalid.v1",
+        ),
+    };
+    ApiError::new(status, code)
+}
+
+async fn draft_recovery(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ReadQuotationDraftRecovery>,
+) -> Result<Json<Vec<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .quotation_draft_recovery(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
 }
 
 #[cfg(test)]

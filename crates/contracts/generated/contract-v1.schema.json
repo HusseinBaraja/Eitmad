@@ -51,6 +51,9 @@
     "confirm_quotation": {
       "$ref": "#/definitions/ConfirmQuotation"
     },
+    "confirm_quotation_draft_resolution": {
+      "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+    },
     "desktop_enrollment_profile": {
       "$ref": "#/definitions/DesktopEnrollmentProfile"
     },
@@ -126,6 +129,12 @@
     "read_published_prices": {
       "$ref": "#/definitions/ReadPublishedPrices"
     },
+    "read_quotation_draft_recovery": {
+      "$ref": "#/definitions/ReadQuotationDraftRecovery"
+    },
+    "read_quotation_draft_review": {
+      "$ref": "#/definitions/ReadQuotationDraftReview"
+    },
     "read_quotations": {
       "$ref": "#/definitions/ReadQuotations"
     },
@@ -194,6 +203,9 @@
     }
   },
   "required": [
+    "read_quotation_draft_recovery",
+    "read_quotation_draft_review",
+    "confirm_quotation_draft_resolution",
     "read_customers",
     "read_customer_conflicts",
     "confirm_customer_resolution",
@@ -1525,6 +1537,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-draft.resolve.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ResolveQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.resolve-conflict.v1"
             },
             "payload": {
@@ -2076,6 +2104,22 @@
             },
             "payload": {
               "$ref": "#/definitions/CustomerMutationResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "quotationDraftResolved"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
             }
           },
           "required": [
@@ -2757,6 +2801,27 @@
         "scope",
         "idempotencyKey",
         "action"
+      ]
+    },
+    "ConfirmQuotationDraftResolution": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "$ref": "#/definitions/ResolveQuotationDraft"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "idempotencyKey",
+        "command"
       ]
     },
     "ConflictNotice": {
@@ -5633,6 +5698,32 @@
       "additionalProperties": false,
       "required": [
         "draftId"
+      ]
+    },
+    "GetQuotationDraftReview": {
+      "description": "A review always names the branch, including an organization Manager's review.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "branchId"
       ]
     },
     "GetSalesCatalogItem": {
@@ -9377,6 +9468,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.quotation-draft.review.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetQuotationDraftReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.conflicts.v1"
             },
             "payload": {
@@ -10103,6 +10210,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "quotationDraftReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "customerConflicts"
             },
             "payload": {
@@ -10649,6 +10772,38 @@
         }
       }
     },
+    "QuotationDraftConflictSource": {
+      "type": "object",
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "conflictId"
+      ]
+    },
+    "QuotationDraftConflictView": {
+      "type": "object",
+      "properties": {
+        "conflict": {
+          "$ref": "#/definitions/ConflictRecord"
+        },
+        "local": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "remote": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        }
+      },
+      "required": [
+        "conflict",
+        "local",
+        "remote"
+      ]
+    },
     "QuotationDraftPage": {
       "type": "object",
       "properties": {
@@ -10668,6 +10823,111 @@
       },
       "required": [
         "items"
+      ]
+    },
+    "QuotationDraftResolutionChoice": {
+      "description": "Whole saved snapshots retain their exact prices and configurations.",
+      "type": "string",
+      "enum": [
+        "keepCurrent",
+        "useInput"
+      ]
+    },
+    "QuotationDraftResolutionSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "conflict"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftConflictSource"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pendingReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "QuotationDraftReview": {
+      "type": "object",
+      "properties": {
+        "canResolve": {
+          "type": "boolean"
+        },
+        "current": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationDraftConflictView"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "pendingResolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingReviews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationDraftReviewInput"
+          }
+        }
+      },
+      "required": [
+        "current",
+        "items",
+        "pendingReviews",
+        "canResolve"
+      ]
+    },
+    "QuotationDraftReviewInput": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ChangeRecord"
+        },
+        "snapshot": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        }
+      },
+      "required": [
+        "change",
+        "snapshot"
       ]
     },
     "QuotationDraftSnapshot": {
@@ -11125,6 +11385,40 @@
       "required": [
         "scope",
         "limit"
+      ]
+    },
+    "ReadQuotationDraftRecovery": {
+      "description": "Authenticated recovery read; it conveys no resolution permission.",
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "draftId"
+      ]
+    },
+    "ReadQuotationDraftReview": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/GetQuotationDraftReview"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "query"
       ]
     },
     "ReadQuotations": {
@@ -11673,6 +11967,38 @@
         "source",
         "expectedServerRevision",
         "contact"
+      ]
+    },
+    "ResolveQuotationDraft": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "choice": {
+          "$ref": "#/definitions/QuotationDraftResolutionChoice"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedServerRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/definitions/QuotationDraftResolutionSource"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "branchId",
+        "expectedServerRevision",
+        "source",
+        "choice"
       ]
     },
     "RestartRequirement": {

@@ -349,6 +349,10 @@ namespace Eitmad.Contracts
         public CreateQuotationDraft CommandQuotationDraftCreate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_QuotationDraftResolve")]
+        public ResolveQuotationDraft CommandQuotationDraftResolve { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_QuotationDraftUpdate")]
         public UpdateQuotationDraft CommandQuotationDraftUpdate { get; set; }
 
@@ -451,6 +455,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_QuotationDraftCreated")]
         public QuotationDraft CommandResultQuotationDraftCreated { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_QuotationDraftResolved")]
+        public ChangeRecord CommandResultQuotationDraftResolved { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_QuotationDraftUpdated")]
@@ -781,6 +789,10 @@ namespace Eitmad.Contracts
         public ListQuotationDrafts QueryQuotationDraftList { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_QuotationDraftReview")]
+        public GetQuotationDraftReview QueryQuotationDraftReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_QuotationEvaluate")]
         public EvaluateQuotation QueryQuotationEvaluate { get; set; }
 
@@ -925,6 +937,10 @@ namespace Eitmad.Contracts
         public QuotationDraft QueryResultQuotationDraft { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_QuotationDraftReview")]
+        public QuotationDraftReview QueryResultQuotationDraftReview { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_QuotationDrafts")]
         public QuotationDraftPage QueryResultQuotationDrafts { get; set; }
 
@@ -959,6 +975,14 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_WorkOrders")]
         public WorkOrderPage QueryResultWorkOrders { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QuotationDraftResolutionSource_Conflict")]
+        public QuotationDraftConflictSource QuotationDraftResolutionSourceConflict { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QuotationDraftResolutionSource_PendingReview")]
+        public ChangeRecord QuotationDraftResolutionSourcePendingReview { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Subscription_AuthorizationPolicyChangedSubscribe")]
@@ -1768,6 +1792,24 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("target")]
         public Dictionary<string, object> Target { get; set; }
+    }
+
+    public partial class ResolveQuotationDraft
+    {
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("choice")]
+        public QuotationDraftResolutionChoice Choice { get; set; }
+
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+
+        [JsonPropertyName("expectedServerRevision")]
+        public long ExpectedServerRevision { get; set; }
+
+        [JsonPropertyName("source")]
+        public Dictionary<string, object> Source { get; set; }
     }
 
     public partial class UpdateQuotationDraft
@@ -3879,6 +3921,21 @@ namespace Eitmad.Contracts
         public long Limit { get; set; }
     }
 
+    /// <summary>
+    /// A review always names the branch, including an organization Manager's review.
+    /// </summary>
+    public partial class GetQuotationDraftReview
+    {
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
+
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("draftId")]
+        public Guid DraftId { get; set; }
+    }
+
     public partial class ListQuotations
     {
         [JsonPropertyName("after")]
@@ -4535,6 +4592,60 @@ namespace Eitmad.Contracts
         public Guid? Next { get; set; }
     }
 
+    public partial class QuotationDraftReview
+    {
+        [JsonPropertyName("canResolve")]
+        public bool CanResolve { get; set; }
+
+        [JsonPropertyName("current")]
+        public QuotationDraftSnapshot Current { get; set; }
+
+        [JsonPropertyName("items")]
+        public QuotationDraftConflictView[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonPropertyName("pendingResolution")]
+        public ConfirmQuotationDraftResolution PendingResolution { get; set; }
+
+        [JsonPropertyName("pendingReviews")]
+        public QuotationDraftReviewInput[] PendingReviews { get; set; }
+    }
+
+    public partial class QuotationDraftConflictView
+    {
+        [JsonPropertyName("conflict")]
+        public ConflictRecord Conflict { get; set; }
+
+        [JsonPropertyName("local")]
+        public QuotationDraftSnapshot Local { get; set; }
+
+        [JsonPropertyName("remote")]
+        public QuotationDraftSnapshot Remote { get; set; }
+    }
+
+    public partial class ConfirmQuotationDraftResolution
+    {
+        [JsonPropertyName("command")]
+        public ResolveQuotationDraft Command { get; set; }
+
+        [JsonPropertyName("idempotencyKey")]
+        public Guid IdempotencyKey { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class QuotationDraftReviewInput
+    {
+        [JsonPropertyName("change")]
+        public ChangeRecord Change { get; set; }
+
+        [JsonPropertyName("snapshot")]
+        public QuotationDraftSnapshot Snapshot { get; set; }
+    }
+
     public partial class QuotationDraftPage
     {
         [JsonPropertyName("items")]
@@ -4797,6 +4908,12 @@ namespace Eitmad.Contracts
         public Guid? OrderId { get; set; }
     }
 
+    public partial class QuotationDraftConflictSource
+    {
+        [JsonPropertyName("conflictId")]
+        public Guid ConflictId { get; set; }
+    }
+
     public partial class OrderChanges
     {
     }
@@ -4848,6 +4965,11 @@ namespace Eitmad.Contracts
     public enum AcceptanceMethod { InPerson, Phone, Written };
 
     public enum DiscountDecision { Approve, Reject };
+
+    /// <summary>
+    /// Whole saved snapshots retain their exact prices and configurations.
+    /// </summary>
+    public enum QuotationDraftResolutionChoice { KeepCurrent, UseInput };
 
     public enum RestartRequirement { Application, Engine, None };
 
@@ -4978,6 +5100,7 @@ namespace Eitmad.Contracts
                 PrincipalKindConverter.Singleton,
                 ConfigWriteValueKindConverter.Singleton,
                 DiscountDecisionConverter.Singleton,
+                QuotationDraftResolutionChoiceConverter.Singleton,
                 MaterialRecordKindConverter.Singleton,
                 PermissionDecisionConverter.Singleton,
                 PeerKindConverter.Singleton,
@@ -6499,6 +6622,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly DiscountDecisionConverter Singleton = new DiscountDecisionConverter();
+    }
+
+    internal class QuotationDraftResolutionChoiceConverter : JsonConverter<QuotationDraftResolutionChoice>
+    {
+        public override bool CanConvert(Type t) => t == typeof(QuotationDraftResolutionChoice);
+
+        public override QuotationDraftResolutionChoice Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "keepCurrent":
+                    return QuotationDraftResolutionChoice.KeepCurrent;
+                case "useInput":
+                    return QuotationDraftResolutionChoice.UseInput;
+            }
+            throw new Exception("Cannot unmarshal type QuotationDraftResolutionChoice");
+        }
+
+        public override void Write(Utf8JsonWriter writer, QuotationDraftResolutionChoice value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case QuotationDraftResolutionChoice.KeepCurrent:
+                    JsonSerializer.Serialize(writer, "keepCurrent", options);
+                    return;
+                case QuotationDraftResolutionChoice.UseInput:
+                    JsonSerializer.Serialize(writer, "useInput", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type QuotationDraftResolutionChoice");
+        }
+
+        public static readonly QuotationDraftResolutionChoiceConverter Singleton = new QuotationDraftResolutionChoiceConverter();
     }
 
     internal class MaterialRecordKindConverter : JsonConverter<MaterialRecordKind>

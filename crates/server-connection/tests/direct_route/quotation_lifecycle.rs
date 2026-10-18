@@ -100,6 +100,7 @@ pub(super) fn run(
     assert_eq!(issued.state, QuotationState::Issued);
     assert!(issued.number.as_ref().unwrap().starts_with("QT-"));
     assert_eq!(issued.quotation, original.snapshot);
+    resolution::assert_final_unchanged(clients, &actor, &issued);
     watches.wait(issued.quotation.id, issued.revision);
     verify_issue_retry(
         clients,
@@ -529,6 +530,8 @@ fn verify_catalog_change(
     let after = current(&*clients.reception, &actor, retained.quotation.id);
     assert_frozen(&after.quotation, &retained.quotation);
     assert_eq!(after.number, retained.number);
+    resolution::dependencies(clients, &actor, &before);
+    let before = current(&*clients.reception, &actor, before.quotation.id);
     assert_eq!(
         clients.reception.quotation_transition(
             &actor,

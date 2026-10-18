@@ -957,6 +957,9 @@ impl CommandDispatcher for ProductDispatcher {
             Command::UpdateCustomer(command) => self
                 .update_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
+            Command::ResolveQuotationDraft(command) => {
+                self.resolve_draft(&context, mutation, command).await
+            }
             Command::ResolveCustomerConflict(command) => {
                 self.resolve_customer_conflict(&context, mutation, command)
                     .await
@@ -1044,6 +1047,7 @@ impl QueryDispatcher for ProductDispatcher {
                 self.quotation_document(&context, query).await
             }
             Query::Quotations(query) => self.quotation_list(&context, query).await,
+            Query::QuotationDraftReview(query) => self.draft_review(&context, query).await,
             Query::DiscountApprovals(query) => self.approval_list(&context, query).await,
             query @ (Query::QuotationDraft(_) | Query::QuotationDrafts(_)) => {
                 self.dispatch_draft_query(&context, query).map_err(|e| *e)

@@ -126,6 +126,7 @@ The table defines the required versioned permission identifiers. The Rust contra
 | Add a customer branch association | `eitmad.permission.customer.branch.assign.v1` | All branches | Denied | Server confirmation |
 | Merge, archive, or restore customer | `eitmad.permission.customer.manage.v1` | All branches | Denied | Server confirmation |
 | Create or edit quotation draft | `eitmad.permission.quotation.draft.write.v1` | Denied | Assigned branches | Local-first draft |
+| Resolve quotation-draft conflict or review a held revision | `eitmad.permission.quotation.draft.resolve.v1` | All branches | Denied | Explicit draft decision with current server revision; server confirmation |
 | Request discount approval | `eitmad.permission.quotation.approval.request.v1` | Denied | Assigned branches | Server confirmation |
 | Approve or reject discount | `eitmad.permission.quotation.approval.decide.v1` | All branches | Denied | Server confirmation; approver differs from requester |
 | Manage default or per-quotation validity | `eitmad.permission.quotation.validity.manage.v1` | All branches | Denied | Server confirmation |
@@ -250,6 +251,8 @@ The Manager controls an organization default validity of 30 calendar days. A Man
 Validity uses the organization time zone, initially `Asia/Aden`. On issue, the server stores `issued_at`, the applied validity days, and an exact `valid_until` instant at the end of the resulting local calendar date. Server time controls expiry. An expired quotation cannot be accepted or converted. To extend an issued but unaccepted quotation, a Manager creates a new quotation revision. The new revision keeps the official quotation number, increments its revision, invalidates prior approval, and requires issuance again.
 
 ### Price snapshots and stale drafts
+
+Quotation-draft conflict resolution is Manager-only. This accepted permission allows an explicit choice of a preserved draft input or the current server snapshot. It does not grant general draft editing, discount approval, issuance, acceptance, or authority to alter an issued or accepted document. Later queued revisions remain immutable inputs for separate explicit review. See the [draft review and recovery path](quotations.md#explicit-draft-conflict-resolution).
 
 Adding a line to a draft records:
 
