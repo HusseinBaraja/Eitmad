@@ -148,8 +148,8 @@
                         </Border>
                     </controls:FormField>
 
-                    <CheckBox x:Name="OfflineSignIn" Content="العمل دون اتصال" Margin="0,12,0,0"
-                              automation:AutomationProperties.Name="العمل دون اتصال بالحساب المحفوظ" />
+                    <TextBlock Text="يتطلب الدخول والعمل اتصالًا بالخادم. تبقى بياناتك محفوظة عند انقطاع الاتصال."
+                               TextWrapping="Wrap" Margin="0,12,0,0" />
                     <Expander x:Name="ConnectionSetup" Header="ربط هذا الجهاز بالمنشأة" Margin="0,12,0,0"
                               automation:AutomationProperties.Name="إعداد اتصال المنشأة">
                         <StackPanel Margin="0,12,0,0">

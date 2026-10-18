@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows UI maintainers"
-last_verified: "2026-10-06"
+last_verified: "2026-10-18"
 review_triggers:
   - "Windows shell UI, state mapping, configuration patches, subscriptions, tray behavior, or ownership boundaries change"
 keywords:
@@ -115,7 +115,7 @@ If a list refresh fails, a notice beside the table labels retained rows as data 
 
 Add and edit reuse one page. Creation requires a display name, immutable username, supported role, and a temporary password of at least 12 characters. The password crosses only the authenticated local IPC command and is never retained by the shell. Edit changes display name or role with the returned account revision. Deactivation requires confirmation, keeps the row as **غير نشط**, closes the account's active sessions, and prevents another sign-in. Rust rejects stale revisions. Local-only account administration protects the last active Manager; connected administration follows the server's Owner protection. The shell keeps the editor open and maps stable failure identifiers to Arabic guidance.
 
-Protocol `1.8` adds `eitmad.capability.desktop-account-management.v1`, the typed create, update, deactivate, and list operations, and `eitmad.permission.desktop-accounts.manage.v1`. The Manager relationship grants that permission locally; connected administration also checks server Owner authority. Each mutation is audited atomically with account and relationship state. Protocol `1.25` adds `eitmad.capability.shared-accounts.v1` and the account-change subscription for connected administration. The shell does not open storage, mutate relationships, or infer success before a successful response. Confirmed access removal closes active sessions and protected feeds, clears retained page state and password input, and displays **تغيرت صلاحية حسابك أو انتهت جلسته. سجل الدخول للتحقق من الوصول.** See the [connected and offline limits](identity-foundation.md#connected-desktop-account-administration).
+Protocol `1.8` adds `eitmad.capability.desktop-account-management.v1`, the typed create, update, deactivate, and list operations, and `eitmad.permission.desktop-accounts.manage.v1`. The Manager relationship grants that permission locally; connected administration also checks server Owner authority. Each mutation is audited atomically with account and relationship state. Protocol `1.25` adds `eitmad.capability.shared-accounts.v1` and the account-change subscription for connected administration. The shell does not open storage, mutate relationships, or infer success before a successful response. All protected access requires live server confirmation. A failed check closes active sessions and protected feeds, clears retained page state and password input, and displays **تعذر تأكيد الوصول إلى حسابك. تحقق من اتصال الخادم ثم سجل الدخول. تبقى بياناتك محفوظة.** The sign-in screen has no offline option. See the [connected and offline limits](identity-foundation.md#connected-desktop-account-administration).
 
 The page reuses `PageHeader`, `FormField`, `AdaptiveFieldsPanel`, `OperationsTable`, `StatusBadge`, `EmptyState`, and existing input and button styles. Run the focused `UsersPresentationTests` and `UsersRenderedTests` classes. Set `EITMAD_UI_CAPTURE_DIR` only when a synthetic rendered capture is required.
 

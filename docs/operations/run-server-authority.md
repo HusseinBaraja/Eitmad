@@ -92,7 +92,7 @@ Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` an
 
 Success returns HTTP 200 after commit. Invalid input returns 400, denied scope or authority returns 403, and a stale revision, changed retry intent, or protected Owner returns 409. Invalid, revoked, or expired credentials return 401; unavailable authority returns 503. After a lost response, retry the identical request and key with a fresh device proof. Do not change the payload under the old key. After a conflict, read current state and submit a new intent with a new key. Exact retries preserve their original receipt, including terminal business errors. A revoked caller must first authenticate again.
 
-An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. Offline sign-in retains its local verifier. Connected engines receive account changes through authenticated watches; disconnected PCs follow the [offline authorization limit](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
+An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. All protected desktop access requires live server confirmation under the [offline authorization rule](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
 
 ### Verify account administration
 
@@ -108,7 +108,7 @@ This scenario uses the real handlers and PostgreSQL RLS. It verifies role separa
 
 Sign in online with an account that has both a Manager surface assignment and tenant Owner authority. Open **المستخدمون**. Use **إضافة مستخدم** to create a shared account with a display name, username, password, and role. Use **تعديل** for display-name or role changes and **تعطيل** for confirmed deactivation. Rust sends the intent to the authenticated server and waits for its committed receipt. A role change closes that user's active sessions; sign in again for the current role. Owner deactivation remains unsupported.
 
-During an outage, account changes remain disabled and retained rows show **غير مؤكد**. **إعادة التحميل** restores current state after connectivity returns. A denial clears the account list. Do not treat retained rows as confirmation or copy another device's data to restore access. Account changes propagate to connected engines and clear protected views when access is removed; the [disconnected limit](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit) still applies.
+On a list-service failure with access still confirmed, account changes remain disabled and retained rows show **غير مؤكد**. **إعادة التحميل** restores current state. A failed live access check, including an outage, closes the session and clears protected views. Sign in again online after connectivity returns. Do not copy another device's data to restore access. See the [disconnected rule and detection bounds](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
 
 ### Verify connected desktop accounts
 
@@ -118,14 +118,14 @@ Build the current Rust engine and Windows test project. Prepare a fresh disposab
 rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship -- --ignored
 ```
 
-The scenario starts two isolated engines, uses real Windows IPC and controller clients, creates a shared account, edits its role through Users, and deactivates it. It also interrupts the server, creates pending local work, changes access while disconnected, restores the connection, checks denied cached reads and closed subscriptions, and verifies retained records and exact original authorship. It asserts no application restart after enrollment. Run `UsersPresentationTests`, `DesktopSessionControllerTests`, and `UsersRenderedTests` for the native presentation, session fencing, Arabic copy, and rendered controls. Rendered tests use synthetic data; record actual display size and scaling with captures.
+The scenario starts two isolated engines, uses real Windows IPC and controller clients, creates a shared account, edits its role through Users, and deactivates it. It saves pending work before interrupting the server, then checks idle-session closure, denied cached reads, writes, offline sign-in, and subscriptions during the outage. It changes access while disconnected, restores the connection, and verifies online recovery, retained records, and exact original authorship. It asserts no application restart after enrollment. Run `UsersPresentationTests`, `DesktopSessionControllerTests`, `UsersRenderedTests`, and `DesktopEnrollmentRenderedTests` for native presentation, session fencing, Arabic copy, and rendered controls. Rendered tests use synthetic data; record actual display size and scaling with captures.
 
 ## Enroll or recover a Windows desktop
 
 Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
 
 1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
-2. Enter the server account name and password. Keep **العمل دون اتصال** unchecked.
+2. Enter the server account name and password. Sign-in and protected work require a server connection.
 3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
 4. Select **دخول**. Rust validates server trust, registers this installation's device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
 5. Close and reopen the application under the same Windows user and runtime directory. Leave the setup section closed and sign in. Rust uses the retained connection references and renews server access with password login.
@@ -137,7 +137,7 @@ For expired or missing account credentials, use the same normal online sign-in. 
 | Trust or connection rejection | Verify the endpoint, hostname, CA file, and server availability with the administrator. Do not bypass certificate validation. |
 | Account or scope rejection | Verify the tenant code, credentials, active account status, organization, branch, and explicit operational role. Existing installation scope is not replaced. |
 | Existing settings have no tenant code | Expand setup once and supply the original connection, trust, organization, and branch plus the tenant code. |
-| Server is unavailable | Use **العمل دون اتصال** only with an already imported account and its retained verifier. Retry online sign-in when the server returns. |
+| Server is unavailable | Protected access is unavailable. Keep the runtime data and retry online sign-in when the server returns. |
 | Both device key and account credentials are lost | Preserve the runtime and contact the operator. Automatic replacement of the registered signing identity is not supported. |
 
 A new PC must enroll independently. Never clone another PC's runtime directory or copy token material between PCs. The [desktop enrollment authority](../developer/subsystems/server-authority.md#retained-desktop-connection) defines persistence and failure boundaries. The workflow environment remains a synthetic provisioning harness; it is not required for desktop enrollment.

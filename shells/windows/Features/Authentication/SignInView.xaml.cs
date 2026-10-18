@@ -62,7 +62,7 @@ public partial class SignInView : UserControl
         try
         {
             Eitmad.Contracts.DesktopEnrollmentSettings? connection = null;
-            if (ConnectionSetup.IsExpanded && OfflineSignIn.IsChecked != true)
+            if (ConnectionSetup.IsExpanded)
             {
                 if (!Guid.TryParse(OrganizationId.Text, out var organization) || !Guid.TryParse(BranchId.Text, out var branch))
                 {
@@ -74,7 +74,7 @@ public partial class SignInView : UserControl
                     TenantCode = TenantCode.Text.Trim(), Organization = organization, Branch = branch,
                 };
             }
-            var surface = OfflineSignIn.IsChecked == true || ServerAuthenticateAsync is null
+            var surface = ServerAuthenticateAsync is null
                 ? await AuthenticateAsync(username, password, signInCancellation.Token)
                 : await ServerAuthenticateAsync(username, password, connection, signInCancellation.Token);
             SignInError.Visibility = Visibility.Collapsed;
@@ -115,7 +115,7 @@ public partial class SignInView : UserControl
         if (reason == SessionEndReason.RecoveryFailed)
             ShowError("تعذر إنهاء الجلسة بأمان. أنهِ الاعتماد من أيقونة البرنامج ثم افتحه من جديد.");
         else if (reason == SessionEndReason.AccessChanged)
-            ShowError("تغيرت صلاحية حسابك أو انتهت جلسته. سجل الدخول للتحقق من الوصول.");
+            ShowError("تعذر تأكيد الوصول إلى حسابك. تحقق من اتصال الخادم ثم سجل الدخول. تبقى بياناتك محفوظة.");
         else if (reason == SessionEndReason.Expired)
             ShowError("انتهت الجلسة. سجّل الدخول من جديد.");
         else if (reason == SessionEndReason.ConnectionLost)
@@ -141,7 +141,6 @@ public partial class SignInView : UserControl
         PasswordInput.IsEnabled = !busy;
         SignInButton.IsEnabled = !busy;
         ConnectionSetup.IsEnabled = !busy;
-        OfflineSignIn.IsEnabled = !busy;
         SignInButton.Content = busy ? "جارٍ تسجيل الدخول…" : "دخول";
         SignInProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }

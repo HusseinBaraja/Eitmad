@@ -11,6 +11,8 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class DesktopEnrollmentRenderedTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     [TestMethod]
     [DataRow(1920, 1080)]
     [DataRow(1338, 753)]
@@ -37,7 +39,7 @@ public sealed class DesktopEnrollmentRenderedTests
             };
             WpfTestHost.CompleteLayout(window);
             var dpi = VisualTreeHelper.GetDpi(window);
-            Console.WriteLine($"Enrollment render requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
+            TestContext.WriteLine($"Enrollment render requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%; display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
             Assert.AreEqual(FlowDirection.RightToLeft, view.FlowDirection);
             endpoint.BringIntoView(); WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(endpoint.Focus()); Assert.IsTrue(endpoint.IsKeyboardFocused);

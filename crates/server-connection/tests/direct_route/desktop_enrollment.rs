@@ -424,6 +424,7 @@ async fn shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship
             .unwrap()
     });
     wait_shared_phase(&root, "ready-offline", &mut shell).await;
+    let retained_categories = saved_work(&second.store).0;
     server.handle.handle.shutdown();
     tokio::time::sleep(Duration::from_millis(250)).await;
     std::fs::write(root.join("server-offline"), b"ready").unwrap();
@@ -444,9 +445,11 @@ async fn shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship
         String::from_utf8_lossy(&result.stdout)
     );
     assert_ne!(first.device(), second.device());
-    assert!(
-        saved_work(&second.store).0 >= 2,
-        "Protected records must remain in durable storage"
+    assert!(retained_categories >= 2);
+    assert_eq!(
+        saved_work(&second.store).0,
+        retained_categories,
+        "Retained records survive and denied offline writes add no records"
     );
     assert!(
         second

@@ -67,7 +67,7 @@ internal static partial class IpcCancellationScenario
 
     public static async Task ClosingSubscriptionDiscardsEventsWithoutBreakingTransport()
     {
-        foreach (var scenario in new[] { "unsubscribe", "early-close", "session", "pending-session" })
+        foreach (var scenario in new[] { "unsubscribe", "early-close", "session", "pending-session", "unsubscribe-session" })
         {
             var earlyClose = scenario == "early-close";
             var sessionClose = scenario is "session" or "pending-session";
@@ -107,6 +107,10 @@ internal static partial class IpcCancellationScenario
                 await ExpectFailureAsync(reader.MoveNextAsync().AsTask(), EngineIpcFailureKind.SessionChanged);
                 await client.UnsubscribeAsync(subscription, cancellationToken: token);
                 // Already-closed cleanup sends no redundant request.
+            }
+            else if (scenario == "unsubscribe-session")
+            {
+                await CloseDuringUnsubscribeAsync(client, server, subscription, token);
             }
             else
             {
@@ -150,6 +154,32 @@ internal static partial class IpcCancellationScenario
             await ProbeAsync(client, server, token);
             Assert.False(client.Completion.IsCompleted, "event cleanup preserves the healthy transport");
         }
+    }
+
+    private static async Task CloseDuringUnsubscribeAsync(EngineIpcClient client,
+        NamedPipeServerStream server, EngineSubscription subscription, CancellationToken token)
+    {
+        var cleanup = client.UnsubscribeAsync(subscription, cancellationToken: token);
+        using var unsubscribe = await ReadFrameAsync(server, token);
+        var signOut = client.SignOutAsync(token);
+        using var session = await ReadFrameAsync(server, token);
+        await cleanup.WaitAsync(token);
+        await ReplyAsync(server, IpcServerMessage.IpcSubscriptionClosedKind, new SubscriptionClosedEnvelope
+        {
+            SubscriptionId = subscription.SubscriptionId, Reason = SubscriptionCloseReason.EngineStopping,
+        }, token);
+        await ReplyAsync(server, IpcServerMessage.IpcUnsubscribeResponseKind, new UnsubscribeResponse
+        {
+            RequestId = unsubscribe.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
+            SubscriptionId = subscription.SubscriptionId, Accepted = true,
+        }, token);
+        await ReplyAsync(server, IpcServerMessage.IpcDesktopSessionResponseKind, new DesktopSessionResponse
+        {
+            RequestId = session.RootElement.GetProperty("payload").GetProperty("requestId").GetGuid(),
+            Status = DesktopSessionStatus.SignedOut,
+        }, token);
+        await signOut.WaitAsync(token);
+        Assert.False(client.Completion.IsCompleted, "A session transition owns an interrupted unsubscribe without losing transport.");
     }
 
     private static async Task ProbeAsync(EngineIpcClient client, NamedPipeServerStream server, CancellationToken token)

@@ -22,6 +22,14 @@ pub struct DesktopAuthenticator {
 
 /// Rust-owned online authentication, called only after the local IPC handshake.
 pub trait DesktopServerAuthentication: Send + Sync {
+    /// Requires a fresh authenticated server response for protected desktop access.
+    /// # Errors
+    /// Fails closed on denial, missing configuration, or an unreachable server.
+    fn check_access(
+        &self,
+        authorization: &AuthorizationContext,
+    ) -> Result<(), DesktopAuthenticationError>;
+
     /// Returns true when saved routes require an engine restart.
     /// # Errors
     /// Rejects untrusted peers, mismatched identities, and incomplete credential persistence.
@@ -223,6 +231,38 @@ impl DesktopAuthenticator {
             .map_err(|_| DesktopAuthenticationError::Unavailable)
     }
 
+    /// Checks local session validity and live server authority outside the async IPC runtime.
+    /// No successful response is reused for a later protected operation.
+    /// # Panics
+    /// Panics only if the built-in organization scope identifier is invalid.
+    pub async fn protected_active(&self, authorization: &AuthorizationContext) -> bool {
+        if self.active(authorization, eitmad_authorization::now()) != Ok(true) {
+            return false;
+        }
+        let Some(server) = self.server.clone() else {
+            return true;
+        };
+        let actor = authorization.clone();
+        if !matches!(
+            tokio::task::spawn_blocking(move || server.check_access(&actor)).await,
+            Ok(Ok(()))
+        ) {
+            // An outage closes this session, but does not deactivate the account or change work.
+            let mut closing = authorization.clone();
+            closing.scope = ScopeRef {
+                kind: ScopeKind::parse("organization").expect("registered scope kind"),
+                id: ScopeId::new(closing.tenant_id.value()),
+            };
+            let _ = self.sign_out(
+                &closing,
+                CorrelationId::new(Uuid::new_v4()),
+                eitmad_authorization::now(),
+            );
+            return false;
+        }
+        self.active(authorization, eitmad_authorization::now()) == Ok(true)
+    }
+
     /// Returns the persisted state for an authenticated desktop session.
     ///
     /// # Errors
@@ -412,6 +452,60 @@ mod tests {
             .unwrap();
         assert_eq!(signed_in, 2);
         assert_eq!(signed_out, 1);
+    }
+
+    struct LiveAuthority(std::sync::atomic::AtomicBool);
+
+    impl DesktopServerAuthentication for LiveAuthority {
+        fn check_access(&self, _: &AuthorizationContext) -> Result<(), DesktopAuthenticationError> {
+            if self.0.load(std::sync::atomic::Ordering::SeqCst) {
+                Ok(())
+            } else {
+                Err(DesktopAuthenticationError::Unavailable)
+            }
+        }
+
+        fn sign_in(
+            &self,
+            _: &eitmad_contracts::ipc::DesktopSignInRequest,
+        ) -> Result<bool, DesktopAuthenticationError> {
+            Err(DesktopAuthenticationError::Unavailable)
+        }
+    }
+
+    #[tokio::test]
+    async fn live_authority_is_required_each_time_and_reconnect_does_not_reopen_a_closed_session() {
+        let (_directory, store, owner, process, manager, _) = account_fixture();
+        let now = eitmad_authorization::now();
+        store
+            .provision_desktop_account(&owner, &manager, "manager", now)
+            .unwrap();
+        let server = std::sync::Arc::new(LiveAuthority(std::sync::atomic::AtomicBool::new(true)));
+        let auth = DesktopAuthenticator::new(store.clone()).with_server(server.clone());
+        let state = auth
+            .sign_in(
+                &process,
+                "manager",
+                "correct horse battery",
+                correlation(90),
+                now,
+            )
+            .unwrap();
+        let organization = state.authorization.unwrap();
+        let actor = state.customer_authorization.unwrap();
+        assert!(auth.protected_active(&actor).await);
+        server.0.store(false, std::sync::atomic::Ordering::SeqCst);
+        assert!(!auth.protected_active(&actor).await);
+        assert_eq!(auth.active(&actor, now), Ok(false));
+        assert_eq!(auth.active(&organization, now), Ok(false));
+        assert!(
+            store
+                .desktop_account(owner.tenant_id, "manager")
+                .unwrap()
+                .is_some()
+        );
+        server.0.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(!auth.protected_active(&actor).await);
     }
 
     #[test]

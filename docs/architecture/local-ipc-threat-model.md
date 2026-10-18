@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "security and Rust engine maintainers"
-last_verified: "2026-09-20"
+last_verified: "2026-10-18"
 review_triggers:
   - "local peer authentication, pipe discovery, identity, authorization, transport, or production packaging changes"
 keywords:
@@ -44,7 +44,7 @@ Discount approval commands use protocol 1.20 and generated contracts. Rust autho
 
 ## Residual release requirements
 
-The backend accepts locally provisioned Argon2 password verifiers and issues eight-hour durable user sessions. Offline sign-in requires the password; it never resumes a session silently. It stores no password or bearer token in shell state or logs. A production path that imports verified server accounts, account disabling and password rotation, hostile same-user process tests, and an explicit OS-account support policy are still required before shared-machine release. Keep Windows pipe ACL hardening as defense in depth. Do not add identity, tenant, workspace, scope, role, or permission assertions back to the shell contract.
+The backend imports server-verified accounts with local Argon2 password verifiers and issues eight-hour durable user sessions. Under [ADR-0029](../decisions/0029-require-live-server-authority-for-protected-access.md), protected access also requires fresh authenticated server confirmation. Missing configuration, trust failures, and disconnection fail closed; a verifier cannot authorize offline access. The IPC boundary checks protected requests and deliveries, and idle subscriptions revalidate within the [documented detection bounds](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit). Failure closes the local session without deleting cached records or changing pending-work authorship. It stores no password or bearer token in shell state or logs. Shared account changes and deactivation use server authority; password rotation, hostile same-user process tests, and an explicit OS-account support policy remain required before shared-machine release. Keep Windows pipe ACL hardening as defense in depth. Do not add identity, tenant, workspace, scope, role, or permission assertions back to the shell contract.
 
 No Arabic customer text is interpreted during authentication. Canonical UTF-8 payloads remain opaque to the transport, presentation bidi controls are not added, and structured subscription failures expose no policy graph, cursor owner, or customer data.
 

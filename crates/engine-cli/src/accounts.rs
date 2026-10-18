@@ -22,6 +22,20 @@ pub(super) fn configure(
     settings: Option<&DesktopConnectionSettings>,
     events: &EventBroker,
 ) -> Result<Option<ConnectedAccounts>, ()> {
+    Ok(
+        client(store, directory, settings)?.map(|client| ConnectedAccounts {
+            client,
+            store: store.clone(),
+            events: events.clone(),
+        }),
+    )
+}
+
+pub(super) fn client(
+    store: &AuthorityStore,
+    directory: &Path,
+    settings: Option<&DesktopConnectionSettings>,
+) -> Result<Option<Arc<DirectAccountClient>>, ()> {
     let Some(settings) = settings else {
         return Ok(None);
     };
@@ -36,17 +50,13 @@ pub(super) fn configure(
         &settings.trusted_certificate,
     )
     .map_err(|_| ())?;
-    Ok(Some(ConnectedAccounts {
-        client: Arc::new(DirectAccountClient::from_config(
-            config,
-            eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?,
-            settings.credential.clone(),
-            settings.organization,
-            settings.branch,
-        )),
-        store: store.clone(),
-        events: events.clone(),
-    }))
+    Ok(Some(Arc::new(DirectAccountClient::from_config(
+        config,
+        eitmad_secret_storage::SecretStore::open(directory, None).map_err(|_| ())?,
+        settings.credential.clone(),
+        settings.organization,
+        settings.branch,
+    ))))
 }
 
 impl ConnectedAccounts {

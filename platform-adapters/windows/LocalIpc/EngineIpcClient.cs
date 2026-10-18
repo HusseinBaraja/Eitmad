@@ -432,6 +432,11 @@ public sealed class EngineIpcClient : IAsyncDisposable
             // An ordered negative acknowledgement still confirms that no stream remains.
             subscriptions.TryRemove(subscription.SubscriptionId, out _);
         }
+        catch (EngineIpcException error) when (error.Kind == EngineIpcFailureKind.SessionChanged)
+        {
+            // The ordered session transition now owns remote closure. Keep the discard sink
+            // until its closure/response instead of breaking sign-out's healthy transport.
+        }
         catch
         {
             InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,

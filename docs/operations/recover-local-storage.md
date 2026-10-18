@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-18"
 review_triggers:
   - "backup, restore, migration, corruption, recovery artifact, retention, or export policy changes"
 keywords:
@@ -44,6 +44,8 @@ Before any pending migration from supported storage versions 2–27, startup cre
 ## Manual SQLite backup and restore
 
 Use the same engine build that created the synthetic installation. Stop its shell and engine first. Use explicit private paths; neither command selects the default user runtime directory. Both commands require an existing database at the current storage version and existing desktop credentials. They do not initialize or migrate an installation, or recover a lost/corrupt credential authority. Preserve such a failed runtime directory for a separate authorized recovery procedure.
+
+For enrolled installations, both commands also require live authenticated server confirmation under [ADR-0029](../decisions/0029-require-live-server-authority-for-protected-access.md). A saved verifier does not grant disconnected recovery access. Missing settings, credentials, trust, or server connectivity reject the operation and close its local operator session before any backup or restore. Restore the server connection and use normal desktop online sign-in to repair account credentials before retrying. Only unconnected debug fixtures retain local maintenance authentication.
 
 Supply one JSON object on standard input, with `username` and `password`, then close standard input. The maximum input is 4,096 bytes. Do not put a password in process arguments, shell history, environment variables, or a saved credential file. In PowerShell, collect it interactively:
 

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 review_triggers:
   - "account provisioning, desktop startup, server routes, workflow seeding, or test prerequisites change"
 keywords:
@@ -147,7 +147,7 @@ Run `Status`, inspect the stage-specific error, and stop this environment before
 
 If provisioning committed in PostgreSQL but its local journal could not be saved, setup fails closed. Preserve that environment for diagnosis. Use a new named disposable environment for a fresh test; do not hand-edit business tables or delete the old state. Keep the Windows credential store and the private state directory together under the same user. Moving only SQLite files to another account does not transfer authentication.
 
-If sign-in reports **بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.**, use `manager` or `receptionist` with its matching field value from the same environment's protected file. `admin` is not an account in this environment. A deactivated account stays deactivated after restart; use user management from an active Manager account to inspect its status. `-VerifySignIn` expects both original accounts to remain active with their original roles and credentials; omit it when intentionally testing changed account access. Normal sign-in authenticates online and repairs account credentials. Keep setup closed for retained settings. Use **العمل دون اتصال** to check the existing local verifier separately. Do not replace tokens, weaken authentication, or reset data to hide a failure.
+If sign-in reports **بيانات الدخول غير صحيحة أو انتهت صلاحية الحساب.**, use `manager` or `receptionist` with its matching field value from the same environment's protected file. `admin` is not an account in this environment. A deactivated account stays deactivated after restart; use user management from an active Manager account to inspect its status. `-VerifySignIn` expects both original accounts to remain active with their original roles and credentials; omit it when intentionally testing changed account access. Normal sign-in authenticates online and repairs account credentials. Keep setup closed for retained settings. All protected access requires the server; a saved verifier does not permit offline work. Do not replace tokens, weaken authentication, or reset data to hide a failure.
 
 If valid sign-in briefly opens an account screen and then returns to sign-in, check the engine connection state separately from credential rejection. The IPC reader must retain a partial frame while responses and events are delivered; cancelling that read caused intermittent startup disconnects. Rebuild the current source and use `-VerifySignIn` after stopping the environment. See [IPC framing and concurrency](../developer/subsystems/local-ipc.md#framing-concurrency-and-large-payloads) for the regression and safe reader behavior.
 

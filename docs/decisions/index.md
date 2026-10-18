@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-18"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -58,10 +58,11 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0019](0019-sqlite-authority-storage.md) | Use SQLite for local authority storage | Accepted | 2026-07-18 | None |
 | [ADR-0020](0020-direct-principal-scope-rebac-policy.md) | Use direct principal-to-scope ReBAC policy v1 | Superseded | 2026-07-18 | None |
 | [ADR-0021](0021-checksummed-feature-storage-migrations.md) | Use checksummed feature-owned storage migrations | Accepted | 2026-07-18 | None |
-| [ADR-0022](0022-persistent-tenant-identity-and-safe-storage-recovery.md) | Persist tenant identity and fail closed during storage recovery | Accepted | 2026-08-19 | None |
+| [ADR-0022](0022-persistent-tenant-identity-and-safe-storage-recovery.md) | Persist tenant identity and fail closed during storage recovery | Partially superseded by ADR-0029 | 2026-08-19 | None |
 | [ADR-0023](0023-scoped-relationship-authorization-and-audit.md) | Use scoped relationship graphs and one audited boundary gate | Accepted | 2026-08-19 | ADR-0020 |
 | [ADR-0024](0024-native-secret-storage-with-encrypted-fallback.md) | Prefer native secret stores with an encrypted Rust fallback | Accepted | 2026-08-19 | None |
 | [ADR-0025](0025-modular-server-authority-foundation.md) | Deploy modular server authority as one process first | Accepted | 2026-08-22 | None |
 | [ADR-0026](0026-compose-authorized-operational-server-planes.md) | Compose authorized relay, update, and administration planes | Accepted | 2026-08-24 | None |
 | [ADR-0027](0027-mandatory-release-evidence.md) | Require one mandatory release evidence chain | Accepted | 2026-08-26 | None |
 | [ADR-0028](0028-manager-receptionist-sales-workflows.md) | Define Manager and Receptionist sales workflows | Accepted | 2026-09-19 | None |
+| [ADR-0029](0029-require-live-server-authority-for-protected-access.md) | Require live server authority for protected access | Accepted | 2026-10-18 | ADR-0022, offline access only |

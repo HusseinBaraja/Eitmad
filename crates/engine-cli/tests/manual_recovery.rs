@@ -51,6 +51,24 @@ const MANAGER: &[u8] = br#"{"username":"admin","password":"admin"}"#;
 const RECEPTIONIST: &[u8] = br#"{"username":"rec","password":"rec"}"#;
 
 #[test]
+fn connected_recovery_cannot_use_a_saved_verifier_without_server_settings() {
+    let directory = TempDir::new().unwrap();
+    seed(directory.path());
+    std::fs::write(directory.path().join("desktop-device.json"), b"null").unwrap();
+    let backup = directory.path().join("denied.sqlite3");
+    let denied = recovery(directory.path(), "backup", &backup, MANAGER);
+    assert_eq!(denied.status.code(), Some(1));
+    assert!(!backup.exists());
+    let store = AuthorityStore::open_existing(directory.path()).unwrap();
+    let connection = rusqlite::Connection::open(store.path()).unwrap();
+    let open_sessions: i64 = connection.query_row(
+        "SELECT COUNT(*) FROM identity_sessions WHERE closed_at IS NULL AND principal_kind='\"user\"' AND session_id IN (SELECT session_id FROM mutation_audit WHERE operation='eitmad.desktop.session.sign-in.v1')",
+        [], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(open_sessions, 0);
+}
+
+#[test]
 fn manual_recovery_authorizes_preserves_and_rejects_unsafe_overwrites() {
     let directory = TempDir::new().unwrap();
     seed(directory.path());

@@ -60,6 +60,7 @@ public sealed class SharedAccountLiveTests
         var author = (await second.GetSessionStateAsync())!.Authorization;
         var retained = await SaveCategory(second, "مرجع محفوظ قبل تغيير الدور");
         Assert.IsNotNull(retained);
+        Assert.IsNotNull(await SaveCategory(second, "عمل معلق بصاحبه الأصلي"));
         var cache = await second.QueryAsync(Query.ForMaterialReferenceList(new ListMaterialReferences()));
         Assert.AreEqual(CommandOutcomeStatus.Succeeded, cache.Outcome.Status);
         await using var stream = await second.SubscribeAsync(Subscription.ForMaterialChangedSubscribe(new MaterialChanges()));
@@ -67,14 +68,21 @@ public sealed class SharedAccountLiveTests
         target.SessionEnded += (_, e) => closed.TrySetResult(e.Reason);
         File.WriteAllText(Path.Combine(root, "ready-offline"), "ready");
         await WaitForFile(root, "server-offline");
-        Assert.IsNotNull(await SaveCategory(second, "عمل معلق بصاحبه الأصلي"));
+        Assert.AreEqual(SessionEndReason.AccessChanged, await closed.Task.WaitAsync(TimeSpan.FromSeconds(20)),
+            "An idle protected view must lose access when the live server check fails.");
+        await AssertDenied(second, Query.ForMaterialReferenceList(new ListMaterialReferences()));
+        await AssertDeniedCommand(second, Command.ForMaterialCategorySave(new SaveMaterialCategory { Name = "عمل مرفوض دون اتصال" }));
+        await AssertStreamClosed(stream);
+        await Assert.ThrowsAsync<EngineIpcException>(() => second.SubscribeAsync(Subscription.ForMaterialChangedSubscribe(new MaterialChanges())));
+        await Assert.ThrowsAsync<EngineIpcException>(() => target.SignInAsync(account.Username, Password));
+        await Assert.ThrowsAsync<EngineIpcException>(() => target.ServerSignInAsync(account.Username, Password, null));
         Assert.IsFalse(await users.LoadAsync(), "Account administration must not use the local account cache while offline.");
         Assert.IsFalse(users.CanManageAccounts);
+        await owner.SignOutAsync();
         File.WriteAllText(Path.Combine(root, "pending-created"), author.Identity.PrincipalId.ToString());
         await WaitForFile(root, "server-online");
-        Assert.AreEqual(SessionEndReason.AccessChanged, await closed.Task.WaitAsync(TimeSpan.FromSeconds(20)));
         await AssertDenied(second, Query.ForMaterialReferenceList(new ListMaterialReferences()));
-        await AssertStreamClosed(stream);
+        await owner.ServerSignInAsync("owner", Password, null);
         Assert.AreEqual(AuthenticatedSurface.Receptionist, await target.ServerSignInAsync(account.Username, Password, null));
         var deniedUsers = new UsersViewModel(); deniedUsers.Attach(second);
         Assert.IsFalse(await deniedUsers.LoadAsync());
@@ -126,6 +134,12 @@ public sealed class SharedAccountLiveTests
         try { Assert.AreEqual(CommandOutcomeStatus.Failed, (await bridge.QueryAsync(query)).Outcome.Status); }
         catch (EngineIpcException error) { Assert.IsTrue(error.Kind is EngineIpcFailureKind.AuthenticationRejected or EngineIpcFailureKind.EngineUnavailable
             || error.ContractError?.Code == ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1); }
+    }
+
+    private static async Task AssertDeniedCommand(IEngineShellBridge bridge, Command command)
+    {
+        try { Assert.AreEqual(CommandOutcomeStatus.Failed, (await bridge.SubmitCommandAsync(command, Guid.NewGuid())).Outcome.Status); }
+        catch (EngineIpcException error) { Assert.IsTrue(error.Kind is EngineIpcFailureKind.AuthenticationRejected or EngineIpcFailureKind.EngineUnavailable); }
     }
 
     private static async Task AssertStreamClosed(IEngineSubscription stream)

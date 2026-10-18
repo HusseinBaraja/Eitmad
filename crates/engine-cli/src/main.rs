@@ -177,6 +177,7 @@ fn manual_recovery(
             credentials.password.expose_secret(),
             current_time(),
         )?;
+        desktop_enrollment::check_recovery_access(directory, &actor)?;
         if restore {
             recovery.restore(&actor, artifact, current_time())
         } else {
