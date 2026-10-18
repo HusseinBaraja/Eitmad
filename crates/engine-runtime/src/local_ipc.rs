@@ -1763,7 +1763,7 @@ mod tests {
     };
 
     struct TestDispatcher;
-    struct SlowDispatcher;
+    struct PendingDispatcher;
 
     struct BlockingDispatcher {
         entered: mpsc::UnboundedSender<()>,
@@ -1819,26 +1819,24 @@ mod tests {
     }
 
     #[async_trait]
-    impl CommandDispatcher for SlowDispatcher {
+    impl CommandDispatcher for PendingDispatcher {
         async fn dispatch_command(
             &self,
-            context: DispatchContext,
-            command: Command,
+            _context: DispatchContext,
+            _command: Command,
         ) -> Result<CommandResult, ContractError> {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            TestDispatcher.dispatch_command(context, command).await
+            std::future::pending().await
         }
     }
 
     #[async_trait]
-    impl QueryDispatcher for SlowDispatcher {
+    impl QueryDispatcher for PendingDispatcher {
         async fn dispatch_query(
             &self,
-            context: DispatchContext,
-            query: Query,
+            _context: DispatchContext,
+            _query: Query,
         ) -> Result<QueryResult, ContractError> {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            TestDispatcher.dispatch_query(context, query).await
+            std::future::pending().await
         }
     }
 
@@ -3241,7 +3239,7 @@ mod tests {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
             configuration(Some("token")),
-            Arc::new(SlowDispatcher),
+            Arc::new(PendingDispatcher),
             shutdown,
         );
         let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
@@ -3274,7 +3272,7 @@ mod tests {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
             configuration(Some("token")),
-            Arc::new(SlowDispatcher),
+            Arc::new(PendingDispatcher),
             shutdown,
         );
         let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
