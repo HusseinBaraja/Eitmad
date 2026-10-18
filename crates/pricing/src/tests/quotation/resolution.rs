@@ -7,8 +7,27 @@ use std::sync::Mutex;
 struct Server {
     confirmed: ChangeRecord,
     fail: Mutex<bool>,
+    receipt_exists: bool,
+    reconciled: Mutex<Vec<ReconcileResolution<ConfirmQuotationDraftResolution>>>,
 }
 impl crate::DiscountApprovalServer for Server {
+    fn reconcile_draft_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        input: &ReconcileResolution<ConfirmQuotationDraftResolution>,
+        _: UnixMillis,
+    ) -> Result<Option<ChangeRecord>, E> {
+        assert_ne!(
+            actor.identity.principal_id.value(),
+            input.original_user.value()
+        );
+        if *self.fail.lock().unwrap() {
+            return Err(E::Unavailable);
+        }
+        self.reconciled.lock().unwrap().push(input.clone());
+        Ok(self.receipt_exists.then(|| self.confirmed.clone()))
+    }
+
     fn draft_recovery(
         &self,
         _: &AuthorizationContext,
@@ -204,6 +223,8 @@ impl ResolutionFixture {
         let server = Server {
             confirmed: confirmed.clone(),
             fail: Mutex::new(true),
+            receipt_exists: true,
+            reconciled: Mutex::new(vec![]),
         };
         let command = ResolveQuotationDraft {
             draft_id: first.snapshot.id,
@@ -398,6 +419,8 @@ fn resolution_denies_receptionist_before_calling_the_server() {
     let server = Server {
         confirmed: change,
         fail: Mutex::new(false),
+        receipt_exists: true,
+        reconciled: Mutex::new(vec![]),
     };
     let command = ResolveQuotationDraft {
         draft_id: saved.snapshot.id,
@@ -420,4 +443,128 @@ fn resolution_denies_receptionist_before_calling_the_server() {
     let count:i64=rusqlite::Connection::open(store.path()).unwrap().query_row(
         "SELECT count(*) FROM mutation_audit WHERE operation='eitmad.quotation-draft.resolve.v1' AND outcome='\"denied\"'",[],|r|r.get(0)).unwrap();
     assert_eq!(count, 1);
+}
+
+#[test]
+fn resolution_handover_after_restart_preserves_original_evidence_and_denies_removed_manager() {
+    for applied in [false, true] {
+        let mut fixture = ResolutionFixture::new();
+        fixture.server.receipt_exists = applied;
+        fixture.uncertain();
+        let manager_b = replace_manager(&fixture);
+        let db = rusqlite::Connection::open(fixture.store.path()).unwrap();
+        let store = AuthorityStore::open(fixture.directory.path()).unwrap();
+        let drafts =
+            QuotationDraftService::new(store.clone(), AuthorizationService::new(store.clone()));
+        let query = GetQuotationDraftReview {
+            draft_id: fixture.command.draft_id,
+            branch_id: fixture.writer.scope.id,
+            after: None,
+        };
+        assert_eq!(
+            drafts.review(
+                &fixture.manager,
+                &query,
+                &fixture.server,
+                UnixMillis(i64::MAX)
+            ),
+            Err(E::Denied)
+        );
+        assert_eq!(
+            drafts.review(&manager_b, &query, &fixture.server, UnixMillis(i64::MAX)),
+            Err(E::Unavailable)
+        );
+        assert!(
+            store
+                .pending_quotation_draft_resolution(&manager_b, query.draft_id, query.branch_id)
+                .unwrap()
+                .is_some()
+        );
+        *fixture.server.fail.lock().unwrap() = false;
+        assert!(
+            drafts
+                .review(&manager_b, &query, &fixture.server, UnixMillis(i64::MAX))
+                .unwrap()
+                .pending_resolution
+                .is_none()
+        );
+        drafts
+            .review(&manager_b, &query, &fixture.server, UnixMillis(i64::MAX))
+            .unwrap();
+        let recovered = fixture.server.reconciled.lock().unwrap();
+        assert_eq!(recovered.len(), 1);
+        assert_eq!(
+            recovered[0].original_user.value(),
+            fixture.manager.identity.principal_id.value()
+        );
+        assert_eq!(recovered[0].request.command, fixture.command);
+        assert_eq!(
+            recovered[0].request.idempotency_key,
+            fixture.context.idempotency_key
+        );
+        let (original, request, receipt, by): (String,Vec<u8>,Option<Vec<u8>>,String) = db.query_row("SELECT principal_id,request_json,receipt_json,reconciled_by FROM resolution_reconciliations", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).unwrap();
+        assert_eq!(
+            original,
+            fixture.manager.identity.principal_id.value().to_string()
+        );
+        assert_eq!(
+            serde_json::from_slice::<ConfirmQuotationDraftResolution>(&request).unwrap(),
+            recovered[0].request
+        );
+        assert_eq!(
+            receipt.map(|v| serde_json::from_slice::<ChangeRecord>(&v).unwrap()),
+            applied.then_some(fixture.server.confirmed)
+        );
+        assert_eq!(by, manager_b.identity.principal_id.value().to_string());
+        let next = ConfirmQuotationDraftResolution {
+            scope: manager_b.scope.clone(),
+            idempotency_key: mutation(manager_b.clone(), 4501).idempotency_key,
+            command: fixture.command.clone(),
+        };
+        store
+            .stage_quotation_draft_resolution(
+                &manager_b,
+                &next,
+                &crate::drafts::audit(
+                    &mutation(manager_b.clone(), 4501),
+                    "eitmad.quotation-draft.resolution-request.v1",
+                    Some(query.draft_id),
+                ),
+            )
+            .unwrap();
+    }
+}
+
+fn replace_manager(fixture: &ResolutionFixture) -> AuthorizationContext {
+    let manager_b = AuthorizationContext {
+        scope: fixture.writer.scope.clone(),
+        ..actor(101, 50)
+    };
+    let owner = AuthorizationContext {
+        scope: fixture.writer.scope.clone(),
+        ..actor(99, 50)
+    };
+    AuthorizationService::new(fixture.store.clone())
+        .grant_relationship(
+            &mutation(owner, 4500),
+            &GrantScopeRelationship {
+                expected_policy_version: 3,
+                subject: RelationshipSubject {
+                    principal_id: manager_b.identity.principal_id,
+                    principal_kind: PrincipalKind::User,
+                },
+                relation: RelationId::parse(MANAGER_RELATION).unwrap(),
+            },
+        )
+        .unwrap();
+    let db = rusqlite::Connection::open(fixture.store.path()).unwrap();
+    db.execute(
+        "DELETE FROM scope_relationships WHERE principal_id=?1 AND relation=?2",
+        [
+            fixture.manager.identity.principal_id.value().to_string(),
+            MANAGER_RELATION.to_string(),
+        ],
+    )
+    .unwrap();
+    manager_b
 }

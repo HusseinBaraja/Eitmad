@@ -267,9 +267,17 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/customer-branches", post(register_customer_branch))
         .route("/v1/customers/read", post(customer_read))
         .route("/v1/customers/conflicts", post(customer_conflicts))
+        .route(
+            "/v1/customers/reconcile-resolution",
+            post(customer_reconcile),
+        )
         .route("/v1/customers/resolve", post(customer_resolve))
         .route("/v1/quotation-drafts/recovery", post(draft_recovery))
         .route("/v1/quotation-drafts/review", post(draft_review))
+        .route(
+            "/v1/quotation-drafts/reconcile-resolution",
+            post(draft_reconcile),
+        )
         .route("/v1/quotation-drafts/resolve", post(draft_resolve))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
@@ -2267,6 +2275,52 @@ async fn draft_recovery(
     state
         .sync
         .quotation_draft_recovery(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+
+async fn customer_reconcile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<
+        eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+    >,
+) -> Result<Json<Option<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .reconcile_customer_resolution(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+
+async fn draft_reconcile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<
+        eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        >,
+    >,
+) -> Result<Json<Option<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .reconcile_quotation_draft_resolution(
+            &actor,
+            &input,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
         .await
         .map(Json)
         .map_err(|error| map_draft_resolution(&error))

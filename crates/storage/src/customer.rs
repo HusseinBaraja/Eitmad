@@ -202,13 +202,88 @@ impl AuthorityStore {
             let (kind,id) = scope_parts(&actor.scope);
             let bytes = serde_json::to_vec(input).map_err(|_| StorageError)?;
             let branch = input.command.customer.branch_id.ok_or(StorageError)?.value().to_string();
-            let prior: Option<Vec<u8>> = tx.query_row("SELECT request_json FROM customer_resolution_intents
-                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND branch_id=?4", params![kind,id,input.command.customer.customer_id.value().to_string(),branch], |r| r.get(0))
+            let prior: Option<(Vec<u8>,String)> = tx.query_row("SELECT request_json,principal_id FROM customer_resolution_intents
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND branch_id=?4", params![kind,id,input.command.customer.customer_id.value().to_string(),branch], |r| Ok((r.get(0)?,r.get(1)?)))
                 .optional().map_err(|_| StorageError)?;
-            if let Some(prior) = prior { return if prior == bytes { Ok(()) } else { Err(StorageError) }; }
+            if let Some((prior,principal)) = prior { return if prior == bytes && principal == actor.identity.principal_id.value().to_string() { Ok(()) } else { Err(StorageError) }; }
             tx.execute("INSERT INTO customer_resolution_intents(scope_kind,scope_id,customer_id,principal_id,request_json,branch_id)
                 VALUES (?1,?2,?3,?4,?5,?6)", params![kind,id,input.command.customer.customer_id.value().to_string(),actor.identity.principal_id.value().to_string(),bytes,branch]).map_err(|_| StorageError)?;
             insert_audit(tx,audit)
+        })
+    }
+
+    /// Reads the record's original author and frozen request for authorized reconciliation.
+    /// # Errors
+    /// The capability must authorize current Manager access before reading this evidence.
+    pub fn pending_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        record: CustomerId,
+        branch: eitmad_contracts::identity::ScopeId,
+    ) -> Result<
+        Option<
+            eitmad_contracts::sync::ReconcileResolution<
+                eitmad_contracts::customer::ConfirmCustomerResolution,
+            >,
+        >,
+        StorageError,
+    > {
+        self.read_transaction(|tx| {
+            let (kind, id) = scope_parts(&actor.scope);
+            let row: Option<(String, Vec<u8>)> = tx
+                .query_row(
+                    "SELECT principal_id,request_json FROM customer_resolution_intents
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND branch_id=?4",
+                    params![
+                        kind,
+                        id,
+                        record.value().to_string(),
+                        branch.value().to_string()
+                    ],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(|_| StorageError)?;
+            row.map(|(principal, bytes)| {
+                Ok(eitmad_contracts::sync::ReconcileResolution {
+                    original_user: eitmad_contracts::identity::UserId::new(
+                        principal.parse().map_err(|_| StorageError)?,
+                    ),
+                    request: serde_json::from_slice(&bytes).map_err(|_| StorageError)?,
+                })
+            })
+            .transpose()
+        })
+    }
+
+    /// Archives exact original evidence and the reconciled receipt before unlocking the record.
+    /// # Errors
+    /// Requires a server receipt or permanent key closure and current Manager authorization.
+    pub fn reconcile_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        recovery: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+        receipt: Option<&ChangeRecord>,
+        audit: &MutationAuditRecord,
+    ) -> Result<(), StorageError> {
+        self.write_transaction(|tx| {
+            let (kind,id) = scope_parts(&actor.scope);
+            let bytes = serde_json::to_vec(&recovery.request).map_err(|_| StorageError)?;
+            let original = recovery.original_user.value().to_string();
+            let archived = tx.execute("INSERT INTO resolution_reconciliations
+                (audit_id,schema_id,scope_kind,scope_id,branch_id,record_id,principal_id,request_json,receipt_json,reconciled_by)
+                SELECT ?1,'eitmad.schema.customer.v1',scope_kind,scope_id,branch_id,customer_id,principal_id,request_json,?2,?3
+                FROM customer_resolution_intents WHERE scope_kind=?4 AND scope_id=?5 AND principal_id=?6 AND request_json=?7",
+                params![audit.audit_id.to_string(),receipt.map(serde_json::to_vec).transpose().map_err(|_| StorageError)?,
+                    actor.identity.principal_id.value().to_string(),kind,id,original,bytes]).map_err(|_| StorageError)?;
+            if archived > 0 {
+                tx.execute("DELETE FROM customer_resolution_intents WHERE scope_kind=?1 AND scope_id=?2 AND principal_id=?3 AND request_json=?4",
+                    params![kind,id,original,bytes]).map_err(|_| StorageError)?;
+                insert_audit(tx,audit)?;
+            }
+            Ok(())
         })
     }
 

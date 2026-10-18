@@ -68,6 +68,17 @@ pub trait CustomerDirectory: Send + Sync + std::fmt::Debug {
         Err(CustomerError::Unavailable)
     }
     /// # Errors
+    /// Requires current Manager authority and an exact receipt or permanent key closure.
+    fn reconcile_resolution(
+        &self,
+        _actor: &AuthorizationContext,
+        _input: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+    ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, CustomerError> {
+        Err(CustomerError::Unavailable)
+    }
+    /// # Errors
     /// Rejects stale or unauthorized decisions; exact retries return the original result.
     fn resolve(
         &self,
@@ -704,6 +715,7 @@ fn normalize_phone_search(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    mod resolution_recovery;
     mod sync_cycle;
 
     use eitmad_authorization::{MANAGER_RELATION, RECEPTIONIST_RELATION};

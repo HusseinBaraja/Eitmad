@@ -23,6 +23,88 @@ use uuid::Uuid;
 type Tx<'a> = Transaction<'a, Postgres>;
 
 impl SyncCoordinator {
+    /// Returns the original receipt or closes its unused key under resolution locks.
+    /// # Errors
+    /// Requires the caller's current Manager authority; never executes the earlier decision.
+    pub async fn reconcile_quotation_draft_resolution(
+        &self,
+        actor: &AuthenticatedServerSession,
+        recovery: &eitmad_contracts::sync::ReconcileResolution<ConfirmQuotationDraftResolution>,
+        correlation: CorrelationId,
+        now: UnixMillis,
+    ) -> Result<Option<ChangeRecord>, E> {
+        let input = &recovery.request;
+        let scope = branch_scope(&input.scope, input.command.branch_id)?;
+        let mut tx = tenant_transaction(&self.pool, actor.tenant_id)
+            .await
+            .map_err(|_| E::Unavailable)?;
+        sqlx::query("SELECT tenant_id FROM control.tenants WHERE tenant_id=$1 FOR UPDATE")
+            .bind(actor.tenant_id.value())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| E::Unavailable)?;
+        if !authorize(&mut tx, actor, &input.scope, &scope).await? {
+            evidence_for(
+                &mut tx,
+                actor,
+                &scope,
+                ResolutionAudit {
+                    correlation,
+                    now,
+                    key: Some(input.idempotency_key),
+                    target: input.command.draft_id.value(),
+                    outcome: ServerAuditOutcome::Denied,
+                },
+                "eitmad.quotation-draft.reconcile-resolution.v1",
+            )
+            .await?;
+            tx.commit().await.map_err(|_| E::Unavailable)?;
+            return Err(E::Denied);
+        }
+        crate::operations::lock_scope(
+            &mut tx,
+            actor.tenant_id,
+            &scope,
+            &SchemaId::parse(SCHEMA).map_err(|_| E::Unavailable)?,
+        )
+        .await
+        .map_err(|_| E::Unavailable)?;
+        let fingerprint = Sha256::digest(
+            serde_json::to_vec(&(recovery.original_user, input)).map_err(|_| E::Unavailable)?,
+        )
+        .to_vec();
+        let result = crate::operations::resolution::reconcile(
+            &mut tx,
+            actor.tenant_id,
+            &scope,
+            SCHEMA,
+            input.idempotency_key,
+            &fingerprint,
+            now,
+        )
+        .await
+        .map_err(|error| match error {
+            crate::OperationError::IdempotencyMismatch => E::IdempotencyMismatch,
+            _ => E::Unavailable,
+        })?;
+        evidence_for(
+            &mut tx,
+            actor,
+            &scope,
+            ResolutionAudit {
+                correlation,
+                now,
+                key: Some(input.idempotency_key),
+                target: input.command.draft_id.value(),
+                outcome: ServerAuditOutcome::Succeeded,
+            },
+            "eitmad.quotation-draft.reconcile-resolution.v1",
+        )
+        .await?;
+        tx.commit().await.map_err(|_| E::Unavailable)?;
+        Ok(result)
+    }
+
     /// Reads the latest decision provenance before the current snapshot for interrupted clients.
     /// # Errors
     /// Requires ordinary branch draft-read authority; never grants decision rights.
@@ -474,13 +556,22 @@ async fn evidence(
     scope: &ScopeRef,
     audit: ResolutionAudit,
 ) -> Result<(), E> {
+    evidence_for(tx, actor, scope, audit, "eitmad.quotation-draft.resolve.v1").await
+}
+async fn evidence_for(
+    tx: &mut Tx<'_>,
+    actor: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    audit: ResolutionAudit,
+    operation: &'static str,
+) -> Result<(), E> {
     append(
         tx,
         &ServerAuditEnvelope::from_session(
             actor,
             scope.clone(),
             ServerAuditEvent {
-                operation: "eitmad.quotation-draft.resolve.v1",
+                operation,
                 outcome: audit.outcome,
                 target_kind: "quotation-draft",
                 target_id: Some(audit.target),

@@ -94,6 +94,10 @@ SQLite migration 29 freezes the exact request and key before network I/O. An unc
 The Arabic dialog shows local input, server input at conflict, current server input, and the selected final value per field. It requires an explicit choice for every field. Unknown outcomes freeze the form and offer the same-decision retry, including after reopening. Stale outcomes clear selections and require a fresh comparison. Account changes clear rendered inputs and discard late reads. Existing issued documents keep their original customer snapshots.
 
 
+If another current Manager opens review on the same PC after the original Manager loses access, Rust reconciles the frozen request through `POST /v1/customers/reconcile-resolution`. The authenticated server returns the original receipt or permanently closes the unused key while holding the same tenant and schema locks as resolution submission. A missing receipt alone does not unlock the record. An in-flight original request must finish before reconciliation or encounter the closed key afterward. Reconciliation never executes the original decision as the new Manager.
+
+SQLite migration 31 archives the original principal, exact request, and returned receipt in `resolution_reconciliations` before clearing that exact intent. The recovery audit names the current Manager and the original request key; the original decision audit remains attributed to its author. An unavailable server, invalid receipt, or failed archive/audit leaves the intent pending. After recovery, the current Manager reviews current state and uses a new key for any new decision. Do not delete an uncertain intent manually.
+
 ## Arabic-name and phone search
 
 Storage keeps the entered name, phone, address, and notes unchanged. Rust derives separate indexed search forms during the mutation transaction.

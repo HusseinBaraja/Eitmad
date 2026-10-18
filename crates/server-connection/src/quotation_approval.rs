@@ -176,6 +176,57 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
         }
         Ok(page)
     }
+    fn reconcile_draft_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        recovery: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        >,
+        deadline: UnixMillis,
+    ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, eitmad_pricing::QuotationDraftError>
+    {
+        let input = &recovery.request;
+        let mut input = input.clone();
+        input.scope = self.remote(actor).map_err(draft_resolution_error)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.branch_id = self.branch.id;
+        }
+        if let eitmad_contracts::quotation_draft::QuotationDraftResolutionSource::PendingReview(
+            change,
+        ) = &mut input.command.source
+        {
+            let branch = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input.command.branch_id,
+            };
+            Self::map_draft_change(change, &branch, &self.config.scope)?;
+        }
+        let mut receipt: Option<eitmad_contracts::sync::ChangeRecord> = self
+            .draft_resolution_http()
+            .request(
+                actor,
+                "/v1/quotation-drafts/reconcile-resolution",
+                &eitmad_contracts::sync::ReconcileResolution {
+                    original_user: recovery.original_user,
+                    request: input,
+                },
+                budget(deadline).map_err(draft_resolution_error)?,
+            )
+            .map_err(|error| draft_resolution_http_error(&error))?;
+        if let Some(change) = &mut receipt {
+            let branch = if actor.scope.kind.as_str() == "branch" {
+                actor.scope.clone()
+            } else {
+                change.scope.clone()
+            };
+            let catalog = ScopeRef {
+                kind: ScopeKind::parse("organization").expect("scope"),
+                id: ScopeId::new(actor.tenant_id.value()),
+            };
+            Self::map_draft_change(change, &branch, &catalog)?;
+        }
+        Ok(receipt)
+    }
     fn resolve_draft(
         &self,
         actor: &AuthorizationContext,
@@ -409,6 +460,52 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
             }
         }
         Ok(page)
+    }
+    fn reconcile_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        recovery: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+    ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, eitmad_customer::CustomerError> {
+        let input = &recovery.request;
+        let mut input = input.clone();
+        input.scope = self
+            .remote(actor)
+            .map_err(|_| eitmad_customer::CustomerError::Denied)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.customer.branch_id = Some(self.branch.id);
+        }
+        if let eitmad_contracts::customer::CustomerResolutionSource::PendingReview(v) =
+            &mut input.command.source
+        {
+            v.scope = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input
+                    .command
+                    .customer
+                    .branch_id
+                    .ok_or(eitmad_customer::CustomerError::Denied)?,
+            };
+        }
+        let mut receipt: Option<eitmad_contracts::sync::ChangeRecord> = self
+            .customer_http()
+            .request(
+                actor,
+                "/v1/customers/reconcile-resolution",
+                &eitmad_contracts::sync::ReconcileResolution {
+                    original_user: recovery.original_user,
+                    request: input,
+                },
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map_err(|error| customer_resolution_error(&error))?;
+        if let Some(change) = &mut receipt {
+            if actor.scope.kind.as_str() == "branch" {
+                change.scope = actor.scope.clone();
+            }
+        }
+        Ok(receipt)
     }
     fn resolve(
         &self,

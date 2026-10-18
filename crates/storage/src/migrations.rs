@@ -153,6 +153,7 @@ fn registry() -> Vec<Migration> {
         .chain(crate::work_orders::MIGRATIONS)
         .chain(customer::RESOLUTION_MIGRATIONS)
         .chain(crate::draft_resolution::MIGRATIONS)
+        .chain(crate::draft_resolution::RECOVERY_MIGRATIONS)
         .copied()
         .collect()
 }
@@ -582,6 +583,33 @@ mod tests {
             )
             .unwrap();
         assert_eq!(receipt, b"exact receipt");
+    }
+
+    #[test]
+    fn resolution_recovery_migration_preserves_uncertain_intents() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_registry(&mut connection, &registry()[..30]).unwrap();
+        for (table, record_column) in [
+            ("customer_resolution_intents", "customer_id"),
+            ("quotation_draft_resolution_intents", "quotation_draft_id"),
+        ] {
+            connection.execute(&format!("INSERT INTO {table}(scope_kind,scope_id,branch_id,{record_column},principal_id,request_json) VALUES('organization','scope','branch','record','original-manager',?1)"), [b"exact uncertain request".as_slice()]).unwrap();
+        }
+        apply(&mut connection).unwrap();
+        for table in [
+            "customer_resolution_intents",
+            "quotation_draft_resolution_intents",
+        ] {
+            let (principal, bytes): (String, Vec<u8>) = connection
+                .query_row(
+                    &format!("SELECT principal_id,request_json FROM {table}"),
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .unwrap();
+            assert_eq!(principal, "original-manager");
+            assert_eq!(bytes, b"exact uncertain request");
+        }
     }
 
     #[test]

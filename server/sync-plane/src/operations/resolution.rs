@@ -27,9 +27,47 @@ pub(crate) async fn replay(
         return Err(E::IdempotencyMismatch);
     }
     let value: serde_json::Value = row.get("result_json");
+    if value.get("status").and_then(serde_json::Value::as_str) == Some("resolutionClosed") {
+        return Err(E::IdempotencyMismatch);
+    }
     serde_json::from_value(value.get("value").cloned().ok_or(E::Unavailable)?)
         .map(Some)
         .map_err(|_| E::Unavailable)
+}
+
+/// Caller holds the tenant and schema locks used by resolution submission.
+/// A closed key is permanent, so a late original request cannot become a new decision.
+pub(crate) async fn reconcile(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant: TenantId,
+    scope: &ScopeRef,
+    schema: &str,
+    key: IdempotencyKey,
+    fingerprint: &[u8],
+    now: UnixMillis,
+) -> Result<Option<ChangeRecord>, E> {
+    let row = sqlx::query("SELECT request_fingerprint,result_json FROM sync.idempotency_results
+        WHERE tenant_id=$1 AND scope_kind='branch' AND scope_id=$2 AND schema_id=$3 AND idempotency_key=$4")
+        .bind(tenant.value()).bind(scope.id.value()).bind(schema).bind(key.value())
+        .fetch_optional(&mut **tx).await.map_err(|_| E::Unavailable)?;
+    if let Some(row) = row {
+        if row.get::<Vec<u8>, _>("request_fingerprint") != fingerprint {
+            return Err(E::IdempotencyMismatch);
+        }
+        let value: serde_json::Value = row.get("result_json");
+        if value.get("status").and_then(serde_json::Value::as_str) == Some("resolutionClosed") {
+            return Ok(None);
+        }
+        return serde_json::from_value(value.get("value").cloned().ok_or(E::Unavailable)?)
+            .map(Some)
+            .map_err(|_| E::Unavailable);
+    }
+    sqlx::query("INSERT INTO sync.idempotency_results
+        (tenant_id,scope_kind,scope_id,schema_id,idempotency_key,request_fingerprint,result_json,created_at)
+        VALUES ($1,'branch',$2,$3,$4,$5,'{\"status\":\"resolutionClosed\"}'::jsonb,$6)")
+        .bind(tenant.value()).bind(scope.id.value()).bind(schema).bind(key.value())
+        .bind(fingerprint).bind(now.0).execute(&mut **tx).await.map_err(|_| E::Unavailable)?;
+    Ok(None)
 }
 
 pub(crate) async fn save(

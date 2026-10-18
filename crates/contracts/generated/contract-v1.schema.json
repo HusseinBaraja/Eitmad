@@ -141,6 +141,12 @@
     "read_work_orders": {
       "$ref": "#/definitions/ReadWorkOrders"
     },
+    "reconcile_customer_resolution": {
+      "$ref": "#/definitions/ReconcileResolution"
+    },
+    "reconcile_quotation_draft_resolution": {
+      "$ref": "#/definitions/ReconcileResolution2"
+    },
     "register_branch_request": {
       "$ref": "#/definitions/RegisterBranchRequest"
     },
@@ -203,6 +209,8 @@
     }
   },
   "required": [
+    "reconcile_customer_resolution",
+    "reconcile_quotation_draft_resolution",
     "read_quotation_draft_recovery",
     "read_quotation_draft_review",
     "confirm_quotation_draft_resolution",
@@ -11451,6 +11459,40 @@
       "required": [
         "scope",
         "query"
+      ]
+    },
+    "ReconcileResolution": {
+      "description": "Reconciles an earlier author's exact decision without executing it as the caller.",
+      "type": "object",
+      "properties": {
+        "originalUser": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request": {
+          "$ref": "#/definitions/ConfirmCustomerResolution"
+        }
+      },
+      "required": [
+        "originalUser",
+        "request"
+      ]
+    },
+    "ReconcileResolution2": {
+      "description": "Reconciles an earlier author's exact decision without executing it as the caller.",
+      "type": "object",
+      "properties": {
+        "originalUser": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request": {
+          "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+        }
+      },
+      "required": [
+        "originalUser",
+        "request"
       ]
     },
     "ReconciliationDelivery": {

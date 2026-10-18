@@ -26,6 +26,7 @@ impl QuotationDraftService {
         deadline: UnixMillis,
     ) -> Result<QuotationDraftReview, E> {
         self.authorize_resolution(actor)?;
+        self.reconcile_prior_resolution(actor, query.draft_id, query.branch_id, server, deadline)?;
         let mut page = server.draft_review(actor, query, deadline)?;
         if let Some(local) = self.resolution_actor(actor, query.branch_id, server)? {
             let held = self
@@ -81,6 +82,13 @@ impl QuotationDraftService {
             return Err(e);
         }
         let actor = &context.authorization;
+        self.reconcile_prior_resolution(
+            actor,
+            command.draft_id,
+            command.branch_id,
+            server,
+            deadline,
+        )?;
         let local = self.resolution_actor(actor, command.branch_id, server)?;
         if let QuotationDraftResolutionSource::PendingReview(change) = &command.source {
             let local = local.as_ref().ok_or(E::Denied)?;
@@ -143,20 +151,7 @@ impl QuotationDraftService {
                 return Err(e);
             }
         };
-        if change.record_id.value() != command.draft_id.value()
-            || change.scope.kind.as_str() != "branch"
-            || change.scope.id != command.branch_id
-            || change.base_revision != Some(command.expected_server_revision)
-            || change.idempotency_key != context.idempotency_key
-            || change.revision
-                != command
-                    .expected_server_revision
-                    .checked_add(1)
-                    .ok_or(E::Unavailable)?
-            || change.merge.is_none()
-        {
-            return Err(E::Unavailable);
-        }
+        validate_receipt(&change, &input)?;
         self.authorize_resolution(actor)?;
         if let Some(local) = local {
             self.project_resolution(&local, &change, context.correlation_id)?;
@@ -170,6 +165,54 @@ impl QuotationDraftService {
         )?;
         Ok(change)
     }
+    fn reconcile_prior_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        draft: eitmad_contracts::quotation_draft::QuotationDraftId,
+        branch: ScopeId,
+        server: &dyn DiscountApprovalServer,
+        deadline: UnixMillis,
+    ) -> Result<(), E> {
+        let Some(recovery) = self
+            .store
+            .pending_quotation_draft_resolution(actor, draft, branch)?
+        else {
+            return Ok(());
+        };
+        if recovery.original_user.value() == actor.identity.principal_id.value() {
+            return Ok(());
+        }
+        self.authorize_resolution(actor)?;
+        let receipt = server.reconcile_draft_resolution(actor, &recovery, deadline)?;
+        if let Some(change) = &receipt {
+            validate_receipt(change, &recovery.request)?;
+        }
+        self.authorize_resolution(actor)?;
+        let context = MutationContext {
+            authorization: actor.clone(),
+            correlation_id: eitmad_contracts::transport::CorrelationId::new(uuid::Uuid::new_v4()),
+            causation_id: None,
+            idempotency_key: recovery.request.idempotency_key,
+            occurred_at: eitmad_authorization::now(),
+        };
+        if let (Some(change), Some(local)) =
+            (&receipt, self.resolution_actor(actor, branch, server)?)
+        {
+            self.project_resolution(&local, change, context.correlation_id)?;
+        }
+        self.store.reconcile_quotation_draft_resolution(
+            actor,
+            &recovery,
+            receipt.as_ref(),
+            &super::drafts::audit(
+                &context,
+                "eitmad.quotation-draft.reconcile-resolution.v1",
+                Some(draft),
+            ),
+        )?;
+        Ok(())
+    }
+
     fn project_resolution(
         &self,
         local: &AuthorizationContext,
@@ -222,4 +265,21 @@ impl QuotationDraftService {
             ..actor.clone()
         }))
     }
+}
+
+fn validate_receipt(
+    change: &ChangeRecord,
+    input: &ConfirmQuotationDraftResolution,
+) -> Result<(), E> {
+    if change.record_id.value() != input.command.draft_id.value()
+        || change.scope.kind.as_str() != "branch"
+        || change.scope.id != input.command.branch_id
+        || change.base_revision != Some(input.command.expected_server_revision)
+        || change.idempotency_key != input.idempotency_key
+        || Some(change.revision) != input.command.expected_server_revision.checked_add(1)
+        || change.merge.is_none()
+    {
+        return Err(E::Unavailable);
+    }
+    Ok(())
 }

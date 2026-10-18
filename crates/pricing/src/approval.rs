@@ -157,6 +157,18 @@ pub trait DiscountApprovalServer: Send + Sync {
         Err(crate::QuotationDraftError::Unavailable)
     }
     /// # Errors
+    /// Requires current Manager authority and an exact receipt or permanent key closure.
+    fn reconcile_draft_resolution(
+        &self,
+        _actor: &AuthorizationContext,
+        _input: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        >,
+        _deadline: UnixMillis,
+    ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, crate::QuotationDraftError> {
+        Err(crate::QuotationDraftError::Unavailable)
+    }
+    /// # Errors
     /// Requires a server-confirmed, revision-checked explicit draft decision.
     fn resolve_draft(
         &self,

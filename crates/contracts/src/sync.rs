@@ -9,6 +9,14 @@ use crate::{
 
 pub const MAX_SYNC_BATCH_RECORDS: usize = 500;
 
+/// Reconciles an earlier author's exact decision without executing it as the caller.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReconcileResolution<T> {
+    pub original_user: crate::identity::UserId,
+    pub request: T,
+}
+
 uuid_id!(Checkpoint);
 uuid_id!(RecordId);
 uuid_id!(ChangeId);

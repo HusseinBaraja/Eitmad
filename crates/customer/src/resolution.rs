@@ -21,6 +21,13 @@ impl CustomerService {
         check_branch(actor, query.customer.branch_id)?;
         let directory = self.directory.as_ref().ok_or(CustomerError::Unavailable)?;
         let mut page = directory.conflicts(actor, query)?;
+        if self.reconcile_prior_resolution(
+            actor,
+            query.customer.customer_id,
+            page.current.scope.id,
+        )? {
+            page = directory.conflicts(actor, query)?;
+        }
         if let Some(local) = self.local_resolution_actor(actor, page.current.scope.id)? {
             page.pending_reviews = self
                 .store
@@ -63,6 +70,7 @@ impl CustomerService {
             .branch_id
             .ok_or(CustomerError::UnsupportedScope)?;
         check_branch(actor, Some(branch))?;
+        self.reconcile_prior_resolution(actor, command.customer.customer_id, branch)?;
         let local = self.local_resolution_actor(actor, branch)?;
         if let CustomerResolutionSource::PendingReview(change) = &command.source {
             let local = local.as_ref().ok_or(CustomerError::Denied)?;
@@ -131,6 +139,74 @@ impl CustomerService {
             )
             .map_err(|_| CustomerError::Unavailable)?;
         Ok(change)
+    }
+
+    fn reconcile_prior_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        customer: CustomerId,
+        branch: eitmad_contracts::identity::ScopeId,
+    ) -> Result<bool, CustomerError> {
+        let Some(recovery) = self
+            .store
+            .pending_customer_resolution(actor, customer, branch)
+            .map_err(|_| CustomerError::Unavailable)?
+        else {
+            return Ok(false);
+        };
+        if recovery.original_user.value() == actor.identity.principal_id.value() {
+            return Ok(false);
+        }
+        self.authorize_resolution(actor, customer)?;
+        let receipt = self
+            .directory
+            .as_ref()
+            .ok_or(CustomerError::Unavailable)?
+            .reconcile_resolution(actor, &recovery)?;
+        if let Some(change) = &receipt {
+            if change.record_id.value() != customer.value()
+                || change.scope.kind.as_str() != "branch"
+                || change.scope.id != branch
+                || change.idempotency_key != recovery.request.idempotency_key
+                || change.base_revision != Some(recovery.request.command.expected_server_revision)
+                || Some(change.revision)
+                    != recovery
+                        .request
+                        .command
+                        .expected_server_revision
+                        .checked_add(1)
+                || change.merge.is_none()
+            {
+                return Err(CustomerError::Unavailable);
+            }
+        }
+        self.authorize_resolution(actor, customer)?;
+        let context = MutationContext {
+            authorization: actor.clone(),
+            correlation_id: CorrelationId::new(Uuid::new_v4()),
+            causation_id: None,
+            idempotency_key: recovery.request.idempotency_key,
+            occurred_at: eitmad_authorization::now(),
+        };
+        if let (Some(change), Some(local)) = (&receipt, self.local_resolution_actor(actor, branch)?)
+        {
+            let mut projected = change.clone();
+            projected.scope = local.scope.clone();
+            self.project_confirmed(&local, &projected, context.correlation_id)?;
+        }
+        self.store
+            .reconcile_customer_resolution(
+                actor,
+                &recovery,
+                receipt.as_ref(),
+                &audit_record(
+                    &context,
+                    "eitmad.customer.reconcile-resolution.v1",
+                    customer,
+                ),
+            )
+            .map_err(|_| CustomerError::Unavailable)?;
+        Ok(true)
     }
 
     fn authorize_resolution(

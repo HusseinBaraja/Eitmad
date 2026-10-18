@@ -80,6 +80,8 @@ mod customer_visibility;
 mod desktop_enrollment;
 #[path = "direct_route/projection_audit.rs"]
 mod projection_audit;
+#[path = "direct_route/resolution_reconciliation.rs"]
+mod resolution_reconciliation;
 use credentials::{TestCredentials, store_account_session, store_session};
 
 struct TestDomain;
