@@ -331,7 +331,7 @@ async fn resolve_with_lost_reply(
         AuthorityStore::open(second.directory.path()).unwrap(),
         EventBroker::default(),
     )
-    .with_customer_directory(direct);
+    .with_customer_directory(direct.clone());
     let recovered = page(&dispatcher, &second.actor, id).await;
     assert!(recovered.items.is_empty());
     assert_eq!(
@@ -349,6 +349,7 @@ async fn resolve_with_lost_reply(
         panic!("resolution")
     };
     assert_eq!(change.revision, 3);
+    check_branch_reconciliation(direct, second, server, &decision, key, &change).await;
     assert_eq!(
         dispatcher
             .dispatch_command(
@@ -361,6 +362,31 @@ async fn resolve_with_lost_reply(
     );
     changed_retry_is_rejected(&dispatcher, &second.actor, decision, key).await;
     dispatcher
+}
+
+async fn check_branch_reconciliation(
+    direct: Arc<dyn CustomerDirectory>,
+    second: &CustomerTestClient,
+    server: &ProvisionedServer,
+    decision: &ResolveCustomerConflict,
+    key: IdempotencyKey,
+    change: &ChangeRecord,
+) {
+    let actor = second.actor.clone();
+    let recovery = eitmad_contracts::sync::ReconcileResolution {
+        original_user: server.second_authentication.session.user_id,
+        request: ConfirmCustomerResolution {
+            scope: actor.scope.clone(),
+            idempotency_key: key,
+            command: decision.clone(),
+        },
+    };
+    let receipt =
+        tokio::task::spawn_blocking(move || direct.reconcile_resolution(&actor, &recovery))
+            .await
+            .unwrap()
+            .unwrap();
+    assert_eq!(receipt, Some(change.clone()));
 }
 
 async fn changed_retry_is_rejected(

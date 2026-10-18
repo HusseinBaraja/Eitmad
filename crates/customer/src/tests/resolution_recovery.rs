@@ -39,7 +39,10 @@ impl CustomerDirectory for RecoveryDirectory {
         _: &AuthorizationContext,
         _: &ConfirmCustomerResolution,
     ) -> Result<ChangeRecord, CustomerError> {
-        Err(CustomerError::Unavailable)
+        if *self.unavailable.lock().unwrap() {
+            return Err(CustomerError::Unavailable);
+        }
+        self.receipt.clone().ok_or(CustomerError::Unavailable)
     }
     fn read(
         &self,
@@ -55,6 +58,68 @@ impl CustomerDirectory for RecoveryDirectory {
         _: &mut dyn FnMut(CustomerChangeNotice),
     ) -> Result<(), CustomerError> {
         unreachable!()
+    }
+}
+
+#[test]
+fn resolution_rejects_unrelated_receipts_and_keeps_exact_retry_intent() {
+    let fixture = RecoveryFixture::new(true);
+    *fixture.server.unavailable.lock().unwrap() = false;
+    let service = CustomerService::new(
+        fixture.store.clone(),
+        AuthorizationService::new(fixture.store.clone()),
+    );
+    let request = &fixture.server.original.request;
+    let actor = &fixture.manager_b;
+    service
+        .clone()
+        .with_directory(fixture.server.clone())
+        .conflicts(
+            actor,
+            &GetCustomerConflicts {
+                customer: request.command.customer.clone(),
+                after: None,
+            },
+        )
+        .unwrap();
+    for field in ["scope", "key", "revision"] {
+        let mut receipt = fixture.server.receipt.clone().unwrap();
+        match field {
+            "scope" => receipt.scope.kind = ScopeKind::parse("organization").unwrap(),
+            "key" => receipt.idempotency_key = IdempotencyKey::new(Uuid::new_v4()),
+            _ => receipt.revision += 1,
+        }
+        let directory = Arc::new(RecoveryDirectory {
+            receipt: Some(receipt),
+            page: fixture.server.page.clone(),
+            original: fixture.server.original.clone(),
+            unavailable: Mutex::new(false),
+            recovered: Mutex::new(0),
+        });
+        let context = MutationContext {
+            idempotency_key: request.idempotency_key,
+            ..mutation(actor.clone(), 914, 5)
+        };
+        assert_eq!(
+            service
+                .clone()
+                .with_directory(directory)
+                .resolve(&context, &request.command),
+            Err(CustomerError::Unavailable),
+            "{field}"
+        );
+        assert_eq!(
+            fixture
+                .store
+                .customer_resolution_intent(
+                    actor,
+                    request.command.customer.customer_id,
+                    actor.scope.id
+                )
+                .unwrap(),
+            Some(request.clone()),
+            "{field}"
+        );
     }
 }
 

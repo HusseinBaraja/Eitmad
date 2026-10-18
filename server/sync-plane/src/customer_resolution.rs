@@ -465,7 +465,7 @@ fn decode(change: &ChangeRecord) -> Result<CustomerSyncPayload, E> {
     Ok(contact)
 }
 
-fn contact(change: &ChangeRecord) -> Result<Customer, E> {
+pub(super) fn contact(change: &ChangeRecord) -> Result<Customer, E> {
     let value = decode(change)?;
     Ok(Customer {
         id: value.customer_id,

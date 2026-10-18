@@ -185,22 +185,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
         deadline: UnixMillis,
     ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, eitmad_pricing::QuotationDraftError>
     {
-        let input = &recovery.request;
-        let mut input = input.clone();
-        input.scope = self.remote(actor).map_err(draft_resolution_error)?;
-        if actor.scope.kind.as_str() == "branch" {
-            input.command.branch_id = self.branch.id;
-        }
-        if let eitmad_contracts::quotation_draft::QuotationDraftResolutionSource::PendingReview(
-            change,
-        ) = &mut input.command.source
-        {
-            let branch = ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: input.command.branch_id,
-            };
-            Self::map_draft_change(change, &branch, &self.config.scope)?;
-        }
+        let input = self.remote_draft_resolution(actor, &recovery.request)?;
         let mut receipt: Option<eitmad_contracts::sync::ChangeRecord> = self
             .draft_resolution_http()
             .request(
@@ -233,21 +218,7 @@ impl DiscountApprovalServer for DirectDiscountApprovalClient {
         input: &eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
         deadline: UnixMillis,
     ) -> Result<eitmad_contracts::sync::ChangeRecord, eitmad_pricing::QuotationDraftError> {
-        let mut input = input.clone();
-        input.scope = self.remote(actor).map_err(draft_resolution_error)?;
-        if actor.scope.kind.as_str() == "branch" {
-            input.command.branch_id = self.branch.id;
-        }
-        if let eitmad_contracts::quotation_draft::QuotationDraftResolutionSource::PendingReview(
-            change,
-        ) = &mut input.command.source
-        {
-            let branch = ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: input.command.branch_id,
-            };
-            Self::map_draft_change(change, &branch, &self.config.scope)?;
-        }
+        let input = self.remote_draft_resolution(actor, input)?;
         let mut change: eitmad_contracts::sync::ChangeRecord = self
             .draft_resolution_http()
             .request(
@@ -468,26 +439,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
             eitmad_contracts::customer::ConfirmCustomerResolution,
         >,
     ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, eitmad_customer::CustomerError> {
-        let input = &recovery.request;
-        let mut input = input.clone();
-        input.scope = self
-            .remote(actor)
-            .map_err(|_| eitmad_customer::CustomerError::Denied)?;
-        if actor.scope.kind.as_str() == "branch" {
-            input.command.customer.branch_id = Some(self.branch.id);
-        }
-        if let eitmad_contracts::customer::CustomerResolutionSource::PendingReview(v) =
-            &mut input.command.source
-        {
-            v.scope = ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: input
-                    .command
-                    .customer
-                    .branch_id
-                    .ok_or(eitmad_customer::CustomerError::Denied)?,
-            };
-        }
+        let input = self.remote_customer_resolution(actor, &recovery.request)?;
         let mut receipt: Option<eitmad_contracts::sync::ChangeRecord> = self
             .customer_http()
             .request(
@@ -512,25 +464,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
         actor: &AuthorizationContext,
         input: &eitmad_contracts::customer::ConfirmCustomerResolution,
     ) -> Result<eitmad_contracts::sync::ChangeRecord, eitmad_customer::CustomerError> {
-        let mut input = input.clone();
-        input.scope = self
-            .remote(actor)
-            .map_err(|_| eitmad_customer::CustomerError::Denied)?;
-        if actor.scope.kind.as_str() == "branch" {
-            input.command.customer.branch_id = Some(self.branch.id);
-        }
-        if let eitmad_contracts::customer::CustomerResolutionSource::PendingReview(v) =
-            &mut input.command.source
-        {
-            v.scope = ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: input
-                    .command
-                    .customer
-                    .branch_id
-                    .ok_or(eitmad_customer::CustomerError::Denied)?,
-            };
-        }
+        let input = self.remote_customer_resolution(actor, input)?;
         let mut change: eitmad_contracts::sync::ChangeRecord = self
             .customer_http()
             .request(
@@ -868,6 +802,60 @@ fn order_error(e: E) -> eitmad_orders::OrderError {
 }
 
 impl DirectDiscountApprovalClient {
+    fn remote_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::customer::ConfirmCustomerResolution,
+    ) -> Result<eitmad_contracts::customer::ConfirmCustomerResolution, eitmad_customer::CustomerError>
+    {
+        let mut input = input.clone();
+        input.scope = self
+            .remote(actor)
+            .map_err(|_| eitmad_customer::CustomerError::Denied)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.customer.branch_id = Some(self.branch.id);
+        }
+        if let eitmad_contracts::customer::CustomerResolutionSource::PendingReview(v) =
+            &mut input.command.source
+        {
+            v.scope = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input
+                    .command
+                    .customer
+                    .branch_id
+                    .ok_or(eitmad_customer::CustomerError::Denied)?,
+            };
+        }
+        Ok(input)
+    }
+
+    fn remote_draft_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+    ) -> Result<
+        eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        eitmad_pricing::QuotationDraftError,
+    > {
+        let mut input = input.clone();
+        input.scope = self.remote(actor).map_err(draft_resolution_error)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.branch_id = self.branch.id;
+        }
+        if let eitmad_contracts::quotation_draft::QuotationDraftResolutionSource::PendingReview(
+            change,
+        ) = &mut input.command.source
+        {
+            let branch = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input.command.branch_id,
+            };
+            Self::map_draft_change(change, &branch, &self.config.scope)?;
+        }
+        Ok(input)
+    }
+
     fn customer_http(&self) -> AuthenticatedHttpClient {
         AuthenticatedHttpClient::from_config(
             self.config.clone(),

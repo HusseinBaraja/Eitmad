@@ -128,7 +128,7 @@ impl AuthenticatedHttpClient {
                     || route.starts_with("/v1/quotation-drafts/")
                     || route.starts_with("/v1/quotations/")
                     || route.starts_with("/v1/orders/")
-                    || matches!(route, "/v1/customers/conflicts" | "/v1/customers/resolve")))
+                    || route.starts_with("/v1/customers/")))
         {
             return Err(HttpError::Denied);
         }

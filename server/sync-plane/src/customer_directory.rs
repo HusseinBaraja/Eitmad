@@ -1,11 +1,7 @@
 //! Bounded contact reads over the authoritative customer sync records.
 use crate::{DomainSyncHandler as _, SyncCoordinator, SyncIntent, database::tenant_transaction};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_contracts::{
-    customer::{
-        Customer, CustomerCursor, CustomerPage, CustomerRead, CustomerStatus, CustomerSyncPayload,
-        CustomerSyncState, ReadCustomers,
-    },
+    customer::{Customer, CustomerCursor, CustomerPage, CustomerRead, ReadCustomers},
     identity::{ScopeId, ScopeKind, ScopeRef},
     server::AuthenticatedServerSession,
     sync::ChangeRecord,
@@ -108,42 +104,19 @@ fn decode_contact(row: &sqlx::PgRow) -> Result<(Customer, CustomerCursor), E> {
     let change: ChangeRecord =
         serde_json::from_value(row.try_get("change_json").map_err(|_| E::Unavailable)?)
             .map_err(|_| E::Unavailable)?;
-    let payload = change.payload.as_ref().ok_or(E::Unavailable)?;
-    let contact: CustomerSyncPayload = serde_json::from_slice(
-        &STANDARD
-            .decode(&payload.base64)
-            .map_err(|_| E::Unavailable)?,
-    )
-    .map_err(|_| E::Unavailable)?;
     let scope = ScopeRef {
         kind: ScopeKind::parse("branch").map_err(|_| E::Unavailable)?,
         id: ScopeId::new(row.try_get("scope_id").map_err(|_| E::Unavailable)?),
     };
-    if contact.customer_id.value() != change.record_id.value()
-        || contact.revision != change.revision
-        || change.scope != scope
-    {
+    if change.scope != scope {
         return Err(E::Unavailable);
     }
+    let contact = crate::customer_resolution::contact(&change)?;
     let cursor = CustomerCursor {
-        customer_id: contact.customer_id,
+        customer_id: contact.id,
         branch_id: scope.id,
     };
-    Ok((
-        Customer {
-            id: contact.customer_id,
-            scope,
-            name: contact.name,
-            phone: contact.phone,
-            address: contact.address,
-            notes: contact.notes,
-            status: CustomerStatus::Active,
-            revision: contact.revision,
-            updated_at: change.changed_at,
-            sync_state: CustomerSyncState::Confirmed,
-        },
-        cursor,
-    ))
+    Ok((contact, cursor))
 }
 
 async fn evidence(

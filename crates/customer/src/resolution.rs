@@ -112,13 +112,7 @@ impl CustomerService {
                 return Err(error);
             }
         };
-        if change.record_id.value() != command.customer.customer_id.value()
-            || change.scope.id != branch
-            || change.base_revision != Some(command.expected_server_revision)
-            || change.merge.is_none()
-        {
-            return Err(CustomerError::Unavailable);
-        }
+        validate_receipt(&change, &input)?;
         self.authorize_resolution(actor, command.customer.customer_id)?;
         if let Some(local) = local {
             let mut local_change = change.clone();
@@ -164,21 +158,7 @@ impl CustomerService {
             .ok_or(CustomerError::Unavailable)?
             .reconcile_resolution(actor, &recovery)?;
         if let Some(change) = &receipt {
-            if change.record_id.value() != customer.value()
-                || change.scope.kind.as_str() != "branch"
-                || change.scope.id != branch
-                || change.idempotency_key != recovery.request.idempotency_key
-                || change.base_revision != Some(recovery.request.command.expected_server_revision)
-                || Some(change.revision)
-                    != recovery
-                        .request
-                        .command
-                        .expected_server_revision
-                        .checked_add(1)
-                || change.merge.is_none()
-            {
-                return Err(CustomerError::Unavailable);
-            }
+            validate_receipt(change, &recovery.request)?;
         }
         self.authorize_resolution(actor, customer)?;
         let context = MutationContext {
@@ -270,6 +250,23 @@ impl CustomerService {
             ..actor.clone()
         }))
     }
+}
+
+fn validate_receipt(
+    change: &ChangeRecord,
+    input: &ConfirmCustomerResolution,
+) -> Result<(), CustomerError> {
+    if change.record_id.value() != input.command.customer.customer_id.value()
+        || change.scope.kind.as_str() != "branch"
+        || Some(change.scope.id) != input.command.customer.branch_id
+        || change.idempotency_key != input.idempotency_key
+        || change.base_revision != Some(input.command.expected_server_revision)
+        || Some(change.revision) != input.command.expected_server_revision.checked_add(1)
+        || change.merge.is_none()
+    {
+        return Err(CustomerError::Unavailable);
+    }
+    Ok(())
 }
 
 fn check_branch(
