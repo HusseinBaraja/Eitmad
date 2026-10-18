@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "synchronization, authorization, and storage maintainers"
-last_verified: "2026-08-20"
+last_verified: "2026-10-18"
 review_triggers:
   - "SyncEngineError, TransportFailure, connection health, queue, conflict, cache, or recovery behavior changes"
 keywords:
@@ -57,6 +57,7 @@ The Rust sync engine preserves local-first edits offline and preserves server-au
 
 | Evidence | Cause | Resolution | Verify |
 | --- | --- | --- | --- |
+| A clean desktop receives no customers while its outbox is empty | Missing runtime route, imported branch grant, matching account credential, or server read authority | Check the configured customer route and active imported account/branch assignment without inspecting tokens. Run the current ordinary runtime; incoming sync does not require a local edit or customer-write permission. Keep pending work and checkpoints intact | Use the [two-runtime customer regression](../developer/subsystems/customers.md#verification-and-extension); the second installation receives creation and updates with an empty customer outbox |
 | Offline local-first record is readable and pending | Expected disconnected operation | Restore compatible transport; keep the queue intact | Echoed `change_id` leaves the queue and checkpoint advances |
 | `Disconnected` during reconciliation | Transport is offline, not protocol-incompatible | Restore transport and run authorized `connect` before retrying | Reconciliation no longer returns `Disconnected` |
 | `AuthenticationFailed` | Device or account/device identity did not match the established session | Repair the Rust-owned `SecretId` reference or server/device registration; do not copy token bytes into diagnostics | Authenticated identity exactly matches and negotiation starts |

@@ -2,6 +2,9 @@ use super::*;
 use eitmad_contracts::ipc::{DesktopEnrollmentSettings, DesktopSignInRequest};
 use eitmad_server_connection::{DesktopConnectionSettings, DesktopEnrollment};
 
+#[path = "idle_customer_sync.rs"]
+mod idle_customer_sync;
+
 const PASSWORD: &str = "synthetic-test-password-123";
 
 struct Installation {

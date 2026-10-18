@@ -76,7 +76,24 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 change.clone(),
             )?;
         }
-        let result = self.run_connected(&pending);
+        self.finish_cycle(&pending)
+    }
+
+    /// Downloads all available pages without loading, staging, or submitting local edits.
+    /// Projection checks current customer read authority for every record.
+    ///
+    /// # Errors
+    /// Preserves pending edits, conflicts, and the last durable checkpoint on failure.
+    pub fn download(&mut self) -> Result<(), CustomerSyncError> {
+        self.customers.authorize_read(self.actor)?;
+        self.finish_cycle(&[]).map(|_| ())
+    }
+
+    fn finish_cycle(
+        &mut self,
+        pending: &[eitmad_contracts::sync::ChangeRecord],
+    ) -> Result<usize, CustomerSyncError> {
+        let result = self.run_connected(pending);
         if result.is_err() {
             self.transport.disconnect(now());
             let _ = self.engine.disconnect(self.actor, self.request, self.audit);
@@ -184,6 +201,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
     }
 
     fn apply_batch(&mut self, batch: &ChangeBatch) -> Result<(), CustomerSyncError> {
+        self.customers.authorize_read(self.actor)?;
         // Projection precedes checkpoint persistence. A crash can replay a page,
         // but it cannot skip a customer projection after the checkpoint advances.
         let mut local_records = Vec::with_capacity(batch.records.len());

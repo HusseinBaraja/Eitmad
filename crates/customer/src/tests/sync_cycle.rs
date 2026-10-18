@@ -71,6 +71,341 @@ fn customer_sync_counts_confirmations_while_the_next_batch_stays_full() {
     assert_eq!(retained, 2);
 }
 
+#[test]
+fn incoming_customer_pages_catch_up_and_resume_without_an_outbox() {
+    let source = TempDir::new().unwrap();
+    let (_, writer, author) = authorized_service(&source, 42, 51, MANAGER_RELATION);
+    let directory = TempDir::new().unwrap();
+    let (store, customers, actor) = authorized_service(&directory, 43, 51, MANAGER_RELATION);
+    let mut server = customer_server();
+    server.records = customer_history(&writer, &author, 51);
+    let (mut engine, request, audit) = sync_engine(&store, &actor);
+    download(
+        &customers,
+        &mut engine,
+        &mut server,
+        &actor,
+        &request,
+        &audit,
+    )
+    .unwrap();
+    assert_eq!(
+        engine.metadata().checkpoint,
+        Some(Checkpoint::new(Uuid::from_u128(51)))
+    );
+    assert_eq!(
+        store
+            .search_customers(&actor.scope, "", None, None, 100)
+            .unwrap()
+            .items
+            .len(),
+        51
+    );
+    assert_eq!(outbox_count(&store), 0);
+    assert_eq!(server.submitted, 0);
+    assert!(store.pending_publications(64).unwrap().len() >= 51);
+
+    let initial = server.records[0].clone();
+    let current = writer
+        .get(
+            &author,
+            &GetCustomer {
+                customer_id: CustomerId::new(initial.record_id.value()),
+            },
+        )
+        .unwrap();
+    let context = mutation(author, 3000, 20);
+    let updated = writer
+        .update(
+            &context,
+            &UpdateCustomer {
+                customer_id: current.id,
+                expected_revision: 1,
+                name: CustomerName::parse("عميل محدث").unwrap(),
+                phone: current.phone,
+                address: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+    server.records.push(
+        sync_change(
+            &context,
+            &updated.customer,
+            Some(1),
+            ChangeId::new(Uuid::new_v4()),
+        )
+        .unwrap(),
+    );
+    drop(engine);
+    let reopened = AuthorityStore::open(directory.path()).unwrap();
+    let (mut engine, request, audit) = sync_engine(&reopened, &actor);
+    assert_eq!(
+        engine.metadata().checkpoint,
+        Some(Checkpoint::new(Uuid::from_u128(51)))
+    );
+    download(
+        &customers,
+        &mut engine,
+        &mut server,
+        &actor,
+        &request,
+        &audit,
+    )
+    .unwrap();
+    assert_eq!(
+        customers
+            .get(
+                &actor,
+                &GetCustomer {
+                    customer_id: current.id
+                }
+            )
+            .unwrap()
+            .name,
+        updated.customer.name
+    );
+    assert_eq!(outbox_count(&reopened), 0);
+    assert_eq!(server.submitted, 0);
+}
+
+#[test]
+fn incoming_history_preserves_unstaged_local_edits_and_later_conflicts() {
+    let directory = TempDir::new().unwrap();
+    let (store, customers, actor) = authorized_service(&directory, 44, 51, MANAGER_RELATION);
+    let created = customers
+        .create(
+            &mutation(actor.clone(), 4000, 10),
+            &create_command("عميل محلي", "777123456"),
+        )
+        .unwrap();
+    let original = customers.sync_batch(&actor.scope, 1).unwrap().remove(0);
+    let mut server = customer_server();
+    server.records.push(original.clone());
+    let (mut engine, request, audit) = sync_engine(&store, &actor);
+    download(
+        &customers,
+        &mut engine,
+        &mut server,
+        &actor,
+        &request,
+        &audit,
+    )
+    .unwrap();
+    let edit = customers
+        .update(
+            &mutation(actor.clone(), 4001, 20),
+            &UpdateCustomer {
+                customer_id: created.customer.id,
+                expected_revision: 1,
+                name: CustomerName::parse("تعديل محلي محفوظ").unwrap(),
+                phone: created.customer.phone,
+                address: None,
+                notes: None,
+            },
+        )
+        .unwrap();
+    server
+        .records
+        .push(competing_update(original, &edit.customer));
+    download(
+        &customers,
+        &mut engine,
+        &mut server,
+        &actor,
+        &request,
+        &audit,
+    )
+    .unwrap();
+    assert_eq!(contact(&customers, &actor, edit.customer.id), edit.customer);
+    assert_eq!(outbox_count(&store), 1);
+    assert_eq!(server.submitted, 0);
+    drop(engine);
+    let (mut engine, request, audit) = sync_engine(&store, &actor);
+    server.submitted = 1; // The next submission receives a server conflict.
+    CustomerSyncCycle {
+        customers: &customers,
+        engine: &mut engine,
+        transport: &mut server,
+        actor: &actor,
+        server_scope: &actor.scope,
+        request: &request,
+        audit: &audit,
+    }
+    .run()
+    .unwrap();
+    let conflicted = contact(&customers, &actor, edit.customer.id);
+    assert_eq!(conflicted.name, edit.customer.name);
+    assert_eq!(conflicted.sync_state, CustomerSyncState::Conflicted);
+    drop(engine);
+    let (mut engine, request, audit) = sync_engine(&store, &actor);
+    download(
+        &customers,
+        &mut engine,
+        &mut server,
+        &actor,
+        &request,
+        &audit,
+    )
+    .unwrap();
+    assert_eq!(contact(&customers, &actor, edit.customer.id), conflicted);
+    assert_eq!(outbox_count(&store), 1);
+}
+
+#[test]
+fn incoming_customer_history_rejects_foreign_branches_and_revoked_readers() {
+    let source = TempDir::new().unwrap();
+    let (_, writer, author) = authorized_service(&source, 42, 52, MANAGER_RELATION);
+    let created = writer
+        .create(
+            &mutation(author.clone(), 5000, 10),
+            &create_command("عميل فرع آخر", "777123456"),
+        )
+        .unwrap();
+    let directory = TempDir::new().unwrap();
+    let (store, customers, actor) = authorized_service(&directory, 43, 51, MANAGER_RELATION);
+    let mut server = customer_server();
+    let mut foreign = writer.sync_batch(&author.scope, 1).unwrap().remove(0);
+    server.records.push(foreign.clone());
+    let (mut engine, request, audit) = sync_engine(&store, &actor);
+    assert!(
+        download(
+            &customers,
+            &mut engine,
+            &mut server,
+            &actor,
+            &request,
+            &audit
+        )
+        .is_err()
+    );
+    assert!(engine.metadata().checkpoint.is_none());
+    assert!(
+        store
+            .get_customer(&actor.scope, created.customer.id)
+            .unwrap()
+            .is_none()
+    );
+    foreign.scope = actor.scope.clone();
+    server.records = vec![foreign];
+    Connection::open(store.path())
+        .unwrap()
+        .execute(
+            "DELETE FROM scope_relationships WHERE relation = ?1",
+            [MANAGER_RELATION],
+        )
+        .unwrap();
+    assert!(
+        download(
+            &customers,
+            &mut engine,
+            &mut server,
+            &actor,
+            &request,
+            &audit
+        )
+        .is_err()
+    );
+    assert!(engine.metadata().checkpoint.is_none());
+    assert!(
+        store
+            .get_customer(&actor.scope, created.customer.id)
+            .unwrap()
+            .is_none()
+    );
+}
+
+fn contact(
+    customers: &CustomerService,
+    actor: &AuthorizationContext,
+    customer_id: CustomerId,
+) -> eitmad_contracts::customer::Customer {
+    customers.get(actor, &GetCustomer { customer_id }).unwrap()
+}
+
+fn customer_history(
+    writer: &CustomerService,
+    author: &AuthorizationContext,
+    count: u128,
+) -> Vec<ChangeRecord> {
+    let mut server = customer_server();
+    for index in 0..count {
+        let context = mutation(author.clone(), 2000 + index, 10);
+        let created = writer
+            .create(&context, &create_command("عميل اختباري", "777123456"))
+            .unwrap();
+        server.records.push(
+            sync_change(
+                &context,
+                &created.customer,
+                None,
+                ChangeId::new(Uuid::new_v4()),
+            )
+            .unwrap(),
+        );
+    }
+    server.records
+}
+
+fn competing_update(
+    original: ChangeRecord,
+    customer: &eitmad_contracts::customer::Customer,
+) -> ChangeRecord {
+    let mut remote = original;
+    remote.change_id = ChangeId::new(Uuid::new_v4());
+    remote.idempotency_key = IdempotencyKey::new(Uuid::new_v4());
+    remote.base_revision = Some(1);
+    remote.revision = 2;
+    let payload = CustomerSyncPayload {
+        customer_id: customer.id,
+        name: CustomerName::parse("تعديل جهاز آخر").unwrap(),
+        phone: customer.phone.clone(),
+        address: None,
+        notes: None,
+        revision: 2,
+    };
+    remote.payload.as_mut().unwrap().base64 =
+        STANDARD.encode(serde_json::to_vec(&payload).unwrap());
+    remote
+}
+
+fn customer_server() -> CustomerServer {
+    CustomerServer {
+        transport: SimulatedTransport::new(hello(), hello(), RetryPolicy::default()),
+        records: vec![],
+        submitted: 0,
+    }
+}
+
+fn download(
+    customers: &CustomerService,
+    engine: &mut SyncEngine,
+    server: &mut CustomerServer,
+    actor: &AuthorizationContext,
+    request: &AuthorizationRequest,
+    audit: &BoundaryAuditContext,
+) -> Result<(), crate::CustomerSyncError> {
+    CustomerSyncCycle {
+        customers,
+        engine,
+        transport: server,
+        actor,
+        server_scope: &actor.scope,
+        request,
+        audit,
+    }
+    .download()
+}
+
+fn outbox_count(store: &AuthorityStore) -> i64 {
+    Connection::open(store.path())
+        .unwrap()
+        .query_row("SELECT count(*) FROM customer_sync_outbox", [], |row| {
+            row.get(0)
+        })
+        .unwrap()
+}
+
 fn sync_engine(
     store: &AuthorityStore,
     actor: &AuthorizationContext,

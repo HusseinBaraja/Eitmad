@@ -566,7 +566,9 @@ impl SyncEngine {
     ///
     /// # Errors
     ///
-    /// Fails on unauthorized, cross-scope, out-of-order, or changed replay data.
+    /// Fails on unauthorized, cross-scope, out-of-order local queues, or changed replay data.
+    /// An independently downloaded revision can precede staging an older domain edit;
+    /// retain that edit's original base so the server can return its conflict.
     pub fn stage_committed_local_change(
         &mut self,
         actor: &AuthorizationContext,
@@ -598,7 +600,13 @@ impl SyncEngine {
             .records
             .get(&change.record_id)
             .map(|item| item.revision);
-        if change.base_revision != current_revision
+        let pending_record = self
+            .state
+            .pending_changes
+            .iter()
+            .any(|pending| pending.record_id == change.record_id);
+        if (change.base_revision != current_revision
+            && (pending_record || change.base_revision > current_revision))
             || change.base_revision.unwrap_or(0).checked_add(1) != Some(change.revision)
         {
             return Err(SyncEngineError::InvalidChange);

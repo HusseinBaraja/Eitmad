@@ -1,4 +1,4 @@
-//! Customer outbox delivery over the shared authenticated WAN transport.
+//! Independent customer downloads and outbox delivery over authenticated WAN transport.
 use crate::{DirectServerConfig, DirectServerDriver};
 use eitmad_authorization::{
     AuthorizationGate, AuthorizationService, BoundaryAuditContext, BoundaryKind,
@@ -9,7 +9,7 @@ use eitmad_contracts::{
         ActionId, AuthorizationRequest, ObjectId, ObjectKind, PermissionRule, RelationshipSubject,
         RelationshipTuple, ScopedObject, TupleSubject,
     },
-    identity::AuthorizationContext,
+    identity::{AuthenticatedIdentity, AuthorizationContext, PrincipalId, PrincipalKind},
     secrets::SecretId,
     sync::SyncMode,
     transport::{CapabilityId, CorrelationId, SchemaId},
@@ -51,6 +51,50 @@ impl DirectCustomerSyncClient {
         }
     }
 
+    /// Downloads for an active imported account with an exact local branch assignment.
+    /// Account credentials and current read authority are checked independently of uploads
+    /// and desktop sign-in sessions. No account is used to submit another author's work.
+    /// # Errors
+    /// Retains local work and checkpoints on failure; tries other accounts after denial.
+    pub fn receive_incoming(&self) -> Result<(), CustomerError> {
+        let owner = self
+            .store
+            .existing_local_authorization_context()
+            .map_err(|_| CustomerError::Unavailable)?;
+        let accounts = self
+            .store
+            .list_desktop_accounts(owner.tenant_id)
+            .map_err(|_| CustomerError::Unavailable)?;
+        let mut failure = None;
+        for account in accounts.accounts.into_iter().filter(|a| a.active) {
+            let Some(scope) = self
+                .store
+                .desktop_customer_branch(owner.tenant_id, account.user_id)
+                .map_err(|_| CustomerError::Unavailable)?
+            else {
+                continue;
+            };
+            let actor = AuthorizationContext {
+                scope,
+                identity: AuthenticatedIdentity {
+                    principal_id: PrincipalId::new(account.user_id.value()),
+                    principal_kind: PrincipalKind::User,
+                    device_id: owner.identity.device_id,
+                    service_id: None,
+                },
+                ..owner.clone()
+            };
+            match self.download(&actor) {
+                Ok(()) => return Ok(()),
+                Err(CustomerError::Denied) => (),
+                Err(error) => {
+                    failure.get_or_insert(error);
+                }
+            }
+        }
+        failure.map_or(Ok(()), Err)
+    }
+
     /// Retries pending work as its original author, with current local and server authority.
     /// Attempts every recovered author, skips denied authors, and returns the total number
     /// of pending records transferred by successful cycles.
@@ -84,16 +128,34 @@ impl DirectCustomerSyncClient {
     /// Returns `Denied` for a wrong branch, missing permission, or rejected credentials;
     /// other failures return `Unavailable`. Durable work remains pending on failure.
     pub fn synchronize(&self, actor: &AuthorizationContext) -> Result<usize, CustomerError> {
+        self.cycle(actor, true)
+    }
+
+    /// Downloads customer history under current read authority, without submitting edits.
+    /// # Errors
+    /// Rejects a wrong branch or denied credentials/authority and retains durable local work.
+    pub fn download(&self, actor: &AuthorizationContext) -> Result<(), CustomerError> {
+        self.cycle(actor, false).map(|_| ())
+    }
+
+    fn cycle(&self, actor: &AuthorizationContext, upload: bool) -> Result<usize, CustomerError> {
         let _worker = self.worker.lock().map_err(|_| CustomerError::Unavailable)?;
         if actor.scope != self.config.scope || actor.scope.kind.as_str() != "branch" {
             return Err(CustomerError::Denied);
         }
         let authorization = AuthorizationService::new(self.store.clone());
         authorization
-            .authorize(actor, eitmad_customer::CUSTOMER_WRITE_PERMISSION)
+            .authorize(
+                actor,
+                if upload {
+                    eitmad_customer::CUSTOMER_WRITE_PERMISSION
+                } else {
+                    eitmad_customer::CUSTOMER_READ_PERMISSION
+                },
+            )
             .map_err(|_| CustomerError::Denied)?;
         let customers = CustomerService::new(self.store.clone(), authorization);
-        let (request, policy) = self.policy(actor)?;
+        let (request, policy) = self.policy(actor, upload)?;
         let audit = BoundaryAuditContext {
             kind: BoundaryKind::Sync,
             operation: "eitmad.customer.sync-cycle.v1".into(),
@@ -117,7 +179,7 @@ impl DirectCustomerSyncClient {
         )
         .map_err(|_| CustomerError::Unavailable)?;
         let mut transport = self.transport(actor)?;
-        CustomerSyncCycle {
+        let mut cycle = CustomerSyncCycle {
             customers: &customers,
             engine: &mut engine,
             transport: &mut transport,
@@ -125,14 +187,19 @@ impl DirectCustomerSyncClient {
             server_scope: &actor.scope,
             request: &request,
             audit: &audit,
+        };
+        if upload {
+            cycle.run()
+        } else {
+            cycle.download().map(|()| 0)
         }
-        .run()
         .map_err(|_| CustomerError::Unavailable)
     }
 
     fn policy(
         &self,
         actor: &AuthorizationContext,
+        upload: bool,
     ) -> Result<(AuthorizationRequest, RelationshipPolicy), CustomerError> {
         let object = ScopedObject {
             tenant_id: actor.tenant_id,
@@ -140,7 +207,12 @@ impl DirectCustomerSyncClient {
             kind: ObjectKind::parse("branch").expect("static kind"),
             id: ObjectId::new(actor.scope.id.value()),
         };
-        let action = ActionId::parse("eitmad.action.sync.write.v1").expect("static action");
+        let action = ActionId::parse(if upload {
+            "eitmad.action.sync.write.v1"
+        } else {
+            "eitmad.action.sync.read.v1"
+        })
+        .expect("static action");
         let relationships = self
             .store
             .relationships_for_subject(

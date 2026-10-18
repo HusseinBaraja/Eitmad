@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "customer capability maintainers"
-last_verified: "2026-10-16"
+last_verified: "2026-10-18"
 review_triggers:
   - "customer contracts, search normalization, permissions, storage, sync, or lifecycle rules change"
 keywords:
@@ -96,11 +96,15 @@ Audit contains stable operation, scope, actor, customer UUID, changed field iden
 
 ## Local-first synchronization
 
-Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. `CustomerSyncCycle` stages committed outbox changes in the durable shared `SyncEngine`, submits each through the authenticated direct WAN route, pulls incremental server pages, and acknowledges applied checkpoints. The cycle maps each client's local branch scope to the registered server branch and maps downloaded records back to the local scope. The caller must supply the owner-registered server branch and session and invoke the cycle from a Rust worker thread. The [workflow environment](../../operations/run-workflow-test-environment.md) supplies the route configuration and starts the Rust customer retry worker; automatic desktop enrollment remains outside this slice.
+Each successful contact mutation queues one `ChangeRecord` with `ChangeOperation::Upsert`, the customer UUID as `RecordId`, base and resulting revisions, command idempotency key, and schema-versioned contact payload. The bounded internal batch accepts `1..=50`. `CustomerSyncCycle::run` stages committed outbox changes in the durable shared `SyncEngine`, submits each through the authenticated direct WAN route, pulls incremental server pages, and acknowledges applied checkpoints. Uploads retain the original author's tenant, principal kind, principal ID, and device. Current write authority and that author's account credential are required.
+
+`crates/engine-cli/src/customer_sync.rs` also runs `DirectCustomerSyncClient::receive_incoming` independently of uploads. Each worker pass selects active imported desktop accounts with an exact local branch assignment. The first account that completes a download serves that branch; denied or unavailable accounts do not prevent attempts with another account. `CustomerSyncCycle::download` sends no local submissions and requires `eitmad.permission.customer.read.v1`, not customer-write permission. The authenticated route also enforces server read authority. Local read authority is checked before connecting and again for every received page, including an empty page.
+
+Incoming sync starts with the ordinary supervised or headless runtime and uses the configured installation route. It does not depend on a customer query, subscription, local edit, or nonempty outbox. The existing worker checks for new history every two seconds when uploads make no progress. A successful upload batch can start the next pass immediately. Customer IPC subscriptions receive the resulting durable publications; they do not open a separate server watcher. Desktop sign-out or account switching does not transfer another author's uploads. Background downloads use current imported account grants and matching device credentials; account or branch revocation stops that account's access without deleting saved work. See [connected workflow setup](../../operations/run-workflow-test-environment.md) for route configuration and [desktop enrollment](../../operations/run-server-authority.md) for installation setup.
 
 The server registers the customer schema and handler. The handler validates the payload identity and revision and resolves the branch through the tenant-scoped `control.branches` registry. A Manager has access through the owning organization relationship; a Receptionist needs the exact branch relationship. PostgreSQL row-level security isolates tenant data. The server preserves the client's change ID and idempotency key, so an exact retry has one effect. A stale revision creates an explicit durable conflict; the server does not overwrite the current record or merge fields automatically. The local contact remains visible with `Conflicted` state and its outbox entry is held for resolution. Domain denial or invalid content becomes `Rejected`. This conservative conflict policy covers same-field concurrent edits and can also flag edits to different fields; no field-aware merge is claimed.
 
-On download, Rust projects each confirmed contact before advancing the shared engine checkpoint. A restart can replay a page safely. Projection does not overwrite a newer pending local revision. After a customer sync cycle, its runtime caller must drain durable publications through `ProductDispatcher::drain_pending_publications`. Version 14 stores rejected and conflicted markers separately from the contact row, so the original contact and queued change survive a restart. The accepted workflow still requires a separate Manager-authorized resolution path before conflicted work can be resubmitted.
+On download, Rust projects each confirmed contact before advancing the shared engine checkpoint. A restart can replay a page safely. Projection preserves any pending local edit and its rejected or conflicted marker. If incoming history advances before an offline edit enters the shared queue, staging retains the edit's original base revision so the server can return its conflict; it still rejects out-of-order local queue entries. Incoming and outgoing cycles share one serialized worker and durable checkpoint per branch. Reconnect and restart resume after that checkpoint without resetting pending work. After a customer sync cycle, its runtime caller must drain durable publications through `ProductDispatcher::drain_pending_publications`. Version 14 stores rejected and conflicted markers separately from the contact row, so the original contact and queued change survive a restart. The accepted workflow still requires a separate Manager-authorized resolution path before conflicted work can be resubmitted.
 
 ## Failure and recovery
 
@@ -120,6 +124,14 @@ On download, Rust projects each confirmed contact before advancing the shared en
 Do not inspect or repair contact rows manually. Follow [local storage recovery](../../operations/recover-local-storage.md) for database failure.
 
 ## Verification and extension
+
+The customer `incoming_` tests cover multi-page catch-up with an empty outbox, checkpoint recovery after reopen, incoming updates, exact branch rejection, revoked readers, and protection of unstaged local edits through a later server conflict. `downloaded_revision_does_not_block_staging_a_committed_offline_edit` in the shared engine tests protects stale-base staging and local queue ordering.
+
+The ignored direct-route test `clean_installation_receives_customers_in_the_ordinary_runtime` enrolls two separate installations and starts two real supervised engine processes. It verifies customer creation, a later update, and catch-up after restarting the receiver while its customer outbox remains empty. Use a fresh disposable PostgreSQL database and TLS certificates from the [direct-route prerequisites](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test), build the current engine, set `EITMAD_CUSTOMER_SYNC_ENGINE` to its absolute executable path, then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route clean_installation_receives_customers_in_the_ordinary_runtime -- --ignored
+```
 
 Run:
 
