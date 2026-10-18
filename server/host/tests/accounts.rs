@@ -333,7 +333,21 @@ async fn server_accounts_work_through_authenticated_routes() {
     assert_eq!(one.receipt, two.receipt);
     assert!(one.activation_token == two.activation_token);
     let account = one.receipt.account.account_id;
-    assert_eq!(list(&f).await.accounts.len(), 2);
+    let accounts = list(&f).await.accounts;
+    assert_eq!(accounts.len(), 2);
+    let owner = accounts
+        .iter()
+        .find(|a| a.account_id == f.owner.auth.session.account_id)
+        .unwrap();
+    let invited = accounts.iter().find(|a| a.account_id == account).unwrap();
+    assert_eq!(
+        [
+            owner.display_name.as_str(),
+            one.receipt.account.display_name.as_str(),
+            invited.display_name.as_str(),
+        ],
+        ["administrator", "موظفة الاستقبال", "موظفة الاستقبال"]
+    );
     let changed = ChangeServerAccount {
         change: ServerAccountChange::Invite {
             organization_id: f.organization,

@@ -352,7 +352,7 @@ impl IdentityService {
                 .bind(attempt.now.0)
                 .execute(&mut **tx)
                 .await?;
-            sqlx::query("INSERT INTO control.accounts(tenant_id,account_id,user_id,username,canonical_username,status,created_at) VALUES($1,$2,$3,$4,$4,'pending_activation',$5)").bind(tenant.value()).bind(account.value()).bind(user.value()).bind(username).bind(attempt.now.0).execute(&mut **tx).await?;
+            sqlx::query("INSERT INTO control.accounts(tenant_id,account_id,user_id,username,canonical_username,status,created_at,display_name) VALUES($1,$2,$3,$4,$4,'pending_activation',$5,$4)").bind(tenant.value()).bind(account.value()).bind(user.value()).bind(username).bind(attempt.now.0).execute(&mut **tx).await?;
             replace_assignments(tx, attempt, account, user, *organization_id, assignments).await?;
             let invite = InviteId::new(Uuid::new_v4());
             let token = self
