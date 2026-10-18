@@ -105,6 +105,21 @@ impl DirectAccountClient {
 }
 
 impl DesktopAccountAuthority for DirectAccountClient {
+    fn authorize(&self, actor: &AuthorizationContext) -> Result<(), DesktopAccountError> {
+        self.http
+            .request::<ServerAccountPage>(
+                actor,
+                "/v1/accounts/list",
+                &ListServerAccounts {
+                    after: None,
+                    limit: 1,
+                },
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map(|_| ())
+            .map_err(|error| map_error(&error))
+    }
+
     fn list(
         &self,
         actor: &AuthorizationContext,
@@ -180,10 +195,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
 fn map_error(error: &HttpError) -> DesktopAccountError {
     match error {
         HttpError::Denied => DesktopAccountError::Denied,
-        HttpError::Conflict => DesktopAccountError::RevisionConflict {
-            expected: 0,
-            actual: 0,
-        },
+        HttpError::Conflict => DesktopAccountError::RevisionConflict,
         HttpError::Invalid | HttpError::NotFound => DesktopAccountError::Invalid,
         _ => DesktopAccountError::Unavailable,
     }

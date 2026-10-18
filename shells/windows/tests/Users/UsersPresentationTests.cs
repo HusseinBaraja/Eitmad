@@ -270,7 +270,7 @@ public sealed class UsersPresentationTests
     }
 
     [TestMethod]
-    public async Task ValidationAndLastManagerFailureKeepTheEditorState()
+    public async Task ValidationAndServerDenialKeepTheEditorState()
     {
         var engine = Engine();
         var vm = new UsersViewModel();
@@ -293,7 +293,7 @@ public sealed class UsersPresentationTests
             Outcome = new CommandOutcome
             {
                 Status = CommandOutcomeStatus.Failed,
-                Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountLastManagerV1 },
+                Payload = new CommandResult { Code = ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 },
             },
         };
         vm.CancelEditor();
@@ -304,7 +304,7 @@ public sealed class UsersPresentationTests
         var manager = vm.VisibleUsers.Single(user => user.Role == "مدير");
         vm.BeginDeactivation(manager);
         Assert.IsFalse(await vm.DeactivateAsync());
-        StringAssert.Contains(vm.EditorError, "مدير نشط");
+        StringAssert.Contains(vm.EditorError, "مالك");
         Assert.IsTrue(vm.IsDeactivationOpen);
     }
 }

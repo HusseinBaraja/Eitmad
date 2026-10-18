@@ -34,7 +34,7 @@ public sealed class DesktopSessionControllerTests
             new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected, "Synthetic rejection.")) };
         await using var sessions = new DesktopSessionController(engine);
         await sessions.StartAsync(); engine.Connect();
-        await Assert.ThrowsAsync<EngineIpcException>(() => sessions.ServerSignInAsync("manager", "synthetic", null));
+        await Assert.ThrowsAsync<EngineIpcException>(() => sessions.SignInAsync("manager", "synthetic", null));
         Assert.AreEqual(0, engine.SignInCount);
         Assert.AreEqual(0, engine.StopCount);
     }

@@ -5,7 +5,7 @@ use eitmad_contracts::{
         ConfirmCustomerResolution, CustomerConflictPage, CustomerResolutionSource,
         GetCustomerConflicts, ResolveCustomerConflict,
     },
-    identity::{ScopeKind, UserId},
+    identity::UserId,
 };
 
 impl CustomerService {
@@ -190,10 +190,7 @@ impl CustomerService {
             )
             .map_err(|_| CustomerError::Unavailable)?;
         Ok(scope.map(|scope| AuthorizationContext {
-            scope: ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: scope.id,
-            },
+            scope,
             ..actor.clone()
         }))
     }

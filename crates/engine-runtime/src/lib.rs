@@ -11,7 +11,7 @@ mod dispatcher;
 pub mod local_ipc;
 mod recovery;
 
-pub use accounts::{DesktopAccountAuthority, DesktopAccountError, DesktopAccountService};
+pub use accounts::{DesktopAccountAuthority, DesktopAccountError};
 pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };

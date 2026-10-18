@@ -3,7 +3,7 @@ use crate::{DiscountApprovalServer, QuotationDraftError as E, QuotationDraftServ
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use eitmad_authorization::{MutationContext, QUOTATION_DRAFT_RESOLVE_PERMISSION};
 use eitmad_contracts::{
-    identity::{AuthorizationContext, ScopeId, ScopeKind, ScopeRef, UserId},
+    identity::{AuthorizationContext, ScopeId, UserId},
     quotation_draft::{
         ConfirmQuotationDraftResolution, GetQuotationDraftReview, QuotationDraftResolutionSource,
         QuotationDraftReview, QuotationDraftReviewInput, QuotationDraftSnapshot,
@@ -218,10 +218,7 @@ impl QuotationDraftService {
             UserId::new(actor.identity.principal_id.value()),
         )?;
         Ok(scope.map(|scope| AuthorizationContext {
-            scope: ScopeRef {
-                kind: ScopeKind::parse("branch").expect("scope"),
-                id: scope.id,
-            },
+            scope,
             ..actor.clone()
         }))
     }

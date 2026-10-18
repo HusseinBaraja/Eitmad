@@ -33,7 +33,7 @@ public sealed class DesktopEnrollmentRenderedTests
             WpfTestHost.FindByName<TextBox>(view, "OrganizationId").Text = Guid.NewGuid().ToString();
             WpfTestHost.FindByName<TextBox>(view, "BranchId").Text = Guid.NewGuid().ToString();
             DesktopEnrollmentSettings? sent = null;
-            view.ServerAuthenticateAsync = (_, _, settings, _) => {
+            view.AuthenticateAsync = (_, _, settings, _) => {
                 sent = settings;
                 return Task.FromException<AuthenticatedSurface>(new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected, "Synthetic trust rejection."));
             };

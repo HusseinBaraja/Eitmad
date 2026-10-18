@@ -19,8 +19,7 @@ public partial class SignInView : UserControl
 
     private CancellationTokenSource? signInCancellation;
 
-    public Func<string, string, CancellationToken, Task<AuthenticatedSurface>>? AuthenticateAsync { get; set; }
-    public Func<string, string, Eitmad.Contracts.DesktopEnrollmentSettings?, CancellationToken, Task<AuthenticatedSurface>>? ServerAuthenticateAsync { get; set; }
+    public Func<string, string, Eitmad.Contracts.DesktopEnrollmentSettings?, CancellationToken, Task<AuthenticatedSurface>>? AuthenticateAsync { get; set; }
 
     public event EventHandler<AuthenticatedSurface>? SignedIn;
 
@@ -74,9 +73,7 @@ public partial class SignInView : UserControl
                     TenantCode = TenantCode.Text.Trim(), Organization = organization, Branch = branch,
                 };
             }
-            var surface = ServerAuthenticateAsync is null
-                ? await AuthenticateAsync(username, password, signInCancellation.Token)
-                : await ServerAuthenticateAsync(username, password, connection, signInCancellation.Token);
+            var surface = await AuthenticateAsync(username, password, connection, signInCancellation.Token);
             SignInError.Visibility = Visibility.Collapsed;
             SignedIn?.Invoke(this, surface);
             diagnostic.Finish();

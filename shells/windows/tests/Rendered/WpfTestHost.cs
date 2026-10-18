@@ -173,7 +173,6 @@ internal static class WpfTestHost
 
     private sealed class RenderedSessionController : IDesktopSessionController
     {
-        public Task<AuthenticatedSurface> ServerSignInAsync(string username, string password, Contracts.DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default) => SignInAsync(username, password, cancellationToken);
         public event EventHandler<SessionEndedEventArgs>? SessionEnded
         {
             add { }
@@ -185,6 +184,7 @@ internal static class WpfTestHost
         public Task<AuthenticatedSurface> SignInAsync(
             string username,
             string password,
+            Contracts.DesktopEnrollmentSettings? connection = null,
             CancellationToken cancellationToken = default) => Task.FromResult(
                 username == "receptionist" ? AuthenticatedSurface.Receptionist : AuthenticatedSurface.Manager);
 

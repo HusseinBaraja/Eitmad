@@ -406,7 +406,6 @@ public enum ProtocolIds {
         public static let eitmadErrorMaterialUnavailableV1 = "eitmad.error.material-unavailable.v1"
         public static let eitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1"
         public static let eitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1"
-        public static let eitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1"
         public static let eitmadErrorDesktopAccountUnavailableV1 = "eitmad.error.desktop-account-unavailable.v1"
     }
 
@@ -503,7 +502,6 @@ public enum ProtocolIds {
         public static let eitmadMessageMaterialUnavailableV1 = "eitmad.message.material-unavailable.v1"
         public static let eitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1"
         public static let eitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1"
-        public static let eitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1"
         public static let eitmadMessageDesktopAccountUnavailableV1 = "eitmad.message.desktop-account-unavailable.v1"
     }
 

@@ -2348,50 +2348,14 @@ mod tests {
             terminate_connection: false,
         };
         if role_change {
-            let authorization = eitmad_authorization::AuthorizationService::new(store.clone());
-            let mutation = eitmad_authorization::MutationContext {
-                authorization: owner.clone(),
-                correlation_id,
-                causation_id: None,
-                idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-                occurred_at: now(),
-            };
-            authorization
-                .grant_relationship(
-                    &mutation,
-                    &eitmad_contracts::commands::GrantScopeRelationship {
-                        expected_policy_version: store.policy_version(&owner.scope).unwrap(),
-                        subject: eitmad_contracts::authorization::RelationshipSubject {
-                            principal_id: owner.identity.principal_id,
-                            principal_kind: PrincipalKind::User,
-                        },
-                        relation: eitmad_contracts::authorization::RelationId::parse(
-                            eitmad_authorization::MANAGER_RELATION,
-                        )
-                        .unwrap(),
-                    },
-                )
-                .unwrap();
-            let account = store
-                .list_desktop_accounts(owner.tenant_id)
+            let username = "\u{627}\u{633}\u{62a}\u{642}\u{628}\u{627}\u{644}";
+            let mut account = store
+                .desktop_account(owner.tenant_id, username)
                 .unwrap()
-                .accounts
-                .into_iter()
-                .find(|account| account.user_id.value() == user.identity.principal_id.value())
                 .unwrap();
-            crate::accounts::DesktopAccountService::new(store.clone(), authorization)
-                .update(
-                    &eitmad_authorization::MutationContext {
-                        idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-                        ..mutation
-                    },
-                    &eitmad_contracts::accounts::UpdateDesktopAccount {
-                        account_id: account.account_id,
-                        expected_revision: account.revision,
-                        display_name: account.display_name,
-                        role: eitmad_contracts::accounts::DesktopAccountRole::Manager,
-                    },
-                )
+            account.role = DesktopRole::Manager;
+            store
+                .provision_desktop_account(&owner, &account, username, now())
                 .unwrap();
         } else {
             store

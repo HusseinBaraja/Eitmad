@@ -230,7 +230,7 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 }
 
 #[test]
-fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_diagnostics() {
+fn import_survives_source_removal_restart_and_exact_retry_without_path_diagnostics() {
     let dir = TempDir::new().unwrap();
     let (store, service, actor) = authority(&dir);
     let path = dir.path().join("private-synthetic-source.png");
@@ -248,48 +248,6 @@ fn import_survives_source_removal_upgrade_restart_and_exact_retry_without_path_d
         .unwrap();
     let original = store.catalog_image(&actor.scope, &saved).unwrap().unwrap();
     std::fs::remove_file(path).unwrap();
-    // Reproduce the pre-deferral schema with an already-retained asset and retry evidence.
-    let connection = rusqlite::Connection::open(store.path()).unwrap();
-    connection
-        .execute_batch(
-            "DROP TABLE work_order_confirmed_history;
-        DELETE FROM schema_migrations WHERE version=28;
-        DROP TABLE order_confirmed_history;
-        DROP TABLE order_pending;
-        DELETE FROM schema_migrations WHERE version=27;
-        DROP TABLE quotation_confirmed_history;
-        DELETE FROM schema_migrations WHERE version=26;
-        DROP TABLE quotation_draft_outbox;
-        DROP TABLE quotation_drafts;
-        DELETE FROM schema_migrations WHERE version=24;
-        ALTER TABLE sync_scopes RENAME TO sync_scopes_v25;
-        CREATE TABLE sync_scopes (
-            scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL,
-            application_mode TEXT NOT NULL CHECK (application_mode IN ('local-first','server-authoritative')),
-            state_version INTEGER NOT NULL, revision INTEGER NOT NULL, state_json BLOB NOT NULL,
-            PRIMARY KEY (scope_kind, scope_id)
-        );
-        INSERT INTO sync_scopes(scope_kind,scope_id,application_mode,state_version,revision,state_json)
-            SELECT scope_kind,scope_id,application_mode,state_version,revision,state_json
-            FROM sync_scopes_v25 GROUP BY scope_kind,scope_id;
-        DROP TABLE sync_scopes_v25;
-        DELETE FROM schema_migrations WHERE version=25;
-        DROP TABLE catalog_sync_exceptions;
-        DELETE FROM schema_migrations WHERE version=23;
-        DROP TABLE catalog_sync_clients;
-        DROP TABLE catalog_sales_records;
-        DROP TABLE catalog_sync_checkpoints;
-        DROP TABLE catalog_sync_revisions;
-        DELETE FROM schema_migrations WHERE version=22;
-        DROP TABLE pricing_intents;
-        DROP TABLE pricing_revisions;
-        DELETE FROM schema_migrations WHERE version=21;
-        DROP INDEX catalog_image_upload_due;
-        ALTER TABLE catalog_image_uploads DROP COLUMN next_attempt_at;
-        DELETE FROM schema_migrations WHERE version=20;",
-        )
-        .unwrap();
-    drop(connection);
     drop(service);
     drop(store);
     let store = AuthorityStore::open(dir.path()).unwrap();

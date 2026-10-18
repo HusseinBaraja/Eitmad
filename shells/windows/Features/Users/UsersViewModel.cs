@@ -290,7 +290,6 @@ public sealed class UsersViewModel : ObservableObject
 
     private static string FailureMessage(string? code) => code switch
     {
-        ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountLastManagerV1 => "يجب أن يبقى مدير نشط واحد على الأقل.",
         ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountRevisionConflictV1 => "تغير المستخدم على جهاز آخر. راجع البيانات وحاول مرة أخرى.",
         ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => "ليس لديك صلاحية لإدارة المستخدمين. تتطلب الحسابات المشتركة صلاحية مالك المنشأة.",
         ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountInvalidV1 => "تحقق من البيانات. قد يكون اسم المستخدم مستخدمًا بالفعل.",

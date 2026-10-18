@@ -12,7 +12,7 @@ mod orders;
 #[path = "quotation_lifecycle.rs"]
 mod quotation_lifecycle;
 
-use crate::accounts::{DesktopAccountError, DesktopAccountService};
+use crate::accounts::{DesktopAccountAuthority, DesktopAccountError};
 use async_trait::async_trait;
 use eitmad_authorization::FURNITURE_READ_PERMISSION;
 use eitmad_authorization::MATERIAL_READ_PERMISSION;
@@ -23,7 +23,6 @@ use eitmad_authorization::{
 use eitmad_authorization::{PART_READ_PERMISSION, PRODUCT_READ_PERMISSION};
 use eitmad_configuration::{ConfigurationError, ConfigurationService};
 use eitmad_contracts::{
-    accounts::CreateDesktopAccount,
     commands::{Command, CommandResult, CreateCustomer, UpdateCustomer},
     errors::{ContractError, ErrorCode, ErrorDetail, MessageId, RetryDisposition},
     events::{Event, Subscription},
@@ -65,7 +64,7 @@ pub struct ProductDispatcher {
     pricing: eitmad_pricing::PricingService,
     catalog_replication: Option<Arc<dyn eitmad_pricing::CatalogReplication>>,
     furnitures: FurnitureService,
-    accounts: DesktopAccountService,
+    accounts: Option<Arc<dyn DesktopAccountAuthority>>,
     events: Arc<dyn ProductEventPublisher>,
 }
 
@@ -115,7 +114,6 @@ impl ProductDispatcher {
         let products = ProductService::new(store.clone(), authorization.clone());
         let pricing = eitmad_pricing::PricingService::new(store.clone(), authorization.clone());
         let parts = PartService::new(store.clone(), authorization.clone());
-        let accounts = DesktopAccountService::new(store.clone(), authorization.clone());
         let images =
             eitmad_catalog_image::CatalogImageService::new(store.clone(), authorization.clone());
         Self {
@@ -139,7 +137,7 @@ impl ProductDispatcher {
             pricing,
             catalog_replication: None,
             furnitures,
-            accounts,
+            accounts: None,
             events,
         }
     }
@@ -149,7 +147,7 @@ impl ProductDispatcher {
         mut self,
         server: Arc<dyn crate::DesktopAccountAuthority>,
     ) -> Self {
-        self.accounts = self.accounts.with_server(server);
+        self.accounts = Some(server);
         self
     }
 
@@ -424,33 +422,6 @@ impl ProductDispatcher {
         })
     }
 
-    fn dispatch_account_change(
-        &self,
-        context: &DispatchContext,
-        mutation: &MutationContext,
-        command: Command,
-    ) -> Result<CommandResult, Box<ContractError>> {
-        let result = match command {
-            Command::UpdateDesktopAccount(input) => self
-                .accounts
-                .update(mutation, &input)
-                .map(CommandResult::DesktopAccountUpdated),
-            Command::DeactivateDesktopAccount(input) => self
-                .accounts
-                .deactivate(mutation, &input)
-                .map(CommandResult::DesktopAccountDeactivated),
-            _ => return Err(Box::new(unsupported(context))),
-        }
-        .map_err(|e| Box::new(desktop_account_error(e, context)))?;
-        self.publish_pending(context, mutation.idempotency_key)
-            .map_err(|()| {
-                Box::new(desktop_account_error(
-                    DesktopAccountError::Unavailable,
-                    context,
-                ))
-            })?;
-        Ok(result)
-    }
     fn dispatch_draft_query(
         &self,
         context: &DispatchContext,
@@ -759,26 +730,6 @@ impl ProductDispatcher {
         .map_err(|error| Box::new(furniture_error(error, context)))
     }
 
-    fn create_desktop_account(
-        &self,
-        context: &DispatchContext,
-        mutation: &MutationContext,
-        command: &CreateDesktopAccount,
-    ) -> Result<CommandResult, Box<ContractError>> {
-        let account = self
-            .accounts
-            .create(mutation, command)
-            .map_err(|error| Box::new(desktop_account_error(error, context)))?;
-        self.publish_pending(context, mutation.idempotency_key)
-            .map_err(|()| {
-                Box::new(desktop_account_error(
-                    DesktopAccountError::Unavailable,
-                    context,
-                ))
-            })?;
-        Ok(CommandResult::DesktopAccountCreated(account))
-    }
-
     fn publish_pending(
         &self,
         context: &DispatchContext,
@@ -998,17 +949,72 @@ impl ProductDispatcher {
         mutation: MutationContext,
         command: Command,
     ) -> Result<CommandResult, ContractError> {
-        let fallback_context = context.clone();
-        let dispatcher = self.clone();
-        tokio::task::spawn_blocking(move || match command {
-            Command::CreateDesktopAccount(input) => {
-                dispatcher.create_desktop_account(&context, &mutation, &input)
-            }
-            other => dispatcher.dispatch_account_change(&context, &mutation, other),
-        })
-        .await
-        .map_err(|_| unsupported(&fallback_context))?
-        .map_err(|e| *e)
+        let operation = command.kind();
+        let result = async {
+            self.authorization
+                .authorize(
+                    &context.authorization,
+                    eitmad_authorization::DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
+                )
+                .map_err(|error| authorization_error(error, &context))?;
+            let accounts = self
+                .accounts
+                .clone()
+                .ok_or_else(|| desktop_account_error(DesktopAccountError::Unavailable, &context))?;
+            let result_kind = match &command {
+                Command::CreateDesktopAccount(_) => CommandResult::DesktopAccountCreated,
+                Command::UpdateDesktopAccount(_) => CommandResult::DesktopAccountUpdated,
+                Command::DeactivateDesktopAccount(_) => CommandResult::DesktopAccountDeactivated,
+                _ => return Err(unsupported(&context)),
+            };
+            tokio::task::spawn_blocking(move || accounts.change(&mutation, &command))
+                .await
+                .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &context))?
+                .map(result_kind)
+                .map_err(|error| desktop_account_error(error, &context))
+        }
+        .await;
+        if let Err(error) = &result {
+            self.authorization
+                .audit_access_result(
+                    &AccessAuditContext {
+                        authorization: context.authorization.clone(),
+                        correlation_id: context.correlation_id,
+                        causation_id: context.causation_id,
+                        occurred_at: now(),
+                    },
+                    operation,
+                    "desktop-account",
+                    if error.code.as_str() == "eitmad.error.authorization-denied.v1" {
+                        AuditOutcome::Denied
+                    } else {
+                        AuditOutcome::Failed
+                    },
+                    Some(error.code.as_str()),
+                    Vec::new(),
+                )
+                .map_err(|error| authorization_error(error, &context))?;
+        }
+        result
+    }
+
+    async fn account_query(&self, context: &DispatchContext) -> Result<QueryResult, ContractError> {
+        self.authorization
+            .authorize(
+                &context.authorization,
+                eitmad_authorization::DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
+            )
+            .map_err(|error| authorization_error(error, context))?;
+        let accounts = self
+            .accounts
+            .clone()
+            .ok_or_else(|| desktop_account_error(DesktopAccountError::Unavailable, context))?;
+        let actor = context.authorization.clone();
+        tokio::task::spawn_blocking(move || accounts.list(&actor))
+            .await
+            .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, context))?
+            .map(QueryResult::DesktopAccounts)
+            .map_err(|error| desktop_account_error(error, context))
     }
 }
 
@@ -1092,15 +1098,7 @@ impl QueryDispatcher for ProductDispatcher {
                 .references(&context.authorization)
                 .map(QueryResult::MaterialReferences)
                 .map_err(|error| material_error(error, &context)),
-            Query::DesktopAccounts(query) => {
-                let accounts = self.accounts.clone();
-                let actor = context.authorization.clone();
-                tokio::task::spawn_blocking(move || accounts.list(&actor, &query))
-                    .await
-                    .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &context))?
-                    .map(QueryResult::DesktopAccounts)
-                    .map_err(|e| desktop_account_error(e, &context))
-            }
+            Query::DesktopAccounts(_) => self.account_query(&context).await,
         };
         self.audit_query_result(&context, operation, &result)
             .map_err(|e| *e)?;
@@ -1113,24 +1111,6 @@ impl QueryDispatcher for ProductDispatcher {
         context: SubscriptionContext,
         subscription: &Subscription,
     ) -> Result<(), ContractError> {
-        if matches!(subscription, Subscription::DesktopAccounts(_)) {
-            let accounts = self.accounts.clone();
-            let actor = context.authorization.clone();
-            let checking = DispatchContext {
-                authorization: actor.clone(),
-                correlation_id: context.correlation_id,
-                causation_id: None,
-                idempotency_key: None,
-                protocol_version: context.protocol_version,
-                deadline: now(),
-            };
-            tokio::task::spawn_blocking(move || {
-                accounts.list(&actor, &eitmad_contracts::accounts::ListDesktopAccounts {})
-            })
-            .await
-            .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &checking))?
-            .map_err(|e| desktop_account_error(e, &checking))?;
-        }
         let permission = match subscription {
             Subscription::DesktopAccounts(_) => {
                 eitmad_authorization::DESKTOP_ACCOUNTS_MANAGE_PERMISSION
@@ -1154,6 +1134,28 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))?;
+        if matches!(subscription, Subscription::DesktopAccounts(_)) {
+            let accounts = self.accounts.clone().ok_or_else(|| {
+                authorization_contract_error(
+                    AuthorizationError::Unavailable,
+                    context.correlation_id,
+                    None,
+                )
+            })?;
+            let actor = context.authorization.clone();
+            let checking = DispatchContext {
+                authorization: actor.clone(),
+                correlation_id: context.correlation_id,
+                causation_id: None,
+                idempotency_key: None,
+                protocol_version: context.protocol_version,
+                deadline: now(),
+            };
+            tokio::task::spawn_blocking(move || accounts.authorize(&actor))
+                .await
+                .map_err(|_| desktop_account_error(DesktopAccountError::Unavailable, &checking))?
+                .map_err(|e| desktop_account_error(e, &checking))?;
+        }
         if matches!(subscription, Subscription::Customers(_))
             && context.authorization.scope.kind.as_str() == "organization"
         {
@@ -1526,25 +1528,18 @@ fn desktop_account_error(
             RetryDisposition::Never,
             None,
         ),
-        DesktopAccountError::Invalid | DesktopAccountError::IdempotencyMismatch => contract_error(
+        DesktopAccountError::Invalid => contract_error(
             "eitmad.error.desktop-account-invalid.v1",
             "eitmad.message.desktop-account-invalid.v1",
             context.correlation_id,
             RetryDisposition::Never,
             None,
         ),
-        DesktopAccountError::RevisionConflict { expected, actual } => contract_error(
+        DesktopAccountError::RevisionConflict => contract_error(
             "eitmad.error.desktop-account-revision-conflict.v1",
             "eitmad.message.desktop-account-revision-conflict.v1",
             context.correlation_id,
             RetryDisposition::SafeImmediately,
-            Some(ErrorDetail::RevisionConflict { expected, actual }),
-        ),
-        DesktopAccountError::LastUsableManager => contract_error(
-            "eitmad.error.desktop-account-last-manager.v1",
-            "eitmad.message.desktop-account-last-manager.v1",
-            context.correlation_id,
-            RetryDisposition::Never,
             None,
         ),
         DesktopAccountError::Unavailable => contract_error(
@@ -2625,12 +2620,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn desktop_account_access_mutation_publishes_policy_event_not_on_replay() {
+    async fn desktop_accounts_require_server_authority_without_local_fallback() {
         let directory = TempDir::new().unwrap();
         let store = AuthorityStore::open(directory.path()).unwrap();
         let auth = store.local_authorization_context(UnixMillis(1)).unwrap();
         let broker = EventBroker::new();
-        let dispatcher = ProductDispatcher::new(store, broker.clone());
+        let dispatcher = ProductDispatcher::new(store.clone(), broker.clone());
         let command_context = |idempotency| DispatchContext {
             authorization: auth.clone(),
             correlation_id: CorrelationId::new(Uuid::from_u128(3)),
@@ -2667,25 +2662,32 @@ mod tests {
             role: DesktopAccountRole::Receptionist,
         });
 
-        let first = dispatcher
-            .dispatch_command(command_context(75), command.clone())
-            .await
-            .unwrap();
-        assert!(matches!(first, CommandResult::DesktopAccountCreated(_)));
-        let published = tokio::time::timeout(std::time::Duration::from_secs(1), events.recv())
-            .await
-            .expect("account mutation did not publish a policy event")
-            .unwrap();
-        let Event::AuthorizationPolicyChanged(notice) = published.event else {
-            panic!("policy event expected")
-        };
-        assert_eq!(notice.policy_version, 3);
-
-        let replay = dispatcher
+        let error = dispatcher
             .dispatch_command(command_context(75), command)
             .await
-            .unwrap();
-        assert_eq!(replay, first);
+            .unwrap_err();
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.desktop-account-unavailable.v1"
+        );
+        assert!(
+            store
+                .list_desktop_accounts(auth.tenant_id)
+                .unwrap()
+                .accounts
+                .is_empty()
+        );
+        let error = dispatcher
+            .dispatch_query(
+                command_context(76),
+                Query::DesktopAccounts(eitmad_contracts::accounts::ListDesktopAccounts {}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.code.as_str(),
+            "eitmad.error.desktop-account-unavailable.v1"
+        );
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(20), events.recv())
                 .await

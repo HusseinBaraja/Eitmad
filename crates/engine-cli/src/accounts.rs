@@ -96,7 +96,7 @@ impl ConnectedAccounts {
                                     let checking = actor.clone();
                                     let result = tokio::task::spawn_blocking(move || client.watch(&checking, revision)).await;
                                     if matches!(result, Ok(Err(DesktopAccountError::Denied))) {
-                                        if store.revoke_connected_desktop_account(&actor, account.revision, eitmad_control_now()).is_ok() {
+                                        if store.revoke_connected_desktop_account(&actor, account.revision, crate::current_time()) == Ok(true) {
                                             events.policy_changed(actor.scope);
                                         }
                                         break;
@@ -123,12 +123,4 @@ impl ConnectedAccounts {
             }
         })
     }
-}
-
-fn eitmad_control_now() -> eitmad_contracts::transport::UnixMillis {
-    eitmad_contracts::transport::UnixMillis(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX)),
-    )
 }

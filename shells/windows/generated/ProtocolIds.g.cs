@@ -424,7 +424,6 @@ public static class ProtocolIds
         public const string EitmadErrorMaterialUnavailableV1 = "eitmad.error.material-unavailable.v1";
         public const string EitmadErrorDesktopAccountInvalidV1 = "eitmad.error.desktop-account-invalid.v1";
         public const string EitmadErrorDesktopAccountRevisionConflictV1 = "eitmad.error.desktop-account-revision-conflict.v1";
-        public const string EitmadErrorDesktopAccountLastManagerV1 = "eitmad.error.desktop-account-last-manager.v1";
         public const string EitmadErrorDesktopAccountUnavailableV1 = "eitmad.error.desktop-account-unavailable.v1";
     }
 
@@ -522,7 +521,6 @@ public static class ProtocolIds
         public const string EitmadMessageMaterialUnavailableV1 = "eitmad.message.material-unavailable.v1";
         public const string EitmadMessageDesktopAccountInvalidV1 = "eitmad.message.desktop-account-invalid.v1";
         public const string EitmadMessageDesktopAccountRevisionConflictV1 = "eitmad.message.desktop-account-revision-conflict.v1";
-        public const string EitmadMessageDesktopAccountLastManagerV1 = "eitmad.message.desktop-account-last-manager.v1";
         public const string EitmadMessageDesktopAccountUnavailableV1 = "eitmad.message.desktop-account-unavailable.v1";
     }
 

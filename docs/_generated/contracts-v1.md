@@ -419,7 +419,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.error.material-unavailable.v1`
 - `eitmad.error.desktop-account-invalid.v1`
 - `eitmad.error.desktop-account-revision-conflict.v1`
-- `eitmad.error.desktop-account-last-manager.v1`
 - `eitmad.error.desktop-account-unavailable.v1`
 
 ## Localization message identifiers
@@ -516,7 +515,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.message.material-unavailable.v1`
 - `eitmad.message.desktop-account-invalid.v1`
 - `eitmad.message.desktop-account-revision-conflict.v1`
-- `eitmad.message.desktop-account-last-manager.v1`
 - `eitmad.message.desktop-account-unavailable.v1`
 
 ## Error parameter names

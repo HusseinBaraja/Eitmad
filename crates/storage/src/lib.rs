@@ -41,10 +41,7 @@ pub use configuration::{ConfigurationCommitOutcome, StoredConfiguration};
 pub use customer::{
     CustomerCommit, CustomerCommitOutcome, CustomerSyncProjection, MAX_CUSTOMER_SYNC_BATCH,
 };
-pub use desktop_auth::{
-    DesktopAccount, DesktopAccountCommitOutcome, DesktopAccountMutation, DesktopRole,
-    canonical_desktop_username,
-};
+pub use desktop_auth::{DesktopAccount, DesktopRole, canonical_desktop_username};
 use eitmad_contracts::{
     events::Event,
     identity::{ScopeId, ScopeKind, ScopeRef},

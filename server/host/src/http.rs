@@ -65,8 +65,8 @@ pub struct ServerState {
     relay: Option<RelayCoordinator>,
     updates: Option<UpdateCatalog>,
     administration: Option<AdministrationService>,
-    account_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
-    approval_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
+    account_notifications: Arc<tokio::sync::OnceCell<DatabaseNotifications>>,
+    approval_notifications: Arc<tokio::sync::OnceCell<DatabaseNotifications>>,
     quotation_expiry_checks: Arc<
         tokio::sync::Mutex<std::collections::HashMap<QuotationExpiryScope, std::time::Instant>>,
     >,
@@ -119,50 +119,28 @@ impl ServerState {
         &self,
     ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_control_plane::ServerAccountError>
     {
-        let notifications=self.account_notifications.get_or_try_init(|| async {
-            // One listener per host, counted in the sync pool, independent of client count.
-            let mut listener=self.control.identity.account_listener().await?;
-            let (wake,_)=tokio::sync::broadcast::channel(16);
-            let (stop,mut stopping)=tokio::sync::watch::channel(false);
-            let publish=wake.clone();
-            tokio::spawn(async move {
-                loop {
-                    tokio::select! {
-                        _=stopping.changed()=>break,
-                        received=listener.recv()=> {
-                            let _=publish.send(());
-                            if received.is_err() {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
-                        }
-                    }
-                }
-            });
-            Ok::<_, eitmad_control_plane::ServerAccountError>(ApprovalNotifications{wake,stop})
-        }).await?;
+        let notifications = self
+            .account_notifications
+            .get_or_try_init(|| async {
+                let listener = self.control.identity.account_listener().await?;
+                Ok::<_, eitmad_control_plane::ServerAccountError>(DatabaseNotifications::start(
+                    listener,
+                ))
+            })
+            .await?;
         Ok(notifications.wake.subscribe())
     }
 
     async fn approval_notifications(
         &self,
     ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_pricing::ApprovalError> {
-        let notifications=self.approval_notifications.get_or_try_init(|| async {
-            // One listener per host, counted in the sync pool, independent of client count.
-            let mut listener=self.sync.quotation_approvals().listener().await?;
-            let (wake,_)=tokio::sync::broadcast::channel(16);
-            let (stop,mut stopping)=tokio::sync::watch::channel(false);
-            let publish=wake.clone();
-            tokio::spawn(async move {
-                loop {
-                    tokio::select! {
-                        _=stopping.changed()=>break,
-                        received=listener.recv()=> {
-                            let _=publish.send(());
-                            if received.is_err() {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
-                        }
-                    }
-                }
-            });
-            Ok(ApprovalNotifications{wake,stop})
-        }).await?;
+        let notifications = self
+            .approval_notifications
+            .get_or_try_init(|| async {
+                let listener = self.sync.quotation_approvals().listener().await?;
+                Ok::<_, eitmad_pricing::ApprovalError>(DatabaseNotifications::start(listener))
+            })
+            .await?;
         Ok(notifications.wake.subscribe())
     }
 
@@ -204,11 +182,37 @@ impl ServerState {
     }
 }
 
-struct ApprovalNotifications {
+struct DatabaseNotifications {
     wake: tokio::sync::broadcast::Sender<()>,
     stop: tokio::sync::watch::Sender<bool>,
 }
-impl Drop for ApprovalNotifications {
+impl DatabaseNotifications {
+    // One listener per domain and host, independent of the connected client count.
+    fn start(mut listener: eitmad_postgres_support::postgres::PgListener) -> Self {
+        let (wake, _) = tokio::sync::broadcast::channel(16);
+        let (stop, mut stopping) = tokio::sync::watch::channel(false);
+        let publish = wake.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = stopping.changed() => break,
+                    received = listener.recv() => {
+                        let _ = publish.send(());
+                        if received.is_err() {
+                            tokio::select! {
+                                () = tokio::time::sleep(std::time::Duration::from_secs(1)) => (),
+                                _ = stopping.changed() => break,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        Self { wake, stop }
+    }
+}
+
+impl Drop for DatabaseNotifications {
     fn drop(&mut self) {
         let _ = self.stop.send(true);
     }
@@ -1744,30 +1748,16 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor =
-        if required_capability.as_str() == "eitmad.capability.quotation-draft-resolution.v1" {
-            28
-        } else if required_capability.as_str() == "eitmad.capability.customer.v1" {
-            27
-        } else if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
-            25
-        } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
-            23
-        } else if matches!(
-            required_capability.as_str(),
-            "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
-        ) {
-            22
-        } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
-            20
-        } else if matches!(
-            required_capability.as_str(),
-            "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-        ) {
-            17
-        } else {
-            5
-        };
+    let minimum_minor = match required_capability.as_str() {
+        "eitmad.capability.quotation-draft-resolution.v1" => 28,
+        "eitmad.capability.customer.v1" => 27,
+        "eitmad.capability.shared-accounts.v1" => 25,
+        "eitmad.capability.work-orders.v1" => 23,
+        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1" => 22,
+        "eitmad.capability.quotation-approval.v1" => 20,
+        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1" => 17,
+        _ => 5,
+    };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
     let NegotiationOutcome::Accepted(negotiated) = negotiate(&boundary, &peer) else {

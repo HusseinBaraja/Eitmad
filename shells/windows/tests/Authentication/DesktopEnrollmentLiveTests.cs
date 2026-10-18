@@ -24,7 +24,7 @@ public sealed class DesktopEnrollmentLiveTests
         await using (var sessions = new DesktopSessionController(WindowsEngineBridge.Create(arguments)))
         {
             await sessions.StartAsync();
-            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.ServerSignInAsync("owner", "synthetic-test-password-123", connection));
+            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.SignInAsync("owner", "synthetic-test-password-123", connection));
             await sessions.SignOutAsync();
             await sessions.StopAsync();
         }
@@ -32,15 +32,15 @@ public sealed class DesktopEnrollmentLiveTests
         await using (var sessions = new DesktopSessionController(reopened))
         {
             await sessions.StartAsync();
-            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.ServerSignInAsync("owner", "synthetic-test-password-123", null));
+            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.SignInAsync("owner", "synthetic-test-password-123", null));
             var state = await reopened.GetSessionStateAsync();
             Assert.IsNotNull(state?.Authorization);
             device = state.Authorization.Identity.DeviceId;
             tenant = state.Authorization.TenantId;
             await sessions.SignOutAsync();
-            await Assert.ThrowsAsync<EngineIpcException>(() => sessions.ServerSignInAsync("owner", "wrong-synthetic-password", null));
+            await Assert.ThrowsAsync<EngineIpcException>(() => sessions.SignInAsync("owner", "wrong-synthetic-password", null));
             Assert.IsNull(await reopened.GetSessionStateAsync());
-            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.ServerSignInAsync("owner", "synthetic-test-password-123", null));
+            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.SignInAsync("owner", "synthetic-test-password-123", null));
             var recovered = await reopened.GetSessionStateAsync();
             Assert.AreEqual(device, recovered!.Authorization.Identity.DeviceId);
             Assert.AreEqual(tenant, recovered.Authorization.TenantId);

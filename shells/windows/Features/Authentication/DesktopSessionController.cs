@@ -35,8 +35,7 @@ public interface IDesktopSessionController : IAsyncDisposable
     event EventHandler<SessionEndedEventArgs>? SessionEnded;
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
-    Task<AuthenticatedSurface> SignInAsync(string username, string password, CancellationToken cancellationToken = default);
-    Task<AuthenticatedSurface> ServerSignInAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default);
+    Task<AuthenticatedSurface> SignInAsync(string username, string password, DesktopEnrollmentSettings? connection = null, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
 
@@ -64,41 +63,6 @@ public sealed class DesktopSessionController : IDesktopSessionController
         await engine.StartAsync(cancellationToken);
     }
 
-    public async Task<AuthenticatedSurface> SignInAsync(
-        string username,
-        string password,
-        CancellationToken cancellationToken = default)
-    {
-        await transition.WaitAsync(cancellationToken);
-        try
-        {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            if (recoveryFailure is not null) throw recoveryFailure;
-            DeactivateLocalState();
-            await AwaitEngineReadyAsync(cancellationToken);
-            var session = await engine.SignInAsync(username, password, cancellationToken);
-            try
-            {
-                var surface = ResolveSurface(session.AccountRole);
-                active = true;
-                ScheduleExpiry(session.ExpiresAt);
-                await MonitorAccessAsync(cancellationToken);
-                return surface;
-            }
-            catch
-            {
-                DeactivateLocalState();
-                try { await engine.SignOutAsync(CancellationToken.None); }
-                catch (EngineIpcException) { }
-                throw;
-            }
-        }
-        finally
-        {
-            transition.Release();
-        }
-    }
-
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         await transition.WaitAsync(cancellationToken);
@@ -113,8 +77,8 @@ public sealed class DesktopSessionController : IDesktopSessionController
         }
     }
 
-    public async Task<AuthenticatedSurface> ServerSignInAsync(string username, string password,
-        DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default)
+    public async Task<AuthenticatedSurface> SignInAsync(string username, string password,
+        DesktopEnrollmentSettings? connection = null, CancellationToken cancellationToken = default)
     {
         await transition.WaitAsync(cancellationToken);
         try
