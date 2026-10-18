@@ -241,6 +241,10 @@ namespace Eitmad.Contracts
         public CreateCustomer CommandCustomerCreate { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Command_CustomerResolveConflict")]
+        public ResolveCustomerConflict CommandCustomerResolveConflict { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Command_CustomerUpdate")]
         public UpdateCustomer CommandCustomerUpdate { get; set; }
 
@@ -369,6 +373,10 @@ namespace Eitmad.Contracts
         public ConfigSnapshot CommandResultConfigurationUpdated { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CommandResult_CustomerConflictResolved")]
+        public ChangeRecord CommandResultCustomerConflictResolved { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_CustomerCreated")]
         public CustomerMutationResult CommandResultCustomerCreated { get; set; }
 
@@ -455,6 +463,14 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("CommandResult_RelationshipRevoked")]
         public RelationshipMutationResult CommandResultRelationshipRevoked { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CustomerResolutionSource_Conflict")]
+        public CustomerConflictSource CustomerResolutionSourceConflict { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("CustomerResolutionSource_PendingReview")]
+        public ChangeRecord CustomerResolutionSourcePendingReview { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_AuthorizationPolicyChangedEvent")]
@@ -633,6 +649,10 @@ namespace Eitmad.Contracts
         public Dictionary<string, object> QueryConfigGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_CustomerConflicts")]
+        public GetCustomerConflicts QueryCustomerConflicts { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_CustomerGet")]
         public GetCustomer QueryCustomerGet { get; set; }
 
@@ -795,6 +815,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Customer")]
         public Customer QueryResultCustomer { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_CustomerConflicts")]
+        public CustomerConflictPage QueryResultCustomerConflicts { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_CustomerDocument")]
@@ -1072,6 +1096,48 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("phone")]
         public string Phone { get; set; }
+    }
+
+    public partial class ResolveCustomerConflict
+    {
+        [JsonPropertyName("contact")]
+        public CustomerContact Contact { get; set; }
+
+        [JsonPropertyName("customer")]
+        public GetCustomer Customer { get; set; }
+
+        [JsonPropertyName("expectedServerRevision")]
+        public long ExpectedServerRevision { get; set; }
+
+        [JsonPropertyName("source")]
+        public Dictionary<string, object> Source { get; set; }
+    }
+
+    /// <summary>
+    /// Contact values selected explicitly by a Manager; no implicit merge is performed.
+    /// </summary>
+    public partial class CustomerContact
+    {
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("phone")]
+        public string Phone { get; set; }
+    }
+
+    public partial class GetCustomer
+    {
+        [JsonPropertyName("branchId")]
+        public Guid? BranchId { get; set; }
+
+        [JsonPropertyName("customerId")]
+        public Guid CustomerId { get; set; }
     }
 
     public partial class UpdateCustomer
@@ -1778,6 +1844,66 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("value")]
         public ConfigReadValueValue? Value { get; set; }
+    }
+
+    public partial class ChangeRecord
+    {
+        [JsonPropertyName("baseRevision")]
+        public long? BaseRevision { get; set; }
+
+        [JsonPropertyName("changedAt")]
+        public long ChangedAt { get; set; }
+
+        [JsonPropertyName("changeId")]
+        public Guid ChangeId { get; set; }
+
+        [JsonPropertyName("idempotencyKey")]
+        public Guid IdempotencyKey { get; set; }
+
+        [JsonPropertyName("merge")]
+        public MergeMetadata Merge { get; set; }
+
+        [JsonPropertyName("operation")]
+        public ChangeOperation Operation { get; set; }
+
+        [JsonPropertyName("payload")]
+        public EncodedDomainPayload Payload { get; set; }
+
+        [JsonPropertyName("recordId")]
+        public Guid RecordId { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class MergeMetadata
+    {
+        [JsonPropertyName("commonAncestorRevision")]
+        public long? CommonAncestorRevision { get; set; }
+
+        [JsonPropertyName("mergedAt")]
+        public long MergedAt { get; set; }
+
+        [JsonPropertyName("sourceChanges")]
+        public Guid[] SourceChanges { get; set; }
+
+        [JsonPropertyName("strategy")]
+        public MergeStrategy Strategy { get; set; }
+    }
+
+    public partial class EncodedDomainPayload
+    {
+        [JsonPropertyName("base64")]
+        public string Base64 { get; set; }
+
+        [JsonPropertyName("schemaId")]
+        public string SchemaId { get; set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public long SchemaVersion { get; set; }
     }
 
     public partial class CustomerMutationResult
@@ -2602,66 +2728,6 @@ namespace Eitmad.Contracts
         public Guid? ServerConflictId { get; set; }
     }
 
-    public partial class ChangeRecord
-    {
-        [JsonPropertyName("baseRevision")]
-        public long? BaseRevision { get; set; }
-
-        [JsonPropertyName("changedAt")]
-        public long ChangedAt { get; set; }
-
-        [JsonPropertyName("changeId")]
-        public Guid ChangeId { get; set; }
-
-        [JsonPropertyName("idempotencyKey")]
-        public Guid IdempotencyKey { get; set; }
-
-        [JsonPropertyName("merge")]
-        public MergeMetadata Merge { get; set; }
-
-        [JsonPropertyName("operation")]
-        public ChangeOperation Operation { get; set; }
-
-        [JsonPropertyName("payload")]
-        public EncodedDomainPayload Payload { get; set; }
-
-        [JsonPropertyName("recordId")]
-        public Guid RecordId { get; set; }
-
-        [JsonPropertyName("revision")]
-        public long Revision { get; set; }
-
-        [JsonPropertyName("scope")]
-        public ScopeRef Scope { get; set; }
-    }
-
-    public partial class MergeMetadata
-    {
-        [JsonPropertyName("commonAncestorRevision")]
-        public long? CommonAncestorRevision { get; set; }
-
-        [JsonPropertyName("mergedAt")]
-        public long MergedAt { get; set; }
-
-        [JsonPropertyName("sourceChanges")]
-        public Guid[] SourceChanges { get; set; }
-
-        [JsonPropertyName("strategy")]
-        public MergeStrategy Strategy { get; set; }
-    }
-
-    public partial class EncodedDomainPayload
-    {
-        [JsonPropertyName("base64")]
-        public string Base64 { get; set; }
-
-        [JsonPropertyName("schemaId")]
-        public string SchemaId { get; set; }
-
-        [JsonPropertyName("schemaVersion")]
-        public long SchemaVersion { get; set; }
-    }
-
     public partial class RelationshipMutationResult
     {
         [JsonPropertyName("changed")]
@@ -2687,6 +2753,12 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("subject")]
         public RelationshipSubject Subject { get; set; }
+    }
+
+    public partial class CustomerConflictSource
+    {
+        [JsonPropertyName("conflictId")]
+        public Guid ConflictId { get; set; }
     }
 
     public partial class AuthorizationPolicyChangeNotice
@@ -3532,13 +3604,13 @@ namespace Eitmad.Contracts
         public CatalogImageRef Reference { get; set; }
     }
 
-    public partial class GetCustomer
+    public partial class GetCustomerConflicts
     {
-        [JsonPropertyName("branchId")]
-        public Guid? BranchId { get; set; }
+        [JsonPropertyName("after")]
+        public Guid? After { get; set; }
 
-        [JsonPropertyName("customerId")]
-        public Guid CustomerId { get; set; }
+        [JsonPropertyName("customer")]
+        public GetCustomer Customer { get; set; }
     }
 
     public partial class GetCustomerHistory
@@ -3829,6 +3901,108 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("totalBytes")]
         public long TotalBytes { get; set; }
+    }
+
+    public partial class CustomerConflictPage
+    {
+        [JsonPropertyName("current")]
+        public Customer Current { get; set; }
+
+        [JsonPropertyName("items")]
+        public CustomerConflictView[] Items { get; set; }
+
+        [JsonPropertyName("next")]
+        public Guid? Next { get; set; }
+
+        [JsonPropertyName("pendingResolution")]
+        public ConfirmCustomerResolution PendingResolution { get; set; }
+
+        /// <summary>
+        /// Later local edits retained outside the delivery queue, for explicit separate review.
+        /// </summary>
+        [JsonPropertyName("pendingReviews")]
+        public CustomerPendingReview[] PendingReviews { get; set; }
+    }
+
+    public partial class CustomerConflictView
+    {
+        [JsonPropertyName("conflict")]
+        public ConflictRecord Conflict { get; set; }
+
+        [JsonPropertyName("local")]
+        public CustomerSyncPayload Local { get; set; }
+
+        [JsonPropertyName("remote")]
+        public CustomerSyncPayload Remote { get; set; }
+    }
+
+    public partial class ConflictRecord
+    {
+        [JsonPropertyName("conflictId")]
+        public Guid ConflictId { get; set; }
+
+        [JsonPropertyName("detectedAt")]
+        public long DetectedAt { get; set; }
+
+        [JsonPropertyName("local")]
+        public ChangeRecord Local { get; set; }
+
+        [JsonPropertyName("recordId")]
+        public Guid RecordId { get; set; }
+
+        [JsonPropertyName("remote")]
+        public ChangeRecord Remote { get; set; }
+
+        [JsonPropertyName("resolution")]
+        public MergeMetadata Resolution { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+
+        [JsonPropertyName("status")]
+        public ConflictStatus Status { get; set; }
+    }
+
+    public partial class CustomerSyncPayload
+    {
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("customerId")]
+        public Guid CustomerId { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string Notes { get; set; }
+
+        [JsonPropertyName("phone")]
+        public string Phone { get; set; }
+
+        [JsonPropertyName("revision")]
+        public long Revision { get; set; }
+    }
+
+    public partial class ConfirmCustomerResolution
+    {
+        [JsonPropertyName("command")]
+        public ResolveCustomerConflict Command { get; set; }
+
+        [JsonPropertyName("idempotencyKey")]
+        public Guid IdempotencyKey { get; set; }
+
+        [JsonPropertyName("scope")]
+        public ScopeRef Scope { get; set; }
+    }
+
+    public partial class CustomerPendingReview
+    {
+        [JsonPropertyName("change")]
+        public ChangeRecord Change { get; set; }
+
+        [JsonPropertyName("contact")]
+        public CustomerSyncPayload Contact { get; set; }
     }
 
     /// <summary>
@@ -4681,6 +4855,10 @@ namespace Eitmad.Contracts
 
     public enum ConfigReadValueKind { Boolean, Decimal, Integer, Redacted, SecretReference, Text, TextList };
 
+    public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
+
+    public enum ChangeOperation { Tombstone, Upsert };
+
     public enum CustomerStatus { Active, Archived, Merged };
 
     public enum SyncState { Confirmed, Conflicted, Pending, Rejected };
@@ -4696,10 +4874,6 @@ namespace Eitmad.Contracts
     public enum OrderState { Cancelled, Confirmed, Delivered, InProduction, Ready };
 
     public enum WorkState { Cancelled, Completed, InProgress, Planned };
-
-    public enum MergeStrategy { DomainMerge, KeepLocal, KeepRemote };
-
-    public enum ChangeOperation { Tombstone, Upsert };
 
     public enum MaterialRecordKind { Category, Material, Unit };
 
@@ -4723,6 +4897,8 @@ namespace Eitmad.Contracts
     /// Cached projections must be cleared and queried again after a policy change.
     /// </summary>
     public enum SubscriptionCloseReason { AuthorizationRevoked, Backpressure, ClientRequested, EngineStopping, ProjectionInvalidated };
+
+    public enum ConflictStatus { Open, Resolved };
 
     /// <summary>
     /// Denied or unavailable sections contain no rows; their zero counts mean unknown.
@@ -4785,6 +4961,8 @@ namespace Eitmad.Contracts
                 ConfigSensitivityConverter.Singleton,
                 ConfigReadValueKindConverter.Singleton,
                 ConfigReadValueValueConverter.Singleton,
+                MergeStrategyConverter.Singleton,
+                ChangeOperationConverter.Singleton,
                 CustomerStatusConverter.Singleton,
                 SyncStateConverter.Singleton,
                 DesktopAccountRoleConverter.Singleton,
@@ -4797,8 +4975,6 @@ namespace Eitmad.Contracts
                 QuotationStateConverter.Singleton,
                 OrderStateConverter.Singleton,
                 WorkStateConverter.Singleton,
-                MergeStrategyConverter.Singleton,
-                ChangeOperationConverter.Singleton,
                 PrincipalKindConverter.Singleton,
                 ConfigWriteValueKindConverter.Singleton,
                 DiscountDecisionConverter.Singleton,
@@ -4812,6 +4988,7 @@ namespace Eitmad.Contracts
                 RequiredByConverter.Singleton,
                 HandshakeOutcomeStatusConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
+                ConflictStatusConverter.Singleton,
                 HomeAvailabilityConverter.Singleton,
                 HomeDestinationConverter.Singleton,
                 new DateOnlyConverter(),
@@ -5566,6 +5743,79 @@ namespace Eitmad.Contracts
         public static readonly ConfigReadValueValueConverter Singleton = new ConfigReadValueValueConverter();
     }
 
+    internal class MergeStrategyConverter : JsonConverter<MergeStrategy>
+    {
+        public override bool CanConvert(Type t) => t == typeof(MergeStrategy);
+
+        public override MergeStrategy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "domainMerge":
+                    return MergeStrategy.DomainMerge;
+                case "keepLocal":
+                    return MergeStrategy.KeepLocal;
+                case "keepRemote":
+                    return MergeStrategy.KeepRemote;
+            }
+            throw new Exception("Cannot unmarshal type MergeStrategy");
+        }
+
+        public override void Write(Utf8JsonWriter writer, MergeStrategy value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case MergeStrategy.DomainMerge:
+                    JsonSerializer.Serialize(writer, "domainMerge", options);
+                    return;
+                case MergeStrategy.KeepLocal:
+                    JsonSerializer.Serialize(writer, "keepLocal", options);
+                    return;
+                case MergeStrategy.KeepRemote:
+                    JsonSerializer.Serialize(writer, "keepRemote", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type MergeStrategy");
+        }
+
+        public static readonly MergeStrategyConverter Singleton = new MergeStrategyConverter();
+    }
+
+    internal class ChangeOperationConverter : JsonConverter<ChangeOperation>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ChangeOperation);
+
+        public override ChangeOperation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "tombstone":
+                    return ChangeOperation.Tombstone;
+                case "upsert":
+                    return ChangeOperation.Upsert;
+            }
+            throw new Exception("Cannot unmarshal type ChangeOperation");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ChangeOperation value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ChangeOperation.Tombstone:
+                    JsonSerializer.Serialize(writer, "tombstone", options);
+                    return;
+                case ChangeOperation.Upsert:
+                    JsonSerializer.Serialize(writer, "upsert", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ChangeOperation");
+        }
+
+        public static readonly ChangeOperationConverter Singleton = new ChangeOperationConverter();
+    }
+
     internal class CustomerStatusConverter : JsonConverter<CustomerStatus>
     {
         public override bool CanConvert(Type t) => t == typeof(CustomerStatus);
@@ -6124,79 +6374,6 @@ namespace Eitmad.Contracts
         public static readonly WorkStateConverter Singleton = new WorkStateConverter();
     }
 
-    internal class MergeStrategyConverter : JsonConverter<MergeStrategy>
-    {
-        public override bool CanConvert(Type t) => t == typeof(MergeStrategy);
-
-        public override MergeStrategy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "domainMerge":
-                    return MergeStrategy.DomainMerge;
-                case "keepLocal":
-                    return MergeStrategy.KeepLocal;
-                case "keepRemote":
-                    return MergeStrategy.KeepRemote;
-            }
-            throw new Exception("Cannot unmarshal type MergeStrategy");
-        }
-
-        public override void Write(Utf8JsonWriter writer, MergeStrategy value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case MergeStrategy.DomainMerge:
-                    JsonSerializer.Serialize(writer, "domainMerge", options);
-                    return;
-                case MergeStrategy.KeepLocal:
-                    JsonSerializer.Serialize(writer, "keepLocal", options);
-                    return;
-                case MergeStrategy.KeepRemote:
-                    JsonSerializer.Serialize(writer, "keepRemote", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type MergeStrategy");
-        }
-
-        public static readonly MergeStrategyConverter Singleton = new MergeStrategyConverter();
-    }
-
-    internal class ChangeOperationConverter : JsonConverter<ChangeOperation>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ChangeOperation);
-
-        public override ChangeOperation Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "tombstone":
-                    return ChangeOperation.Tombstone;
-                case "upsert":
-                    return ChangeOperation.Upsert;
-            }
-            throw new Exception("Cannot unmarshal type ChangeOperation");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ChangeOperation value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case ChangeOperation.Tombstone:
-                    JsonSerializer.Serialize(writer, "tombstone", options);
-                    return;
-                case ChangeOperation.Upsert:
-                    JsonSerializer.Serialize(writer, "upsert", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type ChangeOperation");
-        }
-
-        public static readonly ChangeOperationConverter Singleton = new ChangeOperationConverter();
-    }
-
     internal class PrincipalKindConverter : JsonConverter<PrincipalKind>
     {
         public override bool CanConvert(Type t) => t == typeof(PrincipalKind);
@@ -6712,6 +6889,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly SubscriptionCloseReasonConverter Singleton = new SubscriptionCloseReasonConverter();
+    }
+
+    internal class ConflictStatusConverter : JsonConverter<ConflictStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ConflictStatus);
+
+        public override ConflictStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "open":
+                    return ConflictStatus.Open;
+                case "resolved":
+                    return ConflictStatus.Resolved;
+            }
+            throw new Exception("Cannot unmarshal type ConflictStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ConflictStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ConflictStatus.Open:
+                    JsonSerializer.Serialize(writer, "open", options);
+                    return;
+                case ConflictStatus.Resolved:
+                    JsonSerializer.Serialize(writer, "resolved", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ConflictStatus");
+        }
+
+        public static readonly ConflictStatusConverter Singleton = new ConflictStatusConverter();
     }
 
     internal class HomeAvailabilityConverter : JsonConverter<HomeAvailability>

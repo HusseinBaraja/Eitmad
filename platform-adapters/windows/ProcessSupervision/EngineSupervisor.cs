@@ -103,7 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.CustomerHistoryKind or Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
+                Authorization = query.Kind is Query.CustomerConflictsKind or Query.CustomerGetKind or Query.CustomerSearchKind or Query.CustomerHistoryKind or Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),

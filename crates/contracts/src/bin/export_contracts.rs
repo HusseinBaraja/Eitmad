@@ -46,6 +46,8 @@ use uuid::Uuid;
 #[allow(dead_code)]
 struct ContractSchemaRoot {
     read_customers: eitmad_contracts::customer::ReadCustomers,
+    read_customer_conflicts: eitmad_contracts::customer::ReadCustomerConflicts,
+    confirm_customer_resolution: eitmad_contracts::customer::ConfirmCustomerResolution,
     watch_server_accounts: eitmad_contracts::server_accounts::WatchServerAccounts,
     server_account_watch: eitmad_contracts::server_accounts::ServerAccountWatch,
     change_server_account: eitmad_contracts::server_accounts::ChangeServerAccount,

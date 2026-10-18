@@ -47,7 +47,8 @@
        <Button x:Name="EditButton" Grid.Column="1" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource CustomerEditAction}" AutomationProperties.Name="تعديل بيانات العميل" VerticalAlignment="Top" Margin="24,0,0,0"/>
       </Grid>
       <controls:FeedbackNotice x:Name="ConflictNotice" Tone="Warning" Margin="0,0,0,18" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}"
-       Message="التعديل متوقف بسبب تعارض في المزامنة. حل التعارض غير متاح في هذا الإصدار."/>
+       Message="التعديل متوقف بسبب تعارض في المزامنة. يراجع المدير النسختين ويعتمد البيانات بعد تأكيد الخادم."/>
+      <Button x:Name="ResolveButton" Content="مراجعة التعارضات" Style="{StaticResource SecondaryButton}" Click="ResolveClick" HorizontalAlignment="Left" Margin="0,0,0,16" Visibility="Collapsed" AutomationProperties.Name="مراجعة تعارضات العميل والتعديلات المعلقة"/>
       <layout:AdaptiveFieldsPanel MinItemWidth="240">
        <controls:FormField Label="الفرع"><TextBlock Text="{Binding BranchId}" FlowDirection="LeftToRight" Style="{StaticResource ContactValue}"/></controls:FormField>
        <controls:FormField Label="رقم الهاتف"><TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Style="{StaticResource ContactValue}"/></controls:FormField>
@@ -83,5 +84,6 @@
    </StackPanel>
   </ScrollViewer>
   <customers:CustomerEditorView x:Name="Editor" Grid.RowSpan="2"/>
+  <customers:CustomerResolutionView x:Name="Resolution" Grid.RowSpan="2"/>
  </Grid>
 </UserControl>

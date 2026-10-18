@@ -262,6 +262,8 @@ pub fn router(state: ServerState) -> Router {
         )
         .route("/v1/customer-branches", post(register_customer_branch))
         .route("/v1/customers/read", post(customer_read))
+        .route("/v1/customers/conflicts", post(customer_conflicts))
+        .route("/v1/customers/resolve", post(customer_resolve))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
         .route("/v1/admin/update-manifests", post(publish_update_manifest))
@@ -1740,7 +1742,7 @@ async fn authenticate_negotiated(
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
     let minimum_minor = if required_capability.as_str() == "eitmad.capability.customer.v1" {
-        26
+        27
     } else if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
         25
     } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
@@ -2101,6 +2103,52 @@ async fn customer_read(
                 },
             )
         })
+}
+async fn customer_conflicts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ReadCustomerConflicts>,
+) -> Result<Json<eitmad_contracts::customer::CustomerConflictPage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .customer_conflicts(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+async fn customer_resolve(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ConfirmCustomerResolution>,
+) -> Result<Json<eitmad_contracts::sync::ChangeRecord>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .resolve_customer(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+fn map_customer_resolution(error: eitmad_customer::CustomerError) -> ApiError {
+    use eitmad_customer::CustomerError as E;
+    let (status, code) = match error {
+        E::Denied | E::UnsupportedScope => (
+            StatusCode::FORBIDDEN,
+            "eitmad.error.authorization-denied.v1",
+        ),
+        E::NotFound => (StatusCode::NOT_FOUND, "eitmad.error.customer-not-found.v1"),
+        E::RevisionConflict { .. } => (
+            StatusCode::CONFLICT,
+            "eitmad.error.customer-revision-conflict.v1",
+        ),
+        E::IdempotencyMismatch => (StatusCode::BAD_REQUEST, "eitmad.error.contract-invalid.v1"),
+        E::Unavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.customer-unavailable.v1",
+        ),
+    };
+    ApiError::new(status, code)
 }
 async fn order_read(
     State(state): State<ServerState>,

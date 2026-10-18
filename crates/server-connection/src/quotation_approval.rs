@@ -258,6 +258,93 @@ impl std::fmt::Debug for DirectDiscountApprovalClient {
 }
 
 impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
+    fn is_connected_branch(&self, branch: ScopeId) -> bool {
+        branch == self.branch.id
+    }
+    fn conflicts(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::GetCustomerConflicts,
+    ) -> Result<eitmad_contracts::customer::CustomerConflictPage, eitmad_customer::CustomerError>
+    {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.customer.v1",
+            27,
+        );
+        let mut query = query.clone();
+        if actor.scope.kind.as_str() == "branch" {
+            query.customer.branch_id = Some(self.branch.id);
+        }
+        let mut page: eitmad_contracts::customer::CustomerConflictPage = http
+            .request(
+                actor,
+                "/v1/customers/conflicts",
+                &eitmad_contracts::customer::ReadCustomerConflicts {
+                    scope: self
+                        .remote(actor)
+                        .map_err(|_| eitmad_customer::CustomerError::Denied)?,
+                    query,
+                },
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map_err(|e| customer_resolution_error(&e))?;
+        if actor.scope.kind.as_str() == "branch" {
+            page.current.scope = actor.scope.clone();
+            for v in &mut page.items {
+                v.conflict.scope = actor.scope.clone();
+                v.conflict.local.scope = actor.scope.clone();
+                v.conflict.remote.scope = actor.scope.clone();
+            }
+        }
+        Ok(page)
+    }
+    fn resolve(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::customer::ConfirmCustomerResolution,
+    ) -> Result<eitmad_contracts::sync::ChangeRecord, eitmad_customer::CustomerError> {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.customer.v1",
+            27,
+        );
+        let mut input = input.clone();
+        input.scope = self
+            .remote(actor)
+            .map_err(|_| eitmad_customer::CustomerError::Denied)?;
+        if actor.scope.kind.as_str() == "branch" {
+            input.command.customer.branch_id = Some(self.branch.id);
+        }
+        if let eitmad_contracts::customer::CustomerResolutionSource::PendingReview(v) =
+            &mut input.command.source
+        {
+            v.scope = ScopeRef {
+                kind: ScopeKind::parse("branch").expect("scope"),
+                id: input
+                    .command
+                    .customer
+                    .branch_id
+                    .ok_or(eitmad_customer::CustomerError::Denied)?,
+            };
+        }
+        let mut change: eitmad_contracts::sync::ChangeRecord = http
+            .request(
+                actor,
+                "/v1/customers/resolve",
+                &input,
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map_err(|e| customer_resolution_error(&e))?;
+        if actor.scope.kind.as_str() == "branch" {
+            change.scope = actor.scope.clone();
+        }
+        Ok(change)
+    }
     fn read(
         &self,
         actor: &AuthorizationContext,
@@ -268,7 +355,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
             self.secrets.clone(),
             self.credential.clone(),
             "eitmad.capability.customer.v1",
-            26,
+            27,
         );
         http.request(
             actor,
@@ -308,7 +395,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
             },
             "eitmad.schema.customer.v1",
             "eitmad.capability.customer.v1",
-            26,
+            27,
         )
         .map_err(|e| {
             if e == E::Denied {
@@ -317,6 +404,20 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                 eitmad_customer::CustomerError::Unavailable
             }
         })
+    }
+}
+
+fn customer_resolution_error(error: &HttpError) -> eitmad_customer::CustomerError {
+    use eitmad_customer::CustomerError as E;
+    match error {
+        HttpError::Denied => E::Denied,
+        HttpError::Conflict => E::RevisionConflict {
+            expected_revision: None,
+            actual_revision: None,
+        },
+        HttpError::NotFound => E::NotFound,
+        HttpError::Invalid => E::IdempotencyMismatch,
+        _ => E::Unavailable,
     }
 }
 

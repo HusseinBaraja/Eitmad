@@ -121,6 +121,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.update.report-installer.v1",
     "eitmad.permission.customer.read.v1",
     "eitmad.permission.customer.write.v1",
+    "eitmad.permission.customer.resolve.v1",
     "eitmad.permission.product.read.v1",
     "eitmad.permission.furniture.read.v1",
     "eitmad.permission.product.write.v1",

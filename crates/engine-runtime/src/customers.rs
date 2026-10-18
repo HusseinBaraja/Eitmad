@@ -120,11 +120,31 @@ impl ProductDispatcher {
         tokio::task::spawn_blocking(move || match query {
             Query::Customer(q) => service.get(&actor, &q).map(QueryResult::Customer),
             Query::Customers(q) => service.search(&actor, &q).map(QueryResult::Customers),
+            Query::CustomerConflicts(q) => service
+                .conflicts(&actor, &q)
+                .map(|page| QueryResult::CustomerConflicts(Box::new(page))),
             _ => Err(CustomerError::Unavailable),
         })
         .await
         .map_err(|_| customer_error(CustomerError::Unavailable, context))?
         .map_err(|e| customer_error(e, context))
+    }
+}
+impl ProductDispatcher {
+    pub(super) async fn resolve_customer_conflict(
+        &self,
+        context: &DispatchContext,
+        mutation: eitmad_authorization::MutationContext,
+        command: eitmad_contracts::customer::ResolveCustomerConflict,
+    ) -> Result<eitmad_contracts::commands::CommandResult, ContractError> {
+        let service = self.customers.clone();
+        let result = tokio::task::spawn_blocking(move || service.resolve(&mutation, &command))
+            .await
+            .map_err(|_| customer_error(CustomerError::Unavailable, context))?
+            .map_err(|e| customer_error(e, context))?;
+        self.drain_pending_publications()
+            .map_err(|_| customer_error(CustomerError::Unavailable, context))?;
+        Ok(eitmad_contracts::commands::CommandResult::CustomerConflictResolved(result))
     }
 }
 impl ProductDispatcher {

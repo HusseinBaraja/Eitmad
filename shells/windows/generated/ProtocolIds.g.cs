@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 26;
+        public const long Minor = 27;
     }
 
     public static class IpcMessages
@@ -60,6 +60,7 @@ public static class ProtocolIds
         public const string EitmadQuotationDraftUpdateV1 = "eitmad.quotation-draft.update.v1";
         public const string EitmadCustomerCreateV1 = "eitmad.customer.create.v1";
         public const string EitmadCustomerUpdateV1 = "eitmad.customer.update.v1";
+        public const string EitmadCustomerResolveConflictV1 = "eitmad.customer.resolve-conflict.v1";
         public const string EitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1";
         public const string EitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1";
         public const string EitmadMaterialSaveV1 = "eitmad.material.save.v1";
@@ -101,6 +102,7 @@ public static class ProtocolIds
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
         public const string EitmadCustomerHistoryV1 = "eitmad.customer.history.v1";
+        public const string EitmadCustomerConflictsV1 = "eitmad.customer.conflicts.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
         public const string EitmadFurnitureListV1 = "eitmad.furniture.list.v1";
         public const string EitmadFurnitureCategoryListV1 = "eitmad.furniture-category.list.v1";
@@ -273,6 +275,7 @@ public static class ProtocolIds
         public const string EitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1";
         public const string EitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1";
         public const string EitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1";
+        public const string EitmadPermissionCustomerResolveV1 = "eitmad.permission.customer.resolve.v1";
         public const string EitmadPermissionProductReadV1 = "eitmad.permission.product.read.v1";
         public const string EitmadPermissionFurnitureReadV1 = "eitmad.permission.furniture.read.v1";
         public const string EitmadPermissionProductWriteV1 = "eitmad.permission.product.write.v1";

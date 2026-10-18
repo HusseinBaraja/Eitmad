@@ -126,7 +126,8 @@ impl AuthenticatedHttpClient {
             || actor.scope.kind.as_str() == "branch"
                 && (route.starts_with("/v1/quotation-approvals/")
                     || route.starts_with("/v1/quotations/")
-                    || route.starts_with("/v1/orders/")))
+                    || route.starts_with("/v1/orders/")
+                    || matches!(route, "/v1/customers/conflicts" | "/v1/customers/resolve")))
         {
             return Err(HttpError::Denied);
         }

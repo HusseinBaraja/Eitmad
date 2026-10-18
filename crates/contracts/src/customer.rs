@@ -377,6 +377,86 @@ pub struct GetCustomer {
     pub branch_id: Option<crate::identity::ScopeId>,
 }
 
+/// Contact values selected explicitly by a Manager; no implicit merge is performed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CustomerContact {
+    pub name: CustomerName,
+    pub phone: CustomerPhone,
+    pub address: Option<CustomerAddress>,
+    pub notes: Option<CustomerNotes>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetCustomerConflicts {
+    pub customer: GetCustomer,
+    pub after: Option<crate::sync::ConflictId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictView {
+    pub conflict: crate::sync::ConflictRecord,
+    pub local: CustomerSyncPayload,
+    pub remote: CustomerSyncPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictPage {
+    pub current: Customer,
+    pub items: Vec<CustomerConflictView>,
+    pub next: Option<crate::sync::ConflictId>,
+    /// Later local edits retained outside the delivery queue, for explicit separate review.
+    pub pending_reviews: Vec<CustomerPendingReview>,
+    pub pending_resolution: Option<ConfirmCustomerResolution>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerPendingReview {
+    pub change: crate::sync::ChangeRecord,
+    pub contact: CustomerSyncPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
+pub enum CustomerResolutionSource {
+    Conflict(CustomerConflictSource),
+    PendingReview(Box<crate::sync::ChangeRecord>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictSource {
+    pub conflict_id: crate::sync::ConflictId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolveCustomerConflict {
+    pub customer: GetCustomer,
+    pub source: CustomerResolutionSource,
+    pub expected_server_revision: u64,
+    pub contact: CustomerContact,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfirmCustomerResolution {
+    pub scope: ScopeRef,
+    pub idempotency_key: crate::transport::IdempotencyKey,
+    pub command: ResolveCustomerConflict,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadCustomerConflicts {
+    pub scope: ScopeRef,
+    pub query: GetCustomerConflicts,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchCustomers {

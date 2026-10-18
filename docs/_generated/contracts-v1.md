@@ -66,6 +66,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.quotation-draft.update.v1`
 - `eitmad.customer.create.v1`
 - `eitmad.customer.update.v1`
+- `eitmad.customer.resolve-conflict.v1`
 - `eitmad.material-category.save.v1`
 - `eitmad.material-unit.save.v1`
 - `eitmad.material.save.v1`
@@ -106,6 +107,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.authorization.relationships.list.v1`
 - `eitmad.customer.get.v1`
 - `eitmad.customer.history.v1`
+- `eitmad.customer.conflicts.v1`
 - `eitmad.customer.search.v1`
 - `eitmad.furniture.list.v1`
 - `eitmad.furniture-category.list.v1`
@@ -272,6 +274,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.update.report-installer.v1`
 - `eitmad.permission.customer.read.v1`
 - `eitmad.permission.customer.write.v1`
+- `eitmad.permission.customer.resolve.v1`
 - `eitmad.permission.product.read.v1`
 - `eitmad.permission.furniture.read.v1`
 - `eitmad.permission.product.write.v1`

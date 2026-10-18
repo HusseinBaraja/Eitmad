@@ -45,6 +45,7 @@ pub const AUTHORIZATION_MANAGE_PERMISSION: &str = "eitmad.permission.authorizati
 pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.read.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
+pub const CUSTOMER_RESOLVE_PERMISSION: &str = "eitmad.permission.customer.resolve.v1";
 pub const FURNITURE_READ_PERMISSION: &str = "eitmad.permission.furniture.read.v1";
 pub const FURNITURE_WRITE_PERMISSION: &str = "eitmad.permission.furniture.write.v1";
 pub const PRODUCT_READ_PERMISSION: &str = "eitmad.permission.product.read.v1";
@@ -118,6 +119,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     PERMISSIONS_READ_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
+    CUSTOMER_RESOLVE_PERMISSION,
     FURNITURE_READ_PERMISSION,
     FURNITURE_WRITE_PERMISSION,
     PRODUCT_READ_PERMISSION,
@@ -292,7 +294,8 @@ impl AuthorizationService {
                     | QUOTATION_CONVERT_PERMISSION
                     | DELIVERY_RECORD_PERMISSION
                     | QUOTATION_ISSUE_PERMISSION => receptionist && branch_scope,
-                    DISCOUNT_DECIDE_PERMISSION
+                    CUSTOMER_RESOLVE_PERMISSION
+                    | DISCOUNT_DECIDE_PERMISSION
                     | QUOTATION_VALIDITY_PERMISSION
                     | ORDER_CANCEL_PERMISSION
                     | ORDER_FULFILLMENT_PERMISSION
@@ -316,12 +319,11 @@ impl AuthorizationService {
                 },
             })
             .collect();
-        let policy_version = self
-            .store
-            .policy_version(&context.scope)
-            .map_err(|_| AuthorizationError::Unavailable)?;
         Ok(EffectivePermissions {
-            policy_version,
+            policy_version: self
+                .store
+                .policy_version(&context.scope)
+                .map_err(|_| AuthorizationError::Unavailable)?,
             permissions,
         })
     }

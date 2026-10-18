@@ -198,6 +198,14 @@ public partial class Command
     public UpdateCustomer? AsCustomerUpdate() =>
         Kind == CustomerUpdateKind ? PayloadAs<UpdateCustomer>() : null;
 
+    public const string CustomerResolveConflictKind = "eitmad.customer.resolve-conflict.v1";
+
+    public static Command ForCustomerResolveConflict(ResolveCustomerConflict payload) =>
+        new() { Kind = CustomerResolveConflictKind, Payload = payload };
+
+    public ResolveCustomerConflict? AsCustomerResolveConflict() =>
+        Kind == CustomerResolveConflictKind ? PayloadAs<ResolveCustomerConflict>() : null;
+
     public const string MaterialCategorySaveKind = "eitmad.material-category.save.v1";
 
     public static Command ForMaterialCategorySave(SaveMaterialCategory payload) =>
@@ -407,6 +415,14 @@ public partial class CommandResult
     public CustomerMutationResult? AsCustomerUpdated() =>
         Kind == CustomerUpdatedKind ? PayloadAs<CustomerMutationResult>() : null;
 
+    public const string CustomerConflictResolvedKind = "customerConflictResolved";
+
+    public static CommandResult ForCustomerConflictResolved(ChangeRecord payload) =>
+        new() { Kind = CustomerConflictResolvedKind, Payload = payload };
+
+    public ChangeRecord? AsCustomerConflictResolved() =>
+        Kind == CustomerConflictResolvedKind ? PayloadAs<ChangeRecord>() : null;
+
     public const string MaterialCategorySavedKind = "materialCategorySaved";
 
     public static CommandResult ForMaterialCategorySaved(MaterialCategory payload) =>
@@ -502,6 +518,39 @@ public partial class CommandResult
 
     public DesktopAccountSummary? AsDesktopAccountDeactivated() =>
         Kind == DesktopAccountDeactivatedKind ? PayloadAs<DesktopAccountSummary>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
+public partial class CustomerResolutionSource
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConflictKind = "conflict";
+
+    public static CustomerResolutionSource ForConflict(CustomerConflictSource payload) =>
+        new() { Kind = ConflictKind, Payload = payload };
+
+    public CustomerConflictSource? AsConflict() =>
+        Kind == ConflictKind ? PayloadAs<CustomerConflictSource>() : null;
+
+    public const string PendingReviewKind = "pendingReview";
+
+    public static CustomerResolutionSource ForPendingReview(ChangeRecord payload) =>
+        new() { Kind = PendingReviewKind, Payload = payload };
+
+    public ChangeRecord? AsPendingReview() =>
+        Kind == PendingReviewKind ? PayloadAs<ChangeRecord>() : null;
 
     internal T? PayloadAs<T>() => Payload switch
     {
@@ -1133,6 +1182,14 @@ public partial class Query
     public GetCustomerHistory? AsCustomerHistory() =>
         Kind == CustomerHistoryKind ? PayloadAs<GetCustomerHistory>() : null;
 
+    public const string CustomerConflictsKind = "eitmad.customer.conflicts.v1";
+
+    public static Query ForCustomerConflicts(GetCustomerConflicts payload) =>
+        new() { Kind = CustomerConflictsKind, Payload = payload };
+
+    public GetCustomerConflicts? AsCustomerConflicts() =>
+        Kind == CustomerConflictsKind ? PayloadAs<GetCustomerConflicts>() : null;
+
     public const string CustomerSearchKind = "eitmad.customer.search.v1";
 
     public static Query ForCustomerSearch(SearchCustomers payload) =>
@@ -1453,6 +1510,14 @@ public partial class QueryResult
 
     public CustomerHistoryPage? AsCustomerHistory() =>
         Kind == CustomerHistoryKind ? PayloadAs<CustomerHistoryPage>() : null;
+
+    public const string CustomerConflictsKind = "customerConflicts";
+
+    public static QueryResult ForCustomerConflicts(CustomerConflictPage payload) =>
+        new() { Kind = CustomerConflictsKind, Payload = payload };
+
+    public CustomerConflictPage? AsCustomerConflicts() =>
+        Kind == CustomerConflictsKind ? PayloadAs<CustomerConflictPage>() : null;
 
     public const string CustomersKind = "customers";
 

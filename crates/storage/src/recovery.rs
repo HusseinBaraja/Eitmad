@@ -567,7 +567,10 @@ mod tests {
         let connection = Connection::open(store.path()).unwrap();
         connection
             .execute_batch(
-                "DROP TABLE work_order_confirmed_history;
+                "DROP TABLE customer_resolution_intents;
+                 DROP TABLE customer_pending_reviews;
+                 DELETE FROM schema_migrations WHERE version = 29;
+                 DROP TABLE work_order_confirmed_history;
                  DELETE FROM schema_migrations WHERE version = 28;
                  DROP TABLE order_confirmed_history;
                  DROP TABLE order_pending;

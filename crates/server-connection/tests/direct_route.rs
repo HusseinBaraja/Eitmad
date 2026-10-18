@@ -72,6 +72,8 @@ use uuid::Uuid;
 mod catalog_sync;
 #[path = "direct_route/credentials.rs"]
 mod credentials;
+#[path = "direct_route/customer_resolution.rs"]
+mod customer_resolution;
 #[path = "direct_route/customer_visibility.rs"]
 mod customer_visibility;
 #[path = "direct_route/desktop_enrollment.rs"]

@@ -13,7 +13,10 @@ public partial class CustomerDirectoryView : UserControl
     public CustomerDirectoryView() => InitializeComponent();
     public CustomerDirectoryViewModel? ViewModel => DataContext as CustomerDirectoryViewModel;
     public event EventHandler? HomeRequested;
-    public void Attach(CustomerClient client, IEngineShellBridge engine) => DataContext = new CustomerDirectoryViewModel(client, engine);
+    public void Attach(CustomerClient client, IEngineShellBridge engine) {
+        DataContext = new CustomerDirectoryViewModel(client, engine);
+        Detail.Attach(client); Detail.EnableResolution();
+    }
     private void SearchClick(object sender, RoutedEventArgs e) => ViewModel?.Search();
     private void NextClick(object sender, RoutedEventArgs e) => ViewModel?.Next();
     private void DetailHistoryNext(object? sender, EventArgs e) => ViewModel?.NextHistory();

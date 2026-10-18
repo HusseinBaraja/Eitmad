@@ -408,6 +408,7 @@ impl SyncCoordinator {
             current_revision,
             &fingerprint,
             now,
+            None,
         )
         .await
         .map_err(|_| OperationError::Unavailable)?;
@@ -677,7 +678,7 @@ async fn upsert_scope(
     Ok(())
 }
 
-async fn lock_scope(
+pub(super) async fn lock_scope(
     transaction: &mut Tx<'_>,
     tenant_id: eitmad_contracts::identity::TenantId,
     scope: &ScopeRef,
@@ -852,13 +853,14 @@ async fn record_conflict(
     Ok(Some(conflict_id))
 }
 
-async fn commit_change(
+pub(super) async fn commit_change(
     transaction: &mut Tx<'_>,
     tenant_id: eitmad_contracts::identity::TenantId,
     draft: &LocalOperationDraft,
     current_revision: u64,
     fingerprint: &[u8],
     now: UnixMillis,
+    merge: Option<eitmad_contracts::sync::MergeMetadata>,
 ) -> Result<ChangeRecord, OperationError> {
     let new_revision = current_revision.saturating_add(1);
     let sequence = advance_head(transaction, tenant_id, &draft.scope, &draft.schema_id)
@@ -875,7 +877,7 @@ async fn commit_change(
         changed_at: now,
         idempotency_key: draft.idempotency_key,
         payload: draft.payload.clone(),
-        merge: None,
+        merge,
     };
 
     sqlx::query(
@@ -983,6 +985,7 @@ pub(super) async fn append_domain_change(
         revision,
         &fingerprint,
         now,
+        None,
     )
     .await
 }

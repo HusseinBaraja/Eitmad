@@ -893,7 +893,6 @@ impl CommandDispatcher for ProductDispatcher {
         command: Command,
     ) -> Result<CommandResult, ContractError> {
         let mutation = Self::mutation_context(&context).map_err(|error| *error)?;
-        let fallback_context = context.clone();
         match command {
             Command::ImportCatalogImage(input) => {
                 self.import_catalog_image(&context, &mutation, input).await
@@ -958,6 +957,10 @@ impl CommandDispatcher for ProductDispatcher {
             Command::UpdateCustomer(command) => self
                 .update_customer(&context, &mutation, &command)
                 .map_err(|error| *error),
+            Command::ResolveCustomerConflict(command) => {
+                self.resolve_customer_conflict(&context, mutation, command)
+                    .await
+            }
             Command::SaveMaterialCategory(command) => self
                 .save_material_category(&context, &mutation, &command)
                 .map_err(|error| *error),
@@ -979,18 +982,30 @@ impl CommandDispatcher for ProductDispatcher {
             command @ (Command::CreateDesktopAccount(_)
             | Command::UpdateDesktopAccount(_)
             | Command::DeactivateDesktopAccount(_)) => {
-                let dispatcher = self.clone();
-                tokio::task::spawn_blocking(move || match command {
-                    Command::CreateDesktopAccount(input) => {
-                        dispatcher.create_desktop_account(&context, &mutation, &input)
-                    }
-                    other => dispatcher.dispatch_account_change(&context, &mutation, other),
-                })
-                .await
-                .map_err(|_| unsupported(&fallback_context))?
-                .map_err(|e| *e)
+                self.account_command(context, mutation, command).await
             }
         }
+    }
+}
+
+impl ProductDispatcher {
+    async fn account_command(
+        &self,
+        context: DispatchContext,
+        mutation: MutationContext,
+        command: Command,
+    ) -> Result<CommandResult, ContractError> {
+        let fallback_context = context.clone();
+        let dispatcher = self.clone();
+        tokio::task::spawn_blocking(move || match command {
+            Command::CreateDesktopAccount(input) => {
+                dispatcher.create_desktop_account(&context, &mutation, &input)
+            }
+            other => dispatcher.dispatch_account_change(&context, &mutation, other),
+        })
+        .await
+        .map_err(|_| unsupported(&fallback_context))?
+        .map_err(|e| *e)
     }
 }
 
@@ -1034,7 +1049,7 @@ impl QueryDispatcher for ProductDispatcher {
                 self.dispatch_draft_query(&context, query).map_err(|e| *e)
             }
             Query::CustomerHistory(query) => self.customer_history(&context, query).await,
-            query @ (Query::Customer(_) | Query::Customers(_)) => {
+            query @ (Query::Customer(_) | Query::Customers(_) | Query::CustomerConflicts(_)) => {
                 self.customer_query(&context, query).await
             }
             query @ (Query::QuotationEvaluation(_)

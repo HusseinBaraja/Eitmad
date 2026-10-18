@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use eitmad_authorization::{BoundaryAuditContext, now};
 use eitmad_contracts::{
     authorization::AuthorizationRequest,
-    customer::{CustomerId, CustomerSyncState},
+    customer::CustomerSyncState,
     identity::{AuthorizationContext, ScopeRef},
     sync::{
         BatchAcknowledgement, ChangeBatch, LocalChangeDisposition, LocalChangeSubmission,
@@ -160,7 +160,7 @@ impl<T: SyncTransport> CustomerSyncCycle<'_, T> {
                 )?;
                 self.customers.mark_sync_exception(
                     self.actor,
-                    CustomerId::new(change.record_id.value()),
+                    change,
                     state,
                     self.audit.correlation_id,
                     now(),

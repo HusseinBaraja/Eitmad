@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "sales and fulfillment capability maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-18"
 review_triggers:
   - "Manager or Receptionist permissions, record visibility, money, catalog, quotation, order, work-order, delivery, or offline behavior changes"
 keywords:
@@ -164,6 +164,14 @@ Potential duplicate matches are advisory. They do not block creation and never a
 5. reject a cross-tenant or cross-organization merge.
 
 Concurrent contact edits do not use last-write-wins. The local-first customer domain keeps an explicit conflict when the same field changes on different devices. Non-overlapping field changes can merge only through a domain-owned deterministic rule.
+
+### Customer conflict resolution
+
+The accepted customer resolution decision of 2026-10-18 is explicit field selection by a Manager. The Manager selects each final name, phone, address, and notes value from either preserved input and can supply corrected values. The comparison also shows the current server contact. There is no automatic last-write-wins or implicit merge.
+
+Resolution requires server confirmation against the current server revision. Preserve both original inputs, their identities and revisions, the final authoritative change, and audit/provenance. An exact retry has one effect. A stale review requires a new comparison and explicit decision. An uncertain result retains the exact request and key across restart.
+
+Later pending edits remain durable for separate review. Resolution must remove them from automatic delivery without deleting their original content. Do not automatically replay or rebase them onto the decision. A separate explicit review can accept, correct, or keep current values for that pending input. This permission does not grant general Receptionist mutations to Managers. See the [customer implementation and recovery flow](customers.md#explicit-conflict-resolution).
 
 ## Catalog editing and pricing
 

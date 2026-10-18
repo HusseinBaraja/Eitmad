@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 26
+        public static let minor = 27
     }
 
     public enum IpcMessages {
@@ -53,6 +53,7 @@ public enum ProtocolIds {
         public static let eitmadQuotationDraftUpdateV1 = "eitmad.quotation-draft.update.v1"
         public static let eitmadCustomerCreateV1 = "eitmad.customer.create.v1"
         public static let eitmadCustomerUpdateV1 = "eitmad.customer.update.v1"
+        public static let eitmadCustomerResolveConflictV1 = "eitmad.customer.resolve-conflict.v1"
         public static let eitmadMaterialCategorySaveV1 = "eitmad.material-category.save.v1"
         public static let eitmadMaterialUnitSaveV1 = "eitmad.material-unit.save.v1"
         public static let eitmadMaterialSaveV1 = "eitmad.material.save.v1"
@@ -93,6 +94,7 @@ public enum ProtocolIds {
         public static let eitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1"
         public static let eitmadCustomerGetV1 = "eitmad.customer.get.v1"
         public static let eitmadCustomerHistoryV1 = "eitmad.customer.history.v1"
+        public static let eitmadCustomerConflictsV1 = "eitmad.customer.conflicts.v1"
         public static let eitmadCustomerSearchV1 = "eitmad.customer.search.v1"
         public static let eitmadFurnitureListV1 = "eitmad.furniture.list.v1"
         public static let eitmadFurnitureCategoryListV1 = "eitmad.furniture-category.list.v1"
@@ -259,6 +261,7 @@ public enum ProtocolIds {
         public static let eitmadPermissionUpdateReportInstallerV1 = "eitmad.permission.update.report-installer.v1"
         public static let eitmadPermissionCustomerReadV1 = "eitmad.permission.customer.read.v1"
         public static let eitmadPermissionCustomerWriteV1 = "eitmad.permission.customer.write.v1"
+        public static let eitmadPermissionCustomerResolveV1 = "eitmad.permission.customer.resolve.v1"
         public static let eitmadPermissionProductReadV1 = "eitmad.permission.product.read.v1"
         public static let eitmadPermissionFurnitureReadV1 = "eitmad.permission.furniture.read.v1"
         public static let eitmadPermissionProductWriteV1 = "eitmad.permission.product.write.v1"

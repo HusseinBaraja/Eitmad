@@ -168,6 +168,32 @@ public sealed class CustomerClient : IAsyncDisposable
 
     public Task DeactivateAsync() => changes.DeactivateAsync();
 
+    public async Task<CustomerResult<CustomerConflictPage>> ConflictsAsync(Customer customer, Guid? after = null, CancellationToken cancellationToken = default)
+    {
+        try {
+            var response = await engine.QueryAsync(Query.ForCustomerConflicts(new GetCustomerConflicts {
+                Customer = new GetCustomer { CustomerId = customer.Id, BranchId = customer.Scope.Id }, After = after,
+            }), cancellationToken);
+            return response.Outcome.Status == CommandOutcomeStatus.Succeeded && response.Outcome.Payload.AsCustomerConflicts() is { } page
+                ? CustomerResult<CustomerConflictPage>.Success(page) : CustomerResult<CustomerConflictPage>.Failed(MapFailure(response.Outcome.Payload.Code));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (EngineIpcException e) { return CustomerResult<CustomerConflictPage>.Failed(MapFailure(e.ContractError?.Code)); }
+        catch (Exception e) when (e is IOException or InvalidOperationException) { return CustomerResult<CustomerConflictPage>.Failed(CustomerFailureKind.Unavailable); }
+    }
+
+    public async Task<CustomerResult<ChangeRecord>> ResolveAsync(ResolveCustomerConflict command, Guid key, CancellationToken cancellationToken = default)
+    {
+        try {
+            var response = await engine.SubmitCommandAsync(Command.ForCustomerResolveConflict(command), key, cancellationToken);
+            return response.Outcome.Status == CommandOutcomeStatus.Succeeded && response.Outcome.Payload.AsCustomerConflictResolved() is { } change
+                ? CustomerResult<ChangeRecord>.Success(change) : CustomerResult<ChangeRecord>.Failed(MapFailure(response.Outcome.Payload.Code));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (EngineIpcException e) { return CustomerResult<ChangeRecord>.Failed(MapFailure(e.ContractError?.Code)); }
+        catch (Exception e) when (e is IOException or InvalidOperationException) { return CustomerResult<ChangeRecord>.Failed(CustomerFailureKind.Unavailable); }
+    }
+
     public ValueTask DisposeAsync() => changes.DisposeAsync();
 
     public static string ArabicMessage(CustomerFailureKind failure) => failure switch
