@@ -174,7 +174,21 @@ impl SyncCoordinator {
             serde_json::to_vec(&(actor.user_id, input)).map_err(|_| E::Unavailable)?,
         )
         .to_vec();
-        let result = resolve_on(&mut tx, actor, &scope, input, audit, &fingerprint).await;
+        let result = match crate::operations::resolution::replay(
+            &mut tx,
+            actor.tenant_id,
+            &scope,
+            SCHEMA,
+            input.idempotency_key,
+            &fingerprint,
+        )
+        .await
+        {
+            Ok(Some(change)) => Ok(change),
+            Ok(None) => resolve_on(&mut tx, actor, &scope, input, audit, &fingerprint).await,
+            Err(crate::OperationError::IdempotencyMismatch) => Err(E::IdempotencyMismatch),
+            Err(_) => Err(E::Unavailable),
+        };
         match &result {
             Ok(_) => {}
             Err(E::Unavailable) => return result,
@@ -210,9 +224,6 @@ async fn resolve_on(
     audit: ResolutionAudit,
     fingerprint: &[u8],
 ) -> Result<ChangeRecord, E> {
-    if let Some(result) = replay(tx, actor, scope, input, fingerprint).await? {
-        return Ok(result);
-    }
     let current = load_current(tx, actor, scope, input.command.draft_id).await?;
     if current.revision != input.command.expected_server_revision {
         return Err(E::Conflict {
@@ -297,7 +308,9 @@ async fn resolve_on(
     .map_err(|_| E::Unavailable)?;
     conflict.status = ConflictStatus::Resolved;
     conflict.resolution = Some(merge);
-    save_resolution(tx, actor, &conflict, audit.now).await?;
+    crate::operations::resolution::save(tx, actor.tenant_id, SCHEMA, &conflict, audit.now)
+        .await
+        .map_err(|_| E::Unavailable)?;
     evidence(
         tx,
         actor,
@@ -445,44 +458,6 @@ fn decode(change: &ChangeRecord) -> Result<QuotationDraftSnapshot, E> {
         payload: change.payload.clone(),
     };
     crate::quotation_draft::snapshot(&draft).map_err(|_| E::Invalid)
-}
-
-async fn replay(
-    tx: &mut Tx<'_>,
-    actor: &AuthenticatedServerSession,
-    scope: &ScopeRef,
-    input: &ConfirmQuotationDraftResolution,
-    fingerprint: &[u8],
-) -> Result<Option<ChangeRecord>, E> {
-    let row = sqlx::query("SELECT request_fingerprint,result_json FROM sync.idempotency_results
-        WHERE tenant_id=$1 AND scope_kind='branch' AND scope_id=$2 AND schema_id=$3 AND idempotency_key=$4")
-        .bind(actor.tenant_id.value()).bind(scope.id.value()).bind(SCHEMA).bind(input.idempotency_key.value())
-        .fetch_optional(&mut **tx).await.map_err(|_| E::Unavailable)?;
-    let Some(row) = row else {
-        return Ok(None);
-    };
-    if row.get::<Vec<u8>, _>("request_fingerprint") != fingerprint {
-        return Err(E::IdempotencyMismatch);
-    }
-    let value: serde_json::Value = row.get("result_json");
-    serde_json::from_value(value.get("value").cloned().ok_or(E::Unavailable)?)
-        .map(Some)
-        .map_err(|_| E::Unavailable)
-}
-
-async fn save_resolution(
-    tx: &mut Tx<'_>,
-    actor: &AuthenticatedServerSession,
-    conflict: &ConflictRecord,
-    now: UnixMillis,
-) -> Result<(), E> {
-    sqlx::query("INSERT INTO sync.conflicts (tenant_id,scope_kind,scope_id,schema_id,conflict_id,record_id,conflict_json,status,detected_at,resolved_at)
-        VALUES ($1,'branch',$2,$3,$4,$5,$6,'resolved',$7,$8) ON CONFLICT(tenant_id,conflict_id)
-        DO UPDATE SET conflict_json=excluded.conflict_json,status='resolved',resolved_at=excluded.resolved_at")
-        .bind(actor.tenant_id.value()).bind(conflict.scope.id.value()).bind(SCHEMA).bind(conflict.conflict_id.value())
-        .bind(conflict.record_id.value()).bind(serde_json::to_value(conflict).map_err(|_| E::Unavailable)?)
-        .bind(conflict.detected_at.0).bind(now.0).execute(&mut **tx).await.map_err(|_| E::Unavailable)?;
-    Ok(())
 }
 
 #[derive(Clone, Copy)]

@@ -1,3 +1,5 @@
+pub(super) mod resolution;
+
 use std::sync::Arc;
 
 use sha2::{Digest as _, Sha256};

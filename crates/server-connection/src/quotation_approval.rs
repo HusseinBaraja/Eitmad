@@ -382,18 +382,12 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
         query: &eitmad_contracts::customer::GetCustomerConflicts,
     ) -> Result<eitmad_contracts::customer::CustomerConflictPage, eitmad_customer::CustomerError>
     {
-        let http = AuthenticatedHttpClient::from_config(
-            self.config.clone(),
-            self.secrets.clone(),
-            self.credential.clone(),
-            "eitmad.capability.customer.v1",
-            27,
-        );
         let mut query = query.clone();
         if actor.scope.kind.as_str() == "branch" {
             query.customer.branch_id = Some(self.branch.id);
         }
-        let mut page: eitmad_contracts::customer::CustomerConflictPage = http
+        let mut page: eitmad_contracts::customer::CustomerConflictPage = self
+            .customer_http()
             .request(
                 actor,
                 "/v1/customers/conflicts",
@@ -421,13 +415,6 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
         actor: &AuthorizationContext,
         input: &eitmad_contracts::customer::ConfirmCustomerResolution,
     ) -> Result<eitmad_contracts::sync::ChangeRecord, eitmad_customer::CustomerError> {
-        let http = AuthenticatedHttpClient::from_config(
-            self.config.clone(),
-            self.secrets.clone(),
-            self.credential.clone(),
-            "eitmad.capability.customer.v1",
-            27,
-        );
         let mut input = input.clone();
         input.scope = self
             .remote(actor)
@@ -447,7 +434,8 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                     .ok_or(eitmad_customer::CustomerError::Denied)?,
             };
         }
-        let mut change: eitmad_contracts::sync::ChangeRecord = http
+        let mut change: eitmad_contracts::sync::ChangeRecord = self
+            .customer_http()
             .request(
                 actor,
                 "/v1/customers/resolve",
@@ -465,28 +453,22 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
         actor: &AuthorizationContext,
         query: &eitmad_contracts::customer::CustomerRead,
     ) -> Result<eitmad_contracts::customer::CustomerPage, eitmad_customer::CustomerError> {
-        let http = AuthenticatedHttpClient::from_config(
-            self.config.clone(),
-            self.secrets.clone(),
-            self.credential.clone(),
-            "eitmad.capability.customer.v1",
-            27,
-        );
-        http.request(
-            actor,
-            "/v1/customers/read",
-            &eitmad_contracts::customer::ReadCustomers {
-                scope: self
-                    .remote(actor)
-                    .map_err(|_| eitmad_customer::CustomerError::Denied)?,
-                query: query.clone(),
-            },
-            Instant::now() + Duration::from_secs(10),
-        )
-        .map_err(|e| match e {
-            HttpError::Denied => eitmad_customer::CustomerError::Denied,
-            _ => eitmad_customer::CustomerError::Unavailable,
-        })
+        self.customer_http()
+            .request(
+                actor,
+                "/v1/customers/read",
+                &eitmad_contracts::customer::ReadCustomers {
+                    scope: self
+                        .remote(actor)
+                        .map_err(|_| eitmad_customer::CustomerError::Denied)?,
+                    query: query.clone(),
+                },
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map_err(|e| match e {
+                HttpError::Denied => eitmad_customer::CustomerError::Denied,
+                _ => eitmad_customer::CustomerError::Unavailable,
+            })
     }
     fn watch(
         &self,
@@ -789,6 +771,15 @@ fn order_error(e: E) -> eitmad_orders::OrderError {
 }
 
 impl DirectDiscountApprovalClient {
+    fn customer_http(&self) -> AuthenticatedHttpClient {
+        AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.customer.v1",
+            27,
+        )
+    }
     fn draft_resolution_http(&self) -> AuthenticatedHttpClient {
         AuthenticatedHttpClient::from_config(
             self.config.clone(),

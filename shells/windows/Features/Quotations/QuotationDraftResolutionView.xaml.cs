@@ -51,7 +51,6 @@ public partial class QuotationDraftResolutionView : UserControl
             Notice.Text = frozen is not null ? "لم تتأكد نتيجة القرار السابق. أعد إرسال القرار نفسه للتحقق من نتيجته."
                 : sources.Count == 0 ? "لا توجد تعارضات أو تعديلات محفوظة للمراجعة." : "اختر نسخة ثم حدد قرارك.";
             if (frozen is not null) {
-                Choice.SelectedIndex = frozen.Command.Choice == QuotationDraftResolutionChoice.KeepCurrent ? 0 : 1;
                 var frozenSource = JsonSerializer.Serialize(frozen.Command.Source);
                 Sources.SelectedItem = sources.FirstOrDefault(v => JsonSerializer.Serialize(v.Value) == frozenSource);
                 Choice.SelectedIndex = frozen.Command.Choice == QuotationDraftResolutionChoice.KeepCurrent ? 0 : 1;
