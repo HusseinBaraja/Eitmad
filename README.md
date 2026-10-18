@@ -15,15 +15,19 @@ Start with:
 
 ## Run the admin dashboard on Windows
 
-Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the debug Rust engine, provision the synthetic development accounts, and start the native Windows dashboard with one command:
+To use a fresh Windows installation, first complete the [server setup](docs/operations/run-server-authority.md): configure PostgreSQL, TLS, and the required server settings, run `check-config` and `migrate`, bootstrap and activate the first Owner, and start the TLS server with `serve`. Follow [shared server account setup](docs/operations/run-server-authority.md#manage-shared-server-accounts) to register the branch and prepare an active account with a Manager assignment or a Receptionist assignment for that branch. Owner status alone is not an operational desktop role. Keep the server and PostgreSQL running.
+
+Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the debug Rust engine and start the native Windows dashboard:
 
 ```powershell
 .\run.ps1
 ```
 
-Use `admin` with `admin` or `rec` with `rec` on the sign-in screen. These short synthetic credentials are accepted only by debug builds after the explicit seed command that `run.ps1` runs. Existing role changes, credentials, and deactivation are preserved on restart. Release builds do not contain that command and keep the 12-character password minimum. Closing the window keeps the app in the system tray. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+On the sign-in screen, enter the server account name and password. Expand **ربط هذا الجهاز بالمنشأة** and provide the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and registered branch ID from the administrator, then select **دخول**. See [enroll or recover a Windows desktop](docs/operations/run-server-authority.md#enroll-or-recover-a-windows-desktop) for the full enrollment steps. The launcher does not create accounts. Sign-in and protected work require the live server; a retained local verifier does not authorize disconnected access under [ADR-0029](docs/decisions/0029-require-live-server-authority-for-protected-access.md).
 
-For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`; no development accounts are added. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for the current provisioning boundary and synthetic test records. The normal local installation has no server connection until one is configured, so server-confirmed sales actions remain unavailable there.
+To check the installation, sign in and save one synthetic customer or draft with a permitted account. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine; closing the window keeps the app in the tray. Start the app again under the same Windows user and runtime directory, leave enrollment closed, sign in online, and check that the saved work remains. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+
+For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for an isolated setup with synthetic test records.
 
 ### Start the local services
 
