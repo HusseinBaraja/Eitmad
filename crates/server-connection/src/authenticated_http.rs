@@ -169,6 +169,7 @@ impl AuthenticatedHttpClient {
             || route.starts_with("/v1/quotation-approvals/")
             || route.starts_with("/v1/quotations/")
             || route.starts_with("/v1/orders/")
+            || route.starts_with("/v1/customers/")
         {
             4 * 1024 * 1024
         } else {

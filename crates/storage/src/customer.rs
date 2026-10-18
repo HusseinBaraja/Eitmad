@@ -382,7 +382,9 @@ impl AuthorityStore {
             if has_more {
                 items.pop();
             }
-            let next = has_more.then(|| items.last().map(|item| item.id)).flatten();
+            let next = has_more.then(|| items.last().map(|item| eitmad_contracts::customer::CustomerCursor {
+                customer_id: item.id, branch_id: item.scope.id,
+            })).flatten();
             Ok(CustomerPage { items, next })
         })
     }

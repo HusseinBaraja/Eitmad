@@ -780,6 +780,7 @@ public enum Query: Codable, Sendable {
     case permissionsGetEffective(GetEffectivePermissions)
     case authorizationRelationshipsList(ListScopeRelationships)
     case customerGet(GetCustomer)
+    case customerHistory(GetCustomerHistory)
     case customerSearch(SearchCustomers)
     case furnitureList(ListFurnitures)
     case furnitureCategoryList(ListFurnitureCategories)
@@ -822,6 +823,7 @@ public enum Query: Codable, Sendable {
         case permissionsGetEffective = "eitmad.permissions.get-effective.v1"
         case authorizationRelationshipsList = "eitmad.authorization.relationships.list.v1"
         case customerGet = "eitmad.customer.get.v1"
+        case customerHistory = "eitmad.customer.history.v1"
         case customerSearch = "eitmad.customer.search.v1"
         case furnitureList = "eitmad.furniture.list.v1"
         case furnitureCategoryList = "eitmad.furniture-category.list.v1"
@@ -872,6 +874,7 @@ public enum Query: Codable, Sendable {
         case .permissionsGetEffective: self = .permissionsGetEffective(try container.decode(GetEffectivePermissions.self, forKey: .payload))
         case .authorizationRelationshipsList: self = .authorizationRelationshipsList(try container.decode(ListScopeRelationships.self, forKey: .payload))
         case .customerGet: self = .customerGet(try container.decode(GetCustomer.self, forKey: .payload))
+        case .customerHistory: self = .customerHistory(try container.decode(GetCustomerHistory.self, forKey: .payload))
         case .customerSearch: self = .customerSearch(try container.decode(SearchCustomers.self, forKey: .payload))
         case .furnitureList: self = .furnitureList(try container.decode(ListFurnitures.self, forKey: .payload))
         case .furnitureCategoryList: self = .furnitureCategoryList(try container.decode(ListFurnitureCategories.self, forKey: .payload))
@@ -966,6 +969,9 @@ public enum Query: Codable, Sendable {
         case .customerGet(let payload):
             try container.encode(Kind.customerGet, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .customerHistory(let payload):
+            try container.encode(Kind.customerHistory, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .customerSearch(let payload):
             try container.encode(Kind.customerSearch, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1039,6 +1045,7 @@ public enum QueryResult: Codable, Sendable {
     case effectivePermissions(EffectivePermissions)
     case scopeRelationships(RelationshipPage)
     case customer(Customer)
+    case customerHistory(CustomerHistoryPage)
     case customers(CustomerPage)
     case furnitures(FurniturePage)
     case furnitureCategories(FurnitureCategories)
@@ -1078,6 +1085,7 @@ public enum QueryResult: Codable, Sendable {
         case effectivePermissions = "effectivePermissions"
         case scopeRelationships = "scopeRelationships"
         case customer = "customer"
+        case customerHistory = "customerHistory"
         case customers = "customers"
         case furnitures = "furnitures"
         case furnitureCategories = "furnitureCategories"
@@ -1125,6 +1133,7 @@ public enum QueryResult: Codable, Sendable {
         case .effectivePermissions: self = .effectivePermissions(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .scopeRelationships: self = .scopeRelationships(try container.decode(RelationshipPage.self, forKey: .payload))
         case .customer: self = .customer(try container.decode(Customer.self, forKey: .payload))
+        case .customerHistory: self = .customerHistory(try container.decode(CustomerHistoryPage.self, forKey: .payload))
         case .customers: self = .customers(try container.decode(CustomerPage.self, forKey: .payload))
         case .furnitures: self = .furnitures(try container.decode(FurniturePage.self, forKey: .payload))
         case .furnitureCategories: self = .furnitureCategories(try container.decode(FurnitureCategories.self, forKey: .payload))
@@ -1209,6 +1218,9 @@ public enum QueryResult: Codable, Sendable {
             try container.encode(payload, forKey: .payload)
         case .customer(let payload):
             try container.encode(Kind.customer, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerHistory(let payload):
+            try container.encode(Kind.customerHistory, forKey: .kind)
             try container.encode(payload, forKey: .payload)
         case .customers(let payload):
             try container.encode(Kind.customers, forKey: .kind)

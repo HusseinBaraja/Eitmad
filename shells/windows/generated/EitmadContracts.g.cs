@@ -637,6 +637,10 @@ namespace Eitmad.Contracts
         public GetCustomer QueryCustomerGet { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("Query_CustomerHistory")]
+        public GetCustomerHistory QueryCustomerHistory { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Query_CustomerSearch")]
         public SearchCustomers QueryCustomerSearch { get; set; }
 
@@ -795,6 +799,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_CustomerDocument")]
         public CustomerDocument QueryResultCustomerDocument { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("QueryResult_CustomerHistory")]
+        public CustomerHistoryPage QueryResultCustomerHistory { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("QueryResult_Customers")]
@@ -3526,20 +3534,53 @@ namespace Eitmad.Contracts
 
     public partial class GetCustomer
     {
+        [JsonPropertyName("branchId")]
+        public Guid? BranchId { get; set; }
+
         [JsonPropertyName("customerId")]
         public Guid CustomerId { get; set; }
+    }
+
+    public partial class GetCustomerHistory
+    {
+        [JsonPropertyName("customer")]
+        public GetCustomer Customer { get; set; }
+
+        [JsonPropertyName("includeOrders")]
+        public bool IncludeOrders { get; set; }
+
+        [JsonPropertyName("includeQuotations")]
+        public bool IncludeQuotations { get; set; }
+
+        [JsonPropertyName("ordersAfter")]
+        public Guid? OrdersAfter { get; set; }
+
+        [JsonPropertyName("quotationsAfter")]
+        public Guid? QuotationsAfter { get; set; }
     }
 
     public partial class SearchCustomers
     {
         [JsonPropertyName("after")]
-        public Guid? After { get; set; }
+        public CustomerCursor After { get; set; }
 
         [JsonPropertyName("limit")]
         public long Limit { get; set; }
 
         [JsonPropertyName("term")]
         public string Term { get; set; }
+    }
+
+    /// <summary>
+    /// Stable ordering across branches, including equal customer IDs in different branches.
+    /// </summary>
+    public partial class CustomerCursor
+    {
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("customerId")]
+        public Guid CustomerId { get; set; }
     }
 
     public partial class ListFurnitureCategories
@@ -3872,13 +3913,35 @@ namespace Eitmad.Contracts
         public string VariantName { get; set; }
     }
 
+    /// <summary>
+    /// Each source examines at most 100 authorized records per page. Empty matching pages can
+    /// continue.
+    /// </summary>
+    public partial class CustomerHistoryPage
+    {
+        [JsonPropertyName("orders")]
+        public OrderRecord[] Orders { get; set; }
+
+        [JsonPropertyName("ordersNext")]
+        public Guid? OrdersNext { get; set; }
+
+        [JsonPropertyName("quotations")]
+        public QuotationRecord[] Quotations { get; set; }
+
+        [JsonPropertyName("quotationsNext")]
+        public Guid? QuotationsNext { get; set; }
+
+        [JsonPropertyName("serverAvailable")]
+        public bool ServerAvailable { get; set; }
+    }
+
     public partial class CustomerPage
     {
         [JsonPropertyName("items")]
         public Customer[] Items { get; set; }
 
         [JsonPropertyName("next")]
-        public Guid? Next { get; set; }
+        public CustomerCursor Next { get; set; }
     }
 
     public partial class DesktopAccountPage
@@ -3964,8 +4027,8 @@ namespace Eitmad.Contracts
         public HomeSection Catalog { get; set; }
 
         /// <summary>
-        /// Branch customer search results from local authority; organization-wide search is
-        /// unavailable.
+        /// Authorized customer search: organization server directory or assigned-branch local
+        /// authority.
         /// </summary>
         [JsonPropertyName("customers")]
         public HomeSection Customers { get; set; }
@@ -4002,8 +4065,8 @@ namespace Eitmad.Contracts
     ///
     /// Public organization catalog search results from the authorized confirmed cache.
     ///
-    /// Branch customer search results from local authority; organization-wide search is
-    /// unavailable.
+    /// Authorized customer search: organization server directory or assigned-branch local
+    /// authority.
     ///
     /// Recent or matching orders, with active and Ready counts independent of the search term.
     ///
@@ -4031,7 +4094,8 @@ namespace Eitmad.Contracts
         /// Issued,
         /// Accepted, including non-cancelled local drafts), active orders (not Delivered or
         /// Cancelled),
-        /// or Pending approvals. Customer and catalog sections leave this zero, not a match total.
+        /// or Pending approvals. Customers count returned matches (a lower bound if incomplete);
+        /// catalog leaves this zero.
         /// </summary>
         [JsonPropertyName("count")]
         public long Count { get; set; }
@@ -4039,8 +4103,8 @@ namespace Eitmad.Contracts
         /// <summary>
         /// At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID
         /// ascending.
-        /// Customers retain ascending customer UUID order; catalog retains its sales-entry cursor
-        /// order.
+        /// Customers retain ascending customer UUID, then branch UUID order; catalog retains its
+        /// sales-entry cursor order.
         /// Approvals have no rows. Empty searches omit customer/catalog rows; other rows match the
         /// term.
         /// </summary>
@@ -4057,7 +4121,8 @@ namespace Eitmad.Contracts
         /// For quotations and orders, every visited page was server-confirmed; for catalog, refresh
         /// succeeded. False permits cached data without current-server confirmation. Approvals
         /// require
-        /// a successful server read. Customers are local reads: true does not prove synchronization.
+        /// a successful server read. Organization customers require a server read; branch customers
+        /// are local reads and do not prove synchronization.
         /// </summary>
         [JsonPropertyName("serverAvailable")]
         public bool ServerAvailable { get; set; }
@@ -4065,6 +4130,9 @@ namespace Eitmad.Contracts
 
     public partial class HomeItem
     {
+        [JsonPropertyName("branchId")]
+        public Guid? BranchId { get; set; }
+
         [JsonPropertyName("changedAt")]
         public long ChangedAt { get; set; }
 

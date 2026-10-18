@@ -35,6 +35,7 @@ pub enum HomeDestination {
 #[serde(rename_all = "camelCase")]
 pub struct HomeItem {
     pub id: uuid::Uuid,
+    pub branch_id: Option<crate::identity::ScopeId>,
     pub destination: HomeDestination,
     pub number: Option<String>,
     pub title: String,
@@ -54,16 +55,16 @@ pub struct HomeSection {
     pub complete: bool,
     /// For quotations and orders, every visited page was server-confirmed; for catalog, refresh
     /// succeeded. False permits cached data without current-server confirmation. Approvals require
-    /// a successful server read. Customers are local reads: true does not prove synchronization.
+    /// a successful server read. Organization customers require a server read; branch customers are local reads and do not prove synchronization.
     pub server_available: bool,
     /// Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,
     /// Accepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),
-    /// or Pending approvals. Customer and catalog sections leave this zero, not a match total.
+    /// or Pending approvals. Customers count returned matches (a lower bound if incomplete); catalog leaves this zero.
     pub count: u32,
     /// Unfiltered Ready-order count within visited records; zero for every other section.
     pub secondary_count: u32,
     /// At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.
-    /// Customers retain ascending customer UUID order; catalog retains its sales-entry cursor order.
+    /// Customers retain ascending customer UUID, then branch UUID order; catalog retains its sales-entry cursor order.
     /// Approvals have no rows. Empty searches omit customer/catalog rows; other rows match the term.
     pub items: Vec<HomeItem>,
 }
@@ -79,7 +80,7 @@ pub struct HomeSnapshot {
     pub orders: HomeSection,
     /// Pending approval count without search filtering or item rows; requires server confirmation.
     pub approvals: HomeSection,
-    /// Branch customer search results from local authority; organization-wide search is unavailable.
+    /// Authorized customer search: organization server directory or assigned-branch local authority.
     pub customers: HomeSection,
     /// Public organization catalog search results from the authorized confirmed cache.
     pub catalog: HomeSection,

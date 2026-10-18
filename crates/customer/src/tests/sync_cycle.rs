@@ -111,6 +111,7 @@ fn incoming_customer_pages_catch_up_and_resume_without_an_outbox() {
             &author,
             &GetCustomer {
                 customer_id: CustomerId::new(initial.record_id.value()),
+                branch_id: None,
             },
         )
         .unwrap();
@@ -158,7 +159,8 @@ fn incoming_customer_pages_catch_up_and_resume_without_an_outbox() {
             .get(
                 &actor,
                 &GetCustomer {
-                    customer_id: current.id
+                    customer_id: current.id,
+                    branch_id: None
                 }
             )
             .unwrap()
@@ -320,7 +322,15 @@ fn contact(
     actor: &AuthorizationContext,
     customer_id: CustomerId,
 ) -> eitmad_contracts::customer::Customer {
-    customers.get(actor, &GetCustomer { customer_id }).unwrap()
+    customers
+        .get(
+            actor,
+            &GetCustomer {
+                customer_id,
+                branch_id: None,
+            },
+        )
+        .unwrap()
 }
 
 fn customer_history(

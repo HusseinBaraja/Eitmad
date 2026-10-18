@@ -1,5 +1,5 @@
 //! Home reads reuse each capability's authorization, cache and server boundary.
-use super::{ProductDispatcher, customer_error, draft_error, unsupported};
+use super::{ProductDispatcher, draft_error, unsupported};
 use crate::local_ipc::DispatchContext;
 use eitmad_contracts::{
     errors::ContractError,
@@ -77,6 +77,7 @@ fn quotation_row(
     );
     Some((
         HomeItem {
+            branch_id: None,
             id: value.quotation.id.value(),
             destination: Destination::Quotation,
             number: value.number,
@@ -110,7 +111,7 @@ impl ProductDispatcher {
         let mut quotations = self.home_quotations(context, &term).await;
         let (mut orders, mut ready_orders) = self.home_orders(context, &term).await;
         let mut approvals = self.home_approvals(context).await;
-        let mut customers = self.home_customers(context, input.term.trim());
+        let mut customers = self.home_customers(context, input.term.trim()).await;
         let mut catalog = self.home_catalog(&catalog_context, input.term.trim()).await;
         // A revocation during the multi-source read must also remove earlier results.
         for (value, permission) in [
@@ -135,11 +136,9 @@ impl ProductDispatcher {
             ) {
                 quotations = failed(&e);
             }
-            if let Err(e) =
-                self.require_approval(context, eitmad_customer::CUSTOMER_READ_PERMISSION)
-            {
-                customers = failed(&e);
-            }
+        }
+        if let Err(e) = self.require_approval(context, eitmad_customer::CUSTOMER_READ_PERMISSION) {
+            customers = failed(&e);
         }
         if let Err(e) = self.require_approval(
             &catalog_context,
@@ -208,6 +207,7 @@ impl ProductDispatcher {
                     return empty(Available::Unavailable);
                 };
                 let item = HomeItem {
+                    branch_id: None,
                     id,
                     destination: Destination::Quotation,
                     number: None,
@@ -274,6 +274,7 @@ impl ProductDispatcher {
                     return (empty(Available::Unavailable), vec![]);
                 };
                 let item = HomeItem {
+                    branch_id: None,
                     id: value.id,
                     destination: Destination::Order,
                     number: Some(value.number),
@@ -328,14 +329,10 @@ impl ProductDispatcher {
         result
     }
 
-    fn home_customers(&self, context: &DispatchContext, term: &str) -> HomeSection {
+    async fn home_customers(&self, context: &DispatchContext, term: &str) -> HomeSection {
         let mut result = section();
         if term.is_empty() {
             return result;
-        }
-        // Organization-wide customer reads are not yet implemented by the customer authority.
-        if context.authorization.scope.kind.as_str() != "branch" {
-            return empty(Available::Unavailable);
         }
         let query = eitmad_contracts::customer::CustomerSearchTerm::parse(term)
             .ok()
@@ -343,13 +340,15 @@ impl ProductDispatcher {
         let Some(query) = query else {
             return empty(Available::Unavailable);
         };
-        match self.customers.search(&context.authorization, &query) {
-            Ok(page) => {
+        match self.customer_query(context, Query::Customers(query)).await {
+            Ok(QueryResult::Customers(page)) => {
                 result.complete = page.next.is_none();
+                result.count = u32::try_from(page.items.len()).unwrap_or(0);
                 result.items = page
                     .items
                     .into_iter()
                     .map(|c| HomeItem {
+                        branch_id: Some(c.scope.id),
                         id: c.id.value(),
                         destination: Destination::Customer,
                         number: None,
@@ -359,7 +358,8 @@ impl ProductDispatcher {
                     })
                     .collect();
             }
-            Err(e) => return failed(&customer_error(e, context)),
+            Err(e) => return failed(&e),
+            _ => return empty(Available::Unavailable),
         }
         result
     }
@@ -383,6 +383,7 @@ impl ProductDispatcher {
                     .items
                     .into_iter()
                     .map(|c| HomeItem {
+                        branch_id: None,
                         id: c.price.target.identity().1,
                         destination: Destination::Catalog,
                         number: None,

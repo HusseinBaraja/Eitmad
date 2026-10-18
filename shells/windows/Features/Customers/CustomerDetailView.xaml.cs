@@ -8,6 +8,8 @@ public partial class CustomerDetailView : UserControl
     private CustomerClient? client;
     public CustomerDetailView() => InitializeComponent();
     public event EventHandler? BackRequested;
+    public event EventHandler? HistoryNextRequested;
+    private void HistoryNextClick(object sender, RoutedEventArgs e) => HistoryNextRequested?.Invoke(this, EventArgs.Empty);
     public void Attach(CustomerClient customerClient) => client = customerClient;
     private void BackClick(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
     private void EditClick(object sender, RoutedEventArgs e)

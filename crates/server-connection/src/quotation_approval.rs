@@ -218,7 +218,10 @@ impl DirectDiscountApprovalClient {
             match crate::read_message(socket, eitmad_sync::FailurePhase::Receive) {
                 Ok(ServerMessage::Event(event)) => {
                     if event.change.schema_id.as_str() != schema
-                        || event.change.scope != self.remote(actor)?
+                        || (event.change.scope != self.remote(actor)?
+                            && !(schema == "eitmad.schema.customer.v1"
+                                && actor.scope.kind.as_str() == "organization"
+                                && event.change.scope.kind.as_str() == "branch"))
                     {
                         return Err(E::Unavailable);
                     }
@@ -244,6 +247,76 @@ impl DirectDiscountApprovalClient {
             }
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for DirectDiscountApprovalClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DirectDiscountApprovalClient")
+            .finish_non_exhaustive()
+    }
+}
+
+impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
+    fn read(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::CustomerRead,
+    ) -> Result<eitmad_contracts::customer::CustomerPage, eitmad_customer::CustomerError> {
+        let http = AuthenticatedHttpClient::from_config(
+            self.config.clone(),
+            self.secrets.clone(),
+            self.credential.clone(),
+            "eitmad.capability.customer.v1",
+            26,
+        );
+        http.request(
+            actor,
+            "/v1/customers/read",
+            &eitmad_contracts::customer::ReadCustomers {
+                scope: self
+                    .remote(actor)
+                    .map_err(|_| eitmad_customer::CustomerError::Denied)?,
+                query: query.clone(),
+            },
+            Instant::now() + Duration::from_secs(10),
+        )
+        .map_err(|e| match e {
+            HttpError::Denied => eitmad_customer::CustomerError::Denied,
+            _ => eitmad_customer::CustomerError::Unavailable,
+        })
+    }
+    fn watch(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &AtomicBool,
+        notify: &mut dyn FnMut(eitmad_contracts::customer::CustomerChangeNotice),
+    ) -> Result<(), eitmad_customer::CustomerError> {
+        self.watch_domain(
+            actor,
+            cancel,
+            &mut |notice| {
+                notify(eitmad_contracts::customer::CustomerChangeNotice {
+                    customer_id: eitmad_contracts::customer::CustomerId::new(
+                        notice.draft_id.value(),
+                    ),
+                    scope: actor.scope.clone(),
+                    revision: notice.revision,
+                    changed_at: eitmad_authorization::now(),
+                    change_id: eitmad_contracts::sync::ChangeId::new(uuid::Uuid::new_v4()),
+                });
+            },
+            "eitmad.schema.customer.v1",
+            "eitmad.capability.customer.v1",
+            26,
+        )
+        .map_err(|e| {
+            if e == E::Denied {
+                eitmad_customer::CustomerError::Denied
+            } else {
+                eitmad_customer::CustomerError::Unavailable
+            }
+        })
     }
 }
 

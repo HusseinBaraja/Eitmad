@@ -1125,6 +1125,14 @@ public partial class Query
     public GetCustomer? AsCustomerGet() =>
         Kind == CustomerGetKind ? PayloadAs<GetCustomer>() : null;
 
+    public const string CustomerHistoryKind = "eitmad.customer.history.v1";
+
+    public static Query ForCustomerHistory(GetCustomerHistory payload) =>
+        new() { Kind = CustomerHistoryKind, Payload = payload };
+
+    public GetCustomerHistory? AsCustomerHistory() =>
+        Kind == CustomerHistoryKind ? PayloadAs<GetCustomerHistory>() : null;
+
     public const string CustomerSearchKind = "eitmad.customer.search.v1";
 
     public static Query ForCustomerSearch(SearchCustomers payload) =>
@@ -1437,6 +1445,14 @@ public partial class QueryResult
 
     public Customer? AsCustomer() =>
         Kind == CustomerKind ? PayloadAs<Customer>() : null;
+
+    public const string CustomerHistoryKind = "customerHistory";
+
+    public static QueryResult ForCustomerHistory(CustomerHistoryPage payload) =>
+        new() { Kind = CustomerHistoryKind, Payload = payload };
+
+    public CustomerHistoryPage? AsCustomerHistory() =>
+        Kind == CustomerHistoryKind ? PayloadAs<CustomerHistoryPage>() : null;
 
     public const string CustomersKind = "customers";
 

@@ -261,6 +261,7 @@ pub fn router(state: ServerState) -> Router {
             post(price_status).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
         )
         .route("/v1/customer-branches", post(register_customer_branch))
+        .route("/v1/customers/read", post(customer_read))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
         .route("/v1/admin/update-manifests", post(publish_update_manifest))
@@ -1202,6 +1203,7 @@ fn live_ordered_schema(schema: &str) -> bool {
     matches!(
         schema,
         eitmad_orders::ORDER_SCHEMA
+            | eitmad_customer::CUSTOMER_SCHEMA_ID
             | eitmad_orders::WORK_ORDER_SCHEMA
             | eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
             | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
@@ -1429,6 +1431,7 @@ async fn handle_stream_message(
                 && matches!(
                     context.schema_id.as_str(),
                     eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
+                        | eitmad_customer::CUSTOMER_SCHEMA_ID
                         | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
                         | eitmad_orders::ORDER_SCHEMA
                         | eitmad_orders::WORK_ORDER_SCHEMA
@@ -1736,7 +1739,9 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
+    let minimum_minor = if required_capability.as_str() == "eitmad.capability.customer.v1" {
+        26
+    } else if required_capability.as_str() == "eitmad.capability.shared-accounts.v1" {
         25
     } else if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
         23
@@ -1815,6 +1820,7 @@ async fn revalidate_stream(
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.customer.v1",
         "eitmad.capability.shared-accounts.v1",
         "eitmad.capability.orders.v1",
         "eitmad.capability.work-orders.v1",
@@ -1849,6 +1855,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                 !matches!(
                     c.as_str(),
                     "eitmad.capability.orders.v1"
+                        | "eitmad.capability.customer.v1"
                         | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"
                         | "eitmad.capability.quotation-approval.v1"
@@ -2067,6 +2074,33 @@ async fn order_transition(
         .await
         .map(Json)
         .map_err(map_order)
+}
+
+async fn customer_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ReadCustomers>,
+) -> Result<Json<eitmad_contracts::customer::CustomerPage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .read_customers(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| {
+            ApiError::new(
+                if error == eitmad_customer::CustomerError::Denied {
+                    StatusCode::FORBIDDEN
+                } else {
+                    StatusCode::SERVICE_UNAVAILABLE
+                },
+                if error == eitmad_customer::CustomerError::Denied {
+                    "eitmad.error.authorization-denied.v1"
+                } else {
+                    "eitmad.error.customer-unavailable.v1"
+                },
+            )
+        })
 }
 async fn order_read(
     State(state): State<ServerState>,

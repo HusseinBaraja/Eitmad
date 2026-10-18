@@ -108,6 +108,9 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "read_customers": {
+      "$ref": "#/definitions/ReadCustomers"
+    },
     "read_discount_approvals": {
       "$ref": "#/definitions/ReadDiscountApprovals"
     },
@@ -185,6 +188,7 @@
     }
   },
   "required": [
+    "read_customers",
     "watch_server_accounts",
     "server_account_watch",
     "change_server_account",
@@ -2964,6 +2968,24 @@
     "CustomerChanges": {
       "type": "object"
     },
+    "CustomerCursor": {
+      "description": "Stable ordering across branches, including equal customer IDs in different branches.",
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "customerId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "customerId",
+        "branchId"
+      ]
+    },
     "CustomerDocument": {
       "description": "Customer-only saved document. Internal intent, price policy and approval data are excluded.",
       "type": "object",
@@ -3112,6 +3134,46 @@
         "totalYer"
       ]
     },
+    "CustomerHistoryPage": {
+      "description": "Each source examines at most 100 authorized records per page. Empty matching pages can continue.",
+      "type": "object",
+      "properties": {
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderRecord"
+          }
+        },
+        "ordersNext": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "quotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationRecord"
+          }
+        },
+        "quotationsNext": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "quotations",
+        "orders",
+        "serverAvailable"
+      ]
+    },
     "CustomerMutationResult": {
       "type": "object",
       "properties": {
@@ -3141,15 +3203,54 @@
           }
         },
         "next": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CustomerCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "items"
+      ]
+    },
+    "CustomerRead": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "get"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCustomer"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "search"
+            },
+            "payload": {
+              "$ref": "#/definitions/SearchCustomers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
       ]
     },
     "CustomerStatus": {
@@ -5087,6 +5188,13 @@
     "GetCustomer": {
       "type": "object",
       "properties": {
+        "branchId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
         "customerId": {
           "type": "string",
           "format": "uuid"
@@ -5094,6 +5202,39 @@
       },
       "required": [
         "customerId"
+      ]
+    },
+    "GetCustomerHistory": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "$ref": "#/definitions/GetCustomer"
+        },
+        "includeOrders": {
+          "type": "boolean"
+        },
+        "includeQuotations": {
+          "type": "boolean"
+        },
+        "ordersAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "quotationsAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "customer",
+        "includeQuotations",
+        "includeOrders"
       ]
     },
     "GetEffectivePermissions": {
@@ -5420,6 +5561,13 @@
     "HomeItem": {
       "type": "object",
       "properties": {
+        "branchId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
         "changedAt": {
           "type": "integer",
           "format": "int64"
@@ -5469,13 +5617,13 @@
           "type": "boolean"
         },
         "count": {
-          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customer and catalog sections leave this zero, not a match total.",
+          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customers count returned matches (a lower bound if incomplete); catalog leaves this zero.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "items": {
-          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
+          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID, then branch UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/HomeItem"
@@ -5488,7 +5636,7 @@
           "minimum": 0
         },
         "serverAvailable": {
-          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Customers are local reads: true does not prove synchronization.",
+          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Organization customers require a server read; branch customers are local reads and do not prove synchronization.",
           "type": "boolean"
         }
       },
@@ -5522,7 +5670,7 @@
           ]
         },
         "customers": {
-          "description": "Branch customer search results from local authority; organization-wide search is unavailable.",
+          "description": "Authorized customer search: organization server directory or assigned-branch local authority.",
           "allOf": [
             {
               "$ref": "#/definitions/HomeSection"
@@ -8887,6 +9035,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.customer.history.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCustomerHistory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.search.v1"
             },
             "payload": {
@@ -9569,6 +9733,22 @@
             },
             "payload": {
               "$ref": "#/definitions/Customer"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "customerHistory"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerHistoryPage"
             }
           },
           "required": [
@@ -10481,6 +10661,22 @@
         "converted",
         "expired",
         "cancelled"
+      ]
+    },
+    "ReadCustomers": {
+      "description": "Server reads use the authenticated scope; callers cannot widen it through a cursor.",
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/CustomerRead"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "query"
       ]
     },
     "ReadDiscountApprovals": {
@@ -11771,11 +11967,14 @@
       "type": "object",
       "properties": {
         "after": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CustomerCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "limit": {
           "type": "integer",

@@ -102,6 +102,7 @@ async fn received(
             actor,
             &GetCustomer {
                 customer_id: expected.id,
+                branch_id: None,
             },
         ) {
             if actual.name == expected.name && actual.revision == expected.revision {

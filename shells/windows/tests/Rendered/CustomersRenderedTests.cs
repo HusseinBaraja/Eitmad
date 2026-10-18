@@ -17,21 +17,16 @@ public sealed class CustomersRenderedTests
     [TestMethod]
     public void HistoryProjectionUsesRustIdentityAcrossRepublishedQuotation()
     {
-        var orders = new OrdersViewModel(true, preview: true).VisibleOrders;
-        var sourceOrder = orders.First(order => order.OriginalQuotation is not null);
-        var original = sourceOrder.OriginalQuotation!;
-        var customer = ContractCustomer(sourceOrder.Customer, sourceOrder.Phone);
-        var replacement = new QuotationListItem(original.Id, original.Number, original.Customer,
-            original.Date, original.Status, original.Discount, original.Items, phone: sourceOrder.Phone)
-        {
-            CustomerId = customer.Id,
-        };
-
-        var projection = CustomerHistoryProjection.Create(customer, [replacement], orders);
-
-        Assert.AreEqual(customer.Id, projection.Id);
-        Assert.IsTrue(projection.Orders.Count > 0);
-        Assert.HasCount(1, projection.Quotations.Where(item => item.Number == original.Number));
+        var order = new Orders.OrderAuthorityTests.Fixture().Order;
+        var customer = ContractCustomer("عميل تجريبي", "777123456", scope: order.Scope);
+        customer.Id = order.Source.Quotation.Evaluation.Customer.Id;
+        order.Source.Scope = order.Scope;
+        var page = new CustomerHistoryPage { Quotations = [order.Source], Orders = [order], ServerAvailable = true };
+        var projection = CustomerHistoryProjection.FromPage(customer, page, true);
+        Assert.HasCount(1, projection.Quotations); Assert.HasCount(1, projection.Orders);
+        order.Scope = new() { Kind = "branch", Id = Guid.NewGuid() }; order.Source.Scope = order.Scope;
+        projection = CustomerHistoryProjection.FromPage(customer, page, true);
+        Assert.HasCount(0, projection.Quotations); Assert.HasCount(0, projection.Orders);
     }
 
     [TestMethod]
@@ -49,6 +44,7 @@ public sealed class CustomersRenderedTests
             Query.OrderListKind => QueryResult.ForOrders(new() { Items = [record], Pending = [], ServerAvailable = true }),
             Query.CustomerGetKind => QueryResult.ForCustomer(engine.Customers.Single(c => c.Id == query.AsCustomerGet()!.CustomerId)),
             Query.CustomerSearchKind => QueryResult.ForCustomers(new() { Items = engine.Customers.ToArray() }),
+            Query.CustomerHistoryKind => QueryResult.ForCustomerHistory(new() { Orders = [record], Quotations = [], ServerAvailable = true }),
             _ => throw new InvalidOperationException("Unexpected customer navigation query."),
         } } };
         WpfTestHost.Run(1338, 900, window =>

@@ -103,7 +103,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
+                Authorization = query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.CustomerHistoryKind or Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
@@ -926,7 +926,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             },
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Authorization = contract.Kind is Subscription.OrderChangedSubscribeKind or Subscription.QuotationApprovalChangedSubscribeKind or Subscription.QuotationChangedSubscribeKind ? client.AuthorizationForApprovals : contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.QuotationDraftChangedSubscribeKind
+            Authorization = contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.OrderChangedSubscribeKind or Subscription.QuotationApprovalChangedSubscribeKind or Subscription.QuotationChangedSubscribeKind ? client.AuthorizationForApprovals : contract.Kind is Subscription.QuotationDraftChangedSubscribeKind
                 ? client.AuthorizationForCustomer : client.Authorization,
             Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,

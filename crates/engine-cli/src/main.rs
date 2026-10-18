@@ -440,6 +440,7 @@ fn configured_quotations(
             ),
         );
         dispatcher = dispatcher
+            .with_customer_directory(quotations.clone())
             .with_orders(quotations.clone())
             .with_quotations(quotations.clone())
             .with_discount_approvals(quotations);

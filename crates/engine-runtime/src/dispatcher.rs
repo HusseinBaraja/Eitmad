@@ -1,6 +1,8 @@
 use crate::diagnostic_blocking;
 use eitmad_observability_audit::operation_diagnostics::DiagnosticSource as Source;
 use std::sync::Arc;
+#[path = "customers.rs"]
+mod customer_reads;
 #[path = "discount_approval.rs"]
 mod discount_approval;
 #[path = "home.rs"]
@@ -47,6 +49,7 @@ pub struct ProductDispatcher {
     authorization: AuthorizationService,
     configuration: ConfigurationService,
     customers: CustomerService,
+    customer_watch: Arc<std::sync::Mutex<Option<customer_reads::CustomerWatch>>>,
     drafts: eitmad_pricing::QuotationDraftService,
     order_server: Option<Arc<dyn eitmad_orders::OrderServer>>,
     order_watch: Arc<std::sync::Mutex<Option<orders::OrderWatch>>>,
@@ -120,6 +123,7 @@ impl ProductDispatcher {
             authorization,
             configuration,
             customers,
+            customer_watch: Arc::new(std::sync::Mutex::new(None)),
             drafts,
             order_server: None,
             order_watch: Arc::new(std::sync::Mutex::new(None)),
@@ -1029,11 +1033,10 @@ impl QueryDispatcher for ProductDispatcher {
             query @ (Query::QuotationDraft(_) | Query::QuotationDrafts(_)) => {
                 self.dispatch_draft_query(&context, query).map_err(|e| *e)
             }
-            Query::Customer(query) => self
-                .customers
-                .get(&context.authorization, &query)
-                .map(QueryResult::Customer)
-                .map_err(|error| customer_error(error, &context)),
+            Query::CustomerHistory(query) => self.customer_history(&context, query).await,
+            query @ (Query::Customer(_) | Query::Customers(_)) => {
+                self.customer_query(&context, query).await
+            }
             query @ (Query::QuotationEvaluation(_)
             | Query::Prices(_)
             | Query::SalesCatalog(_)
@@ -1042,11 +1045,6 @@ impl QueryDispatcher for ProductDispatcher {
             | Query::PriceReview(_)
             | Query::SellingPrice(_)
             | Query::DiscountTotal(_)) => self.pricing_query(&context, query).await,
-            Query::Customers(query) => self
-                .customers
-                .search(&context.authorization, &query)
-                .map(QueryResult::Customers)
-                .map_err(|error| customer_error(error, &context)),
             query @ (Query::Furnitures(_)
             | Query::FurnitureCategories(_)
             | Query::FurnitureRevision(_)
@@ -1137,6 +1135,24 @@ impl QueryDispatcher for ProductDispatcher {
         self.authorization
             .authorize(&context.authorization, permission)
             .map_err(|error| authorization_contract_error(error, context.correlation_id, None))?;
+        if matches!(subscription, Subscription::Customers(_))
+            && context.authorization.scope.kind.as_str() == "organization"
+        {
+            self.start_customer_watch(&context.authorization)
+                .map_err(|e| {
+                    customer_error(
+                        e,
+                        &DispatchContext {
+                            authorization: context.authorization.clone(),
+                            correlation_id: context.correlation_id,
+                            causation_id: None,
+                            idempotency_key: None,
+                            protocol_version: context.protocol_version,
+                            deadline: now(),
+                        },
+                    )
+                })?;
+        }
         if matches!(subscription, Subscription::Orders(_)) {
             self.start_order_watch(&context.authorization)
                 .map_err(|e| {
@@ -1731,6 +1747,7 @@ fn image_error(
 #[cfg(test)]
 mod tests {
     mod authorization;
+    mod customers;
     mod orders;
     use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -2095,13 +2112,14 @@ mod tests {
                 context(205),
                 Query::Customer(GetCustomer {
                     customer_id: eitmad_contracts::customer::CustomerId::new(Uuid::from_u128(206)),
+                    branch_id: None,
                 }),
             )
             .await;
         assert!(failed.is_err());
         assert_eq!(
             last_audit_outcome(&dispatcher, "eitmad.customer.get.v1"),
-            AuditOutcome::Failed
+            AuditOutcome::Denied
         );
     }
 
@@ -2237,6 +2255,7 @@ mod tests {
                     &authorization,
                     &GetCustomer {
                         customer_id: notice.customer_id,
+                        branch_id: None,
                     },
                 )
                 .unwrap()

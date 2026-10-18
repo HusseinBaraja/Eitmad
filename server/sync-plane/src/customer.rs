@@ -47,9 +47,16 @@ impl DomainSyncHandler for CustomerSyncHandler {
         &self,
         session: &AuthenticatedServerSession,
         scope: &ScopeRef,
-        _intent: SyncIntent,
+        intent: SyncIntent,
     ) -> bool {
-        if scope.kind.as_str() != "branch" {
+        if scope.kind.as_str() == "organization" && intent == SyncIntent::Read {
+            let Ok(mut tx) = tenant_transaction(&self.pool, session.tenant_id).await else {
+                return false;
+            };
+            return matches!(sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM control.relationship_tuples WHERE tenant_id=$1 AND subject_principal_id=$2 AND subject_kind='user' AND relation='eitmad.relation.organization.manager.v1' AND object_kind='organization' AND object_id=$3)")
+                .bind(session.tenant_id.value()).bind(session.user_id.value()).bind(scope.id.value()).fetch_one(&mut *tx).await, Ok(true));
+        }
+        if scope.kind.as_str() != "branch" || intent == SyncIntent::ResolveConflict {
             return false;
         }
         let Ok(mut transaction) = tenant_transaction(&self.pool, session.tenant_id).await else {

@@ -283,7 +283,7 @@ impl AuthorizationService {
                     | MATERIAL_READ_PERMISSION
                     | MATERIAL_WRITE_PERMISSION
                     | MATERIAL_UNIT_MANAGE_PERMISSION => manager && organization_scope,
-                    CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
+                    CUSTOMER_WRITE_PERMISSION | QUOTATION_DRAFT_READ_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }
                     DISCOUNT_REQUEST_PERMISSION
@@ -301,13 +301,13 @@ impl AuthorizationService {
                     | QUOTATION_CANCEL_PERMISSION => {
                         manager && (branch_scope || organization_scope)
                     }
-                    ORDER_READ_PERMISSION
+                    CUSTOMER_READ_PERMISSION
+                    | ORDER_READ_PERMISSION
                     | DISCOUNT_READ_PERMISSION
                     | QUOTATION_READ_PERMISSION => {
                         (manager && (branch_scope || organization_scope))
                             || (receptionist && branch_scope)
                     }
-                    QUOTATION_DRAFT_READ_PERMISSION => (manager || receptionist) && branch_scope,
                     _ => false,
                 } {
                     PermissionDecision::Granted

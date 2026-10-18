@@ -105,6 +105,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permissions.get-effective.v1`
 - `eitmad.authorization.relationships.list.v1`
 - `eitmad.customer.get.v1`
+- `eitmad.customer.history.v1`
 - `eitmad.customer.search.v1`
 - `eitmad.furniture.list.v1`
 - `eitmad.furniture-category.list.v1`

@@ -72,6 +72,8 @@ use uuid::Uuid;
 mod catalog_sync;
 #[path = "direct_route/credentials.rs"]
 mod credentials;
+#[path = "direct_route/customer_visibility.rs"]
+mod customer_visibility;
 #[path = "direct_route/desktop_enrollment.rs"]
 mod desktop_enrollment;
 #[path = "direct_route/projection_audit.rs"]
@@ -1275,6 +1277,7 @@ fn assert_isolated_customer_cycle(
             &first.actor,
             &GetCustomer {
                 customer_id: customer.id,
+                branch_id: None,
             },
         )
         .unwrap();
@@ -1286,6 +1289,7 @@ fn assert_isolated_customer_cycle(
             &second.actor,
             &GetCustomer {
                 customer_id: customer.id,
+                branch_id: None,
             },
         )
         .unwrap();
@@ -1329,6 +1333,7 @@ fn assert_isolated_customer_cycle(
             &second.actor,
             &GetCustomer {
                 customer_id: customer.id,
+                branch_id: None,
             },
         )
         .unwrap();
@@ -1342,6 +1347,7 @@ fn assert_isolated_customer_cycle(
             &second.actor,
             &GetCustomer {
                 customer_id: customer.id,
+                branch_id: None,
             },
         )
         .unwrap();

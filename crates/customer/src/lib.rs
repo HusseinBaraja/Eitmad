@@ -48,6 +48,26 @@ pub enum CustomerError {
 pub struct CustomerService {
     store: AuthorityStore,
     authorization: AuthorizationService,
+    directory: Option<std::sync::Arc<dyn CustomerDirectory>>,
+}
+
+/// Authenticated organization reads. Implementations must enforce the server's current relationships.
+pub trait CustomerDirectory: Send + Sync + std::fmt::Debug {
+    /// # Errors
+    /// Rejects unauthorized, unavailable, or malformed reads.
+    fn read(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::CustomerRead,
+    ) -> Result<CustomerPage, CustomerError>;
+    /// # Errors
+    /// Stops delivery on revocation or transport failure.
+    fn watch(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &std::sync::atomic::AtomicBool,
+        notify: &mut dyn FnMut(CustomerChangeNotice),
+    ) -> Result<(), CustomerError>;
 }
 
 impl CustomerService {
@@ -56,7 +76,29 @@ impl CustomerService {
         Self {
             store,
             authorization,
+            directory: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_directory(mut self, directory: std::sync::Arc<dyn CustomerDirectory>) -> Self {
+        self.directory = Some(directory);
+        self
+    }
+
+    /// # Errors
+    /// Rejects revoked organization authority or unavailable streaming transport.
+    pub fn watch_directory(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &std::sync::atomic::AtomicBool,
+        notify: &mut dyn FnMut(CustomerChangeNotice),
+    ) -> Result<(), CustomerError> {
+        self.authorize_read(actor)?;
+        self.directory
+            .as_ref()
+            .ok_or(CustomerError::Unavailable)?
+            .watch(actor, cancel, notify)
     }
 
     /// Creates one stable customer identity in the authorized branch scope.
@@ -155,6 +197,16 @@ impl CustomerService {
         query: &GetCustomer,
     ) -> Result<Customer, CustomerError> {
         self.authorize_read(context)?;
+        if context.scope.kind.as_str() == "organization" {
+            let page = self.read_directory(
+                context,
+                &eitmad_contracts::customer::CustomerRead::Get(query.clone()),
+            )?;
+            return page.items.into_iter().next().ok_or(CustomerError::NotFound);
+        }
+        if query.branch_id.is_some_and(|id| id != context.scope.id) {
+            return Err(CustomerError::Denied);
+        }
         self.store
             .get_customer(&context.scope, query.customer_id)
             .map_err(|_| CustomerError::Unavailable)?
@@ -172,6 +224,18 @@ impl CustomerService {
         query: &SearchCustomers,
     ) -> Result<CustomerPage, CustomerError> {
         self.authorize_read(context)?;
+        if context.scope.kind.as_str() == "organization" {
+            return self.read_directory(
+                context,
+                &eitmad_contracts::customer::CustomerRead::Search(query.clone()),
+            );
+        }
+        if query
+            .after
+            .is_some_and(|cursor| cursor.branch_id != context.scope.id)
+        {
+            return Err(CustomerError::Denied);
+        }
         let normalized_name = normalize_arabic_name(query.term.as_str());
         let normalized_phone = normalize_phone_search(query.term.as_str());
         self.store
@@ -179,7 +243,7 @@ impl CustomerService {
                 &context.scope,
                 &normalized_name,
                 normalized_phone.as_deref(),
-                query.after,
+                query.after.map(|cursor| cursor.customer_id),
                 query.limit(),
             )
             .map_err(|_| CustomerError::Unavailable)
@@ -432,10 +496,26 @@ impl CustomerService {
     }
 
     fn authorize_read(&self, context: &AuthorizationContext) -> Result<(), CustomerError> {
-        validate_scope(&context.scope)?;
+        if !matches!(context.scope.kind.as_str(), "branch" | "organization") {
+            return Err(CustomerError::UnsupportedScope);
+        }
         self.authorization
             .authorize(context, CUSTOMER_READ_PERMISSION)
             .map_err(map_authorization_error)
+    }
+
+    fn read_directory(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::CustomerRead,
+    ) -> Result<CustomerPage, CustomerError> {
+        let page = self
+            .directory
+            .as_ref()
+            .ok_or(CustomerError::Unavailable)?
+            .read(actor, query)?;
+        self.authorize_read(actor)?;
+        Ok(page)
     }
 }
 
@@ -852,6 +932,7 @@ mod tests {
                 &authorization,
                 &GetCustomer {
                     customer_id: created.customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();
@@ -897,7 +978,8 @@ mod tests {
                 .get(
                     &first_actor,
                     &GetCustomer {
-                        customer_id: created.customer.id
+                        customer_id: created.customer.id,
+                        branch_id: None
                     }
                 )
                 .unwrap()
@@ -909,7 +991,8 @@ mod tests {
                 .get(
                     &second_actor,
                     &GetCustomer {
-                        customer_id: created.customer.id
+                        customer_id: created.customer.id,
+                        branch_id: None
                     }
                 )
                 .unwrap()
@@ -997,6 +1080,7 @@ mod tests {
                 second_actor,
                 &GetCustomer {
                     customer_id: customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();
@@ -1038,6 +1122,7 @@ mod tests {
                 &actor,
                 &GetCustomer {
                     customer_id: created.customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();

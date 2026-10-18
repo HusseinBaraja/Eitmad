@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 25;
+        public const long Minor = 26;
     }
 
     public static class IpcMessages
@@ -100,6 +100,7 @@ public static class ProtocolIds
         public const string EitmadPermissionsGetEffectiveV1 = "eitmad.permissions.get-effective.v1";
         public const string EitmadAuthorizationRelationshipsListV1 = "eitmad.authorization.relationships.list.v1";
         public const string EitmadCustomerGetV1 = "eitmad.customer.get.v1";
+        public const string EitmadCustomerHistoryV1 = "eitmad.customer.history.v1";
         public const string EitmadCustomerSearchV1 = "eitmad.customer.search.v1";
         public const string EitmadFurnitureListV1 = "eitmad.furniture.list.v1";
         public const string EitmadFurnitureCategoryListV1 = "eitmad.furniture-category.list.v1";

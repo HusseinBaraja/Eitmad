@@ -55,6 +55,7 @@ public partial class MainWindow : Window
             };
             if (destination is not null) OpenManagerDestination(destination);
         };
+        CustomersSurface.HomeRequested += (_, _) => OpenManagerDestination("الرئيسية");
         ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
         ManagerHome.SearchCleared += () => { ManagerTitleBar.SearchBox.Clear(); ManagerTitleBar.SearchBox.Focus(); };
         if (preview && engine is null) {
@@ -71,6 +72,7 @@ public partial class MainWindow : Window
             PricingSurface.Attach(engine);
             customerClient = new Features.Customers.CustomerClient(engine);
             ReceptionistSurface.AttachCustomerClient(customerClient);
+            CustomersSurface.Attach(customerClient, engine);
             home = new(engine);
             ManagerHome.DataContext = home;
             ReceptionistSurface.AttachHome(home);
@@ -179,7 +181,7 @@ public partial class MainWindow : Window
         sessionActive = true;
         var session = ++accountGeneration;
         ShowAccount(surface);
-        if (home is not null) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Home, () => home.ActivateAsync(includeCustomerSearch: surface == AuthenticatedSurface.Receptionist, cancellationToken), cancellationToken);
+        if (home is not null) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Home, () => home.ActivateAsync(includeCustomerSearch: true, cancellationToken), cancellationToken);
         if (session != accountGeneration || cancellationToken.IsCancellationRequested) return;
         if (surface == AuthenticatedSurface.Manager) await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => QuotationsSurface.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
         else await OperationDiagnostics.MeasureAsync(DiagnosticPhase.Drafts, () => ReceptionistSurface.ReceptionQuotations.ViewModel.ActivateDraftsAsync(cancellationToken), cancellationToken);
@@ -257,6 +259,7 @@ public partial class MainWindow : Window
             // Start every local cancellation before any peer can delay cleanup.
             var cleanup = Task.WhenAll(AwaitActivationEndAsync(),
                 home?.DeactivateAsync() ?? Task.CompletedTask,
+                CustomersSurface.ViewModel?.DeactivateAsync() ?? Task.CompletedTask,
                 ReceptionistSurface.DeactivateCustomersAsync(), ReceptionistSurface.DeactivateCatalogAsync(),
                 quotationDraftClient?.DeactivateAsync() ?? Task.CompletedTask,
                 orderClient?.DeactivateAsync() ?? Task.CompletedTask);
@@ -355,6 +358,7 @@ public partial class MainWindow : Window
         ++accountGeneration;
         AccountSwitchDialog.IsOpen = false;
         home?.Clear();
+        CustomersSurface.ViewModel?.Clear(); CustomersSurface.Visibility = Visibility.Collapsed;
         ManagerTitleBar.SearchBox.Clear(); ReceptionistSurface.ClearHomeSession();
         WorkOrdersSurface.ViewModel.ClearWorkOrders();
         OrdersSurface.ViewModel.ClearOrders(); ReceptionistSurface.PreviewOrders.ViewModel.ClearOrders();
@@ -382,11 +386,15 @@ public partial class MainWindow : Window
         ShowDestination("القطع");
     }
 
+    private Task customerDirectoryActivation = Task.CompletedTask;
     private void ShowDestination(string destination)
     {
-        if (destination is not ("الرئيسية" or "الخامات" or "القطع" or "الأثاث" or "التسعير" or "المنتجات" or "عروض الأسعار" or "الموافقات" or "الطلبات" or "المستخدمون" or "أوامر العمل"))
+        if (destination is not ("الرئيسية" or "الخامات" or "القطع" or "الأثاث" or "التسعير" or "المنتجات" or "عروض الأسعار" or "الموافقات" or "الطلبات" or "المستخدمون" or "أوامر العمل" or "العملاء"))
         { ShowToast("هذه الميزة غير متاحة ضمن سير العمل الحالي."); return; }
         if (destination == "عروض الأسعار") QuotationsSurface.ViewModel.ApprovalsOnly = false;
+        var showCustomers = destination == "العملاء";
+        CustomersSurface.Visibility = showCustomers ? Visibility.Visible : Visibility.Collapsed;
+        if (showCustomers && CustomersSurface.ViewModel is { } customers) customerDirectoryActivation = customers.ActivateAsync();
         var showRawMaterials = destination == "الخامات";
         var showParts = destination == "القطع";
         var showFurniture = destination == "الأثاث";
@@ -396,7 +404,7 @@ public partial class MainWindow : Window
         var showOrders = destination == "الطلبات";
         var showUsers = destination == "المستخدمون";
         var showWorkOrders = destination == "أوامر العمل";
-        DashboardSurface.Visibility = showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders || showUsers ? Visibility.Collapsed : Visibility.Visible;
+        DashboardSurface.Visibility = showCustomers || showRawMaterials || showParts || showFurniture || showPricing || showProducts || showQuotations || showOrders || showWorkOrders || showUsers ? Visibility.Collapsed : Visibility.Visible;
         RawMaterialsSurface.Visibility = showRawMaterials ? Visibility.Visible : Visibility.Collapsed;
         if (showRawMaterials) _ = RawMaterialsSurface.ActivateAsync();
         PartsSurface.Visibility = showParts ? Visibility.Visible : Visibility.Collapsed;
@@ -411,7 +419,7 @@ public partial class MainWindow : Window
         OrdersSurface.Visibility = showOrders ? Visibility.Visible : Visibility.Collapsed;
         WorkOrdersSurface.Visibility = showWorkOrders ? Visibility.Visible : Visibility.Collapsed;
         UsersSurface.Visibility = showUsers ? Visibility.Visible : Visibility.Collapsed;
-        if (!showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
+        if (!showCustomers && !showUsers && !showRawMaterials && !showParts && !showFurniture && !showPricing && !showProducts && !showQuotations && !showOrders && !showWorkOrders)
         {
             ManagerTitleBar.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             home?.Search("");
@@ -451,7 +459,17 @@ public partial class MainWindow : Window
                 if (session == accountGeneration) OrdersSurface.BackToOrdersButton.Focus();
                 break;
             case Eitmad.Contracts.HomeDestination.Customer:
-                ShowToast("البحث الشامل في عملاء المؤسسة غير متاح حالياً.");
+                OpenManagerDestination("العملاء");
+                if (customerClient is not null && CustomersSurface.ViewModel is { } directory) {
+                    await customerDirectoryActivation;
+                    if (session != accountGeneration) return;
+                    var result = await customerClient.GetAsync(row.Item.Id, branchId: row.Item.BranchId);
+                    if (session != accountGeneration) return;
+                    if (!result.Succeeded) { ShowToast(Features.Customers.CustomerClient.ArabicMessage(result.Failure)); return; }
+                    directory.Open(result.Value!); await directory.LastLoad;
+                    if (session == accountGeneration && directory.HasDetail)
+                        await Dispatcher.BeginInvoke(CustomersSurface.Detail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+                }
                 break;
             case Eitmad.Contracts.HomeDestination.Catalog:
                 OpenManagerDestination("التسعير"); PricingSurface.ViewModel.SearchText = row.Title;

@@ -19,7 +19,7 @@ public sealed class HomeStateTests
         QueryHandler = q => { Assert.IsNotNull(q.AsHomeRead()); return SalesCatalogAuthorityTests.Response(QueryResult.ForHome(data)); },
     };
     [TestMethod]
-    public async Task ManagerOmitsCustomerDestinationAndReceptionistRestoresItAfterAccountChange()
+    public async Task CustomerSearchVisibilityResetsAfterAccountChange()
     {
         var data = Data(); data.Quotations.Items = [];
         data.Customers = Section(0, new HomeItem { Id = Guid.NewGuid(), Destination = HomeDestination.Customer, Title = "عميل تجريبي", State = "عميل" });

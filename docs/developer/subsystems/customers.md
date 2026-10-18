@@ -1,6 +1,6 @@
 ---
 title: "Maintain customer contact records"
-description: "Understand the branch-scoped customer contracts, Arabic and phone search, atomic local-first persistence, authorization, audit, and safe extension boundary."
+description: "Understand the scoped customer contracts, Arabic and phone search, atomic local-first persistence, authorization, audit, and safe extension boundary."
 audience: "developer"
 page_type: "explanation"
 status: "active"
@@ -18,9 +18,9 @@ keywords:
 
 # Maintain customer contact records
 
-The customer capability provides durable, branch-scoped contact create, update, get, bounded search, and change notification. Rust owns customer identity, validation, optimistic revisions, ReBAC checks, derived search forms, audit, SQLite state, idempotency replay, event publication, and local-first sync work.
+The customer capability provides durable branch-scoped contact mutations, authorized branch and organization reads, bounded search, and change notification. Rust owns customer identity, validation, optimistic revisions, ReBAC checks, derived search forms, audit, SQLite state, idempotency replay, event publication, and local-first sync work.
 
-This slice implements contact create and edit plus the Windows projection for customer selection and details. Durable quotation drafts reference the confirmed customer UUID and revision. Archive, restore, merge, extra branch association, and organization-wide desktop customer search are not implemented. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
+This slice implements contact create and edit plus the Windows projection for customer selection and details. Durable quotation drafts reference the confirmed customer UUID and revision. Managers can search and inspect contacts across their organization branches. Archive, restore, merge, and extra branch association are not implemented. Those operations remain controlled by the [accepted Manager and Receptionist workflow](manager-receptionist-workflows.md).
 
 ## Ownership and authority
 
@@ -28,40 +28,54 @@ This slice implements contact create and edit plus the Windows projection for cu
 | --- | --- |
 | Customer orchestration, normalization, audit construction, and sync projection | `crates/customer` |
 | Typed values, commands, queries, subscription, event, errors, capability, and schema | `crates/contracts` |
-| Manager and Receptionist permission decision in an exact branch scope | `crates/authorization` |
+| Manager organization reads and Receptionist assigned-branch authorization | `crates/authorization` |
 | Storage versions 12 and 14 customer migrations, version 13 local branch binding, and atomic repository | `crates/storage/src/customer.rs` and `crates/storage/src/local_authority.rs` |
 | Outbox delivery, incremental download, and shared engine reconciliation | `crates/customer/src/sync.rs` and `crates/sync/src/engine.rs` |
-| Customer schema registration, payload validation, branch authorization, and revision conflicts | `server/sync-plane/src/customer.rs` and `server/host` |
+| Customer schema, scoped directory reads, subscriptions, and revision conflicts | `server/sync-plane/src/customer.rs`, `server/sync-plane/src/customer_directory.rs`, and `server/host` |
 | Command, query, subscription authorization, publication, and recovery | `crates/engine-runtime` |
 | Generated C# and Swift types | `shells/windows/generated` and `shells/macos/generated` |
 | Windows customer selection, detail, and unsaved editor input | `shells/windows/Features/Customers` and `shells/windows/Features/Reception` |
 
-Each customer has a stable UUID and one owning `branch` scope. `CreateCustomer` assigns the UUID in Rust and creates revision `1` with `Active` status. `UpdateCustomer` keeps that identity and status and requires the exact current revision. A local installation currently has one durable engine-created branch. Rust binds active Manager and Receptionist accounts to that branch and issues a second, branch-scoped authorization with the signed-in session. The organization authorization remains in use for organization work. The Windows IPC adapter selects the branch authorization only for customer commands, queries, and subscriptions; WPF never chooses a branch ID. The engine rejects a different branch ID, expired session, inactive account, or missing branch relationship.
+Each customer has a stable UUID and one owning `branch` scope. `CreateCustomer` assigns the UUID in Rust and creates revision `1` with `Active` status. `UpdateCustomer` keeps that identity and status and requires the exact current revision. A local installation currently has one durable engine-created branch. Rust binds active Manager and Receptionist accounts to that branch and issues a second, branch-scoped authorization with the signed-in session. The organization authorization remains in use for organization work. The Windows IPC adapter selects organization authorization for Manager reads and subscriptions, and assigned-branch authorization for Receptionist reads and contact mutations. A Manager detail query includes the Rust-returned owning branch ID; Rust checks its organization membership. The engine rejects a different branch ID, expired session, inactive account, or missing branch relationship.
 
 ## Contracts and bounds
 
-Protocol `1.9` advertises optional capability `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1` version `1`. `DesktopSessionState.customerAuthorization` carries the additional engine-issued branch context for customer work; it is absent when the account has no local branch relationship.
+Protocol `1.26` advertises optional capability `eitmad.capability.customer.v1` and schema `eitmad.schema.customer.v1` version `1`. `DesktopSessionState.customerAuthorization` carries the additional engine-issued branch context for customer work; it is absent when the account has no local branch relationship.
 
 | Interaction | Identifier | Result |
 | --- | --- | --- |
 | Create command | `eitmad.customer.create.v1` | `CustomerCreated(CustomerMutationResult)` |
 | Update command | `eitmad.customer.update.v1` | `CustomerUpdated(CustomerMutationResult)` |
 | Get query | `eitmad.customer.get.v1` | one exact `Customer` |
-| Search query | `eitmad.customer.search.v1` | `CustomerPage` with an optional next customer ID |
+| Search query | `eitmad.customer.search.v1` | `CustomerPage` with an optional `(customer_id, branch_id)` cursor |
+| History query | `eitmad.customer.history.v1` | authorized quotation/order pages for the exact customer and branch |
 | Subscription | `eitmad.customer.changed.subscribe.v1` | resumable discrete stream |
 | Event | `eitmad.customer.changed.event.v1` | customer ID, scope, revision, time, and change ID |
 
-Name and one phone are required. Address and notes are optional. Contract values reject surrounding whitespace, unsafe control or bidirectional formatting characters, and values above their declared UTF-8 byte limits. Search pages accept `1..=100` items and use customer UUID order for a stable cursor. An empty term returns a bounded scoped page.
+Name and one phone are required. Address and notes are optional. Contract values reject surrounding whitespace, unsafe control or bidirectional formatting characters, and values above their declared UTF-8 byte limits. Search pages accept `1..=100` items and use customer UUID, then branch UUID order for a stable cursor. Equal customer UUIDs in different branches remain distinct. An empty term returns a bounded scoped page.
 
 `CustomerMutationResult.potentialDuplicateIds` is advisory. It lists at most ten same-scope records with the same normalized phone. It does not reject creation, establish phone uniqueness, choose a canonical record, or merge identities.
 
+## Organization directory boundary
+
+`POST /v1/customers/read` negotiates protocol 1.26 and the customer capability. The authenticated Rust server authorizes the requested scope before reading tenant-isolated records. Managers can read their organization branches; Receptionists can read only a branch with their explicit relationship. Organization reads do not grant organization writes or conflict resolution. Existing branch contact writes keep their separate permission.
+
+Each request examines at most 1,000 authorized candidates and returns at most 100 matches. The continuation records the last examined customer and branch, including when no candidate matches. Continue until `next` is absent. Search uses the same Arabic and phone normalization as local customer authority. Direct organization reads require the owning branch ID. Counts derive only from the returned authorized matches; Home shows a lower bound when more pages exist.
+
+Organization contacts are read from the server without a durable organization contact cache. Offline or failed reads are unavailable and clear protected UI data. Receptionist branch reads retain their authorized local-first cache. Customer text and search terms never enter audit metadata.
+
 ## Windows projection
 
-The Receptionist quotation editor sends bounded name or phone searches through `CustomerClient`. A new keystroke cancels the previous request, and a monotonically increasing request version discards a response that completes after a newer search. Selecting a customer cancels any search in flight; change events refresh that customer by UUID without reopening suggestions. WPF keeps only unsaved form text, the selected customer identity, and the current rendered result set. It does not keep a customer directory or persist contact data.
+The Receptionist quotation editor sends bounded name or phone searches through `CustomerClient`. A new keystroke cancels the previous request, and a monotonically increasing request version discards a response that completes after a newer search. Selecting a customer cancels any search in flight; change events refresh that customer by UUID without reopening suggestions. WPF keeps only unsaved form text, the selected customer identity, and the current rendered result set. It does not retain a complete customer directory or persist contact data.
 
 Creating and editing use the generated `CreateCustomer` and `UpdateCustomer` contracts. `CustomerClient` trims optional address and notes fields and rejects unsafe or oversized optional text and search terms before IPC serialization; Rust remains the validation authority. The editor sends the Rust-returned revision with every update. `eitmad.error.customer-revision-conflict.v1` keeps the unsaved fields open and tells the user in Arabic that no change was saved; the shell does not retry with a newer revision or overwrite the concurrent record. Rust contract-validation fields map to the affected Arabic inputs. Authorization, missing-record, and unavailable failures have separate Arabic messages.
 
-`eitmad.customer.changed.subscribe.v1` refreshes an open customer detail by UUID and refreshes relevant search suggestions. The compact event contains no contact text. Order and quotation fixtures can open the existing detail view only after a scoped Rust lookup identifies one exact name and phone or a temporary quotation carries the selected customer UUID. This preserves the accepted navigation and appearance without adding a Customers destination.
+`eitmad.customer.changed.subscribe.v1` refreshes an open customer detail by UUID and refreshes relevant search suggestions.
+
+Managers open **العملاء** from the sidebar or customer matches on Home. The generated contracts carry branch context for each match and detail. The directory retains one page, replaces it on continuation, and offers read-only contact details and paginated sales history. It does not grant quotation drafting, issuance, or acceptance permissions to Managers. A failed protected read clears its data; sign-out clears contacts, search text, history, cursors, and pending reads. Late responses from the previous session cannot repopulate the view.
+
+Rust authorizes the contact first, reads at most 100 quotation and 100 order candidates per history request, then matches both customer UUID and owning branch. Each source has its own continuation, including an empty matching page. Name or phone equality never attaches another customer's history. History uses the existing commercial read permissions and scoped confirmed caches. An unavailable history source does not fabricate a successful empty history.
+The compact event contains no contact text. Organization customer subscriptions cover only branches registered to that organization. The server rechecks permission on each read and stream page. Compact customer events invalidate the active page or detail; quotation and order events invalidate history.
 
 The detail view reads `Customer.syncState` from Rust. It shows `بانتظار المزامنة`, `مؤكد من الخادم`, `رُفضت المزامنة`, or `تعارض يحتاج مراجعة`. Rejected and conflicted records remain visible and cannot be edited from that view until a domain resolution path exists. A conflict has a warning badge with an alert icon and a persistent notice that explains the edit restriction and states that this version cannot resolve the conflict. The user can read the last known contact and quotation/order history or return to the previous page; the shell offers no retry or resolution action.
 
@@ -111,7 +125,7 @@ On download, Rust projects each confirmed contact before advancing the shared en
 | Failure | Result |
 | --- | --- |
 | Missing read or write permission | Deny before customer state access; mutation denial is audited without contact data |
-| Wrong branch scope | No record, count, duplicate suggestion, or event crosses the exact scope |
+| Unauthorized branch or organization | No record, count, duplicate suggestion, history, or event crosses the authorized scope |
 | Customer missing | Return `eitmad.error.customer-not-found.v1`; an update attempt writes a redacted failure audit |
 | Revision mismatch | Preserve current state and return the actual revision |
 | Event publication failure | Keep the committed publication row for bounded startup recovery |
@@ -124,6 +138,9 @@ On download, Rust projects each confirmed contact before advancing the shared en
 Do not inspect or repair contact rows manually. Follow [local storage recovery](../../operations/recover-local-storage.md) for database failure.
 
 ## Verification and extension
+
+`manager_customer_visibility_is_bounded_scoped_and_live` in the ignored `direct_route` suite exercises PostgreSQL tenant isolation, authenticated HTTP, duplicate UUID pagination across two branches, Arabic search, direct reads, Receptionist denial, and live customer updates. Use the same disposable database and TLS prerequisites as the direct-route tests below. Windows `CustomerDirectoryTests` and `ManagerCustomersRenderedTests` check page replacement, stale completion after deactivation, read-only details, keyboard focus, and rendered layouts.
+
 
 The customer `incoming_` tests cover multi-page catch-up with an empty outbox, checkpoint recovery after reopen, incoming updates, exact branch rejection, revoked readers, and protection of unstaged local edits through a later server conflict. `downloaded_revision_does_not_block_staging_a_committed_offline_edit` in the shared engine tests protects stale-base staging and local queue ordering.
 

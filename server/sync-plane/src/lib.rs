@@ -7,6 +7,7 @@ pub use catalog_image::CatalogImageServer;
 pub use pricing::PricingServer;
 mod boundary_audit;
 mod customer;
+mod customer_directory;
 mod orders;
 mod quotation_approval;
 mod quotation_lifecycle;
