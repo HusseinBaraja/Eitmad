@@ -20,6 +20,8 @@ keywords:
 
 Use `tools/workflow-environment.ps1` to start a dedicated PostgreSQL cluster, the real `eitmad-server` TLS host, and one real WPF client with one supervised Rust engine. Sign in as Manager or Receptionist in the same window. Rust returns the account role and authorizes its operations. Stop and restart use the same state; neither action resets a database or a directory.
 
+This localhost harness regenerates test trust material. Do not change only its bind address for remote use. Use [stable LAN setup](setup-lan-server.md) for retained operational certificates, client trust, firewall scope, and renewal. Its private keys and server settings must not be copied to clients.
+
 For a fresh PC that joins an existing organization, use [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). It generates an independent device identity through the normal Arabic sign-in screen. Do not copy this harness's runtime directory to another PC. Its direct account import remains synthetic environment preparation.
 
 ## Prerequisites

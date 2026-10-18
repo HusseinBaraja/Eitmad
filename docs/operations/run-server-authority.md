@@ -19,6 +19,8 @@ keywords:
 
 Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
 
+For two Windows PCs on a private network, use [stable LAN setup](setup-lan-server.md). It retains a matching DNS/IP certificate, server settings, and CA across restart and leaf renewal, with explicit client trust and a narrowly scoped firewall rule.
+
 ## Before you start
 
 - Use a PostgreSQL role that can create the owned schema during migration but cannot bypass row-level security during normal operation.

@@ -13,6 +13,10 @@ node_modules/
 /shells/windows/obj/
 /shells/windows/tests/bin/
 /shells/windows/tests/obj/
+/tools/lan-certificate/bin/
+/tools/lan-certificate/obj/
+/tools/lan-certificate/tests/bin/
+/tools/lan-certificate/tests/obj/
 
 # Local IDE state belongs to each developer.
 .idea/

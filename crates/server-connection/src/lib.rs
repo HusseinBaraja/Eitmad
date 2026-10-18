@@ -1078,6 +1078,9 @@ fn unavailable(phase: FailurePhase) -> TransportFailure {
 }
 
 #[cfg(test)]
+mod lan_tls_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use eitmad_contracts::{server::ServerErrorCode, transport::CorrelationId};
