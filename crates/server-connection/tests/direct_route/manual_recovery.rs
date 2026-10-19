@@ -3,6 +3,9 @@ use eitmad_engine_runtime::ManualRecovery;
 use eitmad_observability_audit::MutationAuditRecord;
 use eitmad_postgres_support::Row as _;
 
+#[path = "replacement_cluster.rs"]
+mod replacement_cluster;
+
 struct RecoveryFixture {
     reception: DraftTestClient,
     clients: ApprovalClients,
@@ -60,6 +63,7 @@ async fn manual_two_client_recovery_retains_pending_work_and_accepted_receipts()
     assert_sqlite_recovery(&first_rows, scenario.manager_store.path());
     assert_sqlite_recovery(&second_rows, fixture.reception.client.store.path());
     let database = restart_recovered_server(&mut scenario).await;
+    scenario.verify_public().await;
     let tenant = scenario.server.authentication.session.tenant_id;
     let before = server_counts(&database.pool(), tenant).await;
     let fixture = tokio::task::spawn_blocking(move || reconnect_fixture(fixture))
@@ -90,6 +94,9 @@ async fn manual_two_client_recovery_retains_pending_work_and_accepted_receipts()
         "clientsRestored": 2, "postgresRowsetsVerified": true, "sqliteRowsetsVerified": true,
         "acceptedOrderRevision": fixture.order.revision, "pendingCustomerConfirmed": true,
         "pendingDraftConfirmed": true, "pendingCatalogConfirmed": true, "duplicateOrderEffects": 0,
+        "imageBytesVerified": true,
+        "replacementPostgresCluster": env::var_os("EITMAD_RECOVERY_REPLACEMENT_PORT").is_some(),
+        "windowsImageRestored": false,
     });
     std::fs::write(
         root.join("result.json"),
@@ -432,6 +439,9 @@ async fn server_counts(pool: &sqlx::PgPool, tenant: TenantId) -> (i64, i64) {
 }
 
 fn postgres_recovery(root: &Path) -> String {
+    if let Ok(port) = env::var("EITMAD_RECOVERY_REPLACEMENT_PORT") {
+        return replacement_cluster::recover(root, &port);
+    }
     let original = url::Url::parse(&env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap()).unwrap();
     let bin = required_path("EITMAD_RECOVERY_PG_BIN");
     let password = env::var("EITMAD_RECOVERY_ADMIN_PASSWORD").unwrap();

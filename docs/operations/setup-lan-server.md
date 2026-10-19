@@ -64,7 +64,7 @@ The CA lasts five years. Server certificates last 90 days. The tool prints the C
 | `active-tls.json` | Atomically replaced pointer to one complete pair |
 | `server.json` | Retained endpoint, executable, bind address, and private deployment environment |
 
-Keep the directory and password in separate protected backups. Loss of the CA signing key or password prevents ordinary renewal. Preserve existing data and client trust if setup is interrupted; inspect the private directory before retrying. There is no reset operation.
+Keep the directory and password in separate protected backups under the [LAN recovery procedure](backup-lan-installation.md). Include the CA operator machine if it differs from the server. Loss of the CA signing key or password prevents ordinary renewal. Preserve existing data and client trust if setup is interrupted; inspect the private directory before retrying. There is no reset operation.
 
 ## Save and check server settings
 

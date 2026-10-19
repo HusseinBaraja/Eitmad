@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-19"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Operate and release Eitmad
 
-Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 11 and separate process, user authentication, and Manager account administration under local protocol `1.8`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, scheduled backup execution, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented.
+Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 11 and separate process, user authentication, and Manager account administration under local protocol `1.8`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented. Windows scheduled backup tooling is supplied; off-device installation and replacement-machine credential recovery still require acceptance.
 
 ## Release and deployment tasks
 
@@ -32,6 +32,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 - [Run the Manager and Receptionist test environment](run-workflow-test-environment.md): start one real WPF client with role-based sign-in, isolated PostgreSQL, authenticated TLS, synthetic Arabic workflows, and retained work across restart.
 - [Run and diagnose the engine runtime](run-engine-runtime.md): start headless or supervised modes and interpret readiness.
 - [Recover and export local storage](recover-local-storage.md): preserve and validate SQLite authority.
+- [Back up and recover the Windows LAN installation](backup-lan-installation.md): schedule protected generations, retain explicit history, and recover Windows credentials with matching PostgreSQL and client state.
 
 ## Run the local foundation checks
 

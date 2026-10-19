@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.5`, a runtime-owned SQLite local database, a modular PostgreSQL server with control, sync, relay, update, and administration planes, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, signed manifests, and one shared sync semantic. Native settings UI, production MFA and invitation providers, package CDN, production relay payload routing, backup scheduling, database encryption, and the first production business vertical remain future work.
+Implemented authority foundations now include protocol `1.5`, a runtime-owned SQLite local database, a modular PostgreSQL server with control, sync, relay, update, and administration planes, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, signed manifests, and one shared sync semantic. Native settings UI, production MFA and invitation providers, package CDN, production relay payload routing, database encryption, and the first production business vertical remain future work. Separate privileged [Windows backup administration](../operations/backup-lan-installation.md) uses OS scheduling and PostgreSQL tools; product background-job authority remains in Rust. Replacement-machine credential recovery still needs operational acceptance.
 
 ## Ownership rules
 

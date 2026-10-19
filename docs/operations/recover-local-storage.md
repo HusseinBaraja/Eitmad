@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-19"
 review_triggers:
   - "backup, restore, migration, corruption, recovery artifact, retention, or export policy changes"
 keywords:
@@ -18,7 +18,7 @@ keywords:
 
 # Recover and export local storage
 
-The Rust CLI provides manual `backup` and `restore` commands for an isolated synthetic installation. `ManualRecovery` holds the normal engine authority lock, authenticates local desktop credentials, checks `eitmad.permission.storage.recovery.v1` for every affected tenant root, and uses the storage backup and restore primitives. Organization Owners and Managers receive this permission; Receptionists do not. There is no recovery UI, IPC recovery command, scheduler, retention job, or remote destination.
+The Rust CLI provides manual `backup` and `restore` commands for an isolated synthetic installation. `ManualRecovery` holds the normal engine authority lock, authenticates local desktop credentials, checks `eitmad.permission.storage.recovery.v1` for every affected tenant root, and uses the storage backup and restore primitives. Organization Owners and Managers receive this permission; Receptionists do not. There is no recovery UI or IPC recovery command. Separate Windows administration tooling supplies [scheduled LAN backup and recovery](backup-lan-installation.md), including retention and off-device storage prerequisites.
 
 ## Safety prerequisites
 
@@ -29,7 +29,7 @@ The Rust CLI provides manual `backup` and `restore` commands for an isolated syn
 
 ## Before real operational use
 
-Complete scheduled backups, retention, protected backup storage, and a usable restore procedure for local SQLite and server PostgreSQL data. These are readiness requirements, not capabilities supplied by the local hooks below. Define acceptable data loss and recovery time, keep a recoverable copy outside the source device's failure boundary, and make backup failures visible to the operator. Apply authorization, audit, encryption, and key-recovery policy to the backup workflow.
+Install and accept the [scheduled LAN recovery procedure](backup-lan-installation.md) for local SQLite, server PostgreSQL, Windows credentials, and external key dependencies. The procedure defines RPO/RTO, retention, protected off-device storage, and visible failures. These remain readiness requirements; the local hooks below alone do not provide complete installation recovery.
 
 Prove the restore procedure in an isolated environment with synthetic data. Check recovered business records, audit history, and pending synchronization work, and verify that reconnecting does not repeat accepted business effects or silently lose pending work. Record the recovery time and result before using the workflow with real operational data.
 
