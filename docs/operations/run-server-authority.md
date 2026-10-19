@@ -35,8 +35,8 @@ For two Windows PCs on a private network, use [stable LAN setup](setup-lan-serve
 
 | Environment variable | Required | Meaning |
 | --- | --- | --- |
-| `EITMAD_SERVER_DATABASE_URL` | Yes | PostgreSQL connection URL; secret |
-| `EITMAD_SERVER_TOKEN_KEY` | Yes | URL-safe base64 32-byte HMAC key; secret |
+| `EITMAD_SERVER_DATABASE_URL` or `EITMAD_SERVER_DATABASE_URL_FILE` | Yes | PostgreSQL connection URL or UTF-8 file containing it; secret; choose exactly one source |
+| `EITMAD_SERVER_TOKEN_KEY` or `EITMAD_SERVER_TOKEN_KEY_FILE` | Yes | URL-safe base64 32-byte HMAC key or UTF-8 file containing it; secret; choose exactly one source |
 | `EITMAD_SERVER_LISTEN` | No | Listener, default `127.0.0.1:8443` |
 | `EITMAD_SERVER_TLS_CERTIFICATE` | For TLS | PEM certificate path |
 | `EITMAD_SERVER_TLS_PRIVATE_KEY` | For TLS | PEM private-key path; secret path |
@@ -54,6 +54,8 @@ cargo run -q -p eitmad-server -- check-config
 ```
 
 Expected output is `server configuration is valid`. Configuration debug output redacts the database URL, token key, and private-key path.
+
+For unattended Windows hosting, use [installed services](run-windows-host-services.md). The service configuration contains protected secret-file references. Empty, unreadable, or ambiguous secret sources fail validation. A file may end in CR/LF; its contents are never logged.
 
 ## Migrate before bootstrap or serve
 
@@ -165,7 +167,7 @@ The process applies migrations before it starts listening. Keep migration privil
 Verify:
 
 1. `GET /livez` returns success when the process can serve requests.
-2. `GET /readyz` returns success after startup and migration checks. It does not prove that a product domain is registered.
+2. `GET /readyz` returns success after startup and migration checks while the application database answers `SELECT 1` within two seconds. It returns 503 during database loss or shutdown. It does not prove that a product domain is registered. `/livez` can still return 204 during a database outage. Startup waits up to 120 seconds for database connections; migration or configuration failures stop startup. Runtime pools reconnect to the same database after an interruption.
 3. Protocol `1.4`, `1.5`, and current-minor `1.6` synthetic clients can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability, verify the product's required schema list, and then close cleanly.
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.

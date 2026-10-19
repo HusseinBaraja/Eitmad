@@ -86,6 +86,10 @@ pub enum AuthenticationError {
 }
 
 impl AuthenticationService {
+    pub(crate) async fn database_available(&self) -> bool {
+        sqlx::query("SELECT 1").execute(&self.pool).await.is_ok()
+    }
+
     #[must_use]
     pub fn new(pool: PgPool, token_key: TokenKey) -> Self {
         Self {

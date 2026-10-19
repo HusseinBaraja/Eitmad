@@ -29,25 +29,25 @@ To check the installation, sign in and save one synthetic customer or draft with
 
 For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for an isolated setup with synthetic test records.
 
-### Start the local services
+### Run an unattended Windows host
 
-After completing the [connected workflow setup](docs/operations/run-workflow-test-environment.md), use PowerShell 7.4 or later from the repository root to start PostgreSQL and the TLS server:
+Use the [Windows host service guide](docs/operations/run-windows-host-services.md) to install PostgreSQL and the Rust server with separate service identities and retained data. After installation, run these commands in an elevated PowerShell window:
 
 ```powershell
-.\run-services.ps1
+.\run-services.ps1 Start
 ```
 
-Wait for `SERVICES READY`. The command builds the required service tools, starts the retained database and server, checks TLS readiness, and refreshes the installation's connection references. It leaves the app closed and preserves business records. It requires completed setup and does not add test records.
+Start waits for verified HTTPS readiness. Windows also starts the installed services after reboot without an interactive login. Closing or exiting the Manager app leaves the host running. The command does not build binaries, open WPF, seed records, or change power settings.
 
-Then open the normal app against the same installation:
+For a local synthetic development environment, keep using its explicit owner:
 
 ```powershell
-.\run.ps1 -RuntimeDirectory "$PWD\tests\engine-integration\artifacts\workflow-e2e\receptionist"
+pwsh -File tools/workflow-environment.ps1 Start -ServicesOnly
 ```
 
 For a new PC, start `run.ps1` with its own installation directory and use [desktop enrollment](docs/operations/run-server-authority.md#enroll-or-recover-a-windows-desktop). The launcher accepts a fresh directory and does not seed local accounts. Never copy another PC's runtime directory.
 
-Both commands support `-SkipBuild` when the relevant source and dependencies are unchanged. For another retained setup, pass `-StateDirectory <setup-directory>` to `run-services.ps1` and use its `receptionist` child as the app's `-RuntimeDirectory`.
+The development tool supports `-StateDirectory` and `-SkipBuild` for retained test state. It does not install Windows services. Use `run.ps1 -RuntimeDirectory <client-installation>` to open a client independently.
 
 On Windows, another local server can lock the shared build executable. If a build reports `Access is denied` for `eitmad-server.exe`, stop that server through the command that started it, then retry. Use `-SkipBuild` only if the existing outputs match the current source and dependencies.
 
@@ -57,13 +57,13 @@ Inspect the services:
 .\run-services.ps1 Status
 ```
 
-Exit the app through its tray menu, then stop the services:
+Stop the installed host explicitly when maintenance requires it:
 
 ```powershell
 .\run-services.ps1 Stop
 ```
 
-Stop retains stored work and does not close the app. Start refuses an already running setup; use Status before restarting. Keep the same `-StateDirectory` for Start, Status, and Stop. These commands control the retained local development setup; they do not install system services.
+`Stop` retains work. `Uninstall` removes service registrations and preserves the database and all installed files. Use the same `-StateDirectory` and `-Name` for a non-default host. See the service guide for install inputs, least-privilege access, recovery, sleep requirements, and the live reboot acceptance checks.
 
 ## Furniture editor flow
 

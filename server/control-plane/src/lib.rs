@@ -32,6 +32,11 @@ pub struct ControlPlane {
 }
 
 impl ControlPlane {
+    /// Checks the same database used by authentication, without returning database errors.
+    pub async fn database_available(&self) -> bool {
+        self.authentication.database_available().await
+    }
+
     #[must_use]
     pub fn new(pool: PgPool, token_key: TokenKey) -> Self {
         Self {

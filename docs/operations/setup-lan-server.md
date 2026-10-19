@@ -101,7 +101,7 @@ pwsh -File tools/lan-server.ps1 Start -StateDirectory C:\ProgramData\EitmadLan
 
 The server runs in the foreground. Use Ctrl+C for normal shutdown. Restart with the same command and state. This does not regenerate certificates, change the token key, or replace client trust. PostgreSQL must already be running privately. The Rust host applies its normal migrations before listening; follow the existing backup and migration procedure before a binary upgrade.
 
-For automatic startup after a server reboot, configure Windows Task Scheduler to run this same absolute command under the state owner, after network and PostgreSQL availability, with the repository as its working directory. Use Windows' protected account credential storage and normal retry policy; do not embed a CA password. Test the task while signed out. Automatic task installation is not part of this tool. Re-run `Check` after moving the repository or executable.
+For unattended operation, follow [Windows host service installation](run-windows-host-services.md). It imports the saved LAN settings, current certificate pair, and a stopped provisioned cluster into protected persistent storage. PostgreSQL and Rust use separate virtual service accounts and start without an interactive login. Keep the original CA state for renewal. A firewall rule must refer to the installed executable. Do not configure a competing foreground launcher or scheduled task for the same ports and cluster.
 
 ## Enroll each PC independently
 
@@ -165,7 +165,7 @@ Complete this live acceptance check with two independent Windows PCs and synthet
 | Wrong name | Use a different DNS alias resolving to the same server; HTTPS fails name validation. For a DNS certificate, the bare IP must also fail. Do not alter an enrolled installation's settings for this test |
 | Wrong trust | Use an unrelated CA in an independent disposable test runtime or `curl --cacert`; TLS fails, and no settings are committed |
 | Client restart | Exit and reopen both apps under the same users and runtime directories; normal sign-in succeeds with setup closed |
-| Server restart/reboot | Restart the same server command (or verified task), retaining PostgreSQL, keys, and settings; both clients reconnect and accepted work remains |
+| Server restart/reboot | Use the installed host service acceptance procedure, retaining PostgreSQL, keys, and settings; both clients reconnect and accepted work remains |
 | Leaf renewal | Renew, restart the host, and sign in on both PCs without distributing another CA or changing connection settings; CA fingerprint unchanged |
 | Database isolation | `Test-NetConnection <server-address> -Port <database-port>` fails from both PCs; HTTPS remains reachable |
 | Firewall limits | The recorded rule is Private-only with the selected addresses, executable, and HTTPS port; unselected clients cannot use this rule |

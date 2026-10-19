@@ -57,8 +57,15 @@ async fn execute() -> Result<(), MainError> {
         println!("server configuration is valid");
         return Ok(());
     }
-    let (control_database, sync_database, admin_database) =
-        migrated_databases(&config.database_url, config.maximum_database_connections).await?;
+    let databases = if command == ServerCommand::Serve {
+        tokio::select! {
+            result = startup_databases(&config) => result?,
+            _ = tokio::signal::ctrl_c() => return Ok(()),
+        }
+    } else {
+        migrated_databases(&config.database_url, config.maximum_database_connections).await?
+    };
+    let (control_database, sync_database, admin_database) = databases;
     let control = ControlPlane::new(control_database.pool(), config.token_key.clone());
     if let ServerCommand::Bootstrap {
         tenant_code,
@@ -110,10 +117,31 @@ async fn execute() -> Result<(), MainError> {
     let domains = DomainRegistry::new(handlers).map_err(|_| MainError::Configuration)?;
     let sync = SyncCoordinator::new(&sync_database, domains);
     let state = compose_server_state(&config, control, sync, &admin_database)?;
-    tracing::info!(listen = %config.listen, "server ready");
+    tracing::info!(listen = %config.listen, "server starting; probe /readyz for readiness");
     eitmad_server::run(&config, state)
         .await
         .map_err(|_| MainError::Runtime)
+}
+
+async fn startup_databases(
+    config: &ServerConfig,
+) -> Result<(ControlDatabase, SyncDatabase, AdminDatabase), MainError> {
+    // SCM dependency ordering proves only service liveness. Database recovery can take longer.
+    tokio::time::timeout(std::time::Duration::from_secs(120), async {
+        loop {
+            match migrated_databases(&config.database_url, config.maximum_database_connections)
+                .await
+            {
+                Err(MainError::Database) => {
+                    tracing::warn!("database unavailable during startup; retrying");
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+                result => return result,
+            }
+        }
+    })
+    .await
+    .map_err(|_| MainError::Database)?
 }
 
 async fn migrated_databases(

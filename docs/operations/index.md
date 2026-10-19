@@ -28,6 +28,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 - [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.
 - [Run and recover the modular server authority](run-server-authority.md): configure and exercise the current combined binary.
 - [Set up a stable Windows LAN server with TLS](setup-lan-server.md): retain a matching endpoint and client trust, protect server keys, scope the firewall, and renew certificates.
+- [Run the Windows host without an interactive login](run-windows-host-services.md): install persistent PostgreSQL and Rust services, inspect readiness, recover failures, and preserve data during uninstall.
 - [Run the Manager and Receptionist test environment](run-workflow-test-environment.md): start one real WPF client with role-based sign-in, isolated PostgreSQL, authenticated TLS, synthetic Arabic workflows, and retained work across restart.
 - [Run and diagnose the engine runtime](run-engine-runtime.md): start headless or supervised modes and interpret readiness.
 - [Recover and export local storage](recover-local-storage.md): preserve and validate SQLite authority.

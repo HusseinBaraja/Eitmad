@@ -20,10 +20,23 @@ pub struct ServerConfig {
     pub update_verifying_key: VerifyingKey,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct MigrationConfig {
     pub database_url: String,
     pub maximum_database_connections: u32,
+}
+
+impl std::fmt::Debug for MigrationConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("MigrationConfig")
+            .field("database_url", &"[REDACTED]")
+            .field(
+                "maximum_database_connections",
+                &self.maximum_database_connections,
+            )
+            .finish()
+    }
 }
 
 impl std::fmt::Debug for ServerConfig {
@@ -90,12 +103,9 @@ impl ServerConfig {
     ///
     /// Returns a stable error for missing, invalid, or unsafe configuration.
     pub fn from_environment() -> Result<Self, ServerConfigError> {
-        let database_url =
-            std::env::var("EITMAD_SERVER_DATABASE_URL").map_err(|_| ServerConfigError::Missing)?;
-        let token_key = TokenKey::from_base64(
-            &std::env::var("EITMAD_SERVER_TOKEN_KEY").map_err(|_| ServerConfigError::Missing)?,
-        )
-        .map_err(|_| ServerConfigError::Invalid)?;
+        let database_url = secret_setting("EITMAD_SERVER_DATABASE_URL")?;
+        let token_key = TokenKey::from_base64(&secret_setting("EITMAD_SERVER_TOKEN_KEY")?)
+            .map_err(|_| ServerConfigError::Invalid)?;
         let listen: SocketAddr = std::env::var("EITMAD_SERVER_LISTEN")
             .unwrap_or_else(|_| "127.0.0.1:8443".to_owned())
             .parse()
@@ -159,12 +169,37 @@ impl MigrationConfig {
     ///
     /// Returns a stable error for missing or invalid database configuration.
     pub fn from_environment() -> Result<Self, ServerConfigError> {
-        let database_url =
-            std::env::var("EITMAD_SERVER_DATABASE_URL").map_err(|_| ServerConfigError::Missing)?;
+        let database_url = secret_setting("EITMAD_SERVER_DATABASE_URL")?;
         Ok(Self {
             database_url,
             maximum_database_connections: maximum_database_connections()?,
         })
+    }
+}
+
+fn secret_setting(name: &str) -> Result<String, ServerConfigError> {
+    read_secret_setting(
+        std::env::var(name).ok(),
+        std::env::var_os(format!("{name}_FILE")),
+    )
+}
+
+fn read_secret_setting(
+    value: Option<String>,
+    file: Option<std::ffi::OsString>,
+) -> Result<String, ServerConfigError> {
+    match (value, file) {
+        (Some(value), None) if !value.is_empty() => Ok(value),
+        (None, Some(file)) => {
+            let value = std::fs::read_to_string(file).map_err(|_| ServerConfigError::Invalid)?;
+            let value = value.trim_end_matches(['\r', '\n']);
+            if value.is_empty() {
+                return Err(ServerConfigError::Invalid);
+            }
+            Ok(value.to_owned())
+        }
+        (None, None) => Err(ServerConfigError::Missing),
+        _ => Err(ServerConfigError::Invalid),
     }
 }
 
@@ -200,6 +235,32 @@ impl ServerCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn secret_sources_fail_closed_when_ambiguous_or_unreadable() {
+        assert_eq!(
+            read_secret_setting(None, None),
+            Err(ServerConfigError::Missing)
+        );
+        assert_eq!(
+            read_secret_setting(Some("secret".into()), Some("missing".into())),
+            Err(ServerConfigError::Invalid)
+        );
+        assert_eq!(
+            read_secret_setting(None, Some("missing".into())),
+            Err(ServerConfigError::Invalid)
+        );
+    }
+
+    #[test]
+    fn secret_file_loads_without_inheriting_an_interactive_environment() {
+        let file =
+            std::env::temp_dir().join(format!("eitmad-secret-test-{}", uuid::Uuid::new_v4()));
+        std::fs::write(&file, "synthetic-value\r\n").unwrap();
+        let result = read_secret_setting(None, Some(file.clone().into_os_string()));
+        std::fs::remove_file(file).unwrap();
+        assert_eq!(result.unwrap(), "synthetic-value");
+    }
 
     #[test]
     fn arguments_select_bounded_commands() {

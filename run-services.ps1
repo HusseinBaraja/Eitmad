@@ -1,19 +1,17 @@
-#Requires -Version 7.4
+#Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Start', 'Stop', 'Status')][string]$Action = 'Start',
-    [string]$StateDirectory,
-    [switch]$SkipBuild
+    [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall')][string]$Action = 'Status',
+    [string]$StateDirectory = "$env:ProgramData\EitmadHost",
+    [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
+    [string]$LanDirectory,
+    [string]$ClusterDirectory,
+    [string]$PostgresBin,
+    [string]$WinSwExecutable,
+    [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$WinSwSha256
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-if ($SkipBuild -and $Action -ne 'Start') { throw 'SkipBuild is only valid for Start.' }
-
-$options = @{
-    Action = $Action
-    ServicesOnly = $true
-    SkipBuild = $SkipBuild
-}
-if ($StateDirectory) { $options.StateDirectory = $StateDirectory }
-& (Join-Path $PSScriptRoot 'tools/workflow-environment.ps1') @options
+Import-Module (Join-Path $PSScriptRoot 'deploy/windows/host.psm1') -Force
+Invoke-EitmadHost @PSBoundParameters

@@ -1,3 +1,4 @@
+use std::future::IntoFuture as _;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -344,9 +345,21 @@ pub async fn run(
             .await?;
     } else {
         let listener = tokio::net::TcpListener::bind(address).await?;
-        axum::serve(listener, application)
-            .with_graceful_shutdown(shutdown_signal(state))
-            .await?;
+        let (shutdown, stopped) = tokio::sync::oneshot::channel();
+        let server = axum::serve(listener, application)
+            .with_graceful_shutdown(async {
+                let _ = stopped.await;
+            })
+            .into_future();
+        tokio::pin!(server);
+        // A WebSocket can otherwise keep plaintext shutdown pending without a limit.
+        tokio::select! {
+            result = &mut server => result?,
+            () = shutdown_signal(state) => {
+                let _ = shutdown.send(());
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(30), server).await;
+            }
+        }
     }
     Ok(())
 }
@@ -365,7 +378,15 @@ fn new_correlation_id() -> CorrelationId {
 }
 
 async fn ready(State(state): State<ServerState>) -> StatusCode {
-    if state.ready.load(Ordering::Acquire) {
+    let database_ready = state.ready.load(Ordering::Acquire)
+        && tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            state.control.database_available(),
+        )
+        .await
+        .unwrap_or(false);
+    // Recheck after the database probe so shutdown cannot publish stale readiness.
+    if database_ready && state.ready.load(Ordering::Acquire) {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::SERVICE_UNAVAILABLE
@@ -2387,13 +2408,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn readyz_reports_unavailable_after_readiness_is_cleared() {
+    async fn liveness_does_not_imply_database_readiness() {
         use tower::ServiceExt as _;
         let state = test_state();
         let response = router(state.clone())
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/readyz")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let response = router(state.clone())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/livez")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )

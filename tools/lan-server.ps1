@@ -139,7 +139,7 @@ try {
         if (-not $listeners.Count -or @($listeners | Where-Object LocalAddress -NotIn @('127.0.0.1', '::1')).Count) {
             throw 'PostgreSQL must be running and listen only on loopback before LAN startup.'
         }
-        # Foreground host. A scheduled task can run this same command under the state owner.
+        # Foreground diagnostics only. run-services.ps1 owns installed unattended hosts.
         & $settings.executable serve
         if ($LASTEXITCODE -ne 0) { throw 'The LAN server stopped with an error. Preserve its private state.' }
     }
