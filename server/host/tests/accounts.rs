@@ -321,6 +321,166 @@ async fn assert_revoked(f: &Fixture, client: &Client) {
 }
 
 #[tokio::test]
+#[ignore = "requires fresh disposable recovery database, superuser and RLS application URLs"]
+async fn local_owner_password_recovery_preserves_scope_and_revokes_sessions() {
+    let admin_url = std::env::var("EITMAD_RECOVERY_TEST_ADMIN_URL").unwrap();
+    let admin = ControlDatabase::connect(&admin_url, 2)
+        .await
+        .unwrap()
+        .pool();
+    let name: String = sqlx::query_scalar("SELECT current_database()")
+        .fetch_one(&admin)
+        .await
+        .unwrap();
+    assert!(
+        name.starts_with("eitmad_owner_recovery_"),
+        "disposable recovery database required"
+    );
+    let f = fixture().await;
+    let tenant = TenantCode::parse("accounts-test").unwrap();
+    let invited = invite(&f, "non-owner", DesktopAccountRole::Manager).await;
+    let (request, key) = activation(invited.activation_token.unwrap(), 72);
+    let non_owner = activate(&f.app, &request, key).await;
+    assert_recovery_denials(&f, &admin, &tenant).await;
+    let before = recovery_snapshot(&admin).await;
+    sqlx::raw_sql("CREATE FUNCTION public.fail_recovery_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='eitmad.server.authentication.owner-password-recovered.v1' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_recovery_audit BEFORE INSERT ON audit.server_records FOR EACH ROW EXECUTE FUNCTION public.fail_recovery_audit()")
+        .execute(&admin).await.unwrap();
+    assert_eq!(
+        eitmad_control_plane::recover_owner_password(
+            &admin,
+            &tenant,
+            "administrator",
+            "synthetic-new-password",
+            correlation(),
+            unix_millis_now()
+        )
+        .await,
+        Err(eitmad_control_plane::IdentityError::Unavailable)
+    );
+    assert_eq!(
+        recovery_snapshot(&admin).await,
+        before,
+        "audit failure rolls back all recovery state"
+    );
+    sqlx::raw_sql("DROP TRIGGER fail_recovery_audit ON audit.server_records; DROP FUNCTION public.fail_recovery_audit()")
+        .execute(&admin).await.unwrap();
+    let audit_correlation = correlation();
+    eitmad_control_plane::recover_owner_password(
+        &admin,
+        &tenant,
+        "administrator",
+        "synthetic-new-password",
+        audit_correlation,
+        unix_millis_now(),
+    )
+    .await
+    .unwrap();
+    assert_revoked(&f, &f.owner).await;
+    // Another account's password, roles, and sessions are retained.
+    let _ = login(&f, &non_owner, "non-owner").await;
+    assert_recovered_login(&f).await;
+    let audit: Value = sqlx::query_scalar("SELECT jsonb_build_object('actor',actor_kind,'outcome',outcome,'target',target_id,'error',redacted_error) FROM audit.server_records WHERE correlation_id=$1")
+        .bind(audit_correlation.value()).fetch_one(&admin).await.unwrap();
+    assert_eq!(
+        audit,
+        json!({"actor":"system","outcome":"succeeded","target":f.owner.auth.session.account_id,"error":null})
+    );
+    let identities: Value = sqlx::query_scalar("SELECT jsonb_agg(jsonb_build_object('account',account_id,'user',user_id,'tenant',tenant_id) ORDER BY account_id) FROM control.accounts")
+        .fetch_one(&admin).await.unwrap();
+    assert_eq!(identities, before["identities"]);
+    admin.close().await;
+}
+
+async fn assert_recovery_denials(f: &Fixture, admin: &sqlx::PgPool, tenant: &TenantCode) {
+    for (pool, code, username, password, expected) in [
+        (
+            &f.pool,
+            tenant,
+            "administrator",
+            "synthetic-new-password",
+            eitmad_control_plane::IdentityError::Denied,
+        ),
+        (
+            admin,
+            tenant,
+            "non-owner",
+            "synthetic-new-password",
+            eitmad_control_plane::IdentityError::Denied,
+        ),
+        (
+            admin,
+            &TenantCode::parse("foreign-tenant").unwrap(),
+            "administrator",
+            "synthetic-new-password",
+            eitmad_control_plane::IdentityError::Denied,
+        ),
+        (
+            admin,
+            tenant,
+            "administrator",
+            "short",
+            eitmad_control_plane::IdentityError::InvalidInput,
+        ),
+    ] {
+        assert_eq!(
+            eitmad_control_plane::recover_owner_password(
+                pool,
+                code,
+                username,
+                password,
+                correlation(),
+                unix_millis_now()
+            )
+            .await,
+            Err(expected)
+        );
+    }
+}
+
+async fn recovery_snapshot(pool: &sqlx::PgPool) -> Value {
+    sqlx::query_scalar("SELECT jsonb_build_object('identities',(SELECT jsonb_agg(jsonb_build_object('account',account_id,'user',user_id,'tenant',tenant_id) ORDER BY account_id) FROM control.accounts),'accounts',(SELECT jsonb_agg(to_jsonb(a) ORDER BY account_id) FROM control.accounts a),'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY session_id) FROM control.sessions s),'families',(SELECT jsonb_agg(to_jsonb(f) ORDER BY token_family_id) FROM control.token_families f),'revision',(SELECT account_revision FROM control.tenants WHERE tenant_code='accounts-test'))")
+        .fetch_one(pool).await.unwrap()
+}
+
+async fn assert_recovered_login(f: &Fixture) {
+    let input = |password: &str| LoginRequest {
+        tenant_code: TenantCode::parse("accounts-test").unwrap(),
+        username: "administrator".into(),
+        password: password.into(),
+        device_id: DeviceId::new(Uuid::new_v4()),
+        device_label: "Synthetic recovery device".into(),
+        device_public_key: DevicePublicKey {
+            algorithm: "ed25519".into(),
+            base64: URL_SAFE_NO_PAD
+                .encode(SigningKey::from_bytes(&[80; 32]).verifying_key().as_bytes()),
+        },
+        device_proof: None,
+    };
+    assert_eq!(
+        post(
+            &f.app,
+            "/v1/auth/login",
+            &input("synthetic-account-password"),
+            None
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, body) = post(
+        &f.app,
+        "/v1/auth/login",
+        &input("synthetic-new-password"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let auth: AuthenticationResult = serde_json::from_value(body).unwrap();
+    assert_eq!(auth.session.account_id, f.owner.auth.session.account_id);
+    assert_eq!(auth.session.user_id, f.owner.auth.session.user_id);
+}
+
+#[tokio::test]
 #[ignore = "requires a fresh disposable PostgreSQL database with enforced RLS"]
 async fn server_accounts_work_through_authenticated_routes() {
     let f = fixture().await;

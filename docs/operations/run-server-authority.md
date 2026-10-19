@@ -124,6 +124,20 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_
 
 The scenario starts two isolated engines, uses real Windows IPC and controller clients, creates a shared account, edits its role through Users, and deactivates it. It saves pending work before interrupting the server, then checks idle-session closure, denied cached reads, writes, offline sign-in, and subscriptions during the outage. It changes access while disconnected, restores the connection, and verifies online recovery, retained records, and exact original authorship. It asserts no application restart after enrollment. Run `UsersPresentationTests`, `DesktopSessionControllerTests`, `UsersRenderedTests`, and `DesktopEnrollmentRenderedTests` for native presentation, session fencing, Arabic copy, and rendered controls. Rendered tests use synthetic data; record actual display size and scaling with captures.
 
+## Recover a forgotten Owner password on the server
+
+Run `eitmad-server recover-owner <tenant-code> <owner-username>` locally on the server with a PostgreSQL superuser connection supplied through `EITMAD_SERVER_DATABASE_URL` or its protected `_FILE` setting. The Rust command verifies the database role and loopback connection. Ordinary server application credentials are denied. Protect administrator credentials and use a local masked prompt to send the new password to the command through stdin. Never put a password in command arguments, shell history, logs, or chat.
+
+Supply the exact password as UTF-8 stdin, without an added newline. Use 12 to 256 characters and at most 1024 UTF-8 bytes. The command operates only on the specified active account with a tenant Owner relationship. It does not create accounts, replace identifiers, change assignments, or modify business records. Password replacement, existing session and token-family revocation, account revisions, change notification, and `eitmad.server.authentication.owner-password-recovered.v1` audit commit in one transaction. An audit or storage failure rolls back the change. This command does not run migrations or start a network listener.
+
+Success prints `Owner password recovered; existing sessions revoked`. Sign in online with the new password and check the desktop profile. Existing clients retain their runtime data and connection settings. If the command reports `eitmad.error.server-owner-recovery-failed.v1`, check the local administrator connection, exact tenant and account, active Owner status, password limits, and current audit schema. Correct the cause before retrying; no database reset is required.
+
+The focused `accounts` integration test `local_owner_password_recovery_preserves_scope_and_revokes_sessions` requires a fresh disposable database named `eitmad_owner_recovery_*`, an ordinary RLS application connection in `EITMAD_DIRECT_TEST_DATABASE_URL`, and a local superuser connection to that same database in `EITMAD_RECOVERY_TEST_ADMIN_URL`. It checks role and scope denials, invalid password rejection, audit rollback, preserved identities, old password rejection, new password login, and session/token revocation. Run only against disposable test data:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts local_owner_password_recovery_preserves_scope_and_revokes_sessions -- --ignored
+```
+
 ## Enroll or recover a Windows desktop
 
 Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.

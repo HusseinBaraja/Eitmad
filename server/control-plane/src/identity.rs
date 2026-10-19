@@ -18,7 +18,7 @@ mod account_projection;
 mod accounts;
 pub use accounts::ServerAccountError;
 
-const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
+pub(crate) const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;
 
 #[derive(Clone, Debug)]

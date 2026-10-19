@@ -9,6 +9,7 @@ mod authentication;
 mod branches;
 mod database;
 mod identity;
+mod owner_recovery;
 mod update_assignment;
 
 pub use access::{AccessError, AccessRequirement, ServerAccessService};
@@ -18,6 +19,7 @@ pub use database::{ControlDatabase, ControlDatabaseError};
 pub use identity::{
     BootstrapInput, BootstrapResult, IdentityError, IdentityService, ServerAccountError,
 };
+pub use owner_recovery::recover_owner_password;
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 
 use sqlx::PgPool;

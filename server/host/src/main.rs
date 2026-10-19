@@ -1,4 +1,4 @@
-use std::{process::ExitCode, sync::Arc};
+use std::{io::Read as _, process::ExitCode, sync::Arc};
 
 use eitmad_admin_plane::{AdminDatabase, AdministrationService, PostgresAdministrationDataSource};
 use eitmad_contracts::server::TenantCode;
@@ -15,6 +15,7 @@ use eitmad_sync_plane::{
     CustomerSyncHandler, DomainRegistry, DomainSyncHandler, SyncCoordinator, SyncDatabase,
 };
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
+use zeroize::Zeroizing;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -53,6 +54,13 @@ async fn execute() -> Result<(), MainError> {
         print_help();
         return Err(MainError::Input);
     }
+    if let ServerCommand::RecoverOwner {
+        tenant_code,
+        owner_username,
+    } = &command
+    {
+        return recover_owner(tenant_code, owner_username).await;
+    }
     if command == ServerCommand::Migrate {
         let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
         migrated_databases(&config.database_url, config.maximum_database_connections).await?;
@@ -64,7 +72,7 @@ async fn execute() -> Result<(), MainError> {
         println!("server configuration is valid");
         return Ok(());
     }
-    let databases = if command == ServerCommand::Serve {
+    let (control_database, sync_database, admin_database) = if command == ServerCommand::Serve {
         tokio::select! {
             result = startup_databases(&config) => result?,
             _ = tokio::signal::ctrl_c() => return Ok(()),
@@ -72,7 +80,6 @@ async fn execute() -> Result<(), MainError> {
     } else {
         migrated_databases(&config.database_url, config.maximum_database_connections).await?
     };
-    let (control_database, sync_database, admin_database) = databases;
     let control = ControlPlane::new(control_database.pool(), config.token_key.clone());
     if let ServerCommand::Bootstrap {
         tenant_code,
@@ -128,6 +135,31 @@ async fn execute() -> Result<(), MainError> {
     eitmad_server::run(&config, state)
         .await
         .map_err(|_| MainError::Runtime)
+}
+
+async fn recover_owner(tenant_code: &str, owner_username: &str) -> Result<(), MainError> {
+    let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
+    let tenant = TenantCode::parse(tenant_code).map_err(|_| MainError::Input)?;
+    let mut password = Zeroizing::new(String::new());
+    std::io::stdin()
+        .take(1_025)
+        .read_to_string(&mut password)
+        .map_err(|_| MainError::Input)?;
+    let database = ControlDatabase::connect(&config.database_url, 1)
+        .await
+        .map_err(|_| MainError::Database)?;
+    eitmad_control_plane::recover_owner_password(
+        &database.pool(),
+        &tenant,
+        owner_username,
+        &password,
+        CorrelationId::new(uuid::Uuid::new_v4()),
+        eitmad_control_plane::unix_millis_now(),
+    )
+    .await
+    .map_err(|_| MainError::Recovery)?;
+    println!("Owner password recovered; existing sessions revoked");
+    Ok(())
 }
 
 async fn startup_databases(
@@ -226,6 +258,7 @@ fn print_help() {
     println!(
         "eitmad-server bootstrap <tenant-code> <tenant-name> <organization-name> <owner-username>"
     );
+    println!("eitmad-server recover-owner <tenant-code> <owner-username> (password on stdin)");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -235,6 +268,7 @@ enum MainError {
     Database,
     Migration,
     Bootstrap,
+    Recovery,
     Runtime,
 }
 
@@ -246,6 +280,7 @@ impl MainError {
             Self::Database => "eitmad.error.server-database-unavailable.v1",
             Self::Migration => "eitmad.error.server-migration-failed.v1",
             Self::Bootstrap => "eitmad.error.server-bootstrap-failed.v1",
+            Self::Recovery => "eitmad.error.server-owner-recovery-failed.v1",
             Self::Runtime => "eitmad.error.server-runtime-failed.v1",
         }
     }

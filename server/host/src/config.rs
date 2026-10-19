@@ -69,6 +69,10 @@ pub enum ServerCommand {
     Serve,
     Migrate,
     CheckConfig,
+    RecoverOwner {
+        tenant_code: String,
+        owner_username: String,
+    },
     Bootstrap {
         tenant_code: String,
         tenant_name: String,
@@ -220,13 +224,17 @@ impl ServerCommand {
             None | Some("serve") => Self::Serve,
             Some("migrate") => Self::Migrate,
             Some("check-config") => Self::CheckConfig,
+            Some("recover-owner") if arguments.len() == 4 => Self::RecoverOwner {
+                tenant_code: arguments[2].clone(),
+                owner_username: arguments[3].clone(),
+            },
             Some("bootstrap") if arguments.len() == 6 => Self::Bootstrap {
                 tenant_code: arguments[2].clone(),
                 tenant_name: arguments[3].clone(),
                 organization_name: arguments[4].clone(),
                 owner_username: arguments[5].clone(),
             },
-            Some("bootstrap") => Self::Usage,
+            Some("bootstrap" | "recover-owner") => Self::Usage,
             _ => Self::Help,
         }
     }
