@@ -21,7 +21,7 @@ keywords:
 
 Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, and self-contained .NET runtime. The server ZIP contains Rust, service installation tools, the existing backup tools under `deploy/windows`, a root backup verifier, and the self-contained LAN certificate tool. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
 
-**Release status:** unsigned artifacts are for engineering validation. They are not production-ready. The client installer refuses unsigned MSIX. Production requires the approved publisher, hardware-backed signing service, trusted certificate chain, approved RFC 3161 timestamp service, and clean-machine acceptance. These external prerequisites remain explicit gates. Even signed builds retain `productionEligible: false` until [release acceptance](validate-release-candidate.md) passes.
+**Release status:** unsigned artifacts are for engineering validation. They are not production-ready. The production client installer refuses unsigned MSIX. A separate [self-signed test path](#test-msix-with-a-local-certificate) is available for controlled test PCs. Production requires the approved publisher, hardware-backed signing service, trusted certificate chain, approved RFC 3161 timestamp service, and clean-machine acceptance. These external prerequisites remain explicit gates. Even signed builds retain `productionEligible: false` until [release acceptance](validate-release-candidate.md) passes.
 
 ## Build and sign
 
@@ -92,6 +92,41 @@ Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cp
 7. Run `install-server.ps1 Firewall` and enter the exact client IPv4 address. The rule covers that client, the saved HTTPS endpoint, and Private networks only. It replaces the previous single-client rule. Follow [client firewall scope](run-windows-host-services.md#connect-the-second-pc-yourself); PostgreSQL stays loopback-only.
 
 Protected storage is `%ProgramData%\EitmadHost`: read-only binaries in `app`/`postgres`, server-only settings/TLS in `private`, and PostgreSQL storage in `data`. Separate password-free virtual service accounts run Rust and PostgreSQL. Administrators and SYSTEM retain control. Keep CA operator state outside the service tree. Links, foreign service registrations, active clusters, and unsafe ancestors are rejected. See [service identities and storage](run-windows-host-services.md#identity-secrets-and-storage).
+
+## Test MSIX with a local certificate
+
+Use this path to test MSIX installation without Azure on PCs you control. It does not grant production approval or replace [release acceptance](validate-release-candidate.md). The production signing tools and installer keep their existing checks.
+
+Prerequisites on the build laptop: the authenticated unsigned desktop ZIP, its SHA-256 from the build record, Windows SDK x64 MakeAppx and SignTool, Windows PowerShell 5.1, and the Windows .NET Framework 4.x C# compiler. The input app already includes its .NET 8 runtime and Rust engine; the builder does not copy source code into the package. Client PCs need the [desktop prerequisites](#target-prerequisites).
+
+Build once with new work and output directories:
+
+```powershell
+.\deploy\windows\build-test-client.ps1 -SourceArchive $unsignedDesktopZip -ExpectedSourceSha256 $sourceZipDigest -WorkDirectory artifacts\local-msix-test\work -OutputDirectory artifacts\local-msix-test\client
+```
+
+The builder verifies the ZIP and both original payload inventories before repacking. It creates `Eitmad.Desktop.Test` with publisher `CN=Eitmad Local Test` and an Arabic test label. A small Windows launcher passes the existing runtime-directory argument to the unchanged shell; both Start-menu activation and direct launcher activation use `%LOCALAPPDATA%\Eitmad\TestClient\engine`. This path retains test data after package removal. Product authorization, validation, and audit stay in Rust. Test accounts can change the connected server tenant; use a test tenant when the data must be disposable.
+
+The builder creates a one-year, non-exportable RSA code-signing key in the build user's `CurrentUser\My` Windows certificate store. It exports only `Eitmad-Local-Test.cer`. Keep that private key on the build laptop. For another build, supply the retained public thumbprint with `-CertificateThumbprint`; changing certificates requires a separate reviewed client trust import. The test MSIX is signed with SHA-256 without a production timestamp. Expiration requires a new valid build and trust check.
+
+Transfer only the output directory as a ZIP. Compare its ZIP digest through the authenticated handover channel. The generated command files contain the exact public-certificate and MSIX SHA-256 pins; `test-release.json` records the same public evidence. These pins are meaningful only when the bundle itself came from the trusted handover.
+
+On each client:
+
+1. Extract the complete bundle. Right-click `Trust-TestCertificate.cmd` and select **Run as administrator**. This verifies both hashes and the code-signing-only leaf certificate, imports only that public certificate into `LocalMachine\TrustedPeople`, then verifies the MSIX signature. If that signature check fails, a newly imported certificate is removed. It never imports a root CA, enables Developer Mode, or changes machine execution policy. Trust applies to all Windows users on that test PC; use it only for this controlled test.
+2. Close the Administrator window. Double-click `Install-TestApp.cmd` as the intended normal Windows user. It checks the pinned trusted signature and prerequisites, uses normal `Add-AppxPackage`, and confirms the separate test identity. No unsigned-install switch is used. Each command sets execution policy only for its own PowerShell process.
+3. Open **الاعتماد - اختبار** from Start. Follow [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop) with the client's own runtime and account. The HTTPS server CA is separate from this code-signing certificate; keep using the verified server trust PEM.
+4. Close and reopen the test app and sign in again. Verify retained connection settings and connected work on the actual client. Signature verification on the build laptop alone does not prove client installation or application behavior.
+
+Verify the signature and meaningful rejection cases on a Windows host where the test certificate is already trusted:
+
+```powershell
+.\deploy\windows\test-local-signing.ps1 -BundleDirectory artifacts\local-msix-test\client
+```
+
+For a hash mismatch, retain the error and obtain the original bundle; do not edit a pin or generated inventory to continue. For signature or trust failure, compare the certificate, clock, and thumbprint. Do not weaken Windows policy or the production installer. If installation fails after trust succeeds, retain the Windows AppXDeploymentServer error and the runtime.
+
+To remove only the test app as its Windows user, close it and run `Get-AppxPackage -Name Eitmad.Desktop.Test | Remove-AppxPackage`. This preserves the separate test runtime. When no users need the signing certificate, an administrator can remove exactly `Cert:\LocalMachine\TrustedPeople\<certificateThumbprint>` from the trusted handover record. Retain the runtime and build key if later test work still needs them. See [Microsoft's certificate trust guidance](https://learn.microsoft.com/en-us/windows/msix/package/create-certificate-package-signing).
 
 ## Install and enroll desktops
 
