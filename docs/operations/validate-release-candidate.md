@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-19"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -33,7 +33,7 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
 | Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |
 | Linux server build, CLI, and safe configuration | `server-smoke` |
-| Repeatable Windows and Linux-hosted server artifacts | `package-windows`, `package-server` |
+| Versioned Windows MSIX/client and server packages, integrity and retained service lifecycle; separate Linux server artifact | `package-windows`, `package-server` |
 
 The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
 
@@ -56,5 +56,7 @@ CI cannot hold production signing keys or prove a live restore. Before promotion
 Treat a missing, cancelled, or skipped check as a failure. Do not edit a generated binding, migration checksum, or package manifest to hide drift. Fix the Rust authority or source migration, regenerate through the approved command, update affected documentation, and rerun the full workflow.
 
 For a release failure after promotion, pause the channel, preserve evidence, follow the platform or server rollback guide, and add reusable symptoms to troubleshooting documentation.
+
+Unsigned Windows artifacts cannot satisfy production acceptance. The [Windows installation procedure](package-windows-desktop.md) lists signing prerequisites, clean-host installation and enrollment, retained repair/removal, interrupted-upgrade recovery, and coordinated restore evidence. A signed payload or hermetic package test alone does not meet those gates.
 
 Related pages: [Windows packaging](package-windows-desktop.md), [macOS expectations](prepare-macos-distribution.md), [Linux expectations](prepare-linux-distribution.md), and [server deployment](deploy-server-environments.md).

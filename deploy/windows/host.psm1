@@ -69,7 +69,7 @@ function Assert-ProtectedParents([string]$Root) {
     }
 }
 
-function Assert-InstalledProtection([string]$Root, [string]$Name) {
+function Assert-InstalledProtection([string]$Root, [string]$Name, [switch]$AllowMissingServerBinary) {
     $trusted = @('S-1-5-18', 'S-1-5-32-544')
     # showsid derives the stable SID even after Uninstall removes the account-name mapping.
     $sids = @{}
@@ -84,6 +84,7 @@ function Assert-InstalledProtection([string]$Root, [string]$Name) {
         'private/database-url', 'private/token-key',
         'private/server-key.pem', 'private/server-cert.pem', 'private/trusted-ca.pem') {
         $path = if ($relative) { Join-Path $Root $relative } else { $Root }
+        if ($AllowMissingServerBinary -and $relative -eq 'app/eitmad-server.exe' -and -not (Test-Path -LiteralPath $path)) { continue }
         $acl = Get-Acl -LiteralPath $path
         if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted) {
             throw 'Installed control files require Administrators or SYSTEM ownership.'
@@ -241,10 +242,11 @@ function New-WrapperXml($Settings, $Environment, [ValidateSet('Server', 'Postgre
     return $xml
 }
 
-function Test-RustConfiguration([string]$Root) {
+function Test-RustConfiguration([string]$Root, [string]$Executable, [string]$Command = 'check-config') {
     $xml = [xml](Get-Content -LiteralPath (Join-Path $Root 'app/host-service.xml') -Raw)
     $start = New-Object Diagnostics.ProcessStartInfo
-    $start.FileName = Join-Path $Root 'app/eitmad-server.exe'; $start.Arguments = 'check-config'
+    $start.FileName = if ($Executable) { $Executable } else { Join-Path $Root 'app/eitmad-server.exe' }
+    $start.Arguments = $Command
     $start.UseShellExecute = $false; $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
     foreach ($key in @($start.EnvironmentVariables.Keys)) {
@@ -254,14 +256,21 @@ function Test-RustConfiguration([string]$Root) {
     $process = [Diagnostics.Process]::Start($start)
     try {
         $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
-        if (-not $process.WaitForExit(10000)) { throw 'Rust configuration check deadline elapsed.' }
+        if (-not $process.WaitForExit($(if ($Command -eq 'migrate') { 300000 } else { 10000 }))) {
+            # This is our maintenance child, never a service or a desktop process.
+            # Reap it before recovery can replace binaries or restore its database.
+            $process.Kill()
+            if (-not $process.WaitForExit(10000)) { throw 'Rust maintenance did not stop. Inspect process state before recovery.' }
+            throw 'Rust maintenance deadline elapsed. Its process stopped; preserve state and inspect private logs before retrying.'
+        }
         [void]$stdout.GetAwaiter().GetResult(); [void]$stderr.GetAwaiter().GetResult()
         if ($process.ExitCode -ne 0) { throw 'Rust rejected the installed configuration. Preserve state and correct the protected settings.' }
     } finally { $process.Dispose() }
 }
 
 function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
-    [string]$ClusterDirectory, [string]$PostgresBin, [string]$WinSwExecutable, [string]$WinSwSha256) {
+    [string]$ClusterDirectory, [string]$PostgresBin, [string]$WinSwExecutable, [string]$WinSwSha256,
+    [string]$ServerExecutable) {
     foreach ($value in $LanDirectory, $ClusterDirectory, $PostgresBin, $WinSwExecutable, $WinSwSha256) {
         if (-not $value) { throw 'Initial Install requires LanDirectory, ClusterDirectory, PostgresBin, WinSwExecutable, and WinSwSha256.' }
     }
@@ -284,6 +293,7 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
         throw 'Use the reviewed WinSW 2.12.0 binary with its verified SHA-256.'
     }
     $source = Get-Content -LiteralPath (Join-Path $lan 'server.json') -Raw | ConvertFrom-Json
+    if ($ServerExecutable) { $source.executable = $ServerExecutable }
     $active = Get-Content -LiteralPath (Join-Path $lan 'active-tls.json') -Raw | ConvertFrom-Json
     if ($source.version -ne 1 -or $active.Version -ne 1) { throw 'Unsupported LAN settings or TLS version.' }
     [void](Get-SafePath $source.executable)
@@ -438,35 +448,164 @@ function Set-ClientFirewall {
     }
 }
 
+function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Action,
+    [string]$BackupGeneration, [bool]$RestoreVerified) {
+    $root = $Settings.root
+    $previousFile = Join-Path $root 'app/release.json'
+    $pendingFile = Join-Path $root 'release-pending.json'
+    if (-not (Test-Path -LiteralPath $previousFile) -and -not (Test-Path -LiteralPath $pendingFile)) {
+        throw 'Installed release inventory is missing. Do not guess a migration baseline.'
+    }
+    $pending = if (Test-Path -LiteralPath $pendingFile) { Get-Content -LiteralPath $pendingFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
+    $previous = if ($pending) { $pending.previousRelease } else { Get-Content -LiteralPath $previousFile -Raw -Encoding UTF8 | ConvertFrom-Json }
+    if ($pending) {
+        if ($Release.version -cne $pending.version -or $Release.files.'eitmad-server.exe' -cne $pending.binarySha256) {
+            throw 'Repair requires the exact interrupted release. Preserve the pre-migration recovery point.'
+        }
+    } elseif ($Action -eq 'Repair') {
+        if ($Release.version -cne $previous.version -or $Release.files.'eitmad-server.exe' -cne $previous.files.'eitmad-server.exe') {
+            throw 'Repair requires the original release and digest. Use Upgrade for a different release.'
+        }
+    } elseif ([version]$Release.windowsVersion -le [version]$previous.windowsVersion) {
+        throw 'Upgrade requires a higher Windows package version. Downgrade requires explicit backup recovery.'
+    }
+    Assert-AppendOnlyMigrations $previous $Release
+    if ($Action -eq 'Upgrade' -and -not $pending -and
+        (Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe') -Algorithm SHA256).Hash -ine $previous.files.'eitmad-server.exe') {
+        throw 'Installed binary differs from its release. Repair the original package before upgrading.'
+    }
+    foreach ($kind in 'Server', 'Postgres') {
+        $service = Get-OwnedService $Settings $kind
+        try {
+            if (-not $service -or $service.Status -ne 'Stopped') { throw 'Stop both owned services before repair or upgrade.' }
+        } finally { Close-Service $service }
+    }
+    if ($Action -eq 'Upgrade' -and -not $pending) {
+        if (-not $BackupGeneration -or -not $RestoreVerified) {
+            throw 'Upgrade requires BackupGeneration and RestoreVerified after a successful isolated restore drill.'
+        }
+        & (Join-Path $Directory 'restore-backup.ps1') -Generation $BackupGeneration -PostgresBin (Join-Path $root 'postgres/bin')
+        if (-not $?) { throw 'Recovery generation validation failed.' }
+        $marker = Get-Content -LiteralPath (Join-Path $BackupGeneration 'complete.json') -Raw | ConvertFrom-Json
+        $hostNode = @($marker.nodes | Where-Object { $_.kind -eq 'server' -and $_.computer -ieq $env:COMPUTERNAME -and $root -in $_.requiredPaths })
+        if ($hostNode.Count -ne 1) { throw 'The recovery generation does not contain this installed host.' }
+    }
+    # Execute only an authenticated copy inside the administrator-owned app tree.
+    $source = Join-Path $root 'app/eitmad-server.pending.exe'
+    Copy-Item -LiteralPath (Join-Path $Directory 'eitmad-server.exe') -Destination $source
+    if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ine $Release.files.'eitmad-server.exe') {
+        throw 'Staged server digest differs. No installed binary was replaced.'
+    }
+    Test-RustConfiguration $root $source
+    # Retain the exact prior binary and inventory. Never replace the PostgreSQL
+    # distribution or settings as part of an application upgrade.
+    $history = Join-Path $root ('releases/' + $previous.windowsVersion)
+    if (-not (Test-Path -LiteralPath $history)) {
+        Protect-Directory (Join-Path $root 'releases')
+        Protect-Directory $history
+        Copy-Item -LiteralPath $previousFile -Destination (Join-Path $history 'release.json')
+        $archiveSource = if ($Action -eq 'Repair' -and -not $pending) { $source } else { Join-Path $root 'app/eitmad-server.exe' }
+        Copy-Item -LiteralPath $archiveSource -Destination (Join-Path $history 'eitmad-server.exe')
+    }
+    if (-not $pending) {
+        # Keep reboot and SCM recovery from starting a partly installed release.
+        foreach ($kind in 'Server', 'Postgres') { Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand') }
+        $markerStage = Join-Path $root 'release-pending.new.json'
+        [pscustomobject]@{version = $Release.version; binarySha256 = $Release.files.'eitmad-server.exe';
+            previousVersion = $previous.version; previousRelease = $previous; backupGeneration = $BackupGeneration} |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerStage -Encoding UTF8
+        [IO.File]::Move($markerStage, $pendingFile)
+    }
+    $destination = Join-Path $root 'app/eitmad-server.exe'
+    if (Test-Path -LiteralPath $destination) { [IO.File]::Replace($source, $destination, [NullString]::Value) }
+    else { [IO.File]::Move($source, $destination) }
+    try {
+        $database = Get-OwnedService $Settings 'Postgres'
+        try {
+            if (@(Get-NetTCPConnection -State Listen -LocalPort $Settings.databasePort -ErrorAction SilentlyContinue).Count) {
+                throw 'Database port is already occupied. No unrelated process was stopped.'
+            }
+            $database.Start()
+            $database.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
+        } finally { Close-Service $database }
+        # Rust owns migration validation and application. A failure is never hidden
+        # by putting an older binary over a database that might have migrated.
+        Test-RustConfiguration $root (Join-Path $root 'app/eitmad-server.exe') 'migrate'
+        $server = Get-OwnedService $Settings 'Server'
+        try {
+            if (@(Get-NetTCPConnection -State Listen -LocalPort $Settings.serverPort -ErrorAction SilentlyContinue).Count) {
+                throw 'HTTPS port is already occupied. No unrelated process was stopped.'
+            }
+            $server.Start()
+            $server.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
+        } finally { Close-Service $server }
+        Wait-Ready $Settings
+        $inventoryStage = Join-Path $root 'app/release.pending.json'
+        $Release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $inventoryStage -Encoding UTF8
+        if (Test-Path -LiteralPath $previousFile) { [IO.File]::Replace($inventoryStage, $previousFile, [NullString]::Value) }
+        else { [IO.File]::Move($inventoryStage, $previousFile) }
+        Invoke-Native sc.exe @('config', ($Settings.name + 'Postgres'), 'start=', 'auto')
+        Invoke-Native sc.exe @('config', ($Settings.name + 'Server'), 'start=', 'delayed-auto')
+        Remove-Item -LiteralPath $pendingFile
+        Write-Host 'Release installed; explicit Rust migrations and verified HTTPS readiness passed. Verify authenticated client work before reopening access.'
+    } catch {
+        Stop-Host $Settings
+        throw 'Release failed. Services are stopped; pending recovery details and all data are retained. Repair the exact release or restore the complete recovery point.'
+    }
+}
+
 function Invoke-EitmadHost {
     [CmdletBinding()]
     param(
-        [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall', 'Firewall')][string]$Action = 'Status',
+        [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall', 'Firewall', 'Repair', 'Upgrade')][string]$Action = 'Status',
         [string]$StateDirectory = "$env:ProgramData\EitmadHost",
         [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
         [string]$ClientAddress,
         [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
-        [string]$WinSwExecutable, [string]$WinSwSha256
+        [string]$WinSwExecutable, [string]$WinSwSha256, [string]$ServerExecutable,
+        [string]$ReleaseDirectory, [string]$ExpectedReleaseSha256, [string]$Publisher,
+        [switch]$AllowUnsignedValidation, [string]$BackupGeneration, [switch]$RestoreVerified
     )
     if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
     if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
     $root = Get-SafePath $StateDirectory
     Assert-Administrator
     Assert-ProtectedParents $root
+    $release = $null
+    if ($ReleaseDirectory) {
+        Import-Module (Join-Path $ReleaseDirectory 'package.psm1') -Force
+        $release = Read-EitmadPackage -Directory $ReleaseDirectory -Target windows-server `
+            -ExpectedReleaseSha256 $ExpectedReleaseSha256 -Publisher $Publisher -AllowUnsignedValidation:$AllowUnsignedValidation
+        Assert-WindowsPrerequisites
+        $ServerExecutable = Join-Path $ReleaseDirectory 'eitmad-server.exe'
+    }
     if ($Action -eq 'Install' -and -not (Test-Path -LiteralPath (Join-Path $root 'host.json'))) {
-        $settings = Initialize-Host $root $Name $LanDirectory $ClusterDirectory $PostgresBin $WinSwExecutable $WinSwSha256
+        $settings = Initialize-Host $root $Name $LanDirectory $ClusterDirectory $PostgresBin $WinSwExecutable $WinSwSha256 $ServerExecutable
     } else {
-        Assert-InstalledProtection $root $Name
+        $allowMissing = $Action -in 'Status', 'Stop', 'Uninstall' -or ($Action -eq 'Repair' -and $null -ne $release)
+        Assert-InstalledProtection $root $Name -AllowMissingServerBinary:$allowMissing
         $settings = Read-HostManifest $root $Name
     }
     Assert-PlainTree $root
     $lock = [IO.File]::Open((Join-Path $root 'host.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     try {
-        if ($Action -eq 'Firewall') {
+        $pending = Join-Path $root 'release-pending.json'
+        if ((Test-Path -LiteralPath $pending) -and $Action -notin 'Status', 'Stop', 'Uninstall', 'Repair') {
+            throw 'An interrupted release is pending. Preserve state, inspect release-pending.json, then Repair with that exact package.'
+        }
+        if ($Action -in 'Repair', 'Upgrade') {
+            if (-not $release) { throw 'Use install-server.ps1 with the verified release inventory.' }
+            Set-HostRelease $settings $release $ReleaseDirectory $Action $BackupGeneration $RestoreVerified
+        } elseif ($Action -eq 'Firewall') {
             Set-ClientFirewall $settings $ClientAddress -WhatIf:$WhatIf
         } elseif ($Action -eq 'Install') {
+            if ($release) {
+                $digest = (Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe') -Algorithm SHA256).Hash
+                if ($digest -ine $release.files.'eitmad-server.exe') { throw 'Retained binary differs. Use Repair; no data was replaced.' }
+            }
             Install-Host $settings
+            if ($release) { $release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'app/release.json') -Encoding UTF8 }
             Write-Host 'Services installed for unattended boot. Run Start to verify TLS readiness. Data and source inputs are retained.'
         } elseif ($Action -eq 'Status') {
             $database = Get-OwnedService $settings 'Postgres'; $server = Get-OwnedService $settings 'Server'

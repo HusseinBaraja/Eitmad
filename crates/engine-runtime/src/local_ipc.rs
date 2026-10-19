@@ -1405,7 +1405,10 @@ fn default_engine_hello() -> PeerHello {
     PeerHello {
         peer_kind: PeerKind::Engine,
         product_version: ReleaseVersion::new(
-            semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("package version is valid"),
+            semver::Version::parse(
+                option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+            )
+            .expect("release version is valid"),
         ),
         protocols: vec![SupportedProtocol {
             major: PROTOCOL_VERSION.major,

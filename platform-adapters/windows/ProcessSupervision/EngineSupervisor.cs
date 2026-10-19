@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using Eitmad.Contracts;
@@ -720,7 +721,9 @@ public sealed class EngineSupervisor : IAsyncDisposable
         var peer = new PeerHello
         {
             PeerKind = PeerKind.Shell,
-            ProductVersion = "0.0.0",
+            ProductVersion = typeof(EngineSupervisor).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+                .InformationalVersion.Split('+')[0],
             Protocols =
             [
                 new SupportedProtocol

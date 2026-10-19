@@ -168,12 +168,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Build repeatable unsigned Windows validation bundle
+      - name: Verify Windows package and retained service lifecycle tools
+        run: |
+          powershell -NoProfile -File deploy/windows/test-package.ps1
+          powershell -NoProfile -File deploy/windows/test-host.ps1
+          powershell -NoProfile -File deploy/windows/test-release-lifecycle.ps1
+      - name: Build repeatable unsigned Windows installation bundles
         run: python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
+      - name: Build Windows server installation bundle
+        run: python scripts/release/build_artifacts.py windows-server --version 0.0.0-ci --output dist
       - uses: actions/upload-artifact@v4
         with:
           name: windows-validation-package
@@ -187,7 +194,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
       - name: Build repeatable unsigned server validation bundle
         env:
           SOURCE_DATE_EPOCH: 1577836800

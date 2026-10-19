@@ -22,7 +22,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 ## Release and deployment tasks
 
 - [Validate a release candidate](validate-release-candidate.md): run mandatory code, contract, security, Arabic/RTL, packaging, desktop, server, restore, and rollback gates.
-- [Package, sign, update, and roll back Windows desktop](package-windows-desktop.md): build the unsigned validation ZIP and prepare the future MSIX path.
+- [Install and maintain Windows server and desktop packages](package-windows-desktop.md): build versioned server and MSIX client packages; sign, enroll, repair, remove, and upgrade with retained data.
 - [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
 - [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.
 - [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.

@@ -52,6 +52,8 @@ def main():
     parser.add_argument("--certificate-tool", required=True, type=Path)
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--verify-client-reconnect", action="store_true")
+    parser.add_argument("--verify-desktop-enrollment-engine", type=Path,
+                        help="Run existing TLS enrollment/credential recovery coverage with this packaged engine")
     args = parser.parse_args()
     if os.name != "nt":
         parser.error("Windows is required")
@@ -167,7 +169,7 @@ def main():
         assert server.wait(timeout=40) == 0, "CTRL_C shutdown was not graceful"
         server = None
         checks.append("CTRL_C: host exits successfully within the wrapper stop budget")
-        if args.verify_client_reconnect:
+        if args.verify_client_reconnect or args.verify_desktop_enrollment_engine:
             run([pg / "createdb.exe", "-h", "127.0.0.1", "-p", str(database_port), "-U", "postgres",
                  "-O", "eitmad_runtime", "eitmad_reconnect"], db_env)
             reconnect_environment = dict(os.environ)
@@ -178,10 +180,15 @@ def main():
                 "EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE": str(certificate / "trusted-ca.pem"),
                 "EITMAD_DIRECT_TEST_WRONG_CERTIFICATE": str(certificate / "wrong-ca.pem"),
             })
+            scenario = "real_server_authentication_tls_sync_and_reconnect"
+            if args.verify_desktop_enrollment_engine:
+                reconnect_environment["EITMAD_DESKTOP_ENROLLMENT_ENGINE"] = str(args.verify_desktop_enrollment_engine.resolve())
+                scenario = "desktop_enrollment_recovers_interruption_expiry_and_credential_loss"
             run(["rustup", "run", "1.85.1", "cargo", "test", "--locked", "-p", "eitmad-server-connection",
-                 "--test", "direct_route", "real_server_authentication_tls_sync_and_reconnect", "--", "--ignored", "--exact"],
+                 "--test", "direct_route", scenario, "--", "--ignored", "--exact"],
                 reconnect_environment, timeout=300)
-            checks.append("existing Rust client: authenticated TLS sync, transport loss, and reconnect after host restart")
+            checks.append("packaged engine: TLS enrollment, reopen, named-pipe controller, retained work, and credential recovery" if args.verify_desktop_enrollment_engine
+                          else "existing Rust client: authenticated TLS sync, transport loss, and reconnect after host restart")
         (root / "results.json").write_text(json.dumps({"passed": checks, "servicesInstalled": False, "rebootVerified": False}, indent=2), encoding="utf-8")
         for check in checks:
             print("PASS:", check)

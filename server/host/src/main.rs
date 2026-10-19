@@ -37,6 +37,13 @@ async fn main() -> ExitCode {
 
 async fn execute() -> Result<(), MainError> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    if arguments.len() == 2 && arguments[1] == "--version" {
+        println!(
+            "eitmad-server {}",
+            option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+        );
+        return Ok(());
+    }
     let command = ServerCommand::from_arguments(&arguments);
     if command == ServerCommand::Help {
         print_help();

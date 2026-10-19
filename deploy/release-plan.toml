@@ -7,12 +7,23 @@ development = "canary"
 
 [artifacts.windows_desktop]
 enabled = true
-format = "zip"
+format = "msix"
 runtime = "win-x64"
 engine_package = "eitmad-engine-cli"
 shell_project = "shells/windows/Eitmad.WindowsShell.csproj"
 production_installer = "msix"
 update_adapter_status = "not-implemented"
+package_identity = "Eitmad.Desktop"
+minimum_windows_build = "10.0.19041.0"
+self_contained = true
+
+[artifacts.windows_server]
+enabled = true
+format = "zip"
+runtime = "win-x64"
+rust_package = "eitmad-server"
+postgres_major = 17
+service_wrapper = "WinSW 2.12.0 (external prerequisite)"
 
 [artifacts.macos_desktop]
 enabled = false

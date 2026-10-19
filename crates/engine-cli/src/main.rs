@@ -52,7 +52,7 @@ enum LocalIpcStartupError {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "eitmad-engine-cli", version, about)]
+#[command(name = "eitmad-engine-cli", version = option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
