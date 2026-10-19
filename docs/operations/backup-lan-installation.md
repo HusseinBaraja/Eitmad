@@ -14,6 +14,8 @@ keywords:
   - "DPAPI"
   - "pg_basebackup"
   - "recovery point objective"
+  - "UNC path"
+  - "Windows backup account"
 ---
 
 # Back up and recover the Windows LAN installation
@@ -52,21 +54,41 @@ Catalog images need no separate byte directory: their bytes are in PostgreSQL an
 
 ## Prepare the protected destination and accounts
 
+Use this manual setup procedure before installing the schedule. The following names are examples, not selected installation values. Replace them with the actual computer and account names:
+
+```text
+UNC path: \\BACKUP-PC\EitmadRecovery
+Windows task account: EITMAD-SERVER\EitmadBackup
+Storage account: BACKUP-PC\EitmadBackupStore
+```
+
+The coordinator runs the scheduled tasks and must stay powered on during backup and status checks. The server can be the coordinator. The storage computer must be a separate physical Windows computer. The task account runs the coordinator; the storage account accesses the backup share. They have separate passwords and permissions.
+
 1. Use Windows Pro/Enterprise or Windows Server with supported `wbadmin`, VSS, SMB encryption, BitLocker management, Windows PowerShell 5.1, and Task Scheduler. Use PostgreSQL 17 tools matching the installed server. Keep WinRE recovery media, network/storage drivers, and replacement disks of sufficient size available.
-2. Select an independent Windows storage computer and a dedicated SMB share, such as `\\BACKUP-PC\EitmadRecovery`. It must not be any source computer, an alias to source storage, or a junction. Enable SMB encryption on this share and BitLocker protection on its backing volume. The tool checks both and compares physical machine UUIDs. It currently supports a Windows SMB target, not an arbitrary NAS attestation.
-3. Restrict share and NTFS access to the dedicated storage account, Administrators, and SYSTEM. Remove inherited broad access. Do not put this share on a client-visible product share. The source task has retention rights; this is not immutable ransomware storage. Keep an independently controlled offline copy when that failure boundary is required, under its own explicit retention policy. The tool never prunes that copy.
+2. Select an independent Windows storage computer with capacity for the retained server and client volume images. It must not be any source computer, an alias to source storage, or a junction. On that computer, open **Computer Management → Local Users and Groups → Users** and create the dedicated local storage account, such as `EitmadBackupStore`. Enter its password privately. Create a new dedicated folder, open **Properties → Sharing → Advanced Sharing**, and share it as `EitmadRecovery`. Use the actual storage computer name in the UNC path. The tool currently supports a Windows SMB target, not an arbitrary NAS attestation.
+3. In the share permissions, grant the storage account **Change** and **Read**. In **Properties → Security → Advanced**, grant it **Modify** on the folder, subfolders, and files. Keep Administrators and SYSTEM full control; remove other allowed access, including inherited broad access. Apply these restrictions only to the new backup folder and share. Do not put this share on a client-visible product share. Enable BitLocker on its backing volume and save the recovery key independently. Then enable SMB encryption from elevated PowerShell on the storage computer, replacing the example share name if needed:
+
+   ```powershell
+   Set-SmbShare -Name EitmadRecovery -EncryptData $true
+   ```
+
+   The tool checks encryption, access policy, and physical machine UUIDs before capture. The source task has retention rights; this is not immutable ransomware storage. Keep an independently controlled offline copy when that failure boundary is required, under its own explicit retention policy. The tool never prunes that copy.
 4. Retain the storage BitLocker recovery key, source BitLocker recovery keys, original Windows account passwords, storage recovery login, CA password, and any external signing/fallback keys in an offline recovery kit or independently recoverable password manager. Keep this kit apart from the source PCs and backup disk. Test unlocking a spare encrypted volume and accessing the recovery kit. TPM auto-unlock on the lost computer is not an independent key copy. Do not place recovery keys in the plan, task arguments, logs, chat, or beside the images.
 5. Configure authenticated WinRM **HTTPS** on the exact source and storage names under normal Windows administration. Use valid trusted certificates and narrowly scoped firewall rules. The tool does not enable remoting, change `TrustedHosts`, bypass TLS checks, enable CredSSP, or change domain delegation. Each remote session needs administrative backup/service rights. SMB credentials are passed through the authenticated session, avoiding the remoting second-hop requirement.
 6. Create a PostgreSQL `LOGIN REPLICATION` backup role through the approved administrator channel, with a strong escrowed password and no superuser, role-creation, database-creation, or RLS-bypass rights. Add only a loopback `host replication <backup-role> 127.0.0.1/32 scram-sha-256` HBA rule and reload PostgreSQL. Physical backup reads the complete dedicated cluster; do not grant this role to application users. Allow at least two WAL sender connections. No source tablespaces, configuration includes, key files, or storage dependencies may point outside the inventoried volumes.
-7. Use one dedicated Windows task account on the coordinator. Keep its password in Windows Task Scheduler/LSA and independent escrow. Do not use S4U for a task that needs network access. Store all credential XML files with `Get-Credential | Export-Clixml` under this same account on this same Windows installation. Windows encrypts these files with CurrentUser DPAPI. Use separate files for the SMB login, PostgreSQL backup login, and each administrative WinRM login. Do not supply passwords in command arguments or scripts.
+7. On the coordinator, use **Computer Management → Local Users and Groups → Users** to create a dedicated task account, such as `EitmadBackup`. For this manual setup, add it to the coordinator's local Administrators group, then sign in as that account and open an elevated Windows PowerShell console. Do not use an everyday operator account. Keep its password in Windows Task Scheduler/LSA and independent escrow. Do not use S4U for a task that needs network access. Store all credential XML files with `Get-Credential | Export-Clixml` under this same account on this same Windows installation. Windows encrypts these files with CurrentUser DPAPI. Use separate files for the SMB login, PostgreSQL backup login, and each administrative WinRM login. The storage account's share permissions do not grant WinRM administration rights; use a separate administrative login for the storage check. Do not supply passwords in command arguments or scripts.
 
-See the [Windows backup command](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-backup), [SMB mapping parameters](https://learn.microsoft.com/en-us/powershell/module/smbshare/new-smbmapping), and [PostgreSQL base backup](https://www.postgresql.org/docs/17/app-pgbasebackup.html) references for platform prerequisites.
+Record the chosen UNC path, Windows task account, and storage account names before continuing to [install the schedule](#install-and-run-the-schedule). Keep passwords and keys out of chat and repository files. Use the [recovery objectives](#recovery-objectives-and-scope): 02:00 and 14:00 local captures, 24-hour maximum data loss, 4-hour recovery, and 14 daily plus 8 weekly generations. A daily-only 02:00 capture has no duration or failure margin for a strict 24-hour RPO; the current plan validator rejects `intervalHours: 24` with `rpoHours: 24`.
+
+See the [Windows backup command](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/wbadmin-start-backup), [SMB share encryption](https://learn.microsoft.com/en-us/powershell/module/smbshare/set-smbshare), [SMB mapping parameters](https://learn.microsoft.com/en-us/powershell/module/smbshare/new-smbmapping), and [PostgreSQL base backup](https://www.postgresql.org/docs/17/app-pgbasebackup.html) references for platform prerequisites.
 
 ## Install and run the schedule
 
 Use an elevated console as the task account. Create a **new** private `C:\ProgramData\EitmadBackup` directory and private `status` child. Use the existing host module's `Protect-Directory` helper, which restricts access to Administrators and SYSTEM. If a separate task account is not an administrator, explicitly grant its required access and validate the resulting ACLs. Do not weaken an existing operational directory's ACLs to make the command pass.
 
 Copy `backup.psm1`, `backup-worker.ps1`, `run-backup.ps1`, `restore-backup.ps1`, and `host.psm1` from `deploy/windows` into that protected directory. Copy `backup.example.json` as `plan.json`; replace synthetic machine names, paths, and deployment ID. Generate a new ID with `[Guid]::NewGuid().ToString('N')`. Set `recoveryKitId` to the non-secret reference for the independently held recovery kit. Retain password/key versions needed by every retained generation; a current password alone may not unlock an older Windows image. Update this reference when dependencies rotate. The reference is recorded in each completion manifest; key material is never recorded there. Do not store operational state in the repository or `target`.
+
+Set `share` to the selected UNC path, `storage.computer` to the storage computer's trusted WinRM HTTPS name, and `storage.shareName` to the share name. Keep `time: "02:00"`, `intervalHours: 12`, `rpoHours: 24`, `rtoHours: 4`, and retention `daily: 14`, `weekly: 8`. The task account is selected by the Windows identity running `Install`; it is not a separate plan field.
 
 Supply the real runtime paths; the example is not an assertion about this machine's default path. Include any non-system drive that holds profiles, runtimes, trust, manifests, keys, or installation files. `requiredPaths` checks that retained dependencies exist on selected volumes; it does not discover an unknown key provider. Keep the coordinator's plan, scripts, credential files, and status directory on an included volume. Copy the protected host module to the server's configured `hostModule` path as well.
 
@@ -75,6 +97,8 @@ Capture each credential with an interactive hidden prompt. Example for the SMB c
 ```powershell
 Get-Credential | Export-Clixml -LiteralPath C:\ProgramData\EitmadBackup\smb.credential.xml
 ```
+
+Enter the storage account in this prompt. Repeat for the PostgreSQL backup role and each WinRM administrator, using the exact credential file paths in the plan. These files cannot be decrypted by a different user or on a different Windows installation; copying them alone does not recover credentials. See [Windows credential export behavior](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml?view=powershell-5.1).
 
 First close all registered clients, confirm current server readiness, and perform a supervised capture:
 
@@ -86,6 +110,12 @@ powershell -NoProfile -File C:\ProgramData\EitmadBackup\run-backup.ps1 -Action I
 
 ```powershell
 powershell -NoProfile -File C:\ProgramData\EitmadBackup\run-backup.ps1 -Action Run -PlanPath C:\ProgramData\EitmadBackup\plan.json
+```
+
+Check the completed capture explicitly:
+
+```powershell
+powershell -NoProfile -File C:\ProgramData\EitmadBackup\run-backup.ps1 -Action Status -PlanPath C:\ProgramData\EitmadBackup\plan.json
 ```
 
 Require exit `0`, a new complete off-device generation, verified server readiness, and successful subsequent `Status`. Install does not constitute acceptance; complete the replacement drill before enabling operational use. The scripts use PowerShell cmdlets and Windows-protected credentials, not passwords in native process arguments. Do not enable transcripts that expose operational inputs or attach private tool output to support tickets.
