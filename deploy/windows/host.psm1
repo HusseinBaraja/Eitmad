@@ -387,15 +387,70 @@ function Install-Host($Settings) {
     Invoke-Native sc.exe @('config', $serverId, 'start=', 'delayed-auto')
 }
 
+function Test-ClientAddress([string]$Value) {
+    $address = $null
+    if (-not [Net.IPAddress]::TryParse($Value, [ref]$address) -or $address.ToString() -cne $Value) { return $false }
+    $bytes = $address.GetAddressBytes()
+    return $bytes.Length -eq 4 -and ($bytes[0] -eq 10 -or
+        ($bytes[0] -eq 172 -and $bytes[1] -ge 16 -and $bytes[1] -le 31) -or
+        ($bytes[0] -eq 192 -and $bytes[1] -eq 168))
+}
+
+function Get-ClientFirewallRule($Settings) {
+    $rule = Get-NetFirewallRule -PolicyStore PersistentStore -Name ($Settings.name + '-Host-Client') -ErrorAction SilentlyContinue
+    if ($rule) {
+        $application = $rule | Get-NetFirewallApplicationFilter
+        if ($rule.Group -cne ('Eitmad host: ' + $Settings.root) -or
+            $application.Program -ine (Join-Path $Settings.root 'app/eitmad-server.exe')) {
+            throw 'The client firewall rule belongs to another installation. No rule was changed.'
+        }
+    }
+    return $rule
+}
+
+function Set-ClientFirewall {
+    [CmdletBinding(SupportsShouldProcess)]
+    param($Settings, [string]$ClientAddress)
+    if (-not $ClientAddress) {
+        do {
+            $ClientAddress = (Read-Host 'Second PC IPv4 address (for example 192.168.1.20; Enter to cancel)').Trim()
+            if (-not $ClientAddress) { Write-Host 'Cancelled. No firewall rule was changed.'; return }
+            if (Test-ClientAddress $ClientAddress) { break }
+            Write-Host 'Enter one private IPv4 address. Address ranges and subnets are not accepted.'
+        } while ($true)
+    }
+    if (-not (Test-ClientAddress $ClientAddress)) { throw 'Use one exact private IPv4 client address.' }
+    if (-not (Test-ClientAddress $Settings.address)) { throw 'The installed host requires a private IPv4 listener before client access can be configured.' }
+    $rule = Get-ClientFirewallRule $Settings
+    $arguments = @{
+        PolicyStore = 'PersistentStore'; Name = $Settings.name + '-Host-Client'
+        Enabled = 'True'; Direction = 'Inbound'; Action = 'Allow'; Profile = 'Private'
+        Protocol = 'TCP'; LocalAddress = $Settings.address; LocalPort = $Settings.serverPort
+        RemoteAddress = $ClientAddress; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
+        EdgeTraversalPolicy = 'Block'
+    }
+    if ($PSCmdlet.ShouldProcess($ClientAddress, 'Allow this client only in the installed host HTTPS rule (replace the previous client)')) {
+        if ($rule) { Set-NetFirewallRule @arguments | Out-Null }
+        else { New-NetFirewallRule @arguments -DisplayName 'Eitmad host client HTTPS' -Group ('Eitmad host: ' + $Settings.root) | Out-Null }
+        Write-Host "Client firewall rule saved for $ClientAddress on Private networks. Other firewall rules still apply."
+        Write-Host "Server URL for the second PC: $($Settings.endpoint)"
+        Write-Host 'Use the public CA and your own account in the app connection setup. See docs/operations/run-windows-host-services.md.'
+    }
+}
+
 function Invoke-EitmadHost {
     [CmdletBinding()]
     param(
-        [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall')][string]$Action = 'Status',
+        [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall', 'Firewall')][string]$Action = 'Status',
         [string]$StateDirectory = "$env:ProgramData\EitmadHost",
         [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
+        [string]$ClientAddress,
+        [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
         [string]$WinSwExecutable, [string]$WinSwSha256
     )
+    if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
+    if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
     $root = Get-SafePath $StateDirectory
     Assert-Administrator
     Assert-ProtectedParents $root
@@ -408,7 +463,9 @@ function Invoke-EitmadHost {
     Assert-PlainTree $root
     $lock = [IO.File]::Open((Join-Path $root 'host.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     try {
-        if ($Action -eq 'Install') {
+        if ($Action -eq 'Firewall') {
+            Set-ClientFirewall $settings $ClientAddress -WhatIf:$WhatIf
+        } elseif ($Action -eq 'Install') {
             Install-Host $settings
             Write-Host 'Services installed for unattended boot. Run Start to verify TLS readiness. Data and source inputs are retained.'
         } elseif ($Action -eq 'Status') {
@@ -439,7 +496,9 @@ function Invoke-EitmadHost {
             Stop-Host $settings
             Write-Host 'Services stopped in dependency order. Data is retained.'
         } elseif ($Action -eq 'Uninstall') {
+            $clientRule = Get-ClientFirewallRule $settings
             Stop-Host $settings
+            if ($clientRule) { $clientRule | Remove-NetFirewallRule }
             foreach ($kind in 'Server', 'Postgres') {
                 $service = Get-OwnedService $settings $kind
                 if ($service) {

@@ -1,9 +1,11 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall')][string]$Action = 'Status',
+    [ValidateSet('Install', 'Start', 'Stop', 'Status', 'Uninstall', 'Firewall')][string]$Action = 'Status',
     [string]$StateDirectory = "$env:ProgramData\EitmadHost",
     [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
+    [string]$ClientAddress,
+    [switch]$WhatIf,
     [string]$LanDirectory,
     [string]$ClusterDirectory,
     [string]$PostgresBin,

@@ -65,6 +65,29 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
         return [pscustomobject]@{ImagePath = $image; ObjectName = "NT SERVICE\$id"}
     }
     function Get-NetTCPConnection { param($State, $LocalPort, $ErrorAction) if ($script:conflict) { [pscustomobject]@{LocalPort = $LocalPort} } }
+    $script:firewall = $null
+    $script:firewallChanges = New-Object 'Collections.Generic.List[string]'
+    function Get-NetFirewallRule { param($PolicyStore, $Name, $ErrorAction) return $script:firewall }
+    function Get-NetFirewallApplicationFilter {
+        param([Parameter(ValueFromPipeline)]$InputObject)
+        process { [pscustomobject]@{Program = $InputObject.Program} }
+    }
+    function New-NetFirewallRule {
+        param($PolicyStore, $Name, $Enabled, $Direction, $Action, $Profile, $Protocol, $LocalAddress,
+            $LocalPort, $RemoteAddress, $Program, $EdgeTraversalPolicy, $DisplayName, $Group)
+        $script:firewallChanges.Add('create')
+        $script:firewall = [pscustomobject]$PSBoundParameters
+    }
+    function Set-NetFirewallRule {
+        param($PolicyStore, $Name, $Enabled, $Direction, $Action, $Profile, $Protocol, $LocalAddress,
+            $LocalPort, $RemoteAddress, $Program, $EdgeTraversalPolicy)
+        $script:firewallChanges.Add('update')
+        foreach ($key in $PSBoundParameters.Keys) { $script:firewall.$key = $PSBoundParameters[$key] }
+    }
+    function Remove-NetFirewallRule {
+        param([Parameter(ValueFromPipeline)]$InputObject)
+        process { $script:firewallChanges.Add('remove'); $script:firewall = $null }
+    }
     function Test-Endpoint { param($Endpoint, $Route) $script:events.Add('probe:' + $Route); return $script:ready }
     function Invoke-Native {
         param($File, $Arguments)
@@ -106,6 +129,42 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     Reject { Initialize-Host $root 'EitmadTest' 'source' 'source' 'source' 'source' ('A' * 64) } 'new state directory'
     Reject { Get-SafePath '\\server\share' } 'local directory'
     Reject { Get-SafePath 'C:\bad%path' } 'local directory'
+    $settings.address = '192.168.50.10'
+    $settings | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'host.json')
+    foreach ($invalid in 'Any', '192.168.50.0/24', '192.168.50.1-192.168.50.20', '8.8.8.8', '::1', '127.0.0.1', '10.1', '010.1.2.3') {
+        Reject { Set-ClientFirewall $settings $invalid } 'exact private IPv4'
+    }
+    Assert ($script:firewallChanges.Count -eq 0) 'Invalid client input changed firewall policy.'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -ClientAddress '192.168.50.21' -WhatIf
+    Assert ($script:firewallChanges.Count -eq 0) 'Firewall preview changed policy.'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -ClientAddress '192.168.50.21'
+    Assert ($script:firewall.RemoteAddress -ceq '192.168.50.21' -and $script:firewall.Profile -ceq 'Private' -and
+        $script:firewall.Program -ceq (Join-Path $root 'app/eitmad-server.exe') -and
+        $script:firewall.LocalPort -eq 58443 -and $script:firewall.LocalAddress -ceq '192.168.50.10' -and
+        $script:firewall.Protocol -ceq 'TCP' -and $script:firewall.Direction -ceq 'Inbound' -and
+        $script:firewall.EdgeTraversalPolicy -ceq 'Block') 'Client rule escaped the installed HTTPS scope.'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -ClientAddress '192.168.50.22'
+    Assert (($script:firewallChanges -join ',') -ceq 'create,update' -and
+        $script:firewall.RemoteAddress -ceq '192.168.50.22') 'Changing the client retained access for the previous address.'
+    $script:answers = New-Object 'Collections.Generic.Queue[string]'
+    function Read-Host { param($Prompt) return $script:answers.Dequeue() }
+    $script:answers.Enqueue('')
+    Set-ClientFirewall $settings
+    Assert ($script:firewallChanges.Count -eq 2) 'Cancelling the prompt changed the rule.'
+    $script:answers.Enqueue('192.168.50.0/24'); $script:answers.Enqueue(' 192.168.50.23 ')
+    Set-ClientFirewall $settings
+    Assert ($script:firewall.RemoteAddress -ceq '192.168.50.23') 'The prompt did not recover from invalid input.'
+    $script:firewall.Group = 'Another installation'
+    Reject { Set-ClientFirewall $settings '192.168.50.24' } 'another installation'
+    Assert ($script:firewallChanges.Count -eq 3) 'A foreign firewall rule was changed.'
+    $script:firewall.Group = 'Eitmad host: ' + $root
+    $script:firewall.Program = 'C:\other.exe'
+    Reject { Set-ClientFirewall $settings '192.168.50.24' } 'another installation'
+    $script:firewall.Program = Join-Path $root 'app/eitmad-server.exe'
+    Invoke-EitmadHost Uninstall -StateDirectory $root -Name EitmadTest
+    Assert (-not $script:firewall -and $script:firewallChanges[-1] -ceq 'remove') 'Uninstall retained the client allow rule.'
+    Assert (Test-Path -LiteralPath (Join-Path $root 'retained-data')) 'Firewall configuration changed durable data.'
     Write-Host 'PASS: real argv quoting; mocked SCM startup, readiness, shutdown, port conflicts, ownership, bounded recovery, and preserved uninstall data.'
+    Write-Host 'PASS: exact client firewall scope, replacement, prompt retry/cancel, preview, ownership, and removal on uninstall.'
 } $evidence
 Write-Host "Synthetic evidence: $evidence"

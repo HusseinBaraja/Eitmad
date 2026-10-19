@@ -66,7 +66,25 @@ Stop waits for Rust before stopping PostgreSQL. WinSW sends Ctrl+C; Rust clears 
 .\run-services.ps1 Uninstall
 ```
 
-Uninstall stops the services in the same order and removes only their SCM registrations. It preserves **all** installed files: the database, secrets, certificates, manifests, binaries, logs, and `host.json`. It contains no database drop, reset, or recursive-delete path. After SCM releases deleted service handles, `Install` with the same destination and name reinstalls the retained host without recopying source data. Do not supply a different cluster as a recovery shortcut.
+Uninstall stops the services in the same order, removes their SCM registrations, and removes the client firewall rule created by the `Firewall` action below. Other firewall rules remain unchanged. It preserves **all** installed files: the database, secrets, certificates, manifests, binaries, logs, and `host.json`. It contains no database drop, reset, or recursive-delete path. After SCM releases deleted service handles, `Install` with the same destination and name reinstalls the retained host without recopying source data. Run `Firewall` again to restore client access. Do not supply a different cluster as a recovery shortcut.
+
+## Connect the second PC yourself
+
+On the host, open PowerShell as Administrator in the repository folder and run:
+
+```powershell
+.\run-services.ps1 Firewall
+```
+
+Enter the second PC's IPv4 address at the prompt. On that PC, find it under **Settings > Network & internet > Wi-Fi or Ethernet > Properties > IPv4 address**. Press Enter with no address to cancel. Invalid input shows a message and asks again. You do not need to send the address to anyone.
+
+The command creates a Private-network inbound rule for that one address, the installed server executable, and its saved HTTPS address and port. It prints the server URL for the client setup. Run the same command again to replace the previous client address. It accepts no subnet, range, wildcard, public address, or IPv6 address. Use router DHCP reservations for both PCs so their addresses stay stable. Set the trusted workshop connection to Private through Windows Settings; the command does not change network profiles.
+
+On the second PC, open the app and expand **ربط هذا الجهاز بالمنشأة** on the sign-in screen. Enter the printed server URL in **عنوان الخادم**. Supply the verified public CA file, tenant code, organization and branch identifiers, and your own active account through [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). Transfer only the public CA, never the host's private directory. Firewall access alone does not create an account or complete enrollment. The current fresh host still needs first-owner activation and an operational account before client sign-in can pass.
+
+For a preview without a firewall change, run `Firewall -WhatIf`; it still asks for the address. For scripted input, use `Firewall -ClientAddress 192.168.50.21` with the real client address. The rule is `<Name>-Host-Client` (default `Eitmad-Host-Client`) in the local persistent policy store. The command refuses a matching rule owned by another installation. Existing broad rules can grant access independently; inspect them through [LAN firewall scope](setup-lan-server.md#allow-only-selected-clients-on-the-private-interface). The command does not remove unrelated rules or open PostgreSQL.
+
+From the second PC, test the host address and saved HTTPS port with `Test-NetConnection`. Then sign in and complete an authorized operation. The firewall command does not prove TLS trust, enrollment, or client reconnection. Use `Status` on the host to check service readiness. For an isolated host, supply the same `-Name` and `-StateDirectory` used at installation.
 
 ## Identity, secrets, and storage
 
