@@ -70,6 +70,7 @@ pub enum ServerCommand {
     Migrate,
     CheckConfig,
     InitializeWorkshop,
+    EnrollFirstDesktop,
     PrepareWindowsWorkshop,
     InstallWindows,
     InstallWindowsServer,
@@ -230,6 +231,7 @@ impl ServerCommand {
             Some("migrate") => Self::Migrate,
             Some("check-config") => Self::CheckConfig,
             Some("initialize-workshop") if arguments.len() == 2 => Self::InitializeWorkshop,
+            Some("enroll-first-desktop") if arguments.len() == 2 => Self::EnrollFirstDesktop,
             Some("prepare-windows-workshop") if arguments.len() == 2 => {
                 Self::PrepareWindowsWorkshop
             }
@@ -250,6 +252,7 @@ impl ServerCommand {
                 "bootstrap"
                 | "recover-owner"
                 | "initialize-workshop"
+                | "enroll-first-desktop"
                 | "prepare-windows-workshop"
                 | "install-windows"
                 | "install-windows-server"

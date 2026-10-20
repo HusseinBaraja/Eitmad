@@ -9,6 +9,7 @@ mod authentication;
 mod branches;
 mod database;
 mod identity;
+mod pairing;
 mod update_assignment;
 
 pub use access::{AccessError, AccessRequirement, ServerAccessService};
@@ -19,12 +20,14 @@ pub use identity::{
     BootstrapInput, BootstrapResult, IdentityError, IdentityService, ServerAccountError,
     recover_owner_password, validate_workshop_initialization,
 };
+pub use pairing::{PairingError, PairingService};
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 
 use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct ControlPlane {
+    pub pairing: PairingService,
     pub access: ServerAccessService,
     pub authentication: AuthenticationService,
     pub branches: BranchService,
@@ -41,6 +44,7 @@ impl ControlPlane {
     #[must_use]
     pub fn new(pool: PgPool, token_key: TokenKey) -> Self {
         Self {
+            pairing: PairingService::new(pool.clone()),
             access: ServerAccessService::new(pool.clone()),
             authentication: AuthenticationService::new(pool.clone(), token_key.clone()),
             branches: BranchService::new(pool.clone()),

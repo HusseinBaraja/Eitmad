@@ -38,6 +38,7 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
 | `crates/server-connection/` | Rust desktop engine direct TLS/WebSocket connection, device proof, and token lifecycle | `crates/server-connection/OWNERSHIP.md` |
+| `crates/pairing/` | Shared OPAQUE pairing suite, authenticated trust binding, client key proof, and completion receipts | [Server pairing](subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) |
 | `crates/server-discovery/` | Stable installation identity and bounded, untrusted Private-LAN candidate discovery | [Server discovery](subsystems/server-discovery.md) |
 | `crates/authorization/` | Direct principal-to-scope relationships and compiled ReBAC policy v1 | [Authorization guide](subsystems/authorization.md) |
 | `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |

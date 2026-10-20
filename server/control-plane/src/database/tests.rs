@@ -175,3 +175,70 @@ async fn ledger_snapshot(pool: &PgPool) -> Vec<serde_json::Value> {
     .await
     .unwrap()
 }
+
+#[tokio::test]
+#[ignore = "requires a fresh disposable EITMAD_DIRECT_TEST_DATABASE_URL with enforced RLS"]
+async fn pairing_migration_preserves_enrollment_and_claims_each_retained_tenant() {
+    let url = std::env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let database = ControlDatabase::connect(&url, 1).await.unwrap();
+    let pool = database.pool();
+    let safe: bool = sqlx::query_scalar("SELECT to_regnamespace('control') IS NULL AND NOT (SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user)")
+        .fetch_one(&pool).await.unwrap();
+    assert!(safe, "fresh database and enforced RLS required");
+    seed_retained_accounts(&pool, true).await;
+    let before = retained_enrollments(&pool, true).await;
+    database.migrate().await.unwrap();
+    assert_eq!(retained_enrollments(&pool, false).await, before);
+    let tenants: Vec<Uuid> = sqlx::query_scalar("SELECT tenant_id FROM control.tenants")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(tenants.len(), 2);
+    for tenant in tenants {
+        let mut tx = tenant_transaction(&pool, TenantId::new(tenant))
+            .await
+            .unwrap();
+        let claimed: i64 = sqlx::query_scalar(
+            "SELECT claimed_at FROM control.first_desktop_claims WHERE tenant_id=$1",
+        )
+        .bind(tenant)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+        assert_eq!(claimed, 123);
+        tx.commit().await.unwrap();
+    }
+    let visible: i64 = sqlx::query_scalar("SELECT count(*) FROM control.first_desktop_claims")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(visible, 0, "claims require tenant context");
+    database.migrate().await.unwrap();
+    assert_eq!(retained_enrollments(&pool, false).await, before);
+}
+
+async fn retained_enrollments(pool: &PgPool, seed: bool) -> Vec<serde_json::Value> {
+    let tenants: Vec<Uuid> =
+        sqlx::query_scalar("SELECT tenant_id FROM control.tenants ORDER BY tenant_code")
+            .fetch_all(pool)
+            .await
+            .unwrap();
+    let mut snapshots = Vec::new();
+    for tenant in tenants {
+        let mut tx = tenant_transaction(pool, TenantId::new(tenant))
+            .await
+            .unwrap();
+        if seed {
+            let device = Uuid::new_v4();
+            sqlx::query("INSERT INTO control.devices(device_id,algorithm,public_key,label,created_at) VALUES($1,'ed25519',$2,'synthetic retained device',123)")
+                .bind(device).bind(vec![51_u8;32]).execute(&mut *tx).await.unwrap();
+            sqlx::query("INSERT INTO control.account_devices(tenant_id,account_id,device_id,registered_at) SELECT tenant_id,account_id,$2,123 FROM control.accounts WHERE tenant_id=$1")
+                .bind(tenant).bind(device).execute(&mut *tx).await.unwrap();
+        }
+        let row = sqlx::query_scalar("SELECT jsonb_build_object('link',to_jsonb(ad),'device',to_jsonb(d),'linkVersion',ad.xmin::text,'deviceVersion',d.xmin::text) FROM control.account_devices ad JOIN control.devices d USING(device_id) WHERE ad.tenant_id=$1")
+            .bind(tenant).fetch_one(&mut *tx).await.unwrap();
+        snapshots.push(row);
+        tx.commit().await.unwrap();
+    }
+    snapshots
+}

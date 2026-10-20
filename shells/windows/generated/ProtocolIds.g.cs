@@ -9,7 +9,7 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 29;
+        public const long Minor = 30;
     }
 
     public static class IpcMessages
@@ -193,6 +193,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityServerPairingV1 = "eitmad.capability.server-pairing.v1";
         public const string EitmadCapabilityServerDiscoveryV1 = "eitmad.capability.server-discovery.v1";
         public const string EitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1";
         public const string EitmadCapabilityHomeV1 = "eitmad.capability.home.v1";
@@ -337,6 +338,7 @@ public static class ProtocolIds
 
     public static class ErrorCodes
     {
+        public const string EitmadErrorPairingDeniedV1 = "eitmad.error.pairing-denied.v1";
         public const string EitmadErrorOrderUnavailableV1 = "eitmad.error.order-unavailable.v1";
         public const string EitmadErrorOrderConflictV1 = "eitmad.error.order-conflict.v1";
         public const string EitmadErrorOrderInvalidV1 = "eitmad.error.order-invalid.v1";
@@ -433,6 +435,7 @@ public static class ProtocolIds
 
     public static class MessageIds
     {
+        public const string EitmadMessagePairingDeniedV1 = "eitmad.message.pairing-denied.v1";
         public const string EitmadMessageOrderUnavailableV1 = "eitmad.message.order-unavailable.v1";
         public const string EitmadMessageOrderConflictV1 = "eitmad.message.order-conflict.v1";
         public const string EitmadMessageOrderInvalidV1 = "eitmad.message.order-invalid.v1";

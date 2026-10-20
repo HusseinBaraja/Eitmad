@@ -17,7 +17,7 @@ keywords:
 
 # Discover untrusted Eitmad servers on a Private LAN
 
-`eitmad-server-discovery` finds connection candidates without server IP configuration. Rust owns the protocol, installation identity, candidate expiry, interface policy, and cancellation. The server host owns responder lifetime; local IPC authorizes scans through its authenticated bootstrap channel. Native onboarding UI and authenticated pairing remain separate work under [ADR-0030](../../decisions/0030-offline-guided-windows-setup.md).
+`eitmad-server-discovery` finds connection candidates without server IP configuration. Rust owns the protocol, installation identity, candidate expiry, interface policy, and cancellation. The server host owns responder lifetime; local IPC authorizes scans through its authenticated bootstrap channel. The [Rust pairing backend](server-authority.md#pair-a-discovered-server-and-approve-its-device) authenticates a selected candidate. Native onboarding UI remains separate work under [ADR-0030](../../decisions/0030-offline-guided-windows-setup.md).
 
 ## Identity and trust boundary
 

@@ -383,6 +383,8 @@ fn sync_and_acknowledge(
 }
 
 struct ProvisionedServer {
+    control: ControlPlane,
+    pairing_identity: eitmad_contracts::pairing::PairingIdentity,
     branches: BranchService,
     state: ServerState,
     address: SocketAddr,
@@ -418,13 +420,9 @@ fn direct_test_domains(sync_database: &SyncDatabase) -> DomainRegistry {
     )));
     DomainRegistry::new(handlers).unwrap()
 }
-async fn provision_server(
-    database_url: &str,
-    certificate: &Path,
-    private_key: &Path,
-) -> ProvisionedServer {
-    let (control_database, sync_database) = migrate_test_databases(database_url).await;
-    let control = ControlPlane::new(control_database.pool(), TokenKey::new([9; 32]));
+async fn activate_test_owner(
+    control: &ControlPlane,
+) -> (OrganizationId, DeviceId, AuthenticationResult) {
     let bootstrap = control
         .identity
         .bootstrap(
@@ -459,8 +457,52 @@ async fn provision_server(
         )
         .await
         .unwrap();
+    (bootstrap.organization_id, device_id, authentication)
+}
+
+async fn provision_server(
+    database_url: &str,
+    certificate: &Path,
+    private_key: &Path,
+) -> ProvisionedServer {
+    let (control_database, sync_database) = migrate_test_databases(database_url).await;
+    let control = ControlPlane::new(control_database.pool(), TokenKey::new([9; 32]));
+    let (organization_id, device_id, authentication) = activate_test_owner(&control).await;
+    let scope = ScopeRef {
+        kind: ScopeKind::parse("organization").unwrap(),
+        id: ScopeId::new(organization_id.value()),
+    };
+    let branch_scope = ScopeRef {
+        kind: ScopeKind::parse("branch").unwrap(),
+        id: ScopeId::new(Uuid::new_v4()),
+    };
+    register_test_branch(&control, &authentication, organization_id, branch_scope.id).await;
+    grant_organization_manager(&control_database, &authentication, &scope).await;
+    let registry = direct_test_domains(&sync_database);
+    let address = {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap()
+    };
+    let pairing_identity = eitmad_contracts::pairing::PairingIdentity {
+        server_id: eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4()),
+        endpoint: format!("https://localhost:{}/", address.port()),
+        public_ca_pem: std::fs::read_to_string(required_path(
+            "EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE",
+        ))
+        .unwrap(),
+    };
     let second_device_id = DeviceId::new(Uuid::new_v4());
     let second_signing = SigningKey::from_bytes(&[12; 32]);
+    approve_test_device(
+        &control,
+        &authentication.session,
+        &pairing_identity,
+        organization_id,
+        branch_scope.id,
+        second_device_id,
+        &second_signing,
+    )
+    .await;
     let second_authentication = control
         .authentication
         .login(
@@ -474,37 +516,22 @@ async fn provision_server(
                     algorithm: "ed25519".to_owned(),
                     base64: URL_SAFE_NO_PAD.encode(second_signing.verifying_key().as_bytes()),
                 },
-                device_proof: None,
+                device_proof: Some(test_device_proof(second_device_id, &second_signing)),
             },
             CorrelationId::new(Uuid::new_v4()),
             eitmad_control_plane::unix_millis_now(),
         )
         .await
         .unwrap();
-    let scope = ScopeRef {
-        kind: ScopeKind::parse("organization").unwrap(),
-        id: ScopeId::new(bootstrap.organization_id.value()),
-    };
-    let branch_scope = ScopeRef {
-        kind: ScopeKind::parse("branch").unwrap(),
-        id: ScopeId::new(Uuid::new_v4()),
-    };
-    register_test_branch(
-        &control,
-        &authentication,
-        bootstrap.organization_id,
-        branch_scope.id,
+    let state = ServerState::new(
+        control.clone(),
+        SyncCoordinator::new(&sync_database, registry),
     )
-    .await;
-    grant_organization_manager(&control_database, &authentication, &scope).await;
-    let registry = direct_test_domains(&sync_database);
-    let state = ServerState::new(control, SyncCoordinator::new(&sync_database, registry));
-    let address = {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.local_addr().unwrap()
-    };
+    .with_pairing(pairing_identity.clone());
     let handle = start_server(address, state.clone(), certificate, private_key).await;
     ProvisionedServer {
+        control,
+        pairing_identity,
         branches: BranchService::new(control_database.pool()),
         state,
         address,
@@ -2300,4 +2327,80 @@ async fn pricing_tls_confirmation_persists_retries_conflicts_and_denies_receptio
     }
     deny_receptionist_price_publication(&database, &server, &remote).await;
     handle.graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+fn test_device_proof(device: DeviceId, key: &SigningKey) -> eitmad_contracts::server::DeviceProof {
+    use ed25519_dalek::Signer as _;
+    let issued_at = eitmad_control_plane::unix_millis_now();
+    let nonce = Uuid::new_v4().to_string();
+    eitmad_contracts::server::DeviceProof {
+        device_id: device,
+        issued_at,
+        nonce: nonce.clone(),
+        signature_base64: URL_SAFE_NO_PAD.encode(
+            key.sign(format!("{}\n{}\n{nonce}", device.value(), issued_at.0).as_bytes())
+                .to_bytes(),
+        ),
+    }
+}
+async fn approve_test_device(
+    control: &ControlPlane,
+    owner: &AuthenticatedServerSession,
+    identity: &eitmad_contracts::pairing::PairingIdentity,
+    organization: OrganizationId,
+    branch: ScopeId,
+    device: DeviceId,
+    key: &SigningKey,
+) {
+    use eitmad_contracts::pairing::{OpenPairing, PairingBinding};
+    let opened = control
+        .pairing
+        .open(
+            owner,
+            identity,
+            &OpenPairing {
+                version: 1,
+                organization_id: organization,
+                branch_id: branch,
+            },
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await
+        .unwrap();
+    let (client, start) = eitmad_pairing::PairingClient::start(
+        &opened.code,
+        PairingBinding {
+            offer: opened.offer,
+            attempt_id: Uuid::new_v4(),
+            device_id: device,
+            device_public_key: DevicePublicKey {
+                algorithm: "ed25519".into(),
+                base64: URL_SAFE_NO_PAD.encode(key.verifying_key().as_bytes()),
+            },
+        },
+    )
+    .unwrap();
+    let challenge = control
+        .pairing
+        .start(
+            identity,
+            &start,
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await
+        .unwrap();
+    let (complete, secret) = client.finish(&opened.code, &challenge, key).unwrap();
+    let receipt = control
+        .pairing
+        .complete(
+            identity,
+            &complete,
+            CorrelationId::new(Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await
+        .unwrap();
+    eitmad_pairing::verify_receipt(&secret, &complete.binding, &receipt).unwrap();
 }

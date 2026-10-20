@@ -26,6 +26,7 @@ pub mod ipc;
 pub mod material;
 pub mod observability;
 pub mod order;
+pub mod pairing;
 pub mod part;
 pub mod permissions;
 pub mod pricing;

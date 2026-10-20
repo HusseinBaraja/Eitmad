@@ -54,11 +54,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::ServerConfig;
+mod pairing;
 
 type QuotationExpiryScope = (Uuid, String, Uuid);
 
 #[derive(Clone)]
 pub struct ServerState {
+    pairing_identity: Option<eitmad_contracts::pairing::PairingIdentity>,
     control: ControlPlane,
     sync: SyncCoordinator,
     server_hello: PeerHello,
@@ -88,6 +90,7 @@ impl ServerState {
             })
             .collect();
         Self {
+            pairing_identity: None,
             control,
             sync,
             server_hello: server_hello(schemas),
@@ -181,6 +184,13 @@ impl ServerState {
     pub fn set_ready(&self, value: bool) {
         self.ready.store(value, Ordering::Release);
     }
+
+    /// Configures only public server-owned trust material, never discovery input.
+    #[must_use]
+    pub fn with_pairing(mut self, identity: eitmad_contracts::pairing::PairingIdentity) -> Self {
+        self.pairing_identity = Some(identity);
+        self
+    }
 }
 
 struct DatabaseNotifications {
@@ -228,6 +238,10 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/desktop-profile", post(desktop_profile))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/pairing/open", post(pairing::open))
+        .route("/v1/pairing/offer", get(pairing::offer))
+        .route("/v1/pairing/start", post(pairing::start))
+        .route("/v1/pairing/complete", post(pairing::complete))
         .route("/v1/accounts/list", post(list_accounts))
         .route("/v1/accounts/watch", post(watch_accounts))
         .route("/v1/accounts/transition", post(change_account))
@@ -321,8 +335,11 @@ pub fn router(state: ServerState) -> Router {
 /// Returns an I/O or TLS configuration error after graceful shutdown is requested.
 pub async fn run(
     config: &ServerConfig,
-    state: ServerState,
+    mut state: ServerState,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(identity) = pairing::configured_identity(config)? {
+        state = state.with_pairing(identity);
+    }
     let application = router(state.clone());
     let address = config.listen;
     let _advertisement = crate::discovery::Advertisement::start(
@@ -1889,6 +1906,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                 !matches!(
                     c.as_str(),
                     "eitmad.capability.orders.v1"
+                        | "eitmad.capability.server-pairing.v1"
                         | "eitmad.capability.customer.v1"
                         | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"

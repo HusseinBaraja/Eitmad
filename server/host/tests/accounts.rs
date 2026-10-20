@@ -63,16 +63,18 @@ fn assignment(role: DesktopAccountRole, branch: ScopeId) -> Vec<ServerRoleAssign
 
 impl Client {
     fn proof(&self) -> DeviceProof {
-        let issued_at = unix_millis_now();
-        let nonce = Uuid::new_v4().to_string();
-        let device = self.auth.session.device_id;
-        let bytes = format!("{}\n{}\n{nonce}", device.value(), issued_at.0);
-        DeviceProof {
-            device_id: device,
-            nonce,
-            issued_at,
-            signature_base64: URL_SAFE_NO_PAD.encode(self.key.sign(bytes.as_bytes()).to_bytes()),
-        }
+        device_proof(&self.key, self.auth.session.device_id)
+    }
+}
+fn device_proof(key: &SigningKey, device: DeviceId) -> DeviceProof {
+    let issued_at = unix_millis_now();
+    let nonce = Uuid::new_v4().to_string();
+    let bytes = format!("{}\n{}\n{nonce}", device.value(), issued_at.0);
+    DeviceProof {
+        device_id: device,
+        nonce,
+        issued_at,
+        signature_base64: URL_SAFE_NO_PAD.encode(key.sign(bytes.as_bytes()).to_bytes()),
     }
 }
 
@@ -306,8 +308,13 @@ async fn assert_initialized_owner(
         device_id: activation.device_id,
         device_label: activation.device_label,
         device_public_key: activation.device_public_key,
-        device_proof: None,
+        device_proof: Some(device_proof(&key, activation.device_id)),
     };
+    control
+        .pairing
+        .enroll_first_desktop(&login, correlation(), unix_millis_now())
+        .await
+        .unwrap();
     let (status, body) = post(&app, "/v1/auth/login", &login, None).await;
     assert_eq!(status, StatusCode::OK);
     let owner = Client {
@@ -636,14 +643,13 @@ async fn assert_recovered_login(f: &Fixture) {
         tenant_code: TenantCode::parse("accounts-test").unwrap(),
         username: "administrator".into(),
         password: password.into(),
-        device_id: DeviceId::new(Uuid::new_v4()),
+        device_id: f.owner.auth.session.device_id,
         device_label: "Synthetic recovery device".into(),
         device_public_key: DevicePublicKey {
             algorithm: "ed25519".into(),
-            base64: URL_SAFE_NO_PAD
-                .encode(SigningKey::from_bytes(&[80; 32]).verifying_key().as_bytes()),
+            base64: URL_SAFE_NO_PAD.encode(f.owner.key.verifying_key().as_bytes()),
         },
-        device_proof: None,
+        device_proof: Some(f.owner.proof()),
     };
     assert_eq!(
         post(

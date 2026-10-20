@@ -229,6 +229,7 @@ impl AuthenticationService {
              WHERE r.tenant_id=$1 AND r.invite_id=$2 AND a.status='active'
                AND s.revoked_at IS NULL AND f.revoked_at IS NULL AND rt.consumed_at IS NULL
                AND ad.revoked_at IS NULL AND d.revoked_at IS NULL
+               AND NOT EXISTS(SELECT 1 FROM control.paired_devices p WHERE p.tenant_id=s.tenant_id AND p.device_id=s.device_id AND p.revoked_at IS NOT NULL)
                AND s.expires_at>$3 AND s.idle_expires_at>$3
                AND r.access_expires_at>$3 AND r.refresh_expires_at>$3",
         )
@@ -320,6 +321,7 @@ impl AuthenticationService {
                ON f.tenant_id = a.tenant_id AND f.token_family_id = a.token_family_id
              JOIN control.devices d ON d.device_id = s.device_id
              WHERE a.tenant_id = $1 AND a.token_hash = $2
+               AND NOT EXISTS(SELECT 1 FROM control.paired_devices p WHERE p.tenant_id=s.tenant_id AND p.device_id=s.device_id AND p.revoked_at IS NOT NULL)
              FOR UPDATE OF s",
         )
         .bind(tenant_id.value())
@@ -384,7 +386,7 @@ impl AuthenticationService {
         })
     }
 
-    /// Authenticates an active account and enrolls or verifies its device.
+    /// Authenticates an active account on an approved or retained device.
     ///
     /// # Errors
     ///
@@ -435,40 +437,23 @@ impl AuthenticationService {
         let account_id = AccountId::new(account.get("account_id"));
         let user_id = UserId::new(account.get("user_id"));
 
-        let registered_key = sqlx::query(
-            "SELECT d.public_key
-             FROM control.account_devices ad
-             JOIN control.devices d ON d.device_id = ad.device_id
-             WHERE ad.tenant_id = $1 AND ad.account_id = $2 AND ad.device_id = $3
-               AND ad.revoked_at IS NULL AND d.revoked_at IS NULL",
-        )
-        .bind(tenant_id.value())
-        .bind(account_id.value())
-        .bind(request.device_id.value())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(|_| AuthenticationError::Unavailable)?;
-
-        if let Some(row) = registered_key {
-            let key: Vec<u8> = row.get("public_key");
-            let proof = request
-                .device_proof
-                .as_ref()
-                .ok_or(AuthenticationError::InvalidDeviceProof)?;
-            verify_device_proof(proof, &key, now)?;
-            consume_nonce(&mut transaction, proof, now).await?;
-        } else {
-            let public_key = decode_device_key(&request.device_public_key)?;
-            register_device(
+        if !verify_login_device(&mut transaction, request, tenant_id, account_id, now).await? {
+            crate::pairing::audit(
                 &mut transaction,
-                tenant_id,
-                account_id,
-                request.device_id,
-                &public_key,
-                &request.device_label,
+                eitmad_server_audit::ServerAuditActor::system(tenant_id),
+                Some(request.device_id.value()),
+                "eitmad.server.pairing.login-denied.v1",
+                false,
+                correlation_id,
                 now,
             )
-            .await?;
+            .await
+            .map_err(|_| AuthenticationError::Unavailable)?;
+            transaction
+                .commit()
+                .await
+                .map_err(|_| AuthenticationError::Unavailable)?;
+            return Err(AuthenticationError::Failed);
         }
 
         let result = self
@@ -533,6 +518,7 @@ impl AuthenticationService {
                ON s.tenant_id = r.tenant_id AND s.session_id = r.session_id
              JOIN control.devices d ON d.device_id = r.device_id
              WHERE r.tenant_id = $1 AND r.token_hash = $2
+               AND NOT EXISTS(SELECT 1 FROM control.paired_devices p WHERE p.tenant_id=s.tenant_id AND p.device_id=s.device_id AND p.revoked_at IS NOT NULL)
              FOR UPDATE OF r, f, s",
         )
         .bind(tenant_id.value())
@@ -853,10 +839,88 @@ impl TokenCodec {
     }
 }
 
-async fn register_device(
+async fn verify_login_device(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    request: &LoginRequest,
+    tenant_id: TenantId,
+    account_id: AccountId,
+    now: UnixMillis,
+) -> Result<bool, AuthenticationError> {
+    let registered_key = sqlx::query(
+        "SELECT d.public_key
+             FROM control.account_devices ad
+             JOIN control.devices d ON d.device_id = ad.device_id
+             WHERE ad.tenant_id = $1 AND ad.account_id = $2 AND ad.device_id = $3
+               AND ad.revoked_at IS NULL AND d.revoked_at IS NULL
+               AND NOT EXISTS(SELECT 1 FROM control.paired_devices p WHERE p.tenant_id=ad.tenant_id AND p.device_id=ad.device_id AND p.revoked_at IS NOT NULL)",
+    )
+    .bind(tenant_id.value())
+    .bind(account_id.value())
+    .bind(request.device_id.value())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(|_| AuthenticationError::Unavailable)?;
+
+    if let Some(row) = registered_key {
+        let key: Vec<u8> = row.get("public_key");
+        let proof = request
+            .device_proof
+            .as_ref()
+            .ok_or(AuthenticationError::InvalidDeviceProof)?;
+        if proof.device_id != request.device_id
+            || decode_device_key(&request.device_public_key)? != key
+        {
+            return Err(AuthenticationError::InvalidDeviceProof);
+        }
+        verify_device_proof(proof, &key, now)?;
+        consume_nonce(transaction, proof, now).await?;
+    } else {
+        let public_key = decode_device_key(&request.device_public_key)?;
+        let approved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM control.paired_devices p JOIN control.devices d ON d.device_id=p.device_id WHERE p.tenant_id=$1 AND p.device_id=$2 AND p.revoked_at IS NULL AND d.revoked_at IS NULL AND d.public_key=$3)")
+                .bind(tenant_id.value()).bind(request.device_id.value()).bind(&public_key)
+                .fetch_one(&mut **transaction).await.map_err(|_| AuthenticationError::Unavailable)?;
+        if !approved {
+            return Ok(false);
+        }
+        let proof = request
+            .device_proof
+            .as_ref()
+            .ok_or(AuthenticationError::InvalidDeviceProof)?;
+        if proof.device_id != request.device_id {
+            return Err(AuthenticationError::InvalidDeviceProof);
+        }
+        verify_device_proof(proof, &public_key, now)?;
+        consume_nonce(transaction, proof, now).await?;
+        register_device(
+            transaction,
+            tenant_id,
+            account_id,
+            request.device_id,
+            &public_key,
+            &request.device_label,
+            now,
+        )
+        .await?;
+    }
+
+    Ok(true)
+}
+
+pub(crate) async fn register_device(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     tenant_id: TenantId,
     account_id: AccountId,
+    device_id: DeviceId,
+    public_key: &[u8],
+    label: &str,
+    now: UnixMillis,
+) -> Result<(), AuthenticationError> {
+    ensure_device(transaction, device_id, public_key, label, now).await?;
+    associate_device(transaction, tenant_id, account_id, device_id, now).await
+}
+
+pub(crate) async fn ensure_device(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     device_id: DeviceId,
     public_key: &[u8],
     label: &str,
@@ -882,6 +946,16 @@ async fn register_device(
     if device.is_none() {
         return Err(AuthenticationError::InvalidDeviceProof);
     }
+    Ok(())
+}
+
+async fn associate_device(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tenant_id: TenantId,
+    account_id: AccountId,
+    device_id: DeviceId,
+    now: UnixMillis,
+) -> Result<(), AuthenticationError> {
     let association = sqlx::query(
         "INSERT INTO control.account_devices
             (tenant_id, account_id, device_id, registered_at)
@@ -1032,7 +1106,7 @@ pub(crate) fn hash_password(password: &str) -> Result<String, AuthenticationErro
         .map_err(|_| AuthenticationError::Unavailable)
 }
 
-fn verify_password(password: &str, encoded: &str) -> Result<(), AuthenticationError> {
+pub(crate) fn verify_password(password: &str, encoded: &str) -> Result<(), AuthenticationError> {
     let hash = PasswordHash::new(encoded).map_err(|_| AuthenticationError::Failed)?;
     Argon2::default()
         .verify_password(password.as_bytes(), &hash)
@@ -1046,7 +1120,7 @@ pub(crate) fn validate_password_input(password: &str) -> Result<(), Authenticati
         .ok_or(AuthenticationError::InvalidInput)
 }
 
-fn decode_device_key(key: &DevicePublicKey) -> Result<Vec<u8>, AuthenticationError> {
+pub(crate) fn decode_device_key(key: &DevicePublicKey) -> Result<Vec<u8>, AuthenticationError> {
     if key.algorithm != "ed25519" {
         return Err(AuthenticationError::InvalidDeviceProof);
     }
@@ -1060,7 +1134,7 @@ fn decode_device_key(key: &DevicePublicKey) -> Result<Vec<u8>, AuthenticationErr
     Ok(decoded)
 }
 
-fn verify_device_proof(
+pub(crate) fn verify_device_proof(
     proof: &DeviceProof,
     public_key: &[u8],
     now: UnixMillis,

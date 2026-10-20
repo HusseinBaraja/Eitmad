@@ -358,6 +358,8 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
         EITMAD_SERVER_LISTEN = "0.0.0.0:$($source.port)"
         EITMAD_SERVER_TLS_CERTIFICATE = Join-Path $Root 'private/server-cert.pem'
         EITMAD_SERVER_TLS_PRIVATE_KEY = Join-Path $Root 'private/server-key.pem'
+        EITMAD_SERVER_PAIRING_ENDPOINT = $source.endpoint
+        EITMAD_SERVER_PUBLIC_CA = Join-Path $Root 'private/trusted-ca.pem'
         EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY = Join-Path $Root 'manifests'
     }
     foreach ($key in 'EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID', 'EITMAD_SERVER_UPDATE_KEY_ID', 'EITMAD_SERVER_UPDATE_PUBLIC_KEY', 'EITMAD_SERVER_MAX_CONNECTIONS') {

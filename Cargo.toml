@@ -10,6 +10,7 @@ members = [
     "crates/engine-runtime",
     "crates/material",
     "crates/part",
+    "crates/pairing",
     "crates/product",
     "crates/pricing",
     "crates/orders",

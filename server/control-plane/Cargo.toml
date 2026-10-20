@@ -10,6 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-pairing = { path = "../../crates/pairing" }
+zeroize = "=1.8.1"
 tokio = { version = "=1.49.0", features = ["rt"] }
 argon2 = "=0.5.3"
 base64 = "=0.22.1"

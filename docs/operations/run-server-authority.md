@@ -181,12 +181,18 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts local_own
 
 ## Enroll or recover a Windows desktop
 
+Approve a new device through [Rust pairing](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) before ordinary sign-in. The onboarding UI is a separate task. Existing registered devices and high-entropy invitation activation remain supported. Manual connection entry alone cannot approve an unknown device.
+
+For the first server desktop, use `DesktopEnrollment::first_desktop_request` to create the client key and signed public request locally. Pass that secret-bearing `LoginRequest` JSON to `eitmad-server enroll-first-desktop` through private stdin on the server, with its protected local database connection. Keep the client private key in its secret store. Then sign in using the installation's trusted public CA and endpoint. This local command succeeds only once, requires the active Owner password, and fails closed on audit failure. Do not expose it over HTTP or place its input in command arguments, logs, or chat.
+
+For a discovered client, an authenticated Owner opens a code with `POST /v1/pairing/open`. The Rust client calls `DesktopEnrollment::pair`, then uses its returned connection settings for account sign-in. A code expires after three minutes or five starts and approves only one device. The exact pending completion can recover a lost receipt; use `discard_pending_pairing` only when abandoning the exchange. Preserve the runtime directory and all keys.
+
 Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
 
 1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
 2. Enter the server account name and password. Sign-in and protected work require a server connection.
 3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
-4. Select **دخول**. Rust validates server trust, registers this installation's device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
+4. Select **دخول**. Rust validates server trust, verifies this installation's approved device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
 5. Close and reopen the application under the same Windows user and runtime directory. Leave the setup section closed and sign in. Rust uses the retained connection references and renews server access with password login.
 
 For expired or missing account credentials, use the same normal online sign-in. The installation key is separate from account tokens. The flow preserves local records, pending changes, and device identity. After a failed or interrupted attempt, correct the input and retry; the password box is cleared, while connection inputs remain available. An initial settings commit can require one supervised engine restart. Cancellation or process interruption does not require deleting or recreating the database.

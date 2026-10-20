@@ -1244,13 +1244,16 @@ async fn approval_manager(scenario: &CatalogScenario) -> AuthenticationResult {
                 tenant_code: TenantCode::parse("direct-test").unwrap(),
                 username: "approval-manager".into(),
                 password: "synthetic-test-password-123".into(),
-                device_id: DeviceId::new(Uuid::new_v4()),
+                device_id: scenario.server.second_device_id,
                 device_label: "مدير الموافقة".into(),
                 device_public_key: DevicePublicKey {
                     algorithm: "ed25519".into(),
                     base64: URL_SAFE_NO_PAD.encode(signing.verifying_key().as_bytes()),
                 },
-                device_proof: None,
+                device_proof: Some(test_device_proof(
+                    scenario.server.second_device_id,
+                    &signing,
+                )),
             },
             CorrelationId::new(Uuid::new_v4()),
             eitmad_authorization::now(),

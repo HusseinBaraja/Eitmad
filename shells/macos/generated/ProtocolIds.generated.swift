@@ -4,7 +4,7 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 29
+        public static let minor = 30
     }
 
     public enum IpcMessages {
@@ -180,6 +180,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityServerPairingV1 = "eitmad.capability.server-pairing.v1"
         public static let eitmadCapabilityServerDiscoveryV1 = "eitmad.capability.server-discovery.v1"
         public static let eitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1"
         public static let eitmadCapabilityHomeV1 = "eitmad.capability.home.v1"
@@ -319,6 +320,7 @@ public enum ProtocolIds {
     }
 
     public enum ErrorCodes {
+        public static let eitmadErrorPairingDeniedV1 = "eitmad.error.pairing-denied.v1"
         public static let eitmadErrorOrderUnavailableV1 = "eitmad.error.order-unavailable.v1"
         public static let eitmadErrorOrderConflictV1 = "eitmad.error.order-conflict.v1"
         public static let eitmadErrorOrderInvalidV1 = "eitmad.error.order-invalid.v1"
@@ -414,6 +416,7 @@ public enum ProtocolIds {
     }
 
     public enum MessageIds {
+        public static let eitmadMessagePairingDeniedV1 = "eitmad.message.pairing-denied.v1"
         public static let eitmadMessageOrderUnavailableV1 = "eitmad.message.order-unavailable.v1"
         public static let eitmadMessageOrderConflictV1 = "eitmad.message.order-conflict.v1"
         public static let eitmadMessageOrderInvalidV1 = "eitmad.message.order-invalid.v1"

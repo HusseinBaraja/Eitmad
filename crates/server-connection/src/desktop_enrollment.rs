@@ -31,6 +31,7 @@ use std::{
 };
 use uuid::Uuid;
 use zeroize::{Zeroize as _, Zeroizing};
+mod pairing;
 
 pub struct DesktopEnrollment {
     directory: PathBuf,
@@ -61,6 +62,7 @@ impl DesktopEnrollment {
             .map_err(|_| authentication_failure())?;
         let retained = DesktopConnectionSettings::load(&self.directory)?;
         let inputs = Self::inputs(request, retained.as_ref())?;
+        self.check_paired_inputs(&inputs)?;
         let trust = read_trust(Path::new(&inputs.trusted_certificate))?;
         let config = DirectServerConfig::new(
             &inputs.endpoint,
@@ -419,7 +421,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), TransportFailure> {
     result.map_err(|_| authentication_failure())
 }
 
-fn read_trust(path: &Path) -> Result<Vec<u8>, TransportFailure> {
+pub(crate) fn read_trust(path: &Path) -> Result<Vec<u8>, TransportFailure> {
     let mut bytes = Vec::new();
     fs::File::open(path)
         .and_then(|file| file.take(16_385).read_to_end(&mut bytes))
@@ -442,7 +444,12 @@ fn exchange<T: DeserializeOwned>(
     let mut socket = super::connect_tls(&url, &config.tls, deadline)?;
     let body = Zeroizing::new(serde_json::to_vec(input).map_err(|_| authentication_failure())?);
     let mut headers = Zeroizing::new(format!(
-        "POST {route} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n",
+        "{} {route} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n",
+        if route == "/v1/pairing/offer" {
+            "GET"
+        } else {
+            "POST"
+        },
         super::host_header(&url)?,
         body.len()
     ));

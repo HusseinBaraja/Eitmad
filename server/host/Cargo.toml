@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+url = "=2.5.4"
 eitmad-server-discovery = { path = "../../crates/server-discovery" }
 eitmad-customer = { path = "../../crates/customer" }
 eitmad-postgres-support = { path = "../postgres-support" }
@@ -42,6 +43,7 @@ uuid = { version = "=1.23.4", features = ["serde", "v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
+eitmad-pairing = { path = "../../crates/pairing" }
 tower = { version = "=0.5.3", features = ["util"] }
 
 [[bin]]

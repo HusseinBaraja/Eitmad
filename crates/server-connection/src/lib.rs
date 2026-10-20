@@ -227,6 +227,17 @@ impl DirectServerConfig {
         schema_version: u32,
         trusted_certificate: &Path,
     ) -> Result<Self, TransportFailure> {
+        let pem = desktop_enrollment::read_trust(trusted_certificate)?;
+        Self::from_ca_pem(endpoint, scope, schema_id, schema_version, &pem)
+    }
+
+    pub(crate) fn from_ca_pem(
+        endpoint: &str,
+        scope: ScopeRef,
+        schema_id: SchemaId,
+        schema_version: u32,
+        pem: &[u8],
+    ) -> Result<Self, TransportFailure> {
         let endpoint = Url::parse(endpoint).map_err(|_| encryption_failure())?;
         if endpoint.scheme() != "https"
             || endpoint.host_str().is_none()
@@ -239,8 +250,7 @@ impl DirectServerConfig {
         {
             return Err(encryption_failure());
         }
-        let certificates = CertificateDer::pem_file_iter(trusted_certificate)
-            .map_err(|_| encryption_failure())?
+        let certificates = CertificateDer::pem_slice_iter(pem)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| encryption_failure())?;
         if certificates.is_empty() {

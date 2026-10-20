@@ -45,6 +45,12 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    open_pairing: eitmad_contracts::pairing::OpenPairing,
+    opened_pairing: eitmad_contracts::pairing::OpenedPairing,
+    start_pairing: eitmad_contracts::pairing::StartPairing,
+    pairing_challenge: eitmad_contracts::pairing::PairingChallenge,
+    complete_pairing: eitmad_contracts::pairing::CompletePairing,
+    pairing_receipt: eitmad_contracts::pairing::PairingReceipt,
     install_windows: eitmad_contracts::setup::InstallWindows,
     install_windows_server: eitmad_contracts::setup::InstallWindowsServer,
     install_windows_client: eitmad_contracts::setup::InstallWindowsClient,

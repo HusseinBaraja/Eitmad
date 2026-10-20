@@ -36,6 +36,9 @@
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
     },
+    "complete_pairing": {
+      "$ref": "#/definitions/CompletePairing"
+    },
     "confirm_customer_resolution": {
       "$ref": "#/definitions/ConfirmCustomerResolution"
     },
@@ -116,6 +119,18 @@
     },
     "observation_value_kind": {
       "$ref": "#/definitions/ObservationValueKind"
+    },
+    "open_pairing": {
+      "$ref": "#/definitions/OpenPairing"
+    },
+    "opened_pairing": {
+      "$ref": "#/definitions/OpenedPairing"
+    },
+    "pairing_challenge": {
+      "$ref": "#/definitions/PairingChallenge"
+    },
+    "pairing_receipt": {
+      "$ref": "#/definitions/PairingReceipt"
     },
     "peer_hello": {
       "$ref": "#/definitions/PeerHello"
@@ -204,6 +219,9 @@
     "signed_update_manifest": {
       "$ref": "#/definitions/SignedUpdateManifest"
     },
+    "start_pairing": {
+      "$ref": "#/definitions/StartPairing"
+    },
     "subscription_request": {
       "$ref": "#/definitions/SubscriptionEnvelope"
     },
@@ -239,6 +257,12 @@
     }
   },
   "required": [
+    "open_pairing",
+    "opened_pairing",
+    "start_pairing",
+    "pairing_challenge",
+    "complete_pairing",
+    "pairing_receipt",
     "install_windows",
     "install_windows_server",
     "install_windows_client",
@@ -2399,6 +2423,26 @@
       "required": [
         "commandId",
         "disposition"
+      ]
+    },
+    "CompletePairing": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialFinalization": {
+          "type": "string"
+        },
+        "deviceSignature": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialFinalization",
+        "deviceSignature"
       ]
     },
     "CompositionReference": {
@@ -7924,6 +7968,48 @@
         "text"
       ]
     },
+    "OpenPairing": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "organizationId",
+        "branchId"
+      ]
+    },
+    "OpenedPairing": {
+      "description": "Transient Owner-only secret. Do not log or persist the code.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "offer": {
+          "$ref": "#/definitions/PairingOffer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "offer",
+        "code"
+      ]
+    },
     "OrderAction": {
       "oneOf": [
         {
@@ -8295,6 +8381,133 @@
         "number",
         "state",
         "lineIds"
+      ]
+    },
+    "PairingBinding": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "offer": {
+          "$ref": "#/definitions/PairingOffer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "offer",
+        "attemptId",
+        "deviceId",
+        "devicePublicKey"
+      ]
+    },
+    "PairingChallenge": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialResponse": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialResponse"
+      ]
+    },
+    "PairingIdentity": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "publicCaPem": {
+          "type": "string"
+        },
+        "serverId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverId",
+        "endpoint",
+        "publicCaPem"
+      ]
+    },
+    "PairingOffer": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "identity": {
+          "$ref": "#/definitions/PairingIdentity"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sessionId",
+        "identity",
+        "tenantId",
+        "tenantCode",
+        "organizationId",
+        "branchId",
+        "expiresAt"
+      ]
+    },
+    "PairingReceipt": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "confirmation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "confirmation"
       ]
     },
     "Part": {
@@ -14079,6 +14292,22 @@
         "cohortSeed",
         "startsAt",
         "paused"
+      ]
+    },
+    "StartPairing": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialRequest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialRequest"
       ]
     },
     "Subscription": {

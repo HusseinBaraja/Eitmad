@@ -81,6 +81,9 @@ async fn execute() -> Result<(), MainError> {
         println!("server migrations are current");
         return Ok(());
     }
+    if command == ServerCommand::EnrollFirstDesktop {
+        return enroll_first_desktop().await;
+    }
     let config = ServerConfig::from_environment().map_err(|_| MainError::Configuration)?;
     if command == ServerCommand::CheckConfig {
         println!("server configuration is valid");
@@ -307,6 +310,7 @@ fn compose_server_state(
 }
 
 fn print_help() {
+    println!("eitmad-server enroll-first-desktop (private local LoginRequest JSON on stdin)");
     println!("eitmad-server [serve|migrate|check-config]");
     println!(
         "eitmad-server bootstrap <tenant-code> <tenant-name> <organization-name> <owner-username>"
@@ -316,6 +320,35 @@ fn print_help() {
     println!("eitmad-server prepare-windows-workshop (private local setup JSON on stdin)");
     println!("eitmad-server install-windows (private Server or Client JSON on stdin)");
     println!("eitmad-server windows-install-status (version-one progress directory JSON on stdin)");
+}
+
+async fn enroll_first_desktop() -> Result<(), MainError> {
+    let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
+    let mut bytes = Zeroizing::new(Vec::new());
+    std::io::stdin()
+        .take(16_385)
+        .read_to_end(&mut bytes)
+        .map_err(|_| MainError::Input)?;
+    if bytes.len() > 16_384 {
+        return Err(MainError::Input);
+    }
+    let mut request: eitmad_contracts::server::LoginRequest =
+        serde_json::from_slice(&bytes).map_err(|_| MainError::Input)?;
+    let database = ControlDatabase::connect(&config.database_url, 1)
+        .await
+        .map_err(|_| MainError::Database)?;
+    // This private command does not run migrations or start or change host services.
+    let result = eitmad_control_plane::PairingService::new(database.pool())
+        .enroll_first_desktop(
+            &request,
+            CorrelationId::new(uuid::Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await;
+    zeroize::Zeroize::zeroize(&mut request.password);
+    result.map_err(|_| MainError::Bootstrap)?;
+    println!("first desktop approved");
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug)]

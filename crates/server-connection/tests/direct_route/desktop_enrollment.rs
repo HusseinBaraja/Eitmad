@@ -38,6 +38,56 @@ impl Installation {
             .await
             .unwrap()
     }
+    async fn pair(&self, server: &ProvisionedServer) {
+        self.try_pair(server).await.unwrap();
+    }
+    async fn try_pair(
+        &self,
+        server: &ProvisionedServer,
+    ) -> Result<(), eitmad_sync::TransportFailure> {
+        use eitmad_contracts::{discovery::DiscoveredServer, pairing::OpenPairing};
+        let code = if self
+            .directory
+            .path()
+            .join("desktop-pairing-pending.json")
+            .exists()
+        {
+            String::new()
+        } else {
+            server
+                .control
+                .pairing
+                .open(
+                    &server.authentication.session,
+                    &server.pairing_identity,
+                    &OpenPairing {
+                        version: 1,
+                        organization_id: OrganizationId::new(server.scope.id.value()),
+                        branch_id: server.branch_scope.id,
+                    },
+                    CorrelationId::new(Uuid::new_v4()),
+                    eitmad_control_plane::unix_millis_now(),
+                )
+                .await
+                .unwrap()
+                .code
+        };
+        let candidate = DiscoveredServer {
+            server_id: server.pairing_identity.server_id,
+            address: server.address.ip().to_string(),
+            port: server.address.port(),
+            expires_at: UnixMillis(eitmad_control_plane::unix_millis_now().0 + 60_000),
+            identity_conflict: false,
+        };
+        let enrollment = DesktopEnrollment::new(
+            self.directory.path().into(),
+            self.store.clone(),
+            self.secrets.clone(),
+        );
+        tokio::task::spawn_blocking(move || enrollment.pair(&candidate, &code).map(|_| ()))
+            .await
+            .unwrap()
+    }
     fn settings(&self) -> DesktopConnectionSettings {
         DesktopConnectionSettings::load(self.directory.path())
             .unwrap()
@@ -128,7 +178,15 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
             .unwrap()
             .is_none()
     );
+    // Interrupt local persistence after the server has durably approved this device.
+    let pairing_blocker = first.directory.path().join("desktop-pairing-ca.pem");
+    std::fs::create_dir(&pairing_blocker).unwrap();
+    assert!(first.try_pair(&server).await.is_err());
     let device = first.device();
+    assert!(!first.store.has_local_installation().unwrap());
+    std::fs::remove_dir(&pairing_blocker).unwrap();
+    first.pair(&server).await;
+    assert_eq!(first.device(), device);
     // Fail after authenticated import and credential storage, before the settings commit.
     let blocker = first.directory.path().join("desktop-trust.pem");
     std::fs::create_dir(&blocker).unwrap();
@@ -148,13 +206,14 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
     );
     assert_retained_recovery(&first, &server, &inputs).await;
     let second = Installation::new();
+    second.pair(&server).await;
     assert!(second.sign_in(request(Some(inputs))).await.unwrap());
     assert_ne!(first.device(), second.device());
     assert_eq!(
         first.store.local_organization_id().unwrap(),
         second.store.local_organization_id().unwrap()
     );
-    verify_windows_shell(&inputs_for_shell(&server)).await;
+    verify_windows_shell(&server).await;
     server
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
@@ -189,13 +248,15 @@ fn windows_shell_test(name: &str) -> std::process::Command {
     command
 }
 
-async fn verify_windows_shell(inputs: &DesktopEnrollmentSettings) {
+async fn verify_windows_shell(server: &ProvisionedServer) {
+    let inputs = inputs_for_shell(server);
     let Some(engine) = env::var_os("EITMAD_DESKTOP_ENROLLMENT_ENGINE") else {
         return;
     };
     let desktop = Installation::new();
+    desktop.pair(server).await;
     let directory = desktop.directory.path().to_owned();
-    let input = serde_json::to_string(inputs).unwrap();
+    let input = serde_json::to_string(&inputs).unwrap();
     let result = tokio::task::spawn_blocking(move || {
         windows_shell_test("FreshDesktopEnrollsReopensAndReauthenticates")
             .env("EITMAD_DESKTOP_ENROLLMENT_INPUT", input)
@@ -395,7 +456,9 @@ async fn shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship
     let server = provision_server(&database, &certificate, &private_key).await;
     let inputs = serde_json::to_string(&inputs_for_shell(&server)).unwrap();
     let first = Installation::new();
+    first.pair(&server).await;
     let second = Installation::new();
+    second.pair(&server).await;
     let signals = tempfile::tempdir().unwrap();
     let root = signals.path().to_owned();
     let first_path = first.directory.path().to_owned();

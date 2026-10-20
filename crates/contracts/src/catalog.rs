@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.server-pairing.v1",
     "eitmad.capability.server-discovery.v1",
     "eitmad.capability.shared-accounts.v1",
     "eitmad.capability.home.v1",
@@ -145,6 +146,7 @@ pub const PERMISSIONS: &[&str] = &[
 ];
 
 pub const ERROR_CODES: &[&str] = &[
+    "eitmad.error.pairing-denied.v1",
     "eitmad.error.order-unavailable.v1",
     "eitmad.error.order-conflict.v1",
     "eitmad.error.order-invalid.v1",
@@ -240,6 +242,7 @@ pub const ERROR_CODES: &[&str] = &[
 ];
 
 pub const MESSAGE_IDS: &[&str] = &[
+    "eitmad.message.pairing-denied.v1",
     "eitmad.message.order-unavailable.v1",
     "eitmad.message.order-conflict.v1",
     "eitmad.message.order-invalid.v1",
