@@ -62,10 +62,14 @@ class OfflinePayloadTests(unittest.TestCase):
                         {"name": "Microsoft.NETCore.App", "version": "8.0.0"},
                         *([{"name": "Microsoft.WindowsDesktop.App", "version": "8.0.0"}] if name == "setup" else [])]}}))
             (stage / "LICENSE.txt").write_text("Synthetic redistribution terms only.")
+            if name in {"setup", "application"}:
+                (stage / "sbom.cdx.json").write_text(json.dumps({"bomFormat": "CycloneDX", "metadata": {"component": {"version": self.version}}, "components": []}))
             if name == "desktop":
                 self.make_desktop(stage)
             elif name == "application":
                 self.release(stage, "windows-server")
+            elif name == "setup":
+                self.release(stage, "windows-setup")
             files = {}
             for path in sorted(p for p in stage.rglob("*") if p.is_file()):
                 entry = {"sha256": artifacts.sha256(path)}
@@ -82,6 +86,8 @@ class OfflinePayloadTests(unittest.TestCase):
 
     def release(self, stage: Path, target: str, **extra: object) -> None:
         value = {"schemaVersion": 1, "version": self.version, "windowsVersion": "1.2.3.0", "architecture": "x64",
+                 "publisher": "CN=Synthetic Test Publisher",
+                 "sourceCommit": "b" * 40, "sourceDirty": False,
                  "target": target, "files": {p.relative_to(stage).as_posix(): artifacts.sha256(p)
                                                for p in stage.rglob("*") if p.is_file() and p.name != "release.json"}, **extra}
         (stage / "release.json").write_text(json.dumps(value))
@@ -97,6 +103,7 @@ class OfflinePayloadTests(unittest.TestCase):
                    "files": {name: artifacts.sha256(inner / name) for name in artifacts.CRT_FILES}}
         (inner / "visual-cpp-runtime.json").write_text(json.dumps(runtime))
         (inner / "sbom.cdx.json").write_text('{"bomFormat":"CycloneDX"}')
+        (inner / "AppxManifest.xml").write_text('<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"><Identity Name="Eitmad.Desktop" Publisher="CN=Synthetic Test Publisher" Version="1.2.3.0" ProcessorArchitecture="x64"/></Package>')
         (inner / "Eitmad.WindowsShell.runtimeconfig.json").write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [
             {"name": "Microsoft.NETCore.App", "version": "8.0.0"}, {"name": "Microsoft.WindowsDesktop.App", "version": "8.0.0"}]}}))
         self.release(inner, "windows-desktop")
@@ -253,6 +260,29 @@ class OfflinePayloadTests(unittest.TestCase):
         with patch.object(artifacts, "verify_payload_signatures"), self.assertRaisesRegex(ValueError, "Required prerequisite"):
             self.prepare()
 
+    def test_reviewed_hashes_cannot_change_msix_identity_or_mix_source_revisions(self) -> None:
+        inner = self.root / "msix"
+        manifest = inner / "AppxManifest.xml"
+        original = manifest.read_text()
+        manifest.write_text(original.replace('Name="Eitmad.Desktop"', 'Name="Other.Desktop"'))
+        self.release(inner, "windows-desktop")
+        desktop = self.source / "client/desktop"
+        artifacts.deterministic_zip(inner, desktop / "desktop.msix")
+        self.release(desktop, "windows-desktop", payloadInventorySha256=artifacts.sha256(inner / "release.json"))
+        with self.assertRaisesRegex(ValueError, "MSIX identity"):
+            artifacts.check_desktop_payload(desktop, self.version)
+        release = self.source / "server/application/release.json"
+        value = json.loads(release.read_text())
+        value["sourceCommit"] = "c" * 40
+        release.write_text(json.dumps(value))
+        self.review["components"]["application"]["files"]["release.json"]["sha256"] = artifacts.sha256(release)
+        # Re-review the changed desktop bytes as well. Identity is checked separately above.
+        for relative in ("release.json", "desktop.msix"):
+            self.review["components"]["desktop"]["files"][relative]["sha256"] = artifacts.sha256(desktop / relative)
+        self.save_review()
+        with patch.object(artifacts, "verify_payload_signatures"), self.assertRaisesRegex(ValueError, "clean source revision"):
+            self.prepare()
+
     def test_framework_dependent_tool_is_refused_even_with_reviewed_hash(self) -> None:
         relative = "pwsh.runtimeconfig.json"
         path = self.source / "server/powershell" / relative
@@ -272,12 +302,77 @@ class OfflinePayloadTests(unittest.TestCase):
         self.save_review()
         with self.assertRaisesRegex(ValueError, "trusted publisher"):
             self.prepare()
+
         entry.pop("publisher")
         entry["unsignedReason"] = "Not signed upstream"
         self.save_review()
         with self.assertRaisesRegex(ValueError, "trusted publisher"):
             self.prepare()
 
+    def test_offline_archive_binds_metadata_sboms_and_repeatable_entries(self) -> None:
+        def catalog(stage: Path, publisher: str, hook: Path | None) -> None:
+            (stage / "offline.cat").write_bytes(b"Synthetic catalog: not signed or installable")
+        output = self.root / "archives"
+        with patch.object(artifacts, "verify_payload_signatures"), patch.object(artifacts, "create_offline_catalog", side_effect=catalog):
+            archive = artifacts.build_windows_offline(output, self.version, self.source, self.review_path, self.digest,
+                                                       "CN=Synthetic Test Publisher", None)
+        with zipfile.ZipFile(archive) as package:
+            self.assertIn("setup/EitmadSetup.exe", package.namelist())
+            self.assertIn("server/postgresql/bin/pg_verifybackup.exe", package.namelist())
+            inventory = json.loads(package.read("release.json"))
+            for relative, digest in inventory["files"].items():
+                self.assertEqual(artifacts.hashlib.sha256(package.read(relative)).hexdigest(), digest)
+            self.assertIn("reviewed-inputs.json", inventory["files"])
+            self.assertIn("setup-bundle.json", inventory["files"])
+            self.assertIn("sbom.cdx.json", inventory["files"])
+            self.assertTrue(all(entry.date_time == artifacts.FIXED_ZIP_TIME for entry in package.infolist()))
+            unpacked = self.root / "unpacked"
+            package.extractall(unpacked)  # Only the test's own generated archive.
+        artifacts.deterministic_zip(unpacked, self.root / "repeat.zip")
+        self.assertEqual(archive.read_bytes(), (self.root / "repeat.zip").read_bytes())
+        with patch.object(artifacts, "verify_payload_signatures"), patch.object(artifacts, "verify_offline_catalog"):
+            artifacts.verify_offline_payload(unpacked, self.digest, self.version)
+            (unpacked / "setup-bundle.json").write_text('{}')
+            with self.assertRaisesRegex(ValueError, "Setup metadata"):
+                artifacts.verify_offline_payload(unpacked, self.digest, self.version)
+
+    def test_archive_failure_does_not_publish_and_development_tools_are_rejected(self) -> None:
+        output = self.root / "archives"
+        with patch.object(artifacts, "verify_payload_signatures"), \
+                patch.object(artifacts, "create_offline_catalog", side_effect=ValueError("Signing unavailable")):
+            with self.assertRaisesRegex(ValueError, "Signing unavailable"):
+                artifacts.build_windows_offline(output, self.version, self.source, self.review_path, self.digest,
+                                                "CN=Synthetic Test Publisher", None)
+        self.assertEqual(list(output.iterdir()), [])
+        for name in ("sdk/compiler.dll", "tools/rustc.exe", "tools/MSBuild.exe"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Development toolchains"):
+                artifacts.operational_path(name)
+
+    @unittest.skipUnless(os.name == "nt", "Windows file catalog boundary")
+    def test_windows_catalog_rejects_tampering_missing_payload_and_unsigned_catalog(self) -> None:
+        stage = self.root / "catalog-input"
+        stage.mkdir()
+        content = stage / "synthetic.txt"
+        content.write_bytes(b"synthetic payload")
+        artifacts.create_offline_catalog(stage, "CN=Synthetic", None)
+        # Mock only signature approval; Windows computes and compares the real catalog hashes.
+        script = (artifacts.ROOT / "deploy/windows/verify-offline.ps1").read_text()
+        script = script.replace("Microsoft.PowerShell.Security\\Get-AuthenticodeSignature", "Get-SyntheticSignature")
+        script = "function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; TimeStamperCertificate='synthetic'; SignerCertificate=[pscustomobject]@{Subject='CN=Synthetic'}} };\n" + script
+        def check() -> subprocess.CompletedProcess:
+            return subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                                  input=json.dumps({"root": str(stage), "anchor": str(content), "publisher": "CN=Synthetic"}),
+                                  text=True, capture_output=True)
+        self.assertEqual(check().returncode, 0)
+        content.write_bytes(b"tampered payload")
+        self.assertNotEqual(check().returncode, 0)
+        content.unlink()
+        self.assertNotEqual(check().returncode, 0)
+        content.write_bytes(b"synthetic payload")
+        (stage / "unexpected.dll").write_bytes(pe())
+        self.assertNotEqual(check().returncode, 0)
+        with self.assertRaises(subprocess.CalledProcessError):
+            artifacts.verify_offline_catalog(stage, "CN=Synthetic")
     @unittest.skipUnless(os.name == "nt", "Windows Authenticode boundary")
     def test_real_windows_signature_check_refuses_unsigned_synthetic_pe(self) -> None:
         with self.assertRaises(subprocess.CalledProcessError) as failure:

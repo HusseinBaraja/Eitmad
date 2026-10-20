@@ -38,8 +38,15 @@ pub(super) async fn execute(command: ServerCommand) -> Result<(), MainError> {
     }
     let mut platform = native::WindowsPlatform;
     if command == ServerCommand::InstallWindowsServer {
-        let request: InstallWindowsServer =
+        let mut request: InstallWindowsServer =
             serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
+        // Standalone operator packages retain their existing manual path. Offline setup
+        // workers have a fixed bundle layout and must authenticate the complete tree.
+        let root = super::payload::bundle_root().ok();
+        let _payload = root.as_deref().map(super::payload::verify).transpose()?;
+        if let Some(root) = root {
+            super::payload::bind_server(&mut request, &root)?;
+        }
         validate_server(&request)?;
         install_server(&request, &mut platform).await
     } else {

@@ -27,6 +27,8 @@ The separate `prepare-windows-workshop` command installs no service, firewall ru
 
 ## Use native Arabic setup
 
+Use the complete extracted [offline distribution](package-windows-desktop.md#prepare-the-combined-offline-payload). Setup checks its trusted, timestamped `offline.cat` and retains the source files before it starts Rust. Missing, changed, unsigned, or differently published payloads stop setup. Server elevation verifies a new administrator/SYSTEM-only copy before it runs any prerequisite or backend from that copy. Rust binds the elevated tool paths to the authenticated metadata. Client keeps per-user MSIX registration and runs no Server prerequisite installer. Preserve the protected `%ProgramData%/EitmadSetupPayload-<id>` tree: scheduled backup execution can reference it.
+
 Launch `setup/EitmadSetup.exe` as the intended normal Windows user. Choose **خادم الورشة ومعه تطبيق الموظف** for a new host or **جهاز موظف** for a client. Do not run development setup against an installed workshop. The WPF project is `shells/windows-setup/Eitmad.WindowsSetup.csproj`; its executable uses the existing native theme and controls.
 
 Server asks for the workshop name and Owner credentials once. Rust validates the reviewed `setup-bundle.json` inputs, derives this computer's DNS name and private IPv4 address, and selects the existing protected ProgramData installation paths. It refuses existing journals and state. Keep the Windows computer name resolvable on the workshop LAN. A missing private IPv4 or invalid computer name stops preflight; correct Windows network or naming settings before retrying only when **فحص حالة الإعداد** confirms that no journal exists.

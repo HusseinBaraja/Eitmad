@@ -4,6 +4,8 @@ mod guided;
 #[cfg(windows)]
 mod installation;
 #[cfg(windows)]
+mod payload;
+#[cfg(windows)]
 mod preparation;
 
 pub(super) async fn guided() -> Result<(), super::MainError> {

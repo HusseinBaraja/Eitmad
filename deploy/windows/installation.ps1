@@ -8,6 +8,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = Join-Path $PSHOME 'Modules'
 [Console]::InputEncoding = New-Object Text.UTF8Encoding($false, $true)
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 Import-Module (Join-Path $PSScriptRoot 'installation.psm1') -Force

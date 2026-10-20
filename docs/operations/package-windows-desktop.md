@@ -37,6 +37,12 @@ python scripts/release/build_artifacts.py windows-server --version 0.1.0 --outpu
 python scripts/release/build_artifacts.py windows-desktop --version 0.1.0 --output dist
 ```
 
+```powershell
+python scripts/release/build_artifacts.py windows-setup --version 0.1.0 --output dist
+```
+
+The setup target builds `EitmadSetup.exe` with self-contained .NET 8 Windows Desktop, app-local C++, versioned file identities, SBOM, and release inventory. It accepts the desktop's `--publisher`, `--signing-hook`, and `--vc-runtime` options. The server also accepts `--vc-runtime` and includes app-local C++ beside Rust and the certificate tool, so they can start before Server prerequisites are installed. An unsigned setup ZIP is a build-validation artifact; setup refuses to launch a backend without a complete trusted offline catalog.
+
 The desktop builder locates the newest numeric `VC/Redist/MSVC/<version>/x64/Microsoft.VC143.CRT` directory from installed Visual Studio instances through `vswhere.exe`. Use `--vc-runtime <REVIEWED_CRT_DIRECTORY>` to pin another approved redistribution source. It refuses missing files, mixed versions, versions below 14.40, non-x64 DLLs, untrusted Microsoft signatures, missing timestamps, and conflicts with published runtime files. It never takes DLLs from System32 or installs a global runtime. `visual-cpp-runtime.json`, the payload inventory, and SBOM retain the exact shipped version and digests. Review redistribution rights and servicing status for the selected source before release.
 
 `0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
@@ -61,9 +67,9 @@ Keep packages under `dist`, outside Git. Transfer the ZIP digest and extracted `
 
 ## Prepare the combined offline payload
 
-The `windows-offline` target collects prebuilt, reviewed inputs into a **new** verified directory for `setup/EitmadSetup.exe`. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. The native setup uses this verified tree; build its self-contained output with `dotnet publish shells/windows-setup/Eitmad.WindowsSetup.csproj --configuration Release --runtime win-x64 --self-contained true --output <reviewed-input-tree>/setup` before reviewing inputs. Preparation does not grant production acceptance.
+The `windows-offline` target creates `eitmad-offline-<version>-win-x64-payload-signed.zip` from prebuilt, reviewed inputs. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. Extract the complete ZIP before launching `setup/EitmadSetup.exe` as the intended ordinary Windows user. Assembly does not grant production acceptance.
 
-Use the existing signed desktop and server ZIPs from the same release version. Extract them without changing their inventories. Supply the following input tree; the collector copies these paths unchanged:
+Use signed desktop, server, and setup ZIPs from the same release version and clean source revision. Extract them without changing their inventories. Include reviewed redistribution notices before creating and signing those component packages. Supply the following input tree; the collector copies these paths unchanged:
 
 | Input path | Required reviewed content | Installation role |
 | --- | --- | --- |
@@ -76,7 +82,7 @@ Use the existing signed desktop and server ZIPs from the same release version. E
 | `server/vc-redist` | Reviewed Microsoft C++ 14.40+ x64 offline installer named `vc_redist.x64.exe` and redistribution terms | Server only |
 | `server/netfx` | Reviewed .NET Framework 4.8 full offline installer named `ndp48-x86-x64-allos-enu.exe` and redistribution terms for the WinSW Framework build | Server only |
 
-Windows PowerShell 5.1, Windows `curl.exe` with Schannel, supported patched x64 Windows build 19041+, local NTFS, and MSIX policy remain OS prerequisites. They are recorded in `payload.json`. Do not copy system executables from an installed machine. The server's C++ and Framework installers stay under `server/`; Client has no dependency on them. The later setup must select the exact role paths in `payload.json` rather than recursively install all files. PowerShell is delivered as extracted app-local files; selecting its executable and invoking server runtime installers belongs to the later setup adapter.
+Windows PowerShell 5.1, Windows `curl.exe` with Schannel, supported patched x64 Windows build 19041+, local NTFS, and MSIX policy remain OS prerequisites. They are recorded in `payload.json`. Do not copy system executables from an installed machine or bundle development toolchains. Setup verifies the whole distribution for both roles. Client installs only the per-user MSIX; it runs no Server prerequisite installer and requests no elevation. Server uses its authenticated paths and installs missing C++ and Framework runtimes quietly with restart disabled. Exit code 3010 stops setup for an operator-controlled restart. PowerShell 7 remains an extracted app-local runtime for packaged operator tools; use `server/powershell/pwsh.exe` explicitly when those tools require it.
 
 ### Review manifest and trust
 
@@ -101,12 +107,22 @@ The collector rejects absent components, missing required tools, changed or unli
 On the release build host, set `$approvedReviewDigest` to the independently authenticated review digest, then run:
 
 ```powershell
-python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --output dist\eitmad-offline-payload
+python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --prepare-payload --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --output dist\eitmad-offline-payload
 ```
 
-Success creates `client/`, `server/`, `reviewed-inputs.json`, and `payload.json`. The latter records role paths, component versions, provenance, shipped license files, file hashes, included .NET runtime versions, and the retained desktop C++ inventory. Source files remain unchanged. The collector validates the source and its staged copy before publishing the output directory. It refuses an existing destination and leaves no completed output after validation failure.
+The optional `--prepare-payload` mode creates a new verified directory with `setup/`, `client/`, `server/`, `reviewed-inputs.json`, `setup-bundle.json`, and `payload.json`. The latter records role paths, component versions, provenance, shipped license files, file hashes, included .NET runtime versions, and the retained desktop C++ inventory. Source files remain unchanged. The collector validates the source and staged copy before publication. It refuses an existing destination and leaves no completed output after validation failure.
 
-Recheck the directory before the later setup build consumes it:
+For the final signed distribution, use a clean reviewed checkout and the existing Artifact Signing environment:
+
+```powershell
+python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --publisher $approvedPublisher --signing-hook deploy/windows/sign-with-artifact-signing.ps1 --output dist
+```
+
+The builder retains component inventories and SBOMs, creates an aggregate CycloneDX SBOM and root `release.json`, then creates and signs `offline.cat`. The catalog authenticates the complete extracted tree, including review, setup metadata, licenses, runtime files, MSIX, and inventories. Windows catalog version 2 uses SHA-256; see [Microsoft file catalogs](https://learn.microsoft.com/powershell/module/microsoft.powershell.security/new-filecatalog). The builder checks the trusted catalog signature, exact approved publisher, timestamp, and contents before assembling a sorted ZIP with fixed entry timestamps. Failure publishes no completed ZIP. Identical staged bytes produce identical archive bytes; catalog generation and external signing are not claimed to produce identical bytes between builds. Without `--signing-hook`, the ZIP is labeled `unsigned` and setup rejects its catalog. Component signature checks remain mandatory.
+
+The launcher retains read-only handles and checks the catalog before starting Rust. Rust verifies it before reading setup metadata. Server elevation authenticates the source again, copies it into a new administrator/SYSTEM-only `%ProgramData%/EitmadSetupPayload-<id>` directory, and verifies that copy before executing its backend. Rust binds tool paths and release pins to that copy and verifies it again before installation. Elevated execution and DLL loading use the protected copy. This release tree is retained for scheduled backup execution and interruption recovery; do not remove it while a backup task references its backend. Setup does not install production signing certificates or weaken unsigned-MSIX rejection.
+
+Recheck a prepared directory, or the complete extracted distribution, before use:
 
 ```powershell
 python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --output dist\eitmad-offline-payload --verify-payload --expected-review-sha256 $approvedReviewDigest
@@ -120,7 +136,7 @@ Focused automated proof uses temporary synthetic inputs and installs nothing:
 python -m unittest discover -s scripts/ci/tests -p test_offline_payload.py -v
 ```
 
-The complete synthetic case mocks only Windows signature approval. A separate Windows test invokes the real signature check and proves refusal of an unsigned synthetic PE. Passing these tests does not prove trusted production payload acceptance, runtime installation, a clean offline host, or the later setup EXE. See [release acceptance](validate-release-candidate.md) before distribution.
+Synthetic archive tests substitute signature approval and catalog signing only. A Windows test uses real catalog creation and hash comparison to reject changed, missing, and extra files, with signature approval substituted for that hash test. Separate checks use the real trust boundary to reject unsigned catalogs and PE files. The launcher test refuses missing and unsigned catalogs before starting a backend. Runtime-selection tests substitute registry and process boundaries and check restart refusal. These tests do not prove trusted production payload acceptance, runtime installation, UAC, or a clean offline host. See [release acceptance](validate-release-candidate.md) before distribution.
 
 ## Target prerequisites
 

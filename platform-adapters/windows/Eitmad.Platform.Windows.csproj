@@ -7,6 +7,7 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="..\..\deploy\windows\verify-offline.ps1" LogicalName="Eitmad.VerifyOffline.ps1" />
     <Compile Remove="tests\**\*.cs" />
     <Compile Include="..\..\shells\windows\generated\EitmadContracts.g.cs" Link="Generated\EitmadContracts.g.cs" />
     <Compile Include="..\..\shells\windows\generated\EitmadContracts.Unions.g.cs" Link="Generated\EitmadContracts.Unions.g.cs" />

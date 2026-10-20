@@ -20,19 +20,22 @@ import tarfile
 import tempfile
 import tomllib
 import zipfile
+from xml.etree import ElementTree
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN = ROOT / "deploy" / "release-plan.toml"
 FIXED_ZIP_TIME = (2020, 1, 1, 0, 0, 0)
+CRT_FILES = {"concrt140.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll",
+    "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll", "vccorlib140.dll", "vcruntime140.dll", "vcruntime140_1.dll"}
 
-# These paths are the later setup program's role boundary. Client has no server dependency.
+# These paths are the setup program's role boundary. Client installs no server component.
 OFFLINE_COMPONENTS = {
-    "setup": ("setup", ("EitmadSetup.exe", "EitmadSetup.dll", "EitmadSetup.runtimeconfig.json", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll")),
+    "setup": ("setup", ("EitmadSetup.exe", "EitmadSetup.dll", "EitmadSetup.runtimeconfig.json", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll", "sbom.cdx.json", "release.json", *sorted(CRT_FILES))),
     "desktop": ("client/desktop", ("install-client.ps1", "package.psm1", "release.json")),
-    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json",
+    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
         "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1",
-        "deploy/windows/installation.ps1", "deploy/windows/installation.psm1", "deploy/windows/installation-channel.cs",
+        "deploy/windows/installation.ps1", "deploy/windows/installation.psm1", "deploy/windows/installation-channel.cs", "deploy/windows/verify-offline.ps1",
         "deploy/windows/local-backup.ps1", "deploy/windows/local-backup.psm1", "deploy/windows/backup-tools.psm1",
         "deploy/windows/backup.psm1", "deploy/windows/restore-backup.ps1",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
@@ -52,8 +55,6 @@ OFFLINE_COMPONENTS = {
 OFFLINE_OS_REQUIREMENTS = ["Supported patched x64 Windows build 19041+ on local NTFS",
     "Windows PowerShell 5.1", "Windows curl.exe (Schannel)", "MSIX permitted by Windows policy"]
 EXECUTABLE_SUFFIXES = {".exe", ".dll", ".ps1", ".psm1", ".msix"}
-CRT_FILES = {"concrt140.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll",
-    "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll", "vccorlib140.dll", "vcruntime140.dll", "vcruntime140_1.dll"}
 
 
 def plain_path(path: Path) -> None:
@@ -83,6 +84,9 @@ def operational_path(relative: str) -> None:
                      "pg_version", "postmaster.pid", "pgpass.conf", ".pgpass"} or Path(lower).suffix in {
                          ".db", ".sqlite", ".sqlite3", ".pem", ".pfx", ".p12", ".key", ".crt", ".cer", ".pdb", ".dump", ".backup"}:
             raise ValueError("Operational state, certificates, identities, or debug symbols cannot enter an offline payload")
+        if lower in {"sdk", "sdks", "rustc.exe", "cargo.exe", "cl.exe", "link.exe", "msbuild.exe",
+                     "csc.exe", "vbc.exe", "makeappx.exe", "signtool.exe"}:
+            raise ValueError("Development toolchains cannot enter an offline runtime payload")
 
 
 def tree_files(root: Path) -> dict[str, Path]:
@@ -234,7 +238,7 @@ def load_payload_review(path: Path, expected: str, version: str) -> dict:
     return review
 
 
-def check_release_tree(stage: Path, target: str, version: str, *, msix: bool = False) -> dict:
+def check_release_tree(stage: Path, target: str, version: str, *, msix: bool = False, catalog: bool = False) -> dict:
     inventory = read_json(stage / "release.json")
     if inventory.get("schemaVersion") != 1 or inventory.get("target") != target or \
             inventory.get("version") != version or inventory.get("architecture") != "x64" or \
@@ -242,6 +246,8 @@ def check_release_tree(stage: Path, target: str, version: str, *, msix: bool = F
         raise ValueError("Eitmad package identity differs from the reviewed release")
     files = tree_files(stage)
     expected = set(inventory["files"]) | {"release.json"}
+    if catalog:
+        expected.add("offline.cat")
     # These files are produced by makeappx and signing after release.json is written.
     if msix:
         expected |= {"AppxBlockMap.xml", "[Content_Types].xml", "AppxSignature.p7x"}
@@ -281,6 +287,10 @@ def check_desktop_payload(stage: Path, version: str) -> dict:
         if sha256(unpacked / "release.json") != inventory.get("payloadInventorySha256"):
             raise ValueError("Desktop MSIX inventory differs from the authenticated outer package")
         inner = check_release_tree(unpacked, "windows-desktop", version, msix=True)
+        identity = ElementTree.parse(unpacked / "AppxManifest.xml").find("{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Identity")
+        if identity is None or identity.get("Name") != "Eitmad.Desktop" or identity.get("Version") != windows_version(version) or \
+                identity.get("ProcessorArchitecture") != "x64" or identity.get("Publisher") != inventory.get("publisher"):
+            raise ValueError("Offline desktop must preserve the Eitmad MSIX identity and publisher")
         required = CRT_FILES | {"coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll",
             "Eitmad.WindowsShell.exe", "eitmad-engine-cli.exe", "visual-cpp-runtime.json", "sbom.cdx.json"}
         if not required <= set(inner["files"]):
@@ -321,6 +331,8 @@ def validate_offline_tree(root: Path, review: dict, *, prepared: bool = False) -
         for relative, entry in review["components"][name]["files"].items():
             expected[f"{directory}/{relative}"] = entry
     metadata = {"reviewed-inputs.json", "payload.json", "setup-bundle.json"} if prepared else set()
+    if prepared and (root / "offline.cat").is_file():
+        metadata |= {"offline.cat", "release.json", "sbom.cdx.json"}
     if set(actual) != set(expected) | metadata:
         raise ValueError("Offline payload contains missing or unexpected files")
     for relative, entry in expected.items():
@@ -340,7 +352,16 @@ def validate_offline_tree(root: Path, review: dict, *, prepared: bool = False) -
             if relative not in component_files and not any(p.startswith(relative + "/") for p in component_files):
                 raise ValueError("Required prerequisite content is missing")
     server = root / OFFLINE_COMPONENTS["application"][0]
-    check_release_tree(server, "windows-server", review["version"])
+    releases = [check_release_tree(server, "windows-server", review["version"]),
+                check_release_tree(root / "setup", "windows-setup", review["version"]),
+                read_json(root / "client/desktop/release.json")]
+    revisions = {release.get("sourceCommit") for release in releases}
+    if len(revisions) != 1 or not re.fullmatch(r"[a-f0-9]{40}", next(iter(revisions)) or "") or \
+            any(release.get("sourceDirty") is not False for release in releases):
+        raise ValueError("Reviewed Eitmad packages must share one clean source revision")
+    publishers = {release.get("publisher") for release in releases}
+    if len(publishers) != 1 or next(iter(publishers)) != review["components"]["application"]["files"]["eitmad-server.exe"]["publisher"]:
+        raise ValueError("Reviewed Eitmad packages must share the approved publisher")
     runtimes = {"certificateTool": self_contained_runtime(server / "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.runtimeconfig.json"),
                 "powershell": self_contained_runtime(root / "server/powershell/pwsh.runtimeconfig.json")}
     desktop = check_desktop_payload(root / OFFLINE_COMPONENTS["desktop"][0], review["version"])
@@ -390,6 +411,9 @@ def verify_offline_payload(output: Path, expected_review: str, version: str) -> 
         raise ValueError("Prepared payload inventory differs from the verified review")
     if read_json(output / "setup-bundle.json") != setup_bundle_metadata(output, review):
         raise ValueError("Setup metadata differs from the authenticated payload")
+    if (output / "offline.cat").exists():
+        release = check_release_tree(output, "windows-offline", version, catalog=True)
+        verify_offline_catalog(output, release["publisher"])
 
 
 def setup_bundle_metadata(root: Path, review: dict) -> dict:
@@ -399,6 +423,80 @@ def setup_bundle_metadata(root: Path, review: dict) -> dict:
             "desktopReleaseSha256": sha256(root / "client/desktop/release.json"),
             "serverReleaseSha256": sha256(root / "server/application/release.json"),
             "winswSha256": review["components"]["winsw"]["files"]["WinSW.NET461.exe"]["sha256"]}
+
+
+def write_offline_sbom(stage: Path, review: dict) -> None:
+    components = []
+    for name, component in sorted(review["components"].items()):
+        components.append({"type": "application", "name": name, "version": component["version"],
+                           "hashes": [{"alg": "SHA-256", "content": component["provenance"]["sha256"]}],
+                           "externalReferences": [{"type": "distribution", "url": component["provenance"]["url"]}],
+                           "properties": [{"name": "eitmad:redistribution-review", "value": json.dumps(component["licenses"], sort_keys=True)}]})
+    # Retain the detailed shipped dependency inventories, including the MSIX SBOM.
+    for name in ("setup", "application"):
+        path = stage / OFFLINE_COMPONENTS[name][0] / "sbom.cdx.json"
+        payload = read_json(path)
+        if payload.get("bomFormat") != "CycloneDX" or payload.get("metadata", {}).get("component", {}).get("version") != review["version"]:
+            raise ValueError("A versioned setup and server SBOM is required")
+        components.extend(payload.get("components", []))
+    packages = list((stage / "client/desktop").glob("*.msix"))
+    with zipfile.ZipFile(packages[0]) as package:
+        components.extend(json.loads(package.read("sbom.cdx.json")).get("components", []))
+    payload = {"bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
+               "metadata": {"component": {"type": "application", "name": "eitmad-windows-offline", "version": review["version"]}},
+               "components": sorted({json.dumps(c, sort_keys=True): c for c in components}.values(), key=lambda c: (c["name"], c["version"]))}
+    (stage / "sbom.cdx.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def create_offline_catalog(stage: Path, publisher: str, hook: Path | None) -> None:
+    # Build outside the tree to avoid catalog self-inclusion. The catalog is the
+    # authenticated root for inventories, metadata, license files, and all code.
+    script = "$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd() | ConvertFrom-Json; " \
+        "New-FileCatalog -Path $p.root -CatalogFilePath $p.catalog -CatalogVersion 2 | Out-Null"
+    catalog = stage.parent / "offline.cat"
+    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                   input=json.dumps({"root": str(stage), "catalog": str(catalog)}), text=True, check=True)
+    sign_path(catalog, publisher, hook)
+    shutil.move(catalog, stage / "offline.cat")
+    if hook:
+        verify_offline_catalog(stage, publisher)
+
+
+def verify_offline_catalog(stage: Path, publisher: str) -> None:
+    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(ROOT / "deploy/windows/verify-offline.ps1")],
+                   input=json.dumps({"root": str(stage), "anchor": str(stage / "setup/EitmadSetup.exe"), "publisher": publisher}),
+                   text=True, check=True, capture_output=True)
+
+
+def build_windows_offline(output: Path, version: str, source: Path, review_path: Path, expected_review: str,
+                          publisher: str, hook: Path | None) -> Path:
+    if os.name != "nt":
+        raise ValueError("Windows offline catalogs require Windows")
+    review = load_payload_review(review_path, expected_review, version)
+    for name in ("setup", "application", "desktop"):
+        for relative, entry in review["components"][name]["files"].items():
+            if Path(relative).suffix.lower() in EXECUTABLE_SUFFIXES and (
+                Path(relative).name.lower().startswith("eitmad") or Path(relative).suffix.lower() in {".ps1", ".psm1", ".msix"}
+            ) and entry.get("publisher") != publisher:
+                raise ValueError("Eitmad setup, server, scripts, and MSIX must retain the approved publisher")
+    destination = output / f"eitmad-offline-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"
+    if destination.exists():
+        raise ValueError("Offline archive destination must be new")
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="eitmad-offline-archive-", dir=output) as temporary:
+        stage = prepare_offline_payload(source, Path(temporary) / "payload", review_path, expected_review, version)
+        verify_offline_payload(stage, expected_review, version)
+        if hook and read_json(stage / "setup/release.json")["sourceCommit"] != subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip():
+            raise ValueError("Signed offline assembly must use the reviewed component source revision")
+        write_offline_sbom(stage, review)
+        release_inventory(stage, version, "windows-offline", publisher)
+        create_offline_catalog(stage, publisher, hook)
+        pending = Path(temporary) / destination.name
+        deterministic_zip(stage, pending)
+        pending.rename(destination)
+    return destination
 
 
 def run(*command: str, env: dict | None = None) -> None:
@@ -519,15 +617,17 @@ def rust_components(metadata: dict, package: str) -> list[dict]:
             for key in sorted(included)]
 
 
-def write_sbom(stage: Path, package: str, version: str) -> None:
-    compiler = subprocess.check_output(["rustup", "which", "--toolchain", "1.85.1", "rustc"], cwd=ROOT, text=True).strip()
-    environment = dict(os.environ, RUSTC=compiler)
-    platform = "x86_64-pc-windows-msvc" if os.name == "nt" else "x86_64-unknown-linux-gnu"
-    metadata = json.loads(subprocess.check_output(
-        ["rustup", "run", "1.85.1", "cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", platform],
-        cwd=ROOT, env=environment,
-    ))
-    components = rust_components(metadata, package)
+def write_sbom(stage: Path, package: str, version: str, *, rust: bool = True) -> None:
+    components = []
+    if rust:
+        compiler = subprocess.check_output(["rustup", "which", "--toolchain", "1.85.1", "rustc"], cwd=ROOT, text=True).strip()
+        environment = dict(os.environ, RUSTC=compiler)
+        platform = "x86_64-pc-windows-msvc" if os.name == "nt" else "x86_64-unknown-linux-gnu"
+        metadata = json.loads(subprocess.check_output(
+            ["rustup", "run", "1.85.1", "cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", platform],
+            cwd=ROOT, env=environment,
+        ))
+        components = rust_components(metadata, package)
     for path in sorted(stage.rglob("*.deps.json")):
         libraries = json.loads(path.read_text(encoding="utf-8"))["libraries"]
         for identity, library in sorted(libraries.items()):
@@ -558,7 +658,7 @@ def copy_install_tools(stage: Path, target: str) -> None:
         shutil.copy2(ROOT / "run-services.ps1", stage)
         tools = stage / "deploy/windows"
         tools.mkdir(parents=True)
-        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "backup.psm1", "backup-worker.ps1", "backup-tools.psm1", "local-backup.ps1", "local-backup.psm1", "server-backup.example.json", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
+        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "backup.psm1", "backup-worker.ps1", "backup-tools.psm1", "local-backup.ps1", "local-backup.psm1", "server-backup.example.json", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
             shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")
@@ -672,13 +772,32 @@ def verify_binary_version(path: Path, name: str, version: str) -> None:
         raise ValueError(f"Packaged {name} version does not match release")
 
 
-def build_windows_server(output: Path, version: str, publisher: str = "CN=Eitmad Unsigned Validation", hook: Path | None = None) -> Path:
+def build_windows_setup(output: Path, version: str, publisher: str = "CN=Eitmad Unsigned Validation", hook: Path | None = None,
+                        vc_runtime: Path | None = None) -> Path:
+    if os.name != "nt":
+        raise ValueError("Windows setup packaging requires Windows")
+    with tempfile.TemporaryDirectory(prefix="eitmad-setup-") as temporary:
+        stage = Path(temporary) / "setup"
+        publish("shells/windows-setup/Eitmad.WindowsSetup.csproj", stage, version)
+        copy_vc_runtime(stage, vc_runtime)
+        self_contained_runtime(stage / "EitmadSetup.runtimeconfig.json", desktop=True)
+        write_sbom(stage, "eitmad-windows-setup", version, rust=False)
+        sign_path(stage, publisher, hook)
+        release_inventory(stage, version, "windows-setup", publisher)
+        destination = output / f"eitmad-setup-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"
+        deterministic_zip(stage, destination)
+    return destination
+
+
+def build_windows_server(output: Path, version: str, publisher: str = "CN=Eitmad Unsigned Validation", hook: Path | None = None,
+                         vc_runtime: Path | None = None) -> Path:
     if os.name != "nt":
         raise SystemExit("windows-server packaging requires Windows")
     binaries = build_rust(load_plan()["artifacts"]["windows_server"]["rust_package"], version)
     with tempfile.TemporaryDirectory(prefix="eitmad-package-") as temp_value:
         stage = Path(temp_value)
         shutil.copy2(binaries / "eitmad-server.exe", stage)
+        copy_vc_runtime(stage, vc_runtime)
         verify_binary_version(stage / "eitmad-server.exe", "eitmad-server", version)
         copy_install_tools(stage, "windows-server")
         # Keep the existing LAN tool's relative assembly path; it loads into PowerShell 7.4+.
@@ -686,6 +805,7 @@ def build_windows_server(output: Path, version: str, publisher: str = "CN=Eitmad
         shutil.copy2(ROOT / "tools/lan-server.ps1", stage / "tools")
         publish("tools/lan-certificate/Eitmad.LanCertificate.csproj",
                 stage / "tools/lan-certificate/bin/Release/net8.0-windows", version)
+        copy_vc_runtime(stage / "tools/lan-certificate/bin/Release/net8.0-windows", vc_runtime)
         write_sbom(stage, load_plan()["artifacts"]["windows_server"]["rust_package"], version)
         sign_path(stage, publisher, hook)
         release_inventory(stage, version, "windows-server", publisher)
@@ -727,7 +847,7 @@ def verify(artifact: Path, manifest: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("target", choices=("windows-desktop", "windows-server", "windows-offline", "server"))
+    parser.add_argument("target", choices=("windows-desktop", "windows-server", "windows-setup", "windows-offline", "server"))
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
     parser.add_argument("--publisher", default="CN=Eitmad Unsigned Validation")
@@ -737,39 +857,52 @@ def main() -> None:
     parser.add_argument("--payload-review", type=Path, help="Authenticated offline component review JSON")
     parser.add_argument("--expected-review-sha256", help="Independent authenticated SHA-256 of the component review")
     parser.add_argument("--verify-payload", action="store_true", help="Recheck an existing offline output directory without installing it")
+    parser.add_argument("--prepare-payload", action="store_true", help="Prepare a new verified directory instead of assembling the offline ZIP")
     arguments = parser.parse_args()
     windows_version(arguments.version)
-    if arguments.target == "windows-offline":
-        if not arguments.expected_review_sha256 or arguments.signing_hook or arguments.vc_runtime:
-            parser.error("Offline preparation requires --expected-review-sha256 and prebuilt reviewed packages")
-        if arguments.verify_payload:
-            if arguments.payload_input or arguments.payload_review:
-                parser.error("Verification uses the reviewed-inputs.json already in --output")
-            verify_offline_payload(arguments.output, arguments.expected_review_sha256, arguments.version)
-        else:
-            if not arguments.payload_input or not arguments.payload_review:
-                parser.error("Offline preparation requires --payload-input and --payload-review")
-            prepare_offline_payload(arguments.payload_input, arguments.output, arguments.payload_review,
-                                    arguments.expected_review_sha256, arguments.version)
-        print(arguments.output)
-        return
-    if arguments.payload_input or arguments.payload_review or arguments.expected_review_sha256 or arguments.verify_payload:
-        parser.error("Payload review options apply only to windows-offline")
-    if arguments.target != "windows-desktop" and arguments.vc_runtime is not None:
-        parser.error("--vc-runtime currently applies only to windows-desktop")
     if arguments.signing_hook:
         if arguments.publisher == "CN=Eitmad Unsigned Validation":
             parser.error("Signing requires the exact approved certificate-profile subject")
         if subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT):
             parser.error("Signed release builds require a clean reviewed checkout")
+    if arguments.target == "windows-offline":
+        if not arguments.expected_review_sha256 or arguments.vc_runtime:
+            parser.error("Offline assembly requires --expected-review-sha256 and prebuilt reviewed packages")
+        if arguments.verify_payload:
+            if arguments.payload_input or arguments.payload_review or arguments.prepare_payload or arguments.signing_hook:
+                parser.error("Verification uses the reviewed-inputs.json already in --output")
+            verify_offline_payload(arguments.output, arguments.expected_review_sha256, arguments.version)
+        else:
+            if not arguments.payload_input or not arguments.payload_review:
+                parser.error("Offline assembly requires --payload-input and --payload-review")
+            if arguments.prepare_payload:
+                if arguments.signing_hook:
+                    parser.error("Directory preparation consumes signatures; it does not sign inputs")
+                prepare_offline_payload(arguments.payload_input, arguments.output, arguments.payload_review,
+                                        arguments.expected_review_sha256, arguments.version)
+            else:
+                artifact = build_windows_offline(arguments.output.resolve(), arguments.version, arguments.payload_input,
+                                                arguments.payload_review, arguments.expected_review_sha256,
+                                                arguments.publisher, arguments.signing_hook)
+                manifest = write_manifest(arguments.output, artifact, arguments.version, arguments.target)
+                verify(artifact, manifest)
+                print(artifact)
+                print(manifest)
+                return
+        print(arguments.output)
+        return
+    if arguments.payload_input or arguments.payload_review or arguments.expected_review_sha256 or arguments.verify_payload or arguments.prepare_payload:
+        parser.error("Payload review options apply only to windows-offline")
+    if arguments.target not in {"windows-desktop", "windows-server", "windows-setup"} and arguments.vc_runtime is not None:
+        parser.error("--vc-runtime applies only to Windows component builds")
     arguments.output.mkdir(parents=True, exist_ok=True)
     if arguments.target == "server":
         if arguments.signing_hook:
             parser.error("The Windows signing hook cannot sign Linux artifacts")
         artifact = build_server(arguments.output.resolve(), arguments.version)
     else:
-        builder = build_windows if arguments.target == "windows-desktop" else build_windows_server
-        options = {"vc_runtime": arguments.vc_runtime} if arguments.target == "windows-desktop" else {}
+        builder = {"windows-desktop": build_windows, "windows-server": build_windows_server, "windows-setup": build_windows_setup}[arguments.target]
+        options = {"vc_runtime": arguments.vc_runtime}
         artifact = builder(arguments.output.resolve(), arguments.version, arguments.publisher, arguments.signing_hook, **options)
     manifest = write_manifest(arguments.output, artifact, arguments.version, arguments.target)
     verify(artifact, manifest)

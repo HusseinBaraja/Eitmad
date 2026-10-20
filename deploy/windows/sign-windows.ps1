@@ -11,11 +11,11 @@ if ($Publisher -eq 'CN=Eitmad Unsigned Validation') { throw 'Supply the approved
 # The hook accepts one file path, signs with an external hardware-backed key and
 # approved RFC3161 timestamp service, and throws on failure. Never accept a PFX here.
 $files = if (Test-Path -LiteralPath $Path -PathType Container) {
-    Get-ChildItem -LiteralPath $Path -Recurse -File | Where-Object Extension -In '.exe', '.dll', '.ps1', '.psm1', '.msix'
+    Get-ChildItem -LiteralPath $Path -Recurse -File | Where-Object Extension -In '.exe', '.dll', '.ps1', '.psm1', '.msix', '.cat'
 } else { Get-Item -LiteralPath $Path }
 foreach ($file in $files) {
     $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-    $owned = $file.Name -like 'Eitmad*' -or $file.Extension -in '.ps1', '.psm1', '.msix'
+    $owned = $file.Name -like 'Eitmad*' -or $file.Extension -in '.ps1', '.psm1', '.msix', '.cat'
     if ($signature.Status -ne 'Valid' -or ($owned -and $signature.SignerCertificate.Subject -cne $Publisher)) {
         & $SigningHook -Path $file.FullName
         if (-not $?) { throw 'External signing hook failed.' }

@@ -68,6 +68,39 @@ Write-Host 'Synthetic private native output.'
     Assert ($calls[1].privateLan -and -not $calls[0].privateLan -and -not $calls[2].privateLan) 'Private-network LocalSubnet policy was lost.'
     Assert ($calls[0].cluster -ceq (Join-Path $request.preparation.stateDirectory 'cluster')) 'An unrelated database was imported.'
     Assert ($calls[0].digest -ceq ('a' * 64)) 'Server package authentication was lost.'
+
+    # Runtime installers are selected only on the elevated Server path. Substitute
+    # registry/process boundaries; no real runtime or registry state is changed.
+    $bundle = Join-Path $Root 'offline'
+    [void][IO.Directory]::CreateDirectory((Join-Path $bundle 'server/application'))
+    [IO.File]::WriteAllText((Join-Path $bundle 'offline.cat'), 'synthetic catalog marker')
+    $backend = Join-Path $bundle 'server/application/eitmad-server.exe'
+    $script:haveRuntimes = $true
+    $script:installerExit = 0
+    $script:installerCalls = @()
+    function Get-ItemProperty {
+        param($LiteralPath, $ErrorAction)
+        if ($script:haveRuntimes) { return [pscustomobject]@{Installed=1; Version='v14.44.35211.0'; Release=528040} }
+        return $null
+    }
+    function Start-Process {
+        param($FilePath, $ArgumentList, [switch]$PassThru, $WindowStyle)
+        $script:installerCalls += $FilePath
+        $child = [pscustomobject]@{ExitCode=$script:installerExit}
+        $child | Add-Member ScriptMethod WaitForExit { param($milliseconds) return $true }
+        $child | Add-Member ScriptMethod Dispose {}
+        return $child
+    }
+    Install-OfflineServerPrerequisites $backend
+    Assert ($script:installerCalls.Count -eq 0) 'Existing runtimes were unnecessarily installed.'
+    $script:haveRuntimes = $false
+    Install-OfflineServerPrerequisites $backend
+    Assert ($script:installerCalls.Count -eq 2) 'Both offline Server runtime installers are required.'
+    Assert ($script:installerCalls[0] -ceq (Join-Path $bundle 'server/vc-redist/vc_redist.x64.exe')) 'C++ runtime came from outside the protected bundle.'
+    $script:installerExit = 3010
+    $script:installerCalls = @()
+    Reject { Install-OfflineServerPrerequisites $backend }
+    Assert ($script:installerCalls.Count -eq 1) 'Setup continued after a required restart.'
 } $evidence
 
 # Exercise real local pipes and peer PID checks, without UAC or installation.

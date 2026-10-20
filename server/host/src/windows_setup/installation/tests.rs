@@ -63,6 +63,57 @@ impl Drop for TestRoot {
     }
 }
 
+#[test]
+fn elevated_bundle_rebinds_only_authenticated_tools_and_release_pins() {
+    let root = TestRoot::new();
+    let original = root.0.join("source");
+    let protected = root.0.join("protected");
+    fs::create_dir(&protected).unwrap();
+    let original_path = |name: &str| original.join(name).to_string_lossy().into_owned();
+    let mut request = root.request();
+    request.server.directory = original_path("server/application");
+    request.client.desktop.directory = original_path("client/desktop");
+    request.preparation.postgres_bin = original_path("server/postgresql/bin");
+    request.preparation.platform_script =
+        original_path("server/application/deploy/windows/prepare-workshop.ps1");
+    request.preparation.certificate_executable = original_path(
+        "server/application/tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
+    );
+    request.winsw_executable = original_path("server/winsw/WinSW.NET461.exe");
+    let metadata = eitmad_contracts::setup::WindowsSetupBundle {
+        version: 1,
+        publisher: "CN=Synthetic".into(),
+        desktop_release_sha256: "a".repeat(64),
+        server_release_sha256: "a".repeat(64),
+        winsw_sha256: "b".repeat(64),
+    };
+    fs::write(
+        protected.join("setup-bundle.json"),
+        serde_json::to_vec(&metadata).unwrap(),
+    )
+    .unwrap();
+    let mut changed = request.clone();
+    changed.preparation.postgres_bin = root.path("unreviewed/bin");
+    assert!(super::super::payload::bind_server(&mut changed, &protected).is_err());
+    changed = request.clone();
+    changed.server.release_sha256 = "c".repeat(64);
+    assert!(super::super::payload::bind_server(&mut changed, &protected).is_err());
+    super::super::payload::bind_server(&mut request, &protected).unwrap();
+    assert_eq!(
+        Path::new(&request.server.directory),
+        protected.join("server/application")
+    );
+    assert_eq!(
+        Path::new(&request.preparation.postgres_bin),
+        protected.join("server/postgresql/bin")
+    );
+    assert_eq!(
+        request.client.intended_user_sid,
+        "S-1-5-21-123-456-789-1001"
+    );
+    assert_eq!(request.service_state_directory, root.path("host"));
+}
+
 #[derive(Default)]
 struct FakePlatform {
     calls: Vec<Stage>,

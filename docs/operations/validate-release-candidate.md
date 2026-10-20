@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-21"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -50,6 +50,8 @@ CI cannot hold production signing keys or prove a live restore. Before promotion
 5. Exercise an interrupted update and rollback or forward-recovery path.
 6. Verify Arabic root RTL, mixed Arabic/Latin identifiers, keyboard flow, accessibility, and copy/paste on supported desktop systems.
 7. Promote the same digest to the next channel. Do not rebuild between `canary`, `beta`, and `stable`.
+
+For a Windows offline candidate, use the complete ZIP from [offline assembly](package-windows-desktop.md#prepare-the-combined-offline-payload). Verify its catalog, component inventories, publisher, version, SBOMs, and authenticated review digest. In isolated clean VMs with network access disabled, prove both roles, including a Server without preinstalled C++/Framework prerequisites and a Client with no global runtime installation. Test changed and missing PostgreSQL, runtime, script, MSIX, inventory, and setup-metadata files. Repeat tampering between initial verification and elevation, and verify refusal before elevated payload execution. Check protected-copy ACLs with a different UAC administrator, required-restart failure, retained state, service start without sign-in, scheduled backup and restore, per-user registration, and controlled upgrade. Do not perform these acceptance tests against a live workshop installation. Development build and synthetic catalog tests do not replace this evidence.
 
 ## Failure and recovery
 

@@ -47,6 +47,8 @@ fn require_empty_desktop(directory: &Path) -> Result<(), MainError> {
 }
 
 pub(super) async fn execute() -> Result<(), MainError> {
+    let root = super::payload::bundle_root()?;
+    let _payload = super::payload::verify(&root)?;
     let mut bytes = Zeroizing::new(Vec::new());
     std::io::stdin()
         .take(65537)
@@ -58,6 +60,9 @@ pub(super) async fn execute() -> Result<(), MainError> {
     let request: GuidedWindowsSetup =
         serde_json::from_slice(&bytes).map_err(|_| MainError::Input)?;
     if request.version != 1 {
+        return Err(MainError::Input);
+    }
+    if Path::new(&request.bundle_directory) != root {
         return Err(MainError::Input);
     }
     let progress = local_root()?.join("EitmadSetupProgress");

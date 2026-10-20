@@ -36,6 +36,7 @@ public sealed class WindowsSetupBridge : IWindowsSetupBridge
     }) ?? throw new IOException("Setup backend unavailable.");
     public async Task<WindowsInstallationState?> InspectAsync()
     {
+        using var payload = await Task.Run(() => OfflinePayloadLease.AcquireAsync(bundleDirectory, Path.Combine(bundleDirectory, "setup", "EitmadSetup.exe")));
         using var child = Start();
         var errors = child.StandardError.BaseStream.CopyToAsync(Stream.Null);
         await JsonSerializer.SerializeAsync(child.StandardInput.BaseStream, Request(GuidedSetupAction.Inspect), Converter.Settings);
@@ -47,6 +48,7 @@ public sealed class WindowsSetupBridge : IWindowsSetupBridge
     }
     public async Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress)
     {
+        using var payload = await Task.Run(() => OfflinePayloadLease.AcquireAsync(bundleDirectory, Path.Combine(bundleDirectory, "setup", "EitmadSetup.exe")));
         using var child = Start();
         var errors = child.StandardError.BaseStream.CopyToAsync(Stream.Null);
         var request = Request(action, workshop, backup);

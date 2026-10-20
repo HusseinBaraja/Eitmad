@@ -36,6 +36,30 @@ function Assert-FreshDesktop($Request) {
     if (-not $?) { throw 'Desktop verification failed.' }
 }
 
+function Install-OfflineServerPrerequisites([string]$Backend) {
+    $root = Split-Path (Split-Path (Split-Path $Backend -Parent) -Parent) -Parent
+    if (-not (Test-Path -LiteralPath (Join-Path $root 'offline.cat') -PathType Leaf)) {
+        throw 'The complete authenticated offline bundle is required.'
+    }
+    $vc = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64' -ErrorAction SilentlyContinue
+    $framework = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -ErrorAction SilentlyContinue
+    $installers = @()
+    if (-not $vc -or $vc.Installed -ne 1 -or [version]$vc.Version.TrimStart('v') -lt [version]'14.40.0.0') {
+        $installers += @{path='server/vc-redist/vc_redist.x64.exe'; arguments='/install /quiet /norestart'}
+    }
+    if (-not $framework -or $framework.Release -lt 528040) {
+        $installers += @{path='server/netfx/ndp48-x86-x64-allos-enu.exe'; arguments='/q /norestart'}
+    }
+    foreach ($installer in $installers) {
+        $child = Start-Process -FilePath (Join-Path $root $installer.path) -ArgumentList $installer.arguments -PassThru -WindowStyle Hidden
+        try {
+            if (-not $child.WaitForExit(1200000)) { throw 'Prerequisite installer deadline elapsed. Inspect its state before retrying.' }
+            if ($child.ExitCode -eq 3010) { throw 'A prerequisite requires a Windows restart. Preserve setup state and restart before recovery.' }
+            if ($child.ExitCode -ne 0) { throw 'Offline prerequisite installation failed.' }
+        } finally { $child.Dispose() }
+    }
+}
+
 function Invoke-EitmadInstallationAction {
     param([string]$Action, [string]$Backend, $Request)
     if ($Action -in 'ClientPreflight', 'Desktop') {
@@ -58,6 +82,11 @@ function Invoke-EitmadInstallationAction {
             if (Get-Service -Name ($Request.serviceName + $kind) -ErrorAction SilentlyContinue) {
                 throw 'Service identity already exists.'
             }
+        }
+        # The protected copy was authenticated before this backend started. Standalone
+        # operator installs keep their existing externally prepared prerequisite path.
+        if ((Split-Path $Backend -Parent | Split-Path -Leaf) -eq 'application') {
+            Install-OfflineServerPrerequisites $Backend
         }
         [void](Get-InstallPackage $Request.server 'windows-server')
         $packagedBackend = Join-Path $Request.server.directory 'eitmad-server.exe'
@@ -99,7 +128,43 @@ function Invoke-EitmadInstallationWorker {
     & $script:HostAdapter { Assert-Administrator }
     Initialize-InstallationChannel
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
-    try { return [EitmadInstallationChannel]::RunWorker($pipe, $Backend) }
+    try {
+        # The initiating process retains the source. Never execute elevated payloads
+        # from a user-writable extraction directory, including DLL search paths.
+        $source = Split-Path (Split-Path (Split-Path $Backend -Parent) -Parent) -Parent
+        $verifier = Join-Path $PSScriptRoot 'verify-offline.ps1'
+        $systemPowerShell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+        @{root=$source; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
+            & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'Offline source authentication failed after elevation.' }
+        $stage = Join-Path $env:ProgramData ('EitmadSetupPayload-' + [Guid]::NewGuid().ToString('N'))
+        & $script:HostAdapter { param($p) [void](Get-SafePath $p); Assert-ProtectedParents $p } $stage
+        $acl = New-Object Security.AccessControl.DirectorySecurity
+        $acl.SetAccessRuleProtection($true, $false)
+        $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+        foreach ($sid in 'S-1-5-18', 'S-1-5-32-544') {
+            $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+                (New-Object Security.Principal.SecurityIdentifier($sid)), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+        }
+        # .NET Framework creates the directory with the protected DACL atomically.
+        [void][IO.Directory]::CreateDirectory($stage, $acl)
+        Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $stage -Recurse -Force
+        # Match the service adapter's copy policy: discard any source ACLs and
+        # inherit only the protected staging root, including on copied directories.
+        foreach ($item in Get-ChildItem -LiteralPath $stage -Force -Recurse) {
+            $inherited = if ($item.PSIsContainer) { New-Object Security.AccessControl.DirectorySecurity }
+                else { New-Object Security.AccessControl.FileSecurity }
+            $inherited.SetAccessRuleProtection($false, $false)
+            $inherited.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+            Set-Acl -LiteralPath $item.FullName -AclObject $inherited
+        }
+        $protectedBackend = Join-Path $stage 'server/application/eitmad-server.exe'
+        @{root=$stage; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
+            & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
+        # Retain this protected release tree for backup scheduling and failure recovery.
+        return [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend)
+    }
     finally { $pipe.Dispose() }
 }
 
