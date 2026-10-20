@@ -110,7 +110,7 @@ if ($Action -eq 'Prepare') {
         ('-include:' + ($Node.volumes -join ',')), '-allCritical', '-vssCopy', '-quiet')
     Invoke-BackupTool "$env:SystemRoot\System32\wbadmin.exe" @('get', 'versions', ('-backupTarget:' + $image),
         ('-machine:' + $env:COMPUTERNAME))
-    [pscustomobject]@{ computer = $env:COMPUTERNAME; boot = Get-Boot; imageCatalogVerified = $true }
+    [pscustomobject]@{ imageCatalogVerified = $true }
 } elseif ($Action -eq 'Check') {
     if ((Get-Boot) -cne $global:EitmadBackup.Boot) { throw 'Computer rebooted during backup.' }
     if ($Node.kind -eq 'server') {

@@ -9,7 +9,6 @@ import socket
 import ssl
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -18,8 +17,7 @@ import uuid
 
 def run(command, env=None, timeout=90):
     # pg_ctl starts children that inherit handles. A pipe would wait for those children at EOF.
-    with tempfile.TemporaryFile() as output:
-        result = subprocess.run(command, env=env, stdout=output, stderr=output, timeout=timeout)
+    result = subprocess.run(command, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
     if result.returncode:
         raise RuntimeError(f"{Path(str(command[0])).name} failed ({result.returncode}); output was withheld to protect synthetic credentials")
 
@@ -92,16 +90,17 @@ def main():
         started = False
 
     context = None
-    last_probe = ["not probed"]
+    last_probe = "not probed"
 
     def status(route):
+        nonlocal last_probe
         try:
             with urllib.request.urlopen(f"https://localhost:{server_port}/{route}", context=context, timeout=4) as response:
                 return response.status
         except urllib.error.HTTPError as error:
             return error.code
         except (OSError, urllib.error.URLError) as error:
-            last_probe[0] = str(error)
+            last_probe = str(error)
             return 0
 
     def wait_ready():
@@ -112,7 +111,7 @@ def main():
             if status("readyz") == 204:
                 return
             time.sleep(.2)
-        raise RuntimeError("Readiness deadline elapsed: " + last_probe[0])
+        raise RuntimeError("Readiness deadline elapsed: " + last_probe)
 
     try:
         start_database()

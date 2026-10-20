@@ -1,24 +1,16 @@
 use super::*;
 use uuid::Uuid;
 
-#[test]
+#[tokio::test]
 #[ignore = "requires a fresh disposable EITMAD_DIRECT_TEST_DATABASE_URL with enforced RLS"]
-fn account_names_backfill_when_migration_16_runs_in_same_transaction() {
-    run_backfill_test(false);
+async fn account_names_backfill_when_migration_16_runs_in_same_transaction() {
+    check_backfill(false).await;
 }
 
-#[test]
+#[tokio::test]
 #[ignore = "requires a fresh disposable EITMAD_DIRECT_TEST_DATABASE_URL with enforced RLS"]
-fn account_names_backfill_when_migration_16_is_already_recorded() {
-    run_backfill_test(true);
-}
-
-fn run_backfill_test(accounts_already_migrated: bool) {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(check_backfill(accounts_already_migrated));
+async fn account_names_backfill_when_migration_16_is_already_recorded() {
+    check_backfill(true).await;
 }
 
 async fn check_backfill(accounts_already_migrated: bool) {
@@ -67,11 +59,6 @@ async fn check_backfill(accounts_already_migrated: bool) {
         .iter()
         .filter(|row| row["display_name"] == row["username"])
         .count();
-    eprintln!(
-        "migration_16_already_recorded={accounts_already_migrated}: \
-         elevated={elevated}, forced_rls={forced}, migration_17_rows={recorded}, \
-         filled_names={filled}/2"
-    );
     assert_eq!(recorded, 1);
     assert_eq!(before_retry.len(), 2, "both retained accounts must remain");
     assert_eq!(filled, 2, "each tenant must receive its account name");
@@ -79,7 +66,6 @@ async fn check_backfill(accounts_already_migrated: bool) {
     database.migrate().await.unwrap();
     assert_eq!(account_snapshot(&pool).await, before_retry);
     assert_eq!(ledger_snapshot(&pool).await, ledger_before);
-    eprintln!("rerun: account rows and migration ledger unchanged (including xmin)");
     pool.close().await;
 }
 

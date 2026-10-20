@@ -12,7 +12,8 @@ function Invoke-Native([string]$File, [string[]]$Arguments) {
     $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
     $process = [Diagnostics.Process]::Start($start)
     try {
-        $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+        $stdout = $process.StandardOutput.BaseStream.CopyToAsync([IO.Stream]::Null)
+        $stderr = $process.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
         if (-not $process.WaitForExit(60000)) { throw 'Host tool deadline elapsed. Inspect service state before retrying.' }
         [void]$stdout.GetAwaiter().GetResult(); [void]$stderr.GetAwaiter().GetResult()
         if ($process.ExitCode -ne 0) { throw "Host tool failed: $([IO.Path]::GetFileName($File)) (exit $($process.ExitCode))." }
@@ -199,6 +200,21 @@ function Stop-Host($Settings) {
     }
 }
 
+function Start-HostService($Settings, [string]$Kind) {
+    $service = Get-OwnedService $Settings $Kind
+    if (-not $service) { throw 'A service is not installed. Run Install.' }
+    try {
+        if ($service.Status -eq 'Stopped') {
+            $port = if ($Kind -eq 'Postgres') { $Settings.databasePort } else { $Settings.serverPort }
+            if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) {
+                throw "Port $port is already in use. No unrelated process was stopped."
+            }
+            $service.Start()
+            $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
+        }
+    } finally { Close-Service $service }
+}
+
 function New-WrapperXml($Settings, $Environment, [ValidateSet('Server', 'Postgres')][string]$Kind = 'Server') {
     $xml = New-Object Xml.XmlDocument
     $service = $xml.CreateElement('service'); [void]$xml.AppendChild($service)
@@ -255,7 +271,8 @@ function Test-RustConfiguration([string]$Root, [string]$Executable, [string]$Com
     foreach ($entry in $xml.service.env) { $start.EnvironmentVariables[$entry.name] = $entry.value }
     $process = [Diagnostics.Process]::Start($start)
     try {
-        $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+        $stdout = $process.StandardOutput.BaseStream.CopyToAsync([IO.Stream]::Null)
+        $stderr = $process.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
         if (-not $process.WaitForExit($(if ($Command -eq 'migrate') { 300000 } else { 10000 }))) {
             # This is our maintenance child, never a service or a desktop process.
             # Reap it before recovery can replace binaries or restore its database.
@@ -520,25 +537,11 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
     if (Test-Path -LiteralPath $destination) { [IO.File]::Replace($source, $destination, [NullString]::Value) }
     else { [IO.File]::Move($source, $destination) }
     try {
-        $database = Get-OwnedService $Settings 'Postgres'
-        try {
-            if (@(Get-NetTCPConnection -State Listen -LocalPort $Settings.databasePort -ErrorAction SilentlyContinue).Count) {
-                throw 'Database port is already occupied. No unrelated process was stopped.'
-            }
-            $database.Start()
-            $database.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
-        } finally { Close-Service $database }
+        Start-HostService $Settings 'Postgres'
         # Rust owns migration validation and application. A failure is never hidden
         # by putting an older binary over a database that might have migrated.
         Test-RustConfiguration $root (Join-Path $root 'app/eitmad-server.exe') 'migrate'
-        $server = Get-OwnedService $Settings 'Server'
-        try {
-            if (@(Get-NetTCPConnection -State Listen -LocalPort $Settings.serverPort -ErrorAction SilentlyContinue).Count) {
-                throw 'HTTPS port is already occupied. No unrelated process was stopped.'
-            }
-            $server.Start()
-            $server.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
-        } finally { Close-Service $server }
+        Start-HostService $Settings 'Server'
         Wait-Ready $Settings
         $inventoryStage = Join-Path $root 'app/release.pending.json'
         $Release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $inventoryStage -Encoding UTF8
@@ -553,28 +556,25 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         $cleanupFailures = New-Object 'Collections.Generic.List[string]'
         # Each action is independent: one SCM failure must not skip the other
         # startup-mode reset or either stop attempt. Recheck ownership each time.
-        foreach ($kind in 'Server', 'Postgres') {
-            $service = $null
-            try {
-                $service = Get-OwnedService $Settings $kind
+        foreach ($action in 'demand-start', 'stop') {
+            foreach ($kind in 'Server', 'Postgres') {
+                $service = $null
                 try {
-                    if (-not $service) { throw 'Owned service is missing.' }
-                    Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand')
-                } finally { Close-Service $service }
-            } catch { $cleanupFailures.Add("Set $kind to demand-start: $($_.Exception.Message)") }
-        }
-        foreach ($kind in 'Server', 'Postgres') {
-            $service = $null
-            try {
-                $service = Get-OwnedService $Settings $kind
-                try {
-                    if (-not $service) { throw 'Owned service is missing.' }
-                    if ($service.Status -ne 'Stopped') {
-                        $service.Stop()
-                        $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(60))
-                    }
-                } finally { Close-Service $service }
-            } catch { $cleanupFailures.Add("Stop ${kind}: $($_.Exception.Message)") }
+                    $service = Get-OwnedService $Settings $kind
+                    try {
+                        if (-not $service) { throw 'Owned service is missing.' }
+                        if ($action -eq 'demand-start') {
+                            Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand')
+                        } elseif ($service.Status -ne 'Stopped') {
+                            $service.Stop()
+                            $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(60))
+                        }
+                    } finally { Close-Service $service }
+                } catch {
+                    $operation = if ($action -eq 'demand-start') { "Set $kind to demand-start" } else { "Stop $kind" }
+                    $cleanupFailures.Add("${operation}: $($_.Exception.Message)")
+                }
+            }
         }
         $state = if ($cleanupFailures.Count) {
             'Cleanup failed; stopped/demand-start service state is not confirmed. ' + ($cleanupFailures -join '; ')
@@ -643,18 +643,7 @@ function Invoke-EitmadHost {
                 DataDirectory = Join-Path $root 'data'
             } } finally { Close-Service $server; Close-Service $database }
         } elseif ($Action -eq 'Start') {
-            foreach ($kind in 'Postgres', 'Server') {
-                $service = Get-OwnedService $settings $kind
-                if (-not $service) { throw 'A service is not installed. Run Install.' }
-                try { if ($service.Status -eq 'Stopped') {
-                    $port = if ($kind -eq 'Postgres') { $settings.databasePort } else { $settings.serverPort }
-                    if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) {
-                        throw "Port $port is already in use. No unrelated process was stopped."
-                    }
-                    $service.Start()
-                    $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(60))
-                } } finally { Close-Service $service }
-            }
+            foreach ($kind in 'Postgres', 'Server') { Start-HostService $settings $kind }
             Wait-Ready $settings
             Write-Host 'Host ready: services are running and HTTPS /readyz returned 204.'
         } elseif ($Action -eq 'Stop') {

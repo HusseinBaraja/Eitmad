@@ -64,7 +64,7 @@ $evidence = Join-Path $env:TEMP ('eitmad-backup-' + [Guid]::NewGuid().ToString('
     $plan | Add-Member NoteProperty postgresCredentialFile 'postgres'
     $plan.nodes = @([pscustomobject]@{ id = 'server'; kind = 'server'; volumes = @('C:'); requiredPaths = @('synthetic'); runtimes = @() },
         [pscustomobject]@{ id = 'client'; kind = 'client'; volumes = @('C:'); requiredPaths = @('synthetic'); runtimes = @('synthetic') })
-    function Import-Clixml { param($LiteralPath) New-Object pscredential('synthetic', (ConvertTo-SecureString 'synthetic-pass' -AsPlainText -Force)) }
+    function Import-Clixml { param($LiteralPath) New-Object pscredential($LiteralPath, (ConvertTo-SecureString 'synthetic-pass' -AsPlainText -Force)) }
     function Test-BackupStorage { param($Plan, $Credential) [pscustomobject]@{ machineId = 'off-device' } }
     function Get-SmbMapping {}
     function New-SmbMapping { param($RemotePath, $UserName, $Password, $Persistent, $RequirePrivacy) [pscustomobject]@{ RemotePath = $RemotePath } }
@@ -75,8 +75,15 @@ $evidence = Join-Path $env:TEMP ('eitmad-backup-' + [Guid]::NewGuid().ToString('
     function Invoke-Command {
         param($Session, $FilePath, $ArgumentList)
         $phase = $ArgumentList[0]; $script:phases.Add($Session + ':' + $phase)
-        if ($phase -eq 'Prepare') { return [pscustomobject]@{ machineId = $Session; computer = $Session; boot = 'synthetic' } }
+        if ($phase -eq 'Prepare') {
+            Assert ($ArgumentList.Count -eq 4 -and $ArgumentList[3].UserName -eq 'storage') 'Preparation received an unnecessary database credential.'
+            return [pscustomobject]@{ machineId = $Session; computer = $Session; boot = 'synthetic' }
+        }
         if ($phase -eq 'Capture') {
+            Assert ($null -eq $ArgumentList[3]) 'Capture received an unnecessary storage credential.'
+            if ($Session -eq 'server') {
+                Assert ($ArgumentList[4].UserName -eq 'postgres') 'Server capture lost its database credential.'
+            } else { Assert ($null -eq $ArgumentList[4]) 'Client capture received the database credential.' }
             if ($script:failCapture) { throw 'synthetic storage failure' }
             if ($Session -eq 'server') {
                 $cluster = Join-Path $ArgumentList[2] 'cluster'

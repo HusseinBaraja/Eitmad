@@ -20,7 +20,7 @@ if ($certificate.Subject -cne $publisher -or $certificate.Issuer -cne $publisher
     $certificate.NotBefore -gt (Get-Date) -or $certificate.NotAfter -le (Get-Date)) {
     throw 'Expected a valid public-only Eitmad Local Test certificate.'
 }
-$eku = @($certificate.Extensions | Where-Object Oid -ne $null | Where-Object { $_.Oid.Value -eq '2.5.29.37' })
+$eku = @($certificate.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.37' })
 $constraints = @($certificate.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.19' })
 if ($eku.Count -ne 1 -or @($eku[0].EnhancedKeyUsages | Where-Object Value -eq '1.3.6.1.5.5.7.3.3').Count -ne 1 -or
     $eku[0].EnhancedKeyUsages.Count -ne 1 -or $constraints.Count -ne 1 -or $constraints[0].CertificateAuthority) {

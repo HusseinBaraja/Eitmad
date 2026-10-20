@@ -131,7 +131,6 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'release-pending.json'))) 'Successful recovery retained the pending gate.'
     Assert ((Get-Content -LiteralPath (Join-Path $root 'app/release.json') -Raw | ConvertFrom-Json).version -ceq '1.1.0') 'Recovery inventory is incorrect.'
     $pendingFile = Join-Path $root 'release-pending.json'
-    $outcomes = New-Object 'Collections.Generic.List[object]'
     foreach ($scenario in @(
         @{name='Pending-marker removal failure'; serverAuto=$false; demand=''; stop=''},
         @{name='Server automatic-start configuration failure'; serverAuto=$true; demand=''; stop=''},
@@ -176,9 +175,6 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
         } else {
             Assert ($failure.Exception.Message.Contains('Services are stopped with demand-start.')) 'Successful cleanup did not report its result.'
         }
-        $outcomes.Add([pscustomobject]@{outcome=$scenario.name; postgresMode=$script:startupModes.EitmadReleaseProofPostgres;
-            postgresState=$script:services.Postgres.Status; serverMode=$script:startupModes.EitmadReleaseProofServer;
-            serverState=$script:services.Server.Status; pendingMarker=(Test-Path -LiteralPath $pendingFile)})
         $eventCount = $script:events.Count
         Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false } 'exact interrupted release'
         Assert ($script:events.Count -eq $eventCount -and [IO.File]::ReadAllText($pendingFile) -ceq $pendingBytes) 'Wrong-release repair changed pending recovery state.'
@@ -190,10 +186,6 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
             $script:startupModes.EitmadReleaseProofServer -eq 'delayed-auto') 'Successful finalization changed intended automatic startup modes.'
         Assert ($script:services.Postgres.Status -eq 'Running' -and $script:services.Server.Status -eq 'Running') 'Successful finalization stopped a service.'
     }
-    $outcomes.Add([pscustomobject]@{outcome='Successful finalization'; postgresMode=$script:startupModes.EitmadReleaseProofPostgres;
-        postgresState=$script:services.Postgres.Status; serverMode=$script:startupModes.EitmadReleaseProofServer;
-        serverState=$script:services.Server.Status; pendingMarker=(Test-Path -LiteralPath $pendingFile)})
-    $outcomes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Evidence 'finalization-outcomes.json') -Encoding UTF8
     Assert ((Get-Content -LiteralPath (Join-Path $root 'releases/1.0.0.0/release.json') -Raw | ConvertFrom-Json).version -ceq '1.0.0') 'Release changed the prior inventory.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'releases/1.0.0.0/eitmad-server.exe')) -ceq 'release one') 'Release changed the prior binary.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release two') 'Finalization changed the target binary.'

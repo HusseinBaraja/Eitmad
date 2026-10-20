@@ -167,7 +167,7 @@ function Invoke-BackupGeneration($Plan) {
             $node | Add-Member NoteProperty share $Plan.share -Force
             # Register before Prepare so partial preparation is also released.
             $prepared += $node
-            $identity = Invoke-Command -Session $sessions[$node.id] -FilePath $worker -ArgumentList 'Prepare', $node, '', $storage, $postgres
+            $identity = Invoke-Command -Session $sessions[$node.id] -FilePath $worker -ArgumentList 'Prepare', $node, '', $storage
             if ($identity.machineId -eq $storageIdentity.machineId -or $identity.machineId -in @($identities | ForEach-Object machineId)) {
                 throw 'Backup storage and participant computers must be independent machines.'
             }
@@ -187,7 +187,8 @@ function Invoke-BackupGeneration($Plan) {
         foreach ($node in $Plan.nodes) {
             $target = Join-Path $destination $node.id
             [void][IO.Directory]::CreateDirectory($target)
-            $capture = Invoke-Command -Session $sessions[$node.id] -FilePath $worker -ArgumentList 'Capture', $node, $target, $storage, $postgres
+            $databaseCredential = if ($node.kind -eq 'server') { $postgres } else { $null }
+            $capture = Invoke-Command -Session $sessions[$node.id] -FilePath $worker -ArgumentList 'Capture', $node, $target, $null, $databaseCredential
             if (-not $capture.imageCatalogVerified) { throw 'Missing Windows image catalog.' }
         }
         foreach ($node in $Plan.nodes) {

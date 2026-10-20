@@ -1,7 +1,6 @@
 using Eitmad.LanCertificate;
 
-if (args.Length < 2 || args[0] is not ("initialize" or "renew") ||
-    (args[0] == "initialize" ? args.Length != 3 : args.Length != 2))
+if (args is not ["initialize", _, _] and not ["renew", _])
 {
     Console.Error.WriteLine("usage: Eitmad.LanCertificate initialize <new-directory> <DNS-name-or-IPv4> | renew <directory>");
     return 1;
