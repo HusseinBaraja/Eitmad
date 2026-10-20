@@ -31,7 +31,7 @@ use std::{
 };
 use uuid::Uuid;
 use zeroize::{Zeroize as _, Zeroizing};
-mod pairing;
+pub(super) mod pairing;
 
 pub struct DesktopEnrollment {
     directory: PathBuf,
@@ -63,7 +63,15 @@ impl DesktopEnrollment {
         let retained = DesktopConnectionSettings::load(&self.directory)?;
         let inputs = Self::inputs(request, retained.as_ref())?;
         self.check_paired_inputs(&inputs)?;
-        let trust = read_trust(Path::new(&inputs.trusted_certificate))?;
+        let paired = self.paired_connection()?;
+        let trust_path = Path::new(
+            paired
+                .as_ref()
+                .map_or(&inputs.trusted_certificate, |paired| {
+                    &paired.trusted_certificate
+                }),
+        );
+        let trust = read_trust(trust_path)?;
         let config = DirectServerConfig::new(
             &inputs.endpoint,
             ScopeRef {
@@ -73,7 +81,7 @@ impl DesktopEnrollment {
             SchemaId::parse("eitmad.schema.desktop-enrollment.v1")
                 .map_err(|_| authentication_failure())?,
             1,
-            Path::new(&inputs.trusted_certificate),
+            trust_path,
         )?;
         let (device, route) = self.device(retained.as_ref())?;
         let key = self.signing_key(device, &route)?;
@@ -123,6 +131,10 @@ impl DesktopEnrollment {
             organization: inputs.organization,
             branch: inputs.branch,
             tenant_code: Some(inputs.tenant_code),
+            server_id: config
+                .recovery
+                .as_ref()
+                .map(|retained| retained.server_id()),
         };
         atomic_write(
             &self.directory.join(DesktopConnectionSettings::FILE_NAME),
@@ -233,6 +245,9 @@ impl DesktopEnrollment {
                 serde_json::from_slice::<DeviceId>(&bytes).map_err(|_| authentication_failure())?
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if retained.is_some() || self.paired_connection()?.is_some() {
+                    return Err(authentication_failure());
+                }
                 let device = existing.unwrap_or_else(|| DeviceId::new(Uuid::new_v4()));
                 atomic_write(
                     &path,
@@ -281,6 +296,15 @@ impl DesktopEnrollment {
             let seed = if let Some(seed) = self.imported_device_seed(device, route)? {
                 seed
             } else {
+                if DesktopConnectionSettings::load(&self.directory)?.is_some()
+                    || self.paired_connection()?.is_some()
+                    || self
+                        .store
+                        .has_local_installation()
+                        .map_err(|_| authentication_failure())?
+                {
+                    return Err(authentication_failure());
+                }
                 let mut seed = Zeroizing::new([0_u8; 32]);
                 rand::rng().fill_bytes(seed.as_mut());
                 seed
@@ -441,7 +465,7 @@ fn exchange<T: DeserializeOwned>(
     let deadline = Instant::now() + super::CONNECT_TIMEOUT + super::IO_TIMEOUT;
     let mut url = config.endpoint.clone();
     url.set_path(route);
-    let mut socket = super::connect_tls(&url, &config.tls, deadline)?;
+    let mut socket = config.connect(&url, deadline)?;
     let body = Zeroizing::new(serde_json::to_vec(input).map_err(|_| authentication_failure())?);
     let mut headers = Zeroizing::new(format!(
         "{} {route} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n",

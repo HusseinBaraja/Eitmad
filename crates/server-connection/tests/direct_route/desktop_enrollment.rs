@@ -152,7 +152,7 @@ fn request(connection: Option<DesktopEnrollmentSettings>) -> DesktopSignInReques
 async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let database = env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
-    let server = provision_server(
+    let mut server = provision_server(
         &database,
         &required_path("EITMAD_DIRECT_TEST_CERTIFICATE"),
         &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
@@ -205,6 +205,7 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
         "Interrupted setup must retain device identity"
     );
     assert_retained_recovery(&first, &server, &inputs).await;
+    assert_server_restart(&first, &mut server).await;
     let second = Installation::new();
     second.pair(&server).await;
     assert!(second.sign_in(request(Some(inputs))).await.unwrap());
@@ -217,6 +218,23 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
     server
         .handle
         .graceful_shutdown(Some(Duration::from_secs(1)));
+}
+
+async fn assert_server_restart(installation: &Installation, server: &mut ProvisionedServer) {
+    server.handle.handle.shutdown();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while std::net::TcpStream::connect_timeout(&server.address, Duration::from_millis(25)).is_ok() {
+        assert!(Instant::now() < deadline, "Synthetic server did not stop");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    server.handle = start_server(
+        server.address,
+        server.state.clone(),
+        &required_path("EITMAD_DIRECT_TEST_CERTIFICATE"),
+        &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
+    )
+    .await;
+    assert_server_access(installation, &local_sign_in(installation), true).await;
 }
 
 fn inputs_for_shell(server: &ProvisionedServer) -> DesktopEnrollmentSettings {

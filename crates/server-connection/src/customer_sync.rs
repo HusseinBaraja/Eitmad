@@ -345,6 +345,7 @@ mod tests {
             },
         };
         let config = DirectServerConfig {
+            recovery: None,
             endpoint: url::Url::parse("https://127.0.0.1:443").unwrap(),
             scope: actor.scope.clone(),
             schema_id: SchemaId::parse(CUSTOMER_SCHEMA_ID).unwrap(),

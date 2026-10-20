@@ -584,6 +584,7 @@ fn persist_connection(
     credential: SecretId,
 ) -> Result<()> {
     let connection = eitmad_server_connection::DesktopConnectionSettings {
+        server_id: None,
         version: 1,
         endpoint: settings.endpoint.clone(),
         trusted_certificate: checked(

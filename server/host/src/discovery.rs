@@ -18,6 +18,7 @@ impl Advertisement {
         })
         .await??;
         let (stop, cancellation) = watch::channel(false);
+        let boot = uuid::Uuid::new_v4();
         let task = tokio::spawn(async move {
             if !advertise || listen.ip().is_loopback() {
                 return;
@@ -26,7 +27,7 @@ impl Advertisement {
                 if *cancellation.borrow() {
                     return;
                 }
-                if eitmad_server_discovery::advertise(id, listen, cancellation.clone())
+                if eitmad_server_discovery::advertise(id, listen, boot, cancellation.clone())
                     .await
                     .is_ok()
                 {
@@ -39,9 +40,42 @@ impl Advertisement {
         Ok(Self { stop, task })
     }
 }
+
+/// Paired LAN servers retain their TLS origin while DHCP changes the transport address.
+/// The installed Private + `LocalSubnet` firewall rules remain the ingress boundary.
+pub(crate) fn listener_address(listen: SocketAddr, paired: bool) -> SocketAddr {
+    if paired && listen.is_ipv4() && !listen.ip().is_loopback() {
+        SocketAddr::new(std::net::Ipv4Addr::UNSPECIFIED.into(), listen.port())
+    } else {
+        listen
+    }
+}
+
 impl Drop for Advertisement {
     fn drop(&mut self) {
         let _ = self.stop.send(true);
         self.task.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn paired_lan_listener_survives_address_changes_without_broadening_loopback() {
+        for ip in ["192.168.40.2", "192.168.40.7"] {
+            assert_eq!(
+                listener_address(format!("{ip}:58443").parse().unwrap(), true),
+                "0.0.0.0:58443".parse().unwrap()
+            );
+        }
+        for (address, paired) in [
+            ("127.0.0.1:443", true),
+            ("192.168.40.2:443", false),
+            ("[::1]:443", true),
+        ] {
+            let address = address.parse().unwrap();
+            assert_eq!(listener_address(address, paired), address);
+        }
     }
 }

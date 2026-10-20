@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "Rust server discovery maintainer"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "discovery protocol, identity location, network policy, IPC, or firewall rules change"
 keywords:
@@ -23,7 +23,7 @@ keywords:
 
 Each server creates a random UUID in `server-identity` inside its configured update-manifest directory. The installed service already has write permission there. The signed-manifest loader ignores this file because it has no `.json` extension. Exclusive creation and `sync_all` persist the identity. Restarts and binary upgrades retain it. An existing invalid, empty, or interrupted file fails startup without replacement. Preserve it for recovery. Uninstall retains it with all other server files. Do not copy the file to a second active installation.
 
-Each responder also creates a process nonce. Multiple addresses with the same identity and nonce represent one server on multiple interfaces. Different nonces claiming the same identity mark every candidate for that identity as conflicted. This detects accidental copied identities; it does not authenticate a server. A malicious peer can claim any identity or cause a conflict.
+Each host responder also creates a process nonce. Adapter and socket retries in that host retain the nonce; a host restart creates a new one. Multiple addresses with the same identity and nonce represent one server on multiple interfaces. Different nonces claiming the same identity mark every candidate for that identity as conflicted. This detects accidental copied identities; it does not authenticate a server. A malicious peer can claim any identity or cause a conflict.
 
 Discovery never installs a CA, reads secrets, enrolls a device, changes a saved endpoint, or grants access. Candidates contain only the claimed UUID, observed IPv4 source address, HTTPS port, expiry, and conflict flag. The address comes from the received datagram, not an advertised hostname or URL. There is no trust anchor, account, tenant, or customer payload. Pairing must independently authenticate identity, trust, TLS name, and scope before saving connection settings. Current [TLS and sign-in checks](../../operations/setup-lan-server.md) remain required.
 
@@ -62,7 +62,9 @@ To cancel, send `eitmad.ipc.cancel-server-discovery.v1` with the active scan's s
 
 ## Installation and focused verification
 
-New Windows service installations bind HTTPS on IPv4 wildcard so DHCP and interface changes do not require a new listener address. The saved endpoint remains the TLS readiness/diagnostic endpoint. Existing retained service configuration is not rewritten. A certificate must still cover the authenticated TLS name; discovery cannot solve a certificate-name mismatch. [Private LAN firewall setup](../../operations/run-windows-host-services.md#connect-the-second-pc-yourself) permits only the installed server executable, the configured TCP HTTPS port, and UDP 58444. Both rules use Private + LocalSubnet and block edge traversal. PostgreSQL stays on loopback. Switching to exact-client diagnostic access removes the discovery rule; uninstall removes both owned rules.
+New Windows service installations bind HTTPS on IPv4 wildcard so DHCP and interface changes do not require a new listener address. At runtime, a pairing-enabled IPv4 LAN host also uses wildcard binding when retained configuration names an old LAN address. Explicit loopback and unpaired diagnostic listeners keep their configured binding. HTTPS binds successfully before discovery starts, and offers use its actual port. The saved endpoint remains the canonical TLS readiness/diagnostic endpoint. Existing retained service configuration is not rewritten. A certificate must still cover the authenticated TLS name; discovery cannot solve a certificate-name mismatch. [Private LAN firewall setup](../../operations/run-windows-host-services.md#connect-the-second-pc-yourself) permits only the installed server executable, the configured TCP HTTPS port, and UDP 58444. Both rules use Private + LocalSubnet and block edge traversal. PostgreSQL stays on loopback. Switching to exact-client diagnostic access removes the discovery rule; uninstall removes both owned rules.
+
+[Paired connection recovery](server-authority.md#recover-a-paired-connection-after-restart-or-dhcp-changes) consumes these untrusted candidates without changing retained enrollment. It authenticates the original TLS name, chain, expiry, and server identity before sending credentials. Discovery supplies only a possible address and port.
 
 Run `cargo test --locked -p eitmad-server-discovery` for isolated identity persistence, copied identities, expiry, malformed offers, interface changes, cancellation, and a real loopback UDP exchange with port cleanup. Run `cargo test --locked -p eitmad-engine-runtime local_ipc` for local bootstrap and asynchronous IPC behavior. Run `powershell -NoProfile -File deploy/windows/test-host.ps1` for mocked firewall scope, ownership, preview, and uninstall. Run `powershell -NoProfile -File deploy/windows/test-discovery-interfaces.ps1` for synthetic Windows profile classification. These checks do not change the live installation or prove effective LAN firewall policy.
 

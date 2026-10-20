@@ -22,6 +22,8 @@ pub struct DesktopConnectionSettings {
     pub branch: ScopeId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tenant_code: Option<eitmad_contracts::server::TenantCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_id: Option<eitmad_contracts::discovery::ServerInstallationId>,
 }
 
 impl DesktopConnectionSettings {
@@ -52,6 +54,26 @@ impl DesktopConnectionSettings {
         }
         if settings.trusted_certificate.is_relative() {
             settings.trusted_certificate = directory.join(settings.trusted_certificate);
+        }
+        if let Some(id) = settings.server_id {
+            let receipt: eitmad_contracts::pairing::PairingReceipt = serde_json::from_slice(
+                &super::desktop_enrollment::pairing::read_pairing_file(
+                    &directory.join("desktop-pairing.json"),
+                )
+                .map_err(|_| super::encryption_failure())?,
+            )
+            .map_err(|_| super::encryption_failure())?;
+            let offer = receipt.binding.offer;
+            if id != offer.identity.server_id
+                || settings.endpoint != offer.identity.endpoint
+                || settings.organization != offer.organization_id
+                || settings.branch != offer.branch_id
+                || settings.tenant_code.as_ref() != Some(&offer.tenant_code)
+                || super::desktop_enrollment::read_trust(&settings.trusted_certificate)?
+                    != offer.identity.public_ca_pem.as_bytes()
+            {
+                return Err(super::encryption_failure());
+            }
         }
         Ok(Some(settings))
     }

@@ -349,6 +349,7 @@ fn bootstrap(candidate: &DiscoveredServer) -> Result<DirectServerConfig, Transpo
             .map_err(|_| authentication_failure())?,
         schema_version: 1,
         tls: Arc::new(tls),
+        recovery: None,
     })
 }
 
@@ -398,7 +399,7 @@ impl rustls::client::danger::ServerCertVerifier for PakeBootstrapVerifier {
     }
 }
 
-fn read_pairing_file(path: &Path) -> std::io::Result<Vec<u8>> {
+pub(crate) fn read_pairing_file(path: &Path) -> std::io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     fs::File::open(path)?.take(32_769).read_to_end(&mut bytes)?;
     if bytes.len() > 32_768 {

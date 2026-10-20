@@ -80,6 +80,16 @@ fn identity(state: &ServerState) -> Result<&PairingIdentity, ApiError> {
         .as_ref()
         .ok_or_else(ApiError::unavailable)
 }
+
+// Public installation identity. This grants no session or product access.
+pub(super) async fn server_identity(
+    State(state): State<ServerState>,
+) -> Result<impl IntoResponse, ApiError> {
+    Ok((
+        [("Cache-Control", "no-store")],
+        Json(identity(&state)?.clone()),
+    ))
+}
 fn map_error(error: eitmad_control_plane::PairingError) -> ApiError {
     match error {
         eitmad_control_plane::PairingError::Denied => {

@@ -168,11 +168,13 @@ async fn cancelled(cancellation: &mut watch::Receiver<bool>) {
 pub async fn advertise(
     server_id: ServerInstallationId,
     listen: SocketAddr,
+    boot: Uuid,
     cancellation: watch::Receiver<bool>,
 ) -> io::Result<()> {
     respond(
         server_id,
         listen,
+        boot,
         &mut WindowsInterfaces,
         cancellation,
         DISCOVERY_PORT,
@@ -183,11 +185,11 @@ pub async fn advertise(
 async fn respond(
     server_id: ServerInstallationId,
     listen: SocketAddr,
+    boot: Uuid,
     provider: &mut impl InterfaceProvider,
     mut cancellation: watch::Receiver<bool>,
     discovery_port: u16,
 ) -> io::Result<()> {
-    let boot = Uuid::new_v4();
     let mut active: Option<(Vec<Interface>, UdpSocket)> = None;
     loop {
         let interfaces = tokio::select! {

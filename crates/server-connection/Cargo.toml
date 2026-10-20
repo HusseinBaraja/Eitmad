@@ -11,6 +11,8 @@ workspace = true
 
 [dependencies]
 eitmad-pairing = { path = "../pairing" }
+eitmad-server-discovery = { path = "../server-discovery" }
+tokio = { version = "=1.49.0", features = ["rt", "time", "sync"] }
 eitmad-engine-runtime = { path = "../engine-runtime" }
 argon2 = "=0.5.3"
 rand = "=0.9.3"

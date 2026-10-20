@@ -124,6 +124,7 @@ async fn real_udp_scan_and_responder_cleanup_use_only_isolated_loopback() {
         respond(
             id,
             "0.0.0.0:58443".parse().unwrap(),
+            Uuid::new_v4(),
             &mut Profiles(vec![loopback_interface()]),
             cancellation,
             port,
@@ -210,6 +211,7 @@ async fn responder_rechecks_profiles_before_reply_and_releases_socket_on_failure
         respond(
             ServerInstallationId::new(Uuid::new_v4()),
             "0.0.0.0:58443".parse().unwrap(),
+            Uuid::new_v4(),
             &mut ChangingProfiles {
                 calls: 0,
                 replacement: Vec::new(),
@@ -311,6 +313,7 @@ async fn responder_cancels_without_binding_on_non_private_networks() {
     respond(
         ServerInstallationId::new(Uuid::new_v4()),
         "0.0.0.0:58443".parse().unwrap(),
+        Uuid::new_v4(),
         &mut Profiles(Vec::new()),
         cancellation,
         DISCOVERY_PORT,
@@ -318,4 +321,75 @@ async fn responder_cancels_without_binding_on_non_private_networks() {
     .await
     .unwrap();
     drop(stop);
+}
+
+struct MutableProfiles(std::sync::Arc<std::sync::Mutex<Vec<Interface>>>);
+impl InterfaceProvider for MutableProfiles {
+    async fn snapshot(&mut self) -> io::Result<Vec<Interface>> {
+        Ok(self.0.lock().unwrap().clone())
+    }
+}
+
+#[tokio::test]
+async fn responder_rebinds_after_private_address_change_with_the_same_process_nonce() {
+    let port = free_port().await;
+    let id = ServerInstallationId::new(Uuid::new_v4());
+    let boot = Uuid::new_v4();
+    let profiles = std::sync::Arc::new(std::sync::Mutex::new(vec![loopback_interface()]));
+    let mut provider = MutableProfiles(profiles.clone());
+    let (stop, cancellation) = watch::channel(false);
+    let server = tokio::spawn(async move {
+        respond(
+            id,
+            "0.0.0.0:58443".parse().unwrap(),
+            boot,
+            &mut provider,
+            cancellation,
+            port,
+        )
+        .await
+    });
+    let client = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    for address in [Ipv4Addr::LOCALHOST, Ipv4Addr::new(127, 0, 0, 2)] {
+        *profiles.lock().unwrap() = vec![Interface {
+            address,
+            ..loopback_interface()
+        }];
+        let nonce = Uuid::new_v4();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            client
+                .send_to(
+                    &wire::encode(&Packet::Query { nonce }),
+                    (Ipv4Addr::LOCALHOST, port),
+                )
+                .await
+                .unwrap();
+            let mut bytes = [0; MAX_PACKET];
+            if let Ok(Ok((length, _))) =
+                tokio::time::timeout(Duration::from_millis(50), client.recv_from(&mut bytes)).await
+            {
+                let Some(Packet::Offer {
+                    nonce: echoed,
+                    server_id,
+                    boot: observed,
+                    ..
+                }) = wire::decode(&bytes[..length])
+                else {
+                    panic!("expected offer");
+                };
+                assert_eq!((echoed, server_id, observed), (nonce, id, boot));
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "responder did not recover its interface"
+            );
+        }
+    }
+    stop.send(true).unwrap();
+    server.await.unwrap().unwrap();
+    UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))
+        .await
+        .unwrap();
 }

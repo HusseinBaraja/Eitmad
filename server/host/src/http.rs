@@ -242,6 +242,7 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/pairing/offer", get(pairing::offer))
         .route("/v1/pairing/start", post(pairing::start))
         .route("/v1/pairing/complete", post(pairing::complete))
+        .route("/v1/server-identity", get(pairing::server_identity))
         .route("/v1/accounts/list", post(list_accounts))
         .route("/v1/accounts/watch", post(watch_accounts))
         .route("/v1/accounts/transition", post(change_account))
@@ -341,13 +342,8 @@ pub async fn run(
         state = state.with_pairing(identity);
     }
     let application = router(state.clone());
-    let address = config.listen;
-    let _advertisement = crate::discovery::Advertisement::start(
-        &config.update_manifest_directory,
-        address,
-        config.tls_certificate.is_some(),
-    )
-    .await?;
+    let address =
+        crate::discovery::listener_address(config.listen, state.pairing_identity.is_some());
     if let (Some(certificate), Some(private_key)) =
         (&config.tls_certificate, &config.tls_private_key)
     {
@@ -355,6 +351,14 @@ pub async fn run(
         let _ = rustls::crypto::ring::default_provider().install_default();
         let tls =
             axum_server::tls_rustls::RustlsConfig::from_pem_file(certificate, private_key).await?;
+        let listener = std::net::TcpListener::bind(address)?;
+        listener.set_nonblocking(true)?;
+        let _advertisement = crate::discovery::Advertisement::start(
+            &config.update_manifest_directory,
+            listener.local_addr()?,
+            true,
+        )
+        .await?;
         let handle = axum_server::Handle::new();
         let shutdown_handle = handle.clone();
         let shutdown_state = state.clone();
@@ -362,7 +366,7 @@ pub async fn run(
             shutdown_signal(shutdown_state).await;
             shutdown_handle.graceful_shutdown(Some(std::time::Duration::from_secs(30)));
         });
-        axum_server::bind_rustls(address, tls)
+        axum_server::from_tcp_rustls(listener, tls)?
             .handle(handle)
             .serve(application.into_make_service())
             .await?;

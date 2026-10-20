@@ -1257,6 +1257,7 @@ dependencies = [
  "eitmad-secret-storage",
  "eitmad-server",
  "eitmad-server-audit",
+ "eitmad-server-discovery",
  "eitmad-storage",
  "eitmad-sync",
  "eitmad-sync-plane",
