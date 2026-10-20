@@ -108,15 +108,7 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
         &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
     )
     .await;
-    let inputs = DesktopEnrollmentSettings {
-        endpoint: format!("https://localhost:{}/", server.address.port()),
-        trusted_certificate: required_path("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE")
-            .to_string_lossy()
-            .into_owned(),
-        tenant_code: TenantCode::parse("direct-test").unwrap(),
-        organization: OrganizationId::new(server.scope.id.value()),
-        branch: server.branch_scope.id,
-    };
+    let inputs = inputs_for_shell(&server);
     let first = Installation::new();
     let mut wrong_trust = inputs.clone();
     wrong_trust.trusted_certificate = required_path("EITMAD_DIRECT_TEST_WRONG_CERTIFICATE")
@@ -180,6 +172,23 @@ fn inputs_for_shell(server: &ProvisionedServer) -> DesktopEnrollmentSettings {
     }
 }
 
+fn windows_shell_test(name: &str) -> std::process::Command {
+    let mut command = std::process::Command::new("dotnet");
+    command
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+        .args([
+            "test",
+            "shells/windows/tests/Eitmad.WindowsShell.Tests.csproj",
+            "--configuration",
+            "Release",
+            "--no-build",
+            "--nologo",
+            "--filter",
+        ])
+        .arg(format!("FullyQualifiedName~{name}"));
+    command
+}
+
 async fn verify_windows_shell(inputs: &DesktopEnrollmentSettings) {
     let Some(engine) = env::var_os("EITMAD_DESKTOP_ENROLLMENT_ENGINE") else {
         return;
@@ -188,18 +197,7 @@ async fn verify_windows_shell(inputs: &DesktopEnrollmentSettings) {
     let directory = desktop.directory.path().to_owned();
     let input = serde_json::to_string(inputs).unwrap();
     let result = tokio::task::spawn_blocking(move || {
-        std::process::Command::new("dotnet")
-            .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-            .args([
-                "test",
-                "shells/windows/tests/Eitmad.WindowsShell.Tests.csproj",
-                "--configuration",
-                "Release",
-                "--no-build",
-                "--nologo",
-                "--filter",
-                "FullyQualifiedName~FreshDesktopEnrollsReopensAndReauthenticates",
-            ])
+        windows_shell_test("FreshDesktopEnrollsReopensAndReauthenticates")
             .env("EITMAD_DESKTOP_ENROLLMENT_INPUT", input)
             .env("EITMAD_DESKTOP_ENROLLMENT_ENGINE", engine)
             .env("EITMAD_DESKTOP_ENROLLMENT_DIRECTORY", directory)
@@ -406,18 +404,7 @@ async fn shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship
     let engine =
         env::var_os("EITMAD_DESKTOP_ENROLLMENT_ENGINE").expect("set the current engine executable");
     let mut shell = tokio::task::spawn_blocking(move || {
-        std::process::Command::new("dotnet")
-            .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-            .args([
-                "test",
-                "shells/windows/tests/Eitmad.WindowsShell.Tests.csproj",
-                "--configuration",
-                "Release",
-                "--no-build",
-                "--nologo",
-                "--filter",
-                "FullyQualifiedName~TwoEnginesShareAccountsAndRevokeCachedAccessWithoutRestart",
-            ])
+        windows_shell_test("TwoEnginesShareAccountsAndRevokeCachedAccessWithoutRestart")
             .env("EITMAD_SHARED_ACCOUNT_INPUT", inputs)
             .env("EITMAD_SHARED_ACCOUNT_DIRECTORY", signal_path)
             .env("EITMAD_SHARED_ACCOUNT_FIRST", first_path)
