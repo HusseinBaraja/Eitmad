@@ -119,33 +119,23 @@ impl QuotationDraftService {
             Ok(change) => change,
             Err(e) => {
                 if e != E::Unavailable {
+                    let (outcome, code) = match e {
+                        E::Denied => (AuditOutcome::Denied, "eitmad.error.authorization-denied.v1"),
+                        E::Conflict { .. } | E::UnresolvedConflict => (
+                            AuditOutcome::Conflict,
+                            "eitmad.error.quotation-draft-conflict.v1",
+                        ),
+                        _ => (
+                            AuditOutcome::Invalid,
+                            "eitmad.error.quotation-draft-invalid.v1",
+                        ),
+                    };
                     self.store.finish_quotation_draft_resolution(
                         actor,
                         command.draft_id,
                         command.branch_id,
                         &super::drafts::audit(context, operation, Some(command.draft_id))
-                            .with_outcome(
-                                if e == E::Denied {
-                                    AuditOutcome::Denied
-                                } else if matches!(e, E::Conflict { .. } | E::UnresolvedConflict) {
-                                    AuditOutcome::Conflict
-                                } else {
-                                    AuditOutcome::Invalid
-                                },
-                                Some(
-                                    if e == E::Denied {
-                                        "eitmad.error.authorization-denied.v1"
-                                    } else if matches!(
-                                        e,
-                                        E::Conflict { .. } | E::UnresolvedConflict
-                                    ) {
-                                        "eitmad.error.quotation-draft-conflict.v1"
-                                    } else {
-                                        "eitmad.error.quotation-draft-invalid.v1"
-                                    }
-                                    .into(),
-                                ),
-                            ),
+                            .with_outcome(outcome, Some(code.into())),
                     )?;
                 }
                 return Err(e);

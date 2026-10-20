@@ -58,7 +58,7 @@ public sealed class CustomerClient : IAsyncDisposable
         var trimmed = term.Trim();
         if (!CustomerInputValidation.IsSearchTermValid(trimmed))
             return CustomerResult<CustomerPage>.Failed(CustomerFailureKind.Validation);
-        try
+        return await RequestAsync(async () =>
         {
             var response = await engine.QueryAsync(Query.ForCustomerSearch(new SearchCustomers
             {
@@ -66,51 +66,19 @@ public sealed class CustomerClient : IAsyncDisposable
                 Limit = SearchLimit,
                 After = after!,
             }), cancellationToken);
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && response.Outcome.Payload.AsCustomers() is { } page
-                ? CustomerResult<CustomerPage>.Success(page)
-                : CustomerResult<CustomerPage>.Failed(MapFailure(response.Outcome.Payload.Code), ValidationFields(response.Outcome.Payload.Detail));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (EngineIpcException error)
-        {
-            return CustomerResult<CustomerPage>.Failed(
-                MapFailure(error.ContractError?.Code), ValidationFields(error.ContractError?.Detail));
-        }
-        catch (Exception error) when (error is IOException or InvalidOperationException)
-        {
-            return CustomerResult<CustomerPage>.Failed(CustomerFailureKind.Unavailable);
-        }
+            return Result(response.Outcome.Status, response.Outcome.Payload.AsCustomers(),
+                response.Outcome.Payload.Code, response.Outcome.Payload.Detail);
+        }, cancellationToken);
     }
 
-    public async Task<CustomerResult<Customer>> GetAsync(Guid customerId, CancellationToken cancellationToken = default, Guid? branchId = null)
-    {
-        try
+    public Task<CustomerResult<Customer>> GetAsync(Guid customerId, CancellationToken cancellationToken = default, Guid? branchId = null) =>
+        RequestAsync(async () =>
         {
             var response = await engine.QueryAsync(
                 Query.ForCustomerGet(new GetCustomer { CustomerId = customerId, BranchId = branchId }), cancellationToken);
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && response.Outcome.Payload.AsCustomer() is { } customer
-                ? CustomerResult<Customer>.Success(customer)
-                : CustomerResult<Customer>.Failed(MapFailure(response.Outcome.Payload.Code), ValidationFields(response.Outcome.Payload.Detail));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (EngineIpcException error)
-        {
-            return CustomerResult<Customer>.Failed(
-                MapFailure(error.ContractError?.Code), ValidationFields(error.ContractError?.Detail));
-        }
-        catch (Exception error) when (error is IOException or InvalidOperationException)
-        {
-            return CustomerResult<Customer>.Failed(CustomerFailureKind.Unavailable);
-        }
-    }
+            return Result(response.Outcome.Status, response.Outcome.Payload.AsCustomer(),
+                response.Outcome.Payload.Code, response.Outcome.Payload.Detail);
+        }, cancellationToken);
 
     public Task<CustomerResult<Customer>> CreateAsync(
         string name,
@@ -147,52 +115,36 @@ public sealed class CustomerClient : IAsyncDisposable
 
     public Task ActivateAsync(CancellationToken cancellationToken = default) => changes.ActivateAsync(cancellationToken);
 
-    public async Task<CustomerResult<CustomerHistoryPage>> HistoryAsync(Customer customer,
-        CustomerHistoryPage? previous = null, CancellationToken cancellationToken = default)
-    {
-        try {
+    public Task<CustomerResult<CustomerHistoryPage>> HistoryAsync(Customer customer,
+        CustomerHistoryPage? previous = null, CancellationToken cancellationToken = default) =>
+        RequestAsync(async () =>
+        {
             var response = await engine.QueryAsync(Query.ForCustomerHistory(new GetCustomerHistory {
                 Customer = new GetCustomer { CustomerId = customer.Id, BranchId = customer.Scope.Id },
                 IncludeQuotations = previous is null || previous.QuotationsNext is not null,
                 IncludeOrders = previous is null || previous.OrdersNext is not null,
                 QuotationsAfter = previous?.QuotationsNext, OrdersAfter = previous?.OrdersNext,
             }), cancellationToken);
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded && response.Outcome.Payload.AsCustomerHistory() is { } page
-                ? CustomerResult<CustomerHistoryPage>.Success(page)
-                : CustomerResult<CustomerHistoryPage>.Failed(MapFailure(response.Outcome.Payload.Code));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (EngineIpcException error) { return CustomerResult<CustomerHistoryPage>.Failed(MapFailure(error.ContractError?.Code)); }
-        catch (Exception error) when (error is IOException or InvalidOperationException) { return CustomerResult<CustomerHistoryPage>.Failed(CustomerFailureKind.Unavailable); }
-    }
+            return Result(response.Outcome.Status, response.Outcome.Payload.AsCustomerHistory(), response.Outcome.Payload.Code);
+        }, cancellationToken);
 
     public Task DeactivateAsync() => changes.DeactivateAsync();
 
-    public async Task<CustomerResult<CustomerConflictPage>> ConflictsAsync(Customer customer, Guid? after = null, CancellationToken cancellationToken = default)
-    {
-        try {
+    public Task<CustomerResult<CustomerConflictPage>> ConflictsAsync(Customer customer, Guid? after = null, CancellationToken cancellationToken = default) =>
+        RequestAsync(async () =>
+        {
             var response = await engine.QueryAsync(Query.ForCustomerConflicts(new GetCustomerConflicts {
                 Customer = new GetCustomer { CustomerId = customer.Id, BranchId = customer.Scope.Id }, After = after,
             }), cancellationToken);
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded && response.Outcome.Payload.AsCustomerConflicts() is { } page
-                ? CustomerResult<CustomerConflictPage>.Success(page) : CustomerResult<CustomerConflictPage>.Failed(MapFailure(response.Outcome.Payload.Code));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (EngineIpcException e) { return CustomerResult<CustomerConflictPage>.Failed(MapFailure(e.ContractError?.Code)); }
-        catch (Exception e) when (e is IOException or InvalidOperationException) { return CustomerResult<CustomerConflictPage>.Failed(CustomerFailureKind.Unavailable); }
-    }
+            return Result(response.Outcome.Status, response.Outcome.Payload.AsCustomerConflicts(), response.Outcome.Payload.Code);
+        }, cancellationToken);
 
-    public async Task<CustomerResult<ChangeRecord>> ResolveAsync(ResolveCustomerConflict command, Guid key, CancellationToken cancellationToken = default)
-    {
-        try {
+    public Task<CustomerResult<ChangeRecord>> ResolveAsync(ResolveCustomerConflict command, Guid key, CancellationToken cancellationToken = default) =>
+        RequestAsync(async () =>
+        {
             var response = await engine.SubmitCommandAsync(Command.ForCustomerResolveConflict(command), key, cancellationToken);
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded && response.Outcome.Payload.AsCustomerConflictResolved() is { } change
-                ? CustomerResult<ChangeRecord>.Success(change) : CustomerResult<ChangeRecord>.Failed(MapFailure(response.Outcome.Payload.Code));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (EngineIpcException e) { return CustomerResult<ChangeRecord>.Failed(MapFailure(e.ContractError?.Code)); }
-        catch (Exception e) when (e is IOException or InvalidOperationException) { return CustomerResult<ChangeRecord>.Failed(CustomerFailureKind.Unavailable); }
-    }
+            return Result(response.Outcome.Status, response.Outcome.Payload.AsCustomerConflictResolved(), response.Outcome.Payload.Code);
+        }, cancellationToken);
 
     public ValueTask DisposeAsync() => changes.DisposeAsync();
 
@@ -216,18 +168,23 @@ public sealed class CustomerClient : IAsyncDisposable
         return SubmitAsync(command, cancellationToken);
     }
 
-    private async Task<CustomerResult<Customer>> SubmitAsync(Command command, CancellationToken cancellationToken)
-    {
-        try
+    private Task<CustomerResult<Customer>> SubmitAsync(Command command, CancellationToken cancellationToken) =>
+        RequestAsync(async () =>
         {
             var response = await engine.SubmitCommandAsync(command, Guid.NewGuid(), cancellationToken);
             var mutation = command.Kind == Command.CustomerCreateKind
                 ? response.Outcome.Payload.AsCustomerCreated()
                 : response.Outcome.Payload.AsCustomerUpdated();
-            return response.Outcome.Status == CommandOutcomeStatus.Succeeded
-                && mutation?.Customer is { } customer
-                ? CustomerResult<Customer>.Success(customer)
-                : CustomerResult<Customer>.Failed(MapFailure(response.Outcome.Payload.Code), ValidationFields(response.Outcome.Payload.Detail));
+            return Result(response.Outcome.Status, mutation?.Customer,
+                response.Outcome.Payload.Code, response.Outcome.Payload.Detail);
+        }, cancellationToken);
+
+    private async Task<CustomerResult<T>> RequestAsync<T>(Func<Task<CustomerResult<T>>> request,
+        CancellationToken cancellationToken) where T : class
+    {
+        try
+        {
+            return await request();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -235,14 +192,20 @@ public sealed class CustomerClient : IAsyncDisposable
         }
         catch (EngineIpcException error)
         {
-            return CustomerResult<Customer>.Failed(
+            return CustomerResult<T>.Failed(
                 MapFailure(error.ContractError?.Code), ValidationFields(error.ContractError?.Detail));
         }
         catch (Exception error) when (error is IOException or InvalidOperationException)
         {
-            return CustomerResult<Customer>.Failed(CustomerFailureKind.Unavailable);
+            return CustomerResult<T>.Failed(CustomerFailureKind.Unavailable);
         }
     }
+
+    private static CustomerResult<T> Result<T>(CommandOutcomeStatus status, T? value,
+        string? code, ErrorDetail? detail = null) where T : class =>
+        status == CommandOutcomeStatus.Succeeded && value is not null
+            ? CustomerResult<T>.Success(value)
+            : CustomerResult<T>.Failed(MapFailure(code), ValidationFields(detail));
 
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

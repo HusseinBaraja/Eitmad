@@ -71,8 +71,7 @@ impl SyncCoordinator {
         .map_err(|_| E::Unavailable)?;
         let fingerprint = Sha256::digest(
             serde_json::to_vec(&(recovery.original_user, input)).map_err(|_| E::Unavailable)?,
-        )
-        .to_vec();
+        );
         let result = crate::operations::resolution::reconcile(
             &mut tx,
             actor.tenant_id,
@@ -254,8 +253,7 @@ impl SyncCoordinator {
         .map_err(|_| E::Unavailable)?;
         let fingerprint = Sha256::digest(
             serde_json::to_vec(&(actor.user_id, input)).map_err(|_| E::Unavailable)?,
-        )
-        .to_vec();
+        );
         let result = match crate::operations::resolution::replay(
             &mut tx,
             actor.tenant_id,
@@ -444,7 +442,7 @@ async fn resolution_input(
                 conflict_id: ConflictId::new(Uuid::new_v4()),
                 scope: scope.clone(),
                 record_id: current.record_id,
-                local: *local.clone(),
+                local: local.as_ref().clone(),
                 remote: current.clone(),
                 detected_at: now,
                 status: ConflictStatus::Open,

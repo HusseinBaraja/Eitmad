@@ -84,10 +84,11 @@ impl QuotationDraftService {
                 continue;
             }
             let correlation = CorrelationId::new(uuid::Uuid::new_v4());
+            let snapshot_id = snapshot.id;
             let request = ConfirmDiscountApproval {
                 scope: actor.scope.clone(),
                 idempotency_key: change.idempotency_key,
-                action: DiscountApprovalAction::Refresh(snapshot.clone()),
+                action: DiscountApprovalAction::Refresh(snapshot),
             };
             match server.transition(&actor, &request, deadline) {
                 Ok(_) => {
@@ -101,7 +102,7 @@ impl QuotationDraftService {
                 Err(error) => {
                     self.mark_sync_exception(
                         &actor,
-                        snapshot.id,
+                        snapshot_id,
                         if error == ApprovalError::Conflict {
                             QuotationDraftSyncState::Conflicted
                         } else {

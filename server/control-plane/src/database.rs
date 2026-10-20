@@ -1,6 +1,6 @@
 use eitmad_contracts::identity::TenantId;
 use sha2::{Digest as _, Sha256};
-use sqlx::{PgPool, Postgres, Row as _, Transaction, postgres::PgPoolOptions};
+use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
 
 #[cfg(test)]
 mod tests;
@@ -49,7 +49,6 @@ impl ControlDatabase {
     ///
     /// Returns a sanitized error when a migration cannot complete.
     pub async fn migrate(&self) -> Result<(), ControlDatabaseError> {
-        let checksum = format!("{:x}", Sha256::digest(FOUNDATION_SQL.as_bytes()));
         let mut transaction = self
             .pool
             .begin()
@@ -70,75 +69,41 @@ impl ControlDatabase {
         .execute(&mut *transaction)
         .await
         .map_err(ControlDatabaseError::Migration)?;
-        let existing =
-            sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 1")
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(ControlDatabaseError::Migration)?;
-        if let Some(existing) = existing {
-            if existing.get::<String, _>("checksum") != checksum {
-                return Err(ControlDatabaseError::MigrationChecksum);
-            }
-        } else {
-            sqlx::raw_sql(FOUNDATION_SQL)
-                .execute(&mut *transaction)
-                .await
-                .map_err(ControlDatabaseError::Migration)?;
-            sqlx::query(
-                "INSERT INTO public.eitmad_server_migrations
-                    (version, migration_id, checksum)
-                 VALUES (1, 'server.control-foundation.v1', $1)",
+        for (version, id, sql) in [
+            (1_i32, "server.control-foundation.v1", FOUNDATION_SQL),
+            (5, "server.customer-branches.v1", CUSTOMER_BRANCHES_SQL),
+            (16, "server.accounts.v1", ACCOUNTS_SQL),
+            (17, "server.desktop-accounts.v1", DESKTOP_ACCOUNTS_SQL),
+        ] {
+            let checksum = format!("{:x}", Sha256::digest(sql.as_bytes()));
+            let existing: Option<String> = sqlx::query_scalar(
+                "SELECT checksum FROM public.eitmad_server_migrations WHERE version=$1",
             )
-            .bind(checksum)
-            .execute(&mut *transaction)
+            .bind(version)
+            .fetch_optional(&mut *transaction)
             .await
             .map_err(ControlDatabaseError::Migration)?;
-        }
-        let branch_checksum = format!("{:x}", Sha256::digest(CUSTOMER_BRANCHES_SQL.as_bytes()));
-        let existing =
-            sqlx::query("SELECT checksum FROM public.eitmad_server_migrations WHERE version = 5")
-                .fetch_optional(&mut *transaction)
-                .await
-                .map_err(ControlDatabaseError::Migration)?;
-        if let Some(existing) = existing {
-            if existing.get::<String, _>("checksum") != branch_checksum {
-                return Err(ControlDatabaseError::MigrationChecksum);
-            }
-        } else {
-            sqlx::raw_sql(CUSTOMER_BRANCHES_SQL)
+            if let Some(existing) = existing {
+                if existing != checksum {
+                    return Err(ControlDatabaseError::MigrationChecksum);
+                }
+            } else {
+                sqlx::raw_sql(sql)
+                    .execute(&mut *transaction)
+                    .await
+                    .map_err(ControlDatabaseError::Migration)?;
+                sqlx::query(
+                    "INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum)
+                     VALUES($1,$2,$3)",
+                )
+                .bind(version)
+                .bind(id)
+                .bind(checksum)
                 .execute(&mut *transaction)
                 .await
                 .map_err(ControlDatabaseError::Migration)?;
-            sqlx::query(
-                "INSERT INTO public.eitmad_server_migrations
-                    (version, migration_id, checksum)
-                 VALUES (5, 'server.customer-branches.v1', $1)",
-            )
-            .bind(branch_checksum)
-            .execute(&mut *transaction)
-            .await
-            .map_err(ControlDatabaseError::Migration)?;
-        }
-        let checksum = format!("{:x}", Sha256::digest(ACCOUNTS_SQL.as_bytes()));
-        let existing: Option<String> = sqlx::query_scalar(
-            "SELECT checksum FROM public.eitmad_server_migrations WHERE version=16",
-        )
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(ControlDatabaseError::Migration)?;
-        if let Some(existing) = existing {
-            if existing != checksum {
-                return Err(ControlDatabaseError::MigrationChecksum);
             }
-        } else {
-            sqlx::raw_sql(ACCOUNTS_SQL)
-                .execute(&mut *transaction)
-                .await
-                .map_err(ControlDatabaseError::Migration)?;
-            sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(16,'server.accounts.v1',$1)")
-                .bind(checksum).execute(&mut *transaction).await.map_err(ControlDatabaseError::Migration)?;
         }
-        migrate_desktop_accounts(&mut transaction).await?;
         transaction
             .commit()
             .await
@@ -149,30 +114,6 @@ impl ControlDatabase {
     pub fn pool(&self) -> PgPool {
         self.pool.clone()
     }
-}
-
-async fn migrate_desktop_accounts(
-    transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), ControlDatabaseError> {
-    let checksum = format!("{:x}", Sha256::digest(DESKTOP_ACCOUNTS_SQL.as_bytes()));
-    let existing: Option<String> =
-        sqlx::query_scalar("SELECT checksum FROM public.eitmad_server_migrations WHERE version=17")
-            .fetch_optional(&mut **transaction)
-            .await
-            .map_err(ControlDatabaseError::Migration)?;
-    if let Some(existing) = existing {
-        if existing != checksum {
-            return Err(ControlDatabaseError::MigrationChecksum);
-        }
-    } else {
-        sqlx::raw_sql(DESKTOP_ACCOUNTS_SQL)
-            .execute(&mut **transaction)
-            .await
-            .map_err(ControlDatabaseError::Migration)?;
-        sqlx::query("INSERT INTO public.eitmad_server_migrations(version,migration_id,checksum) VALUES(17,'server.desktop-accounts.v1',$1)")
-                .bind(checksum).execute(&mut **transaction).await.map_err(ControlDatabaseError::Migration)?;
-    }
-    Ok(())
 }
 
 pub(crate) async fn tenant_transaction(
