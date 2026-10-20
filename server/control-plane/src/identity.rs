@@ -16,9 +16,11 @@ use crate::authentication::{
 
 mod account_projection;
 mod accounts;
+mod owner_recovery;
 pub use accounts::ServerAccountError;
+pub use owner_recovery::recover_owner_password;
 
-pub(crate) const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
+const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;
 
 #[derive(Clone, Debug)]

@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-20"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -19,7 +19,7 @@ keywords:
 
 # Install and maintain Windows server and desktop packages
 
-Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, and self-contained .NET runtime. The server ZIP contains Rust, service installation tools, the existing backup tools under `deploy/windows`, a root backup verifier, and the self-contained LAN certificate tool. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
+Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, and self-contained .NET runtime. The server ZIP contains Rust, service installation tools, backup tools under `deploy/windows`, and the self-contained LAN certificate tool. Each service and backup module has one copy under `deploy/windows`; run its `restore-backup.ps1` to verify a recovery generation. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
 
 Both Windows ZIPs include the canonical `docs/` tree with its repository paths unchanged. After extraction, open `docs/operations/package-windows-desktop.md` for installation. Keep the tree together so linked procedures, reference pages, and heading anchors remain available without a repository checkout. `release.json` inventories these documentation files. External links still require network access. Build and developer-test procedures still require the source checkout and their stated tools.
 

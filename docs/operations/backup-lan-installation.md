@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-20"
 review_triggers:
   - "backup cadence, retention, participant inventory, Windows credentials, PostgreSQL version, or measured recovery changes"
 keywords:
@@ -90,7 +90,7 @@ Copy `backup.psm1`, `backup-worker.ps1`, `run-backup.ps1`, `restore-backup.ps1`,
 
 Set `share` to the selected UNC path, `storage.computer` to the storage computer's trusted WinRM HTTPS name, and `storage.shareName` to the share name. Keep `time: "02:00"`, `intervalHours: 12`, `rpoHours: 24`, `rtoHours: 4`, and retention `daily: 14`, `weekly: 8`. The task account is selected by the Windows identity running `Install`; it is not a separate plan field.
 
-Supply the real runtime paths; the example is not an assertion about this machine's default path. Include any non-system drive that holds profiles, runtimes, trust, manifests, keys, or installation files. `requiredPaths` checks that retained dependencies exist on selected volumes; it does not discover an unknown key provider. Keep the coordinator's plan, scripts, credential files, and status directory on an included volume. Copy the protected host module to the server's configured `hostModule` path as well.
+Supply the real runtime paths; the example is not an assertion about this machine's default path. Each `runtimes` entry must select the engine directory that contains `engine.authority.lock`, normally `%LOCALAPPDATA%\Eitmad\engine`. Include any non-system drive that holds profiles, runtimes, trust, manifests, keys, or installation files. `requiredPaths` checks that retained dependencies exist on selected volumes; it does not discover an unknown key provider. Keep the coordinator's plan, scripts, credential files, and status directory on an included volume. Copy the protected host module to the server's configured `hostModule` path as well.
 
 Capture each credential with an interactive hidden prompt. Example for the SMB credential, repeated with the correct file and identity for the other dependencies:
 

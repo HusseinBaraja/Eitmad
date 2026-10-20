@@ -30,7 +30,11 @@ def run(*command: str, env: dict | None = None) -> None:
 
 
 def windows_version(version: str) -> str:
-    match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[A-Za-z0-9.-]+)?", version)
+    prerelease = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+    match = re.fullmatch(
+        rf"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-{prerelease}(?:\.{prerelease})*)?",
+        version,
+    )
     if not match or any(int(part) > 65535 for part in match.groups()):
         raise ValueError("Use a semantic version with three numeric components <= 65535")
     return ".".join(match.groups()) + ".0"
@@ -77,17 +81,9 @@ def write_manifest(output: Path, artifact: Path, version: str, target: str) -> P
     return manifest
 
 
-def deterministic_zip(
-    source: Path,
-    destination: Path,
-    excluded_suffixes: frozenset[str] = frozenset(),
-) -> None:
+def deterministic_zip(source: Path, destination: Path) -> None:
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in sorted(
-            item
-            for item in source.rglob("*")
-            if item.is_file() and item.suffix.lower() not in excluded_suffixes
-        ):
+        for path in sorted(item for item in source.rglob("*") if item.is_file()):
             relative = path.relative_to(source).as_posix()
             info = zipfile.ZipInfo(relative, FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
@@ -173,11 +169,15 @@ def write_sbom(stage: Path, package: str, version: str) -> None:
 
 
 def copy_install_tools(stage: Path, target: str) -> None:
-    names = ["package.psm1", "install-client.ps1"] if target == "windows-desktop" else [
-        "package.psm1", "install-server.ps1", "restore-backup.ps1", "backup.psm1", "host.psm1",
-    ]
+    names = ["package.psm1", "install-client.ps1" if target == "windows-desktop" else "install-server.ps1"]
     for name in names:
         shutil.copy2(ROOT / "deploy/windows" / name, stage / name)
+    if target == "windows-server":
+        shutil.copy2(ROOT / "run-services.ps1", stage)
+        tools = stage / "deploy/windows"
+        tools.mkdir(parents=True)
+        for name in ("host.psm1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
+            shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")
 
@@ -232,7 +232,6 @@ def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsign
         release_inventory(stage, version, "windows-desktop", publisher)
         package = Path(temp_value) / f"eitmad-desktop-{version}-win-x64.msix"
         run(sdk_tool("makeappx.exe"), "pack", "/d", str(stage), "/p", str(package), "/o")
-        sign_path(package, publisher, hook)
         bundle = Path(temp_value) / "installer"
         bundle.mkdir()
         shutil.copy2(package, bundle)
@@ -240,7 +239,7 @@ def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsign
         sign_path(bundle, publisher, hook)
         release_inventory(bundle, version, "windows-desktop", publisher, sha256(stage / "release.json"))
         destination = output / f"eitmad-desktop-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"
-        deterministic_zip(bundle, destination, frozenset({".pdb"}))
+        deterministic_zip(bundle, destination)
     return destination
 
 
@@ -259,20 +258,16 @@ def build_windows_server(output: Path, version: str, publisher: str = "CN=Eitmad
         shutil.copy2(binaries / "eitmad-server.exe", stage)
         verify_binary_version(stage / "eitmad-server.exe", "eitmad-server", version)
         copy_install_tools(stage, "windows-server")
-        shutil.copy2(ROOT / "run-services.ps1", stage)
         # Keep the existing LAN tool's relative assembly path; it loads into PowerShell 7.4+.
         (stage / "tools").mkdir()
         shutil.copy2(ROOT / "tools/lan-server.ps1", stage / "tools")
         publish("tools/lan-certificate/Eitmad.LanCertificate.csproj",
                 stage / "tools/lan-certificate/bin/Release/net8.0-windows", version)
-        (stage / "deploy/windows").mkdir(parents=True)
-        for name in ("host.psm1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
-            shutil.copy2(ROOT / "deploy/windows" / name, stage / "deploy/windows")
         write_sbom(stage, load_plan()["artifacts"]["windows_server"]["rust_package"], version)
         sign_path(stage, publisher, hook)
         release_inventory(stage, version, "windows-server", publisher)
         destination = output / f"eitmad-server-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"
-        deterministic_zip(stage, destination, frozenset({".pdb"}))
+        deterministic_zip(stage, destination)
     return destination
 
 

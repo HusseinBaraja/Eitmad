@@ -30,14 +30,14 @@
       "credentialFile": "C:\\ProgramData\\EitmadBackup\\client-1-admin.credential.xml",
       "volumes": ["C:"],
       "requiredPaths": ["C:\\Eitmad"],
-      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad"]
+      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad\\engine"]
     },
     {
       "id": "client-2", "kind": "client", "computer": "client-2.workshop.test",
       "credentialFile": "C:\\ProgramData\\EitmadBackup\\client-2-admin.credential.xml",
       "volumes": ["C:"],
       "requiredPaths": ["C:\\Eitmad"],
-      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad"]
+      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad\\engine"]
     }
   ]
 }

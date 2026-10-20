@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
-import zipfile
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "release" / "build_artifacts.py"
 SPEC = importlib.util.spec_from_file_location("build_artifacts", MODULE_PATH)
@@ -23,6 +22,17 @@ AUDIT_SPEC.loader.exec_module(docs_audit)
 
 
 class BuildArtifactsTests(unittest.TestCase):
+    def test_server_tools_have_one_complete_location(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            artifacts.copy_install_tools(stage, "windows-server")
+            for name in ("host.psm1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1"):
+                with self.subTest(name=name):
+                    self.assertEqual(list(stage.rglob(name)), [stage / "deploy/windows" / name])
+            self.assertTrue((stage / "run-services.ps1").is_file())
+            self.assertTrue((stage / "install-server.ps1").is_file())
+            self.assertTrue((stage / "package.psm1").is_file())
+
     def test_windows_packages_deliver_resolvable_inventoried_documentation(self) -> None:
         manuals = ("package-windows-desktop.md", "run-windows-host-services.md", "setup-lan-server.md",
                    "run-server-authority.md", "backup-lan-installation.md")
@@ -68,7 +78,8 @@ class BuildArtifactsTests(unittest.TestCase):
                          {"engine", "runtime", "compiler", "leaf"})
 
     def test_release_version_cannot_escape_output_or_overflow_msix_identity(self) -> None:
-        for value in ("../escape", "1.2.3/other", "65536.1.0", "01.2.3", "1.2", "1.2.3\n"):
+        for value in ("../escape", "1.2.3/other", "65536.1.0", "01.2.3", "1.2", "1.2.3\n",
+                      "1.2.3-..", "1.2.3-01", "1.2.3-rc..1"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 artifacts.windows_version(value)
         self.assertEqual(artifacts.windows_version("1.2.3-rc.1"), "1.2.3.0")
@@ -114,20 +125,6 @@ class BuildArtifactsTests(unittest.TestCase):
                 (stage / name).write_bytes(b"must not ship")
                 with self.assertRaisesRegex(ValueError, "cannot enter an installation package"):
                     artifacts.release_inventory(stage, "1.0.0", "windows-server", "CN=Validation")
-
-    def test_windows_zip_excludes_debug_symbols(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_value:
-            root = Path(temp_value)
-            source = root / "stage"
-            source.mkdir()
-            (source / "Eitmad.WindowsShell.dll").write_bytes(b"runtime")
-            (source / "Eitmad.WindowsShell.pdb").write_bytes(b"debug paths")
-            destination = root / "bundle.zip"
-
-            artifacts.deterministic_zip(source, destination, frozenset({".pdb"}))
-
-            with zipfile.ZipFile(destination) as archive:
-                self.assertEqual(archive.namelist(), ["Eitmad.WindowsShell.dll"])
 
     def test_server_package_rejects_non_linux_host_before_build(self) -> None:
         with tempfile.TemporaryDirectory() as temp_value:

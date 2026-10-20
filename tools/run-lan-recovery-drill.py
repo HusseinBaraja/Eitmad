@@ -3,17 +3,14 @@
 Only synthetic data is created. This is a data-plane proof, not Windows BMR acceptance.
 """
 import argparse
+from importlib.util import module_from_spec, spec_from_file_location
 import json
 import os
 from pathlib import Path
 import secrets
 import shutil
 import subprocess
-import sys
 import time
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "deploy/windows"))
-from importlib.util import module_from_spec, spec_from_file_location
 
 spec = spec_from_file_location("runtime_check", Path(__file__).resolve().parents[1] / "deploy/windows/test-runtime.py")
 runtime_check = module_from_spec(spec)

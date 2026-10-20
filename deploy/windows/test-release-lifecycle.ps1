@@ -109,7 +109,9 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $generation 'complete.json')
     # Backup format/content verification has its own suite. This test covers the
     # release gate and failure recovery, without running wbadmin or machine services.
-    'param($Generation,$PostgresBin)' | Set-Content -LiteralPath (Join-Path $Evidence '1.1.0/restore-backup.ps1')
+    $backupTools = Join-Path $Evidence '1.1.0/deploy/windows'
+    [void][IO.Directory]::CreateDirectory($backupTools)
+    'param($Generation,$PostgresBin)' | Set-Content -LiteralPath (Join-Path $backupTools 'restore-backup.ps1')
     $script:failMigration = $true
     $script:events.Clear()
     Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade $generation $true } 'Release failed'
@@ -124,7 +126,8 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false } 'exact interrupted release'
     [IO.File]::WriteAllText((Join-Path $root 'app/release.json'), 'interrupted inventory write')
     $script:failMigration = $false
-    Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false
+    Invoke-EitmadHost Repair -StateDirectory $root -Name EitmadReleaseProof `
+        -ReleaseDirectory (Join-Path $Evidence '1.1.0') -Release $two
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'release-pending.json'))) 'Successful recovery retained the pending gate.'
     Assert ((Get-Content -LiteralPath (Join-Path $root 'app/release.json') -Raw | ConvertFrom-Json).version -ceq '1.1.0') 'Recovery inventory is incorrect.'
     $pendingFile = Join-Path $root 'release-pending.json'

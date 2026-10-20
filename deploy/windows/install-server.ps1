@@ -23,9 +23,7 @@ if ($Action -in 'Verify', 'Install', 'Repair', 'Upgrade') {
         return
     }
     $arguments.ReleaseDirectory = $PSScriptRoot
-    $arguments.ExpectedReleaseSha256 = $ExpectedReleaseSha256
-    $arguments.Publisher = $Publisher
-    $arguments.AllowUnsignedValidation = $AllowUnsignedValidation
+    $arguments.Release = $release
 }
 foreach ($key in 'LanDirectory', 'ClusterDirectory', 'PostgresBin', 'WinSwExecutable', 'WinSwSha256',
     'BackupGeneration', 'RestoreVerified', 'ClientAddress', 'WhatIf') {

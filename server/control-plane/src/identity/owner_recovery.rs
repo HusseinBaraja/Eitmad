@@ -7,9 +7,10 @@ use eitmad_contracts::{
 use eitmad_server_audit::{
     ServerAuditActor, ServerAuditEnvelope, ServerAuditOutcome, append, tenant_scope,
 };
-use sqlx::{PgPool, Row as _};
+use sqlx::PgPool;
 
-use crate::{IdentityError, authentication::hash_password, identity::OWNER_RELATION};
+use super::{IdentityError, OWNER_RELATION, accounts::revoke};
+use crate::authentication::hash_password;
 
 /// Recovers an active tenant Owner through a local `PostgreSQL` superuser connection.
 /// The operator authenticates to `PostgreSQL`; ordinary application roles cannot recover accounts.
@@ -52,8 +53,8 @@ pub async fn recover_owner_password(
         .execute(&mut *tx)
         .await
         .map_err(|_| IdentityError::Unavailable)?;
-    let row = sqlx::query(
-        "SELECT a.tenant_id, a.account_id FROM control.accounts a
+    let account_id = sqlx::query_scalar(
+        "SELECT a.account_id FROM control.accounts a
          WHERE a.tenant_id=$1 AND a.canonical_username=$2 AND a.status='active'
            AND EXISTS(SELECT 1 FROM control.relationship_tuples r
              WHERE r.tenant_id=a.tenant_id AND r.subject_principal_id=a.user_id
@@ -68,8 +69,8 @@ pub async fn recover_owner_password(
     .await
     .map_err(|_| IdentityError::Unavailable)?
     .ok_or(IdentityError::Denied)?;
-    let tenant = TenantId::new(row.get("tenant_id"));
-    let account = AccountId::new(row.get("account_id"));
+    let tenant = TenantId::new(tenant_id);
+    let account = AccountId::new(account_id);
     let hash = hash_password(password).map_err(|_| IdentityError::InvalidInput)?;
     sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
         .bind(tenant.value().to_string())
@@ -79,11 +80,8 @@ pub async fn recover_owner_password(
     sqlx::query("UPDATE control.accounts SET password_hash=$3, locked_until=NULL, revision=revision+1 WHERE tenant_id=$1 AND account_id=$2")
         .bind(tenant.value()).bind(account.value()).bind(hash).execute(&mut *tx).await
         .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query("UPDATE control.sessions SET revoked_at=$3 WHERE tenant_id=$1 AND account_id=$2 AND revoked_at IS NULL")
-        .bind(tenant.value()).bind(account.value()).bind(now.0).execute(&mut *tx).await
-        .map_err(|_| IdentityError::Unavailable)?;
-    sqlx::query("UPDATE control.token_families f SET revoked_at=$3 WHERE tenant_id=$1 AND revoked_at IS NULL AND EXISTS(SELECT 1 FROM control.sessions s WHERE s.tenant_id=f.tenant_id AND s.session_id=f.session_id AND s.account_id=$2)")
-        .bind(tenant.value()).bind(account.value()).bind(now.0).execute(&mut *tx).await
+    revoke(&mut tx, tenant, account, now)
+        .await
         .map_err(|_| IdentityError::Unavailable)?;
     sqlx::query(
         "UPDATE control.tenants SET account_revision=account_revision+1 WHERE tenant_id=$1",

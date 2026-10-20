@@ -484,7 +484,7 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         if (-not $BackupGeneration -or -not $RestoreVerified) {
             throw 'Upgrade requires BackupGeneration and RestoreVerified after a successful isolated restore drill.'
         }
-        & (Join-Path $Directory 'restore-backup.ps1') -Generation $BackupGeneration -PostgresBin (Join-Path $root 'postgres/bin')
+        & (Join-Path $Directory 'deploy/windows/restore-backup.ps1') -Generation $BackupGeneration -PostgresBin (Join-Path $root 'postgres/bin')
         if (-not $?) { throw 'Recovery generation validation failed.' }
         $marker = Get-Content -LiteralPath (Join-Path $BackupGeneration 'complete.json') -Raw | ConvertFrom-Json
         $hostNode = @($marker.nodes | Where-Object { $_.kind -eq 'server' -and $_.computer -ieq $env:COMPUTERNAME -and $root -in $_.requiredPaths })
@@ -512,7 +512,7 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         foreach ($kind in 'Server', 'Postgres') { Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand') }
         $markerStage = Join-Path $root 'release-pending.new.json'
         [pscustomobject]@{version = $Release.version; binarySha256 = $Release.files.'eitmad-server.exe';
-            previousVersion = $previous.version; previousRelease = $previous; backupGeneration = $BackupGeneration} |
+            previousRelease = $previous; backupGeneration = $BackupGeneration} |
             ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerStage -Encoding UTF8
         [IO.File]::Move($markerStage, $pendingFile)
     }
@@ -594,25 +594,20 @@ function Invoke-EitmadHost {
         [string]$ClientAddress,
         [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
-        [string]$WinSwExecutable, [string]$WinSwSha256, [string]$ServerExecutable,
-        [string]$ReleaseDirectory, [string]$ExpectedReleaseSha256, [string]$Publisher,
-        [switch]$AllowUnsignedValidation, [string]$BackupGeneration, [switch]$RestoreVerified
+        [string]$WinSwExecutable, [string]$WinSwSha256,
+        [string]$ReleaseDirectory, [pscustomobject]$Release,
+        [string]$BackupGeneration, [switch]$RestoreVerified
     )
     if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
     if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
     $root = Get-SafePath $StateDirectory
     Assert-Administrator
     Assert-ProtectedParents $root
-    $release = $null
-    if ($ReleaseDirectory) {
-        Import-Module (Join-Path $ReleaseDirectory 'package.psm1') -Force
-        $release = Read-EitmadPackage -Directory $ReleaseDirectory -Target windows-server `
-            -ExpectedReleaseSha256 $ExpectedReleaseSha256 -Publisher $Publisher -AllowUnsignedValidation:$AllowUnsignedValidation
-        Assert-WindowsPrerequisites
-        $ServerExecutable = Join-Path $ReleaseDirectory 'eitmad-server.exe'
-    }
+    # install-server.ps1 authenticates the inventory before loading this module.
+    if ([bool]$ReleaseDirectory -ne [bool]$Release) { throw 'A package release requires its verified inventory and directory.' }
+    $serverExecutable = if ($Release) { Join-Path $ReleaseDirectory 'eitmad-server.exe' } else { $null }
     if ($Action -eq 'Install' -and -not (Test-Path -LiteralPath (Join-Path $root 'host.json'))) {
-        $settings = Initialize-Host $root $Name $LanDirectory $ClusterDirectory $PostgresBin $WinSwExecutable $WinSwSha256 $ServerExecutable
+        $settings = Initialize-Host $root $Name $LanDirectory $ClusterDirectory $PostgresBin $WinSwExecutable $WinSwSha256 $serverExecutable
     } else {
         $allowMissing = $Action -in 'Status', 'Stop', 'Uninstall' -or ($Action -eq 'Repair' -and $null -ne $release)
         Assert-InstalledProtection $root $Name -AllowMissingServerBinary:$allowMissing

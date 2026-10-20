@@ -529,7 +529,7 @@ async fn replace_assignments(
     Ok(())
 }
 
-async fn revoke(
+pub(super) async fn revoke(
     tx: &mut Transaction<'_, Postgres>,
     tenant: TenantId,
     account: AccountId,

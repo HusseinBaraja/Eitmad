@@ -9,8 +9,6 @@ param(
 # This command validates the cohort and optionally stages PostgreSQL into a NEW directory.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'backup.psm1') -Force
-$module = Get-Module backup
 try {
     $generationPath = (Get-Item -LiteralPath $Generation -Force).FullName.TrimEnd('\')
     if ((Split-Path $generationPath -Leaf) -notmatch '^\d{8}T\d{6}Z-[a-f0-9]{32}$') { throw 'Invalid generation.' }

@@ -139,6 +139,7 @@ function Test-BackupStorage($Plan, $Credential) {
 
 function Invoke-BackupGeneration($Plan) {
     $sessions = @{}; $prepared = @(); $released = @{}
+    $mapping = $false
     $storage = Import-Clixml -LiteralPath $Plan.storageCredentialFile
     $postgres = Import-Clixml -LiteralPath $Plan.postgresCredentialFile
     $worker = Join-Path $PSScriptRoot 'backup-worker.ps1'
@@ -214,7 +215,7 @@ function Invoke-BackupGeneration($Plan) {
             }
         }
         foreach ($session in $sessions.Values) { Remove-PSSession $session }
-        if (Get-Variable mapping -ErrorAction SilentlyContinue) { Remove-SmbMapping -RemotePath $Plan.share -Force -UpdateProfile:$false }
+        if ($mapping) { Remove-SmbMapping -RemotePath $Plan.share -Force -UpdateProfile:$false }
         if ($resumeFailed) { throw 'Backup failed to resume a participant. Inspect services and close the retained remote session.' }
     }
 }
