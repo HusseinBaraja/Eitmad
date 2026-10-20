@@ -439,8 +439,9 @@ function Get-ClientFirewallRule($Settings) {
 
 function Set-ClientFirewall {
     [CmdletBinding(SupportsShouldProcess)]
-    param($Settings, [string]$ClientAddress)
-    if (-not $ClientAddress) {
+    param($Settings, [string]$ClientAddress, [switch]$PrivateLan)
+    if ($PrivateLan -and $ClientAddress) { throw 'Choose PrivateLan or ClientAddress, not both.' }
+    if (-not $PrivateLan -and -not $ClientAddress) {
         do {
             $ClientAddress = (Read-Host 'Second PC IPv4 address (for example 192.168.1.20; Enter to cancel)').Trim()
             if (-not $ClientAddress) { Write-Host 'Cancelled. No firewall rule was changed.'; return }
@@ -448,20 +449,21 @@ function Set-ClientFirewall {
             Write-Host 'Enter one private IPv4 address. Address ranges and subnets are not accepted.'
         } while ($true)
     }
-    if (-not (Test-ClientAddress $ClientAddress)) { throw 'Use one exact private IPv4 client address.' }
+    if (-not $PrivateLan -and -not (Test-ClientAddress $ClientAddress)) { throw 'Use one exact private IPv4 client address.' }
     if (-not (Test-ClientAddress $Settings.address)) { throw 'The installed host requires a private IPv4 listener before client access can be configured.' }
     $rule = Get-ClientFirewallRule $Settings
+    $remote = if ($PrivateLan) { 'LocalSubnet' } else { $ClientAddress }
     $arguments = @{
         PolicyStore = 'PersistentStore'; Name = $Settings.name + '-Host-Client'
         Enabled = 'True'; Direction = 'Inbound'; Action = 'Allow'; Profile = 'Private'
         Protocol = 'TCP'; LocalAddress = $Settings.address; LocalPort = $Settings.serverPort
-        RemoteAddress = $ClientAddress; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
+        RemoteAddress = $remote; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
         EdgeTraversalPolicy = 'Block'
     }
-    if ($PSCmdlet.ShouldProcess($ClientAddress, 'Allow this client only in the installed host HTTPS rule (replace the previous client)')) {
+    if ($PSCmdlet.ShouldProcess($remote, 'Set the installed host HTTPS rule on Private networks (replace its previous scope)')) {
         if ($rule) { Set-NetFirewallRule @arguments | Out-Null }
         else { New-NetFirewallRule @arguments -DisplayName 'Eitmad host client HTTPS' -Group ('Eitmad host: ' + $Settings.root) | Out-Null }
-        Write-Host "Client firewall rule saved for $ClientAddress on Private networks. Other firewall rules still apply."
+        Write-Host "Client firewall rule saved for $remote on Private networks. Other firewall rules still apply."
         Write-Host "Server URL for the second PC: $($Settings.endpoint)"
         Write-Host 'Use the public CA and your own account in the app connection setup. See docs/operations/run-windows-host-services.md.'
     }
@@ -594,6 +596,7 @@ function Invoke-EitmadHost {
         [string]$StateDirectory = "$env:ProgramData\EitmadHost",
         [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
         [string]$ClientAddress,
+        [switch]$PrivateLan,
         [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
         [string]$WinSwExecutable, [string]$WinSwSha256,
@@ -602,6 +605,8 @@ function Invoke-EitmadHost {
     )
     if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
     if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
+    if ($PrivateLan -and $Action -ne 'Firewall') { throw 'PrivateLan is supported only for the Firewall action.' }
+    if ($PrivateLan -and $ClientAddress) { throw 'Choose PrivateLan or ClientAddress, not both.' }
     $root = Get-SafePath $StateDirectory
     Assert-Administrator
     Assert-ProtectedParents $root
@@ -626,7 +631,7 @@ function Invoke-EitmadHost {
             if (-not $release) { throw 'Use install-server.ps1 with the verified release inventory.' }
             Set-HostRelease $settings $release $ReleaseDirectory $Action $BackupGeneration $RestoreVerified
         } elseif ($Action -eq 'Firewall') {
-            Set-ClientFirewall $settings $ClientAddress -WhatIf:$WhatIf
+            Set-ClientFirewall $settings $ClientAddress -PrivateLan:$PrivateLan -WhatIf:$WhatIf
         } elseif ($Action -eq 'Install') {
             if ($release) {
                 $digest = (Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe') -Algorithm SHA256).Hash

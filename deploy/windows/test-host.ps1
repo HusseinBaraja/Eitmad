@@ -161,10 +161,34 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     $script:firewall.Program = 'C:\other.exe'
     Reject { Set-ClientFirewall $settings '192.168.50.24' } 'another installation'
     $script:firewall.Program = Join-Path $root 'app/eitmad-server.exe'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -PrivateLan -WhatIf
+    Assert ($script:firewallChanges.Count -eq 3) 'Private LAN preview changed policy.'
+    Reject { Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -PrivateLan -ClientAddress '192.168.50.24' } 'not both'
+    Reject { Invoke-EitmadHost Start -StateDirectory $root -Name EitmadTest -PrivateLan } 'only for the Firewall'
+    Assert ($script:firewallChanges.Count -eq 3) 'Invalid Private LAN options changed policy.'
+    $settings.address = '0.0.0.0'
+    Reject { Set-ClientFirewall $settings -PrivateLan } 'private IPv4 listener'
+    $settings.address = '192.168.50.10'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -PrivateLan
+    Assert ($script:firewallChanges.Count -eq 4 -and $script:firewallChanges[-1] -ceq 'update') 'Private LAN left a separate client rule.'
+    Assert ($script:firewall.RemoteAddress -ceq 'LocalSubnet' -and $script:firewall.Profile -ceq 'Private' -and
+        $script:firewall.Program -ceq (Join-Path $root 'app/eitmad-server.exe') -and
+        $script:firewall.LocalPort -eq 58443 -and $script:firewall.LocalAddress -ceq '192.168.50.10' -and
+        $script:firewall.Protocol -ceq 'TCP' -and $script:firewall.Direction -ceq 'Inbound' -and
+        $script:firewall.Enabled -ceq 'True' -and $script:firewall.Action -ceq 'Allow' -and
+        $script:firewall.EdgeTraversalPolicy -ceq 'Block') 'Private LAN escaped the installed HTTPS scope.'
+    $script:firewall.Group = 'Another installation'
+    Reject { Set-ClientFirewall $settings -PrivateLan } 'another installation'
+    Assert ($script:firewallChanges.Count -eq 4) 'Private LAN changed a foreign rule.'
+    $script:firewall.Group = 'Eitmad host: ' + $root
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -ClientAddress '192.168.50.24'
+    Assert ($script:firewall.RemoteAddress -ceq '192.168.50.24') 'An exact client rule retained LocalSubnet access.'
+    Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -PrivateLan
     Invoke-EitmadHost Uninstall -StateDirectory $root -Name EitmadTest
     Assert (-not $script:firewall -and $script:firewallChanges[-1] -ceq 'remove') 'Uninstall retained the client allow rule.'
     Assert (Test-Path -LiteralPath (Join-Path $root 'retained-data')) 'Firewall configuration changed durable data.'
     Write-Host 'PASS: real argv quoting; mocked SCM startup, readiness, shutdown, port conflicts, ownership, bounded recovery, and preserved uninstall data.'
     Write-Host 'PASS: exact client firewall scope, replacement, prompt retry/cancel, preview, ownership, and removal on uninstall.'
+    Write-Host 'PASS: Private-only LocalSubnet HTTPS scope, preview, conflicting option rejection, ownership, and replacement.'
 } $evidence
 Write-Host "Synthetic evidence: $evidence"

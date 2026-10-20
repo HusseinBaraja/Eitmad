@@ -81,6 +81,8 @@ For an intentional port, executable, or secret change, stop the server, back up 
 
 ## Allow only selected clients on the private interface
 
+This section configures the foreground diagnostic launcher. For an installed host with DHCP clients, use the [Private LAN host rule](run-windows-host-services.md#connect-the-second-pc-yourself): it allows only `LocalSubnet` on Private networks for the installed HTTPS executable and port. The guided-setup design selects that scope. It does not grant access on Public networks or open PostgreSQL. Do not create both foreground and installed rules for the same host.
+
 Run an elevated PowerShell process as the **same account** that owns the state. Select exact client addresses, preferably with DHCP reservations:
 
 ```powershell

@@ -39,7 +39,7 @@ Clients discover available LAN servers automatically. Discovery data is untruste
 
 Each client creates and retains its own device key. Store only the authenticated endpoint, public trust, and scope settings needed for reconnect. Discover address changes by retained server identity, then verify TLS and current authorization. Discovery does not replace password sign-in or the [live-authority rule](0029-require-live-server-authority-for-protected-access.md).
 
-PostgreSQL remains loopback-only. Native firewall changes must be bounded to the private workshop network and intended clients; discovery must not create permanent broad public access. Keep the server awake as an explicit host requirement. Setup must verify readiness over HTTPS with certificate name, chain, and expiry checks before it reports completion.
+PostgreSQL remains loopback-only. Guided setup allows only the required Eitmad program and ports from `LocalSubnet` on Windows **Private** networks. It does not allow Public or Domain profiles, change a network profile, or require approval of each DHCP client address. Pairing and account sign-in control application access. Existing unrelated firewall policy can grant access independently and must be inspected during acceptance. Keep the server awake as an explicit host requirement. Setup must verify readiness over HTTPS with certificate name, chain, and expiry checks before it reports completion.
 
 Provide automatic local backups and an optional external destination. Clearly state that a backup on the same disk does not protect against disk loss. Preserve credentials, CA renewal material, database state, and device-specific recovery needs. Prove restore before calling the backup feature complete.
 

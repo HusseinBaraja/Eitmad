@@ -8,7 +8,7 @@ param(
     [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
     [string]$WinSwExecutable, [string]$WinSwSha256,
     [string]$BackupGeneration, [switch]$RestoreVerified,
-    [string]$ClientAddress, [switch]$WhatIf
+    [string]$ClientAddress, [switch]$PrivateLan, [switch]$WhatIf
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -26,7 +26,7 @@ if ($Action -in 'Verify', 'Install', 'Repair', 'Upgrade') {
     $arguments.Release = $release
 }
 foreach ($key in 'LanDirectory', 'ClusterDirectory', 'PostgresBin', 'WinSwExecutable', 'WinSwSha256',
-    'BackupGeneration', 'RestoreVerified', 'ClientAddress', 'WhatIf') {
+    'BackupGeneration', 'RestoreVerified', 'ClientAddress', 'PrivateLan', 'WhatIf') {
     if ($PSBoundParameters.ContainsKey($key)) { $arguments[$key] = $PSBoundParameters[$key] }
 }
 Import-Module (Join-Path $PSScriptRoot 'deploy/windows/host.psm1') -Force

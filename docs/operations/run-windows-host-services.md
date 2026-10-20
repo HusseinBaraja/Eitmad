@@ -72,6 +72,19 @@ Uninstall stops the services in the same order, removes their SCM registrations,
 
 ## Connect the second PC yourself
 
+For DHCP clients on a trusted workshop LAN, use the Private LAN scope. On the host, open PowerShell as Administrator in the repository folder:
+
+```powershell
+.\run-services.ps1 Firewall -PrivateLan -WhatIf
+.\run-services.ps1 Firewall -PrivateLan
+```
+
+The first command previews the change. The second creates or replaces this installation's HTTPS rule with `RemoteAddress=LocalSubnet`, `Profile=Private`, its saved private IPv4 listener, HTTPS port, and installed executable. Edge traversal is blocked. Public and Domain profiles are excluded. Client addresses can change through DHCP without rule updates. The command does not change network profiles, open PostgreSQL, or enable discovery. Set only a trusted workshop connection to Private in Windows Settings. Existing unrelated rules can grant access independently; inspect them before acceptance. Pairing and account sign-in remain application requirements; automatic discovery and pairing are still pending implementation.
+
+For a packaged host, run `install-server.ps1 Firewall -PrivateLan` in the verified server package instead. `-PrivateLan` and `-ClientAddress` cannot be combined. Both scopes use the same installation-owned rule, so changing the scope replaces its prior access. Uninstall removes that rule and preserves data. A live check must confirm access from a DHCP client on Private and no access through this rule on Public. Automated command tests use mocked policy and do not prove effective Windows firewall behavior.
+
+### Optional exact client address
+
 On the host, open PowerShell as Administrator in the repository folder and run:
 
 ```powershell
