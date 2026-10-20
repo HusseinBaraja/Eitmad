@@ -43,6 +43,29 @@ k.FreeConsole()
     run([sys.executable, "-c", code, str(pid)])
 
 
+def verify_workshop_cli(server, pg, root, database_port, app_password, db_env, environment):
+    run([pg / "createdb.exe", "-h", "127.0.0.1", "-p", str(database_port), "-U", "postgres",
+         "-O", "eitmad_runtime", "eitmad_workshop_cli"], db_env)
+    database_file = root / "workshop-cli-database-url"
+    database_file.write_text(
+        f"postgresql://eitmad_runtime:{app_password}@127.0.0.1:{database_port}/eitmad_workshop_cli", encoding="utf-8")
+    setup_environment = dict(environment, EITMAD_SERVER_DATABASE_URL_FILE=str(database_file))
+    request = {"version": 1, "workshopName": "ورشة اختبار الإعداد", "ownerUsername": "setup-owner",
+               "ownerPassword": secrets.token_urlsafe(32)}
+    result = subprocess.run([server.resolve(), "initialize-workshop"], env=setup_environment,
+                            input=json.dumps(request).encode(), capture_output=True, timeout=120)
+    assert result.returncode == 0, "Fresh workshop CLI initialization failed; raw output was withheld"
+    response = json.loads(result.stdout)
+    assert set(response) == {"version", "tenantCode", "tenantId", "organizationId", "branchId", "ownerAccountId"}
+    assert response["version"] == 1 and len(response["tenantCode"]) <= 32
+    assert request["ownerPassword"].encode() not in result.stdout + result.stderr, "Setup output disclosed credentials"
+    request["ownerPassword"] = secrets.token_urlsafe(32)
+    retry = subprocess.run([server.resolve(), "initialize-workshop"], env=setup_environment,
+                           input=json.dumps(request).encode(), capture_output=True, timeout=120)
+    assert retry.returncode != 0, "Initialization replaced an existing workshop"
+    assert b"ownerPassword" not in retry.stdout + retry.stderr, "Failure output disclosed setup input"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--postgres-bin", required=True, type=Path)
@@ -50,6 +73,8 @@ def main():
     parser.add_argument("--certificate-tool", required=True, type=Path)
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--verify-client-reconnect", action="store_true")
+    parser.add_argument("--verify-workshop-setup", action="store_true",
+                        help="Verify atomic fresh-workshop setup against another isolated database")
     parser.add_argument("--verify-desktop-enrollment-engine", type=Path,
                         help="Run existing TLS enrollment/credential recovery coverage with this packaged engine")
     args = parser.parse_args()
@@ -168,6 +193,25 @@ def main():
         assert server.wait(timeout=40) == 0, "CTRL_C shutdown was not graceful"
         server = None
         checks.append("CTRL_C: host exits successfully within the wrapper stop budget")
+        if args.verify_workshop_setup:
+            verify_workshop_cli(args.server, pg, root, database_port, app_password, db_env, environment)
+            for scenario, database_name in (
+                ("workshop_setup_is_atomic_and_creates_a_usable_owner", "eitmad_workshop_setup"),
+                ("server_accounts_work_through_authenticated_routes", "eitmad_existing_accounts"),
+            ):
+                run([pg / "createdb.exe", "-h", "127.0.0.1", "-p", str(database_port), "-U", "postgres",
+                     "-O", "eitmad_runtime", database_name], db_env)
+                setup_environment = dict(os.environ,
+                    EITMAD_DIRECT_TEST_DATABASE_URL=f"postgresql://eitmad_runtime:{app_password}@127.0.0.1:{database_port}/{database_name}")
+                with (root / f"{scenario}.log").open("wb") as setup_log:
+                    tested = subprocess.run(["rustup", "run", "1.85.1", "cargo", "test", "--locked", "-p", "eitmad-server",
+                        "--test", "accounts", scenario, "--", "--ignored", "--exact"], env=setup_environment,
+                        stdout=setup_log, stderr=subprocess.STDOUT, timeout=300)
+                if tested.returncode:
+                    raise RuntimeError(f"Account proof failed; inspect the private {scenario}.log")
+            checks.append("workshop setup: invalid input and audit rollback, concurrent initialization, active Owner/Manager sign-in, branch and staff creation")
+            checks.append("workshop CLI: bounded private JSON input, public-only result and refused reinitialization")
+            checks.append("existing account lifecycle: invitation bootstrap, authorization, role changes, audit rollback and revocation")
         if args.verify_client_reconnect or args.verify_desktop_enrollment_engine:
             run([pg / "createdb.exe", "-h", "127.0.0.1", "-p", str(database_port), "-U", "postgres",
                  "-O", "eitmad_runtime", "eitmad_reconnect"], db_env)

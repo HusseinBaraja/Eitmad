@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-20"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -69,6 +69,45 @@ Expected output is `server migrations are current`. This command reads only `EIT
 
 ## Bootstrap the first owner
 
+For a new workshop installation, use `eitmad-server initialize-workshop`. This local deployment command accepts version-one JSON on standard input, creates an active Owner with the Manager role and a first branch, and returns only public enrollment coordinates. It creates no activation invitation. Rust commits the tenant, organization, account, password verifier, branch, relationships, publication event, and mandatory audit together. It does not install PostgreSQL, configure Windows services, enroll a desktop, or provide the combined installer UI.
+
+Use the dedicated application database and full runtime configuration above. The command applies normal migrations before initialization. Run it as the local deployment operator with access to those protected settings. It is not a network endpoint, and an application account or discovered server cannot invoke it remotely. Do not use a superuser or a role with `BYPASSRLS`.
+
+From the extracted server package in PowerShell 7.4 or later:
+
+```powershell
+$setupPassword = Read-Host 'Owner password (at least 12 characters)' -AsSecureString
+$setupEncoding = $OutputEncoding
+$setupRequest = $null
+try {
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
+    $setupRequest = @{
+        version = 1
+        workshopName = Read-Host 'Workshop name'
+        ownerUsername = Read-Host 'Owner username'
+        ownerPassword = [Net.NetworkCredential]::new('', $setupPassword).Password
+    }
+    $setupRequest | ConvertTo-Json -Compress | & .\eitmad-server.exe initialize-workshop
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Workshop initialization failed. Preserve state and inspect the error identifier.'
+    }
+} finally {
+    if ($setupRequest) {
+        $setupRequest.ownerPassword = $null
+    }
+    $setupPassword.Dispose()
+    $OutputEncoding = $setupEncoding
+}
+```
+
+Do not print or save `$setupRequest`, enable transcripts, or put the password in command arguments. UTF-8 preserves Arabic names in the native input pipe. The bounded request has `version`, `workshopName`, `ownerUsername`, and `ownerPassword`; its Rust authority is `crates/contracts/src/setup.rs`. Unknown fields, unsupported versions, invalid names, and invalid passwords fail closed. The public result has `tenantCode`, `tenantId`, `organizationId`, `branchId`, and `ownerAccountId`, plus `version`. Use those coordinates for [desktop enrollment](#enroll-or-recover-a-windows-desktop), then use the [native Users screen](#use-the-native-users-screen) to add staff.
+
+Any existing tenant blocks initialization, including one created by the invitation bootstrap below. Concurrent initializations share the same advisory lock as invitation bootstrap; only one can create the first tenant. After an uncertain result, inspect retained tenant and audit state through the deployment operator. Do not rerun setup as a password reset, change a tenant code, or replace the database. Use the existing owner recovery procedure for an active Owner.
+
+### Invitation bootstrap
+
+Use the separate invitation flow only when an operator needs to activate the initial account separately.
+
 Run this once for a new tenant. Quote display names that contain spaces:
 
 ```powershell
@@ -85,7 +124,7 @@ Do not repeat bootstrap after an uncertain result. First check the tenant and au
 
 Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` and the normal TLS host. No provisioning example or direct SQL is required. The [identity guide](../developer/subsystems/identity-foundation.md#shared-server-account-lifecycle) defines authorization, revision, receipt, and secret-handling rules.
 
-1. Bootstrap and activate the initial Owner as described above, or sign in an existing Owner through `POST /v1/auth/login`.
+1. Initialize the first active Owner as described above, use the invitation bootstrap, or sign in an existing Owner through `POST /v1/auth/login`.
 2. For each administrative request, send a current bearer token, a fresh signed device proof in `x-eitmad-device-proof`, and a base64url `PeerHello` in `x-eitmad-peer-hello`. Negotiate protocol 1.5 or newer and `eitmad.capability.server-administration.v1`. A UI role name is not authorization evidence.
 3. Register each needed branch with `POST /v1/customer-branches` using `RegisterBranchRequest`.
 4. Call `POST /v1/accounts/list` with `ListServerAccounts`, initially `after: null` and `limit: 100`. Continue from `nextAfter` until it is null. Use the returned account revision for changes.

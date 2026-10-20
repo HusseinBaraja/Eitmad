@@ -22,6 +22,12 @@ namespace Eitmad.Contracts
 
     public partial class EitmadContractSchema
     {
+        [JsonPropertyName("initialize_workshop")]
+        public InitializeWorkshop InitializeWorkshop { get; set; }
+
+        [JsonPropertyName("initialized_workshop")]
+        public InitializedWorkshop InitializedWorkshop { get; set; }
+
         [JsonPropertyName("ipc_client_message")]
         public Dictionary<string, object> IpcClientMessage { get; set; }
 
@@ -33,6 +39,45 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
+    }
+
+    public partial class InitializeWorkshop
+    {
+        [JsonPropertyName("ownerPassword")]
+        public string OwnerPassword { get; set; }
+
+        [JsonPropertyName("ownerUsername")]
+        public string OwnerUsername { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshopName")]
+        public string WorkshopName { get; set; }
+    }
+
+    /// <summary>
+    /// Public enrollment coordinates, without credentials or an activation token.
+    /// </summary>
+    public partial class InitializedWorkshop
+    {
+        [JsonPropertyName("branchId")]
+        public Guid BranchId { get; set; }
+
+        [JsonPropertyName("organizationId")]
+        public Guid OrganizationId { get; set; }
+
+        [JsonPropertyName("ownerAccountId")]
+        public Guid OwnerAccountId { get; set; }
+
+        [JsonPropertyName("tenantCode")]
+        public string TenantCode { get; set; }
+
+        [JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
     }
 
     public partial class LifecycleSnapshot

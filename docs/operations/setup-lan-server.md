@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-20"
 review_triggers:
   - "LAN launcher, TLS issuance, firewall scope, or desktop enrollment changes"
 keywords:
@@ -26,7 +26,7 @@ Use `tools/lan-certificate` and `tools/lan-server.ps1` for a retained Windows LA
 - Reserve the server IPv4 address in DHCP, or configure a fixed address outside the DHCP pool. This launcher supports RFC1918 IPv4 LAN binds. Example addresses below are synthetic and must be replaced.
 - Choose one stable name, such as `eitmad.workshop.test`, and make LAN DNS resolve it to the reserved address on both PCs. If LAN DNS is unavailable, use the reserved IPv4 address as the certificate name and endpoint. Do not enter a bare IP for a DNS-only certificate. Do not depend on `.local` discovery.
 - Confirm that the correct Windows interface has the **Private** network profile. Keep the firewall enabled. Do not add router port forwarding or publish this private CA endpoint on the Internet.
-- Prepare the dedicated PostgreSQL service, database, role, backups, token key, and update public-key settings from [server operation](run-server-authority.md#before-you-start). Keep the database on this server. Bootstrap and activate accounts through that guide; this LAN tool does not create product identities or business records.
+- Prepare the dedicated PostgreSQL service, database, role, backups, token key, and update public-key settings from [server operation](run-server-authority.md#before-you-start). Keep the database on this server. Use that guide to initialize the first active Owner/Manager or use its invitation bootstrap procedure. This LAN tool does not create product identities or business records.
 
 ## Keep PostgreSQL private
 

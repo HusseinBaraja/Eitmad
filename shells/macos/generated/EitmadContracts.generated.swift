@@ -8,22 +8,68 @@ import Foundation
 
 // MARK: - EitmadContractSchema
 public struct EitmadContractSchema: Codable, Sendable {
+    public let initializeWorkshop: InitializeWorkshop
+    public let initializedWorkshop: InitializedWorkshop
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
 
     public enum CodingKeys: String, CodingKey {
+        case initializeWorkshop = "initialize_workshop"
+        case initializedWorkshop = "initialized_workshop"
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
         case unionPayloadKeepAlive
     }
 
-    public init(ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, unionPayloadKeepAlive: UnionPayloadKeepAlive) {
+    public init(initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, unionPayloadKeepAlive: UnionPayloadKeepAlive) {
+        self.initializeWorkshop = initializeWorkshop
+        self.initializedWorkshop = initializedWorkshop
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
+    }
+}
+
+// MARK: - InitializeWorkshop
+public struct InitializeWorkshop: Codable, Sendable {
+    public let ownerPassword, ownerUsername: String
+    public let version: Int
+    public let workshopName: String
+
+    public init(ownerPassword: String, ownerUsername: String, version: Int, workshopName: String) {
+        self.ownerPassword = ownerPassword
+        self.ownerUsername = ownerUsername
+        self.version = version
+        self.workshopName = workshopName
+    }
+}
+
+/// Public enrollment coordinates, without credentials or an activation token.
+// MARK: - InitializedWorkshop
+public struct InitializedWorkshop: Codable, Sendable {
+    public let branchID, organizationID, ownerAccountID, tenantCode: String
+    public let tenantID: String
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case organizationID = "organizationId"
+        case ownerAccountID = "ownerAccountId"
+        case tenantCode
+        case tenantID = "tenantId"
+        case version
+    }
+
+    public init(branchID: String, organizationID: String, ownerAccountID: String, tenantCode: String, tenantID: String, version: Int) {
+        self.branchID = branchID
+        self.organizationID = organizationID
+        self.ownerAccountID = ownerAccountID
+        self.tenantCode = tenantCode
+        self.tenantID = tenantID
+        self.version = version
     }
 }
 

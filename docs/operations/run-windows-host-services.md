@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-20"
 review_triggers:
   - "Windows service installation, service identities, readiness, recovery, or host power requirements change"
 keywords:
@@ -80,7 +80,7 @@ Enter the second PC's IPv4 address at the prompt. On that PC, find it under **Se
 
 The command creates a Private-network inbound rule for that one address, the installed server executable, and its saved HTTPS address and port. It prints the server URL for the client setup. Run the same command again to replace the previous client address. It accepts no subnet, range, wildcard, public address, or IPv6 address. Use router DHCP reservations for both PCs so their addresses stay stable. Set the trusted workshop connection to Private through Windows Settings; the command does not change network profiles.
 
-On the second PC, open the app and expand **ربط هذا الجهاز بالمنشأة** on the sign-in screen. Enter the printed server URL in **عنوان الخادم**. Supply the verified public CA file, tenant code, organization and branch identifiers, and your own active account through [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). Transfer only the public CA, never the host's private directory. Firewall access alone does not create an account or complete enrollment. The current fresh host still needs first-owner activation and an operational account before client sign-in can pass.
+On the second PC, open the app and expand **ربط هذا الجهاز بالمنشأة** on the sign-in screen. Enter the printed server URL in **عنوان الخادم**. Supply the verified public CA file, tenant code, organization and branch identifiers, and your own active account through [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). Transfer only the public CA, never the host's private directory. Firewall access alone does not create an account or complete enrollment. For a fresh database, use [first-owner initialization](run-server-authority.md#bootstrap-the-first-owner) to create an active Owner/Manager and branch. The service installer still imports prepared state; it does not perform this initialization itself.
 
 For a preview without a firewall change, run `Firewall -WhatIf`; it still asks for the address. For scripted input, use `Firewall -ClientAddress 192.168.50.21` with the real client address. The rule is `<Name>-Host-Client` (default `Eitmad-Host-Client`) in the local persistent policy store. The command refuses a matching rule owned by another installation. Existing broad rules can grant access independently; inspect them through [LAN firewall scope](setup-lan-server.md#allow-only-selected-clients-on-the-private-interface). The command does not remove unrelated rules or open PostgreSQL.
 
@@ -138,7 +138,7 @@ Build the Rust server with the required toolchain and run the isolated runtime c
 python deploy/windows/test-runtime.py --postgres-bin C:\PostgreSQL17\bin --server target/toolchain-1.85.1/debug/eitmad-server.exe --certificate-tool tools/dev-certificate/bin/Release/net8.0/Eitmad.DevCertificate.dll --root artifacts/unattended-runtime-UNIQUE
 ```
 
-This check uses synthetic SCRAM credentials and a separate cluster on free loopback ports. It checks late database startup, readiness during loss and recovery, HTTPS bind conflict, and successful Ctrl+C shutdown. It retains private evidence and stops its own processes. Add `--verify-client-reconnect` to run the existing authenticated reconnect proof from [server operation](run-server-authority.md#run-the-direct-desktop-connection-test) with a fresh disposable database in that cluster. Select the required Rust compiler in `PATH` as well as Cargo. Local transport proof does not prove independent-PC reconnection.
+This check uses synthetic SCRAM credentials and a separate cluster on free loopback ports. It checks late database startup, readiness during loss and recovery, HTTPS bind conflict, and successful Ctrl+C shutdown. It retains private evidence and stops its own processes. Add `--verify-client-reconnect` to run the existing authenticated reconnect proof from [server operation](run-server-authority.md#run-the-direct-desktop-connection-test) with a fresh disposable database in that cluster. Add `--verify-workshop-setup` to check the real private-input initialization CLI, invalid input, mandatory audit rollback, concurrent initialization, active-owner sign-in, initial branch, staff creation, and the existing invitation account lifecycle in separate fresh databases. Select the required Rust compiler in `PATH` as well as Cargo. Local transport proof does not prove independent-PC reconnection.
 
 Complete this acceptance table on an elevated Windows test host, with two independently enrolled PCs and synthetic data. Record the time, service identities, actual endpoint, and result without credentials or records:
 

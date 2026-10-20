@@ -17,6 +17,7 @@ use crate::authentication::{
 mod account_projection;
 mod accounts;
 mod owner_recovery;
+mod workshop_setup;
 pub use accounts::ServerAccountError;
 pub use owner_recovery::recover_owner_password;
 
@@ -98,23 +99,7 @@ impl IdentityService {
             expires_at,
         };
 
-        let mut transaction = self
-            .pool
-            .begin()
-            .await
-            .map_err(|_| IdentityError::Unavailable)?;
-        sqlx::query("SELECT pg_advisory_xact_lock($1)")
-            .bind(BOOTSTRAP_LOCK_KEY)
-            .execute(&mut *transaction)
-            .await
-            .map_err(|_| IdentityError::Unavailable)?;
-        let tenant_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM control.tenants")
-            .fetch_one(&mut *transaction)
-            .await
-            .map_err(|_| IdentityError::Unavailable)?;
-        if tenant_count != 0 {
-            return Err(IdentityError::AlreadyBootstrapped);
-        }
+        let mut transaction = self.begin_initialization().await?;
         insert_bootstrap_identity(&mut transaction, input, &state, now).await?;
         insert_bootstrap_invite(&mut transaction, &state, now).await?;
         insert_bootstrap_defaults(&mut transaction, &state, now).await?;
@@ -158,6 +143,31 @@ impl IdentityService {
             invite_token,
             expires_at: state.expires_at,
         })
+    }
+}
+
+impl IdentityService {
+    async fn begin_initialization(
+        &self,
+    ) -> Result<sqlx::Transaction<'_, sqlx::Postgres>, IdentityError> {
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| IdentityError::Unavailable)?;
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
+            .bind(BOOTSTRAP_LOCK_KEY)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|_| IdentityError::Unavailable)?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM control.tenants")
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(|_| IdentityError::Unavailable)?;
+        if count != 0 {
+            return Err(IdentityError::AlreadyBootstrapped);
+        }
+        Ok(transaction)
     }
 }
 

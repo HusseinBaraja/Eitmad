@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust identity and storage maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-20"
 review_triggers:
   - "identity topology, session lifecycle, tenant isolation, offline policy, or audit attribution changes"
 keywords:
@@ -39,6 +39,8 @@ The [desktop enrollment flow](server-authority.md#retained-desktop-connection) i
 Manager and Receptionist relationships produce distinct effective permissions. An active `DesktopSessionState` also carries the current Rust-owned `DesktopAccountRole`. The WPF shell maps that role to the existing Manager or Receptionist surface; it does not interpret permission decisions, infer a role from a username, or accept a shell-owned role switch. Rust still authorizes every command and query independently of the visible surface.
 
 ## Shared server account lifecycle
+
+Fresh workshop setup uses `IdentityService::initialize_workshop` in `server/control-plane/src/identity/workshop_setup.rs` and the versioned contracts in `crates/contracts/src/setup.rs`. The local `eitmad-server initialize-workshop` command reads bounded private JSON input; no network route exposes it. It validates names and hashes the owner password before starting one advisory-locked transaction shared with invitation bootstrap. That transaction creates one tenant, organization, active Owner/Manager account, registered branch, organization membership, update assignment, account-change revision, publication event, and mandatory system audit. No invitation or activation token is created. Invalid input or a failed write/audit leaves no partial workshop; any existing tenant blocks another initialization. See [the operator procedure](../../operations/run-server-authority.md#bootstrap-the-first-owner).
 
 `crates/contracts/src/server_accounts.rs` defines version-one server account administration. `server/control-plane/src/identity/accounts.rs` owns transitions; `account_projection.rs` reads current assignments. The host exposes authenticated `POST /v1/accounts/list`, `POST /v1/accounts/transition`, and `POST /v1/accounts/watch`. Invitation activation uses `POST /v1/auth/activate`. See [server account operations](../../operations/run-server-authority.md#manage-shared-server-accounts) for the request sequence.
 

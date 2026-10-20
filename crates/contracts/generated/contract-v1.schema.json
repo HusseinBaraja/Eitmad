@@ -69,6 +69,12 @@
     "event": {
       "$ref": "#/definitions/EventEnvelope"
     },
+    "initialize_workshop": {
+      "$ref": "#/definitions/InitializeWorkshop"
+    },
+    "initialized_workshop": {
+      "$ref": "#/definitions/InitializedWorkshop"
+    },
     "ipc_client_message": {
       "$ref": "#/definitions/IpcClientMessage"
     },
@@ -209,6 +215,8 @@
     }
   },
   "required": [
+    "initialize_workshop",
+    "initialized_workshop",
     "reconcile_customer_resolution",
     "reconcile_quotation_draft_resolution",
     "read_quotation_draft_recovery",
@@ -6148,6 +6156,71 @@
       "required": [
         "kind",
         "sourcePath"
+      ]
+    },
+    "InitializeWorkshop": {
+      "type": "object",
+      "properties": {
+        "ownerPassword": {
+          "$ref": "#/definitions/AccountPassword"
+        },
+        "ownerUsername": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshopName": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "workshopName",
+        "ownerUsername",
+        "ownerPassword"
+      ]
+    },
+    "InitializedWorkshop": {
+      "description": "Public enrollment coordinates, without credentials or an activation token.",
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "ownerAccountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "tenantCode",
+        "tenantId",
+        "organizationId",
+        "branchId",
+        "ownerAccountId"
       ]
     },
     "IpcClientMessage": {
