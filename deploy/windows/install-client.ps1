@@ -9,7 +9,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'package.psm1') -Force
-Assert-WindowsPrerequisites
+Assert-WindowsPrerequisites -PlatformOnly
 $installed = @(Get-AppxPackage -Name Eitmad.Desktop)
 if ($installed.Count -gt 1) { throw 'More than one desktop identity is installed. Inspect the publisher before proceeding.' }
 if ($Action -eq 'Status') {
@@ -33,12 +33,13 @@ if ($Action -eq 'Diagnose') {
 }
 $release = Read-EitmadPackage -Directory $PSScriptRoot -Target windows-desktop `
     -ExpectedReleaseSha256 $ExpectedReleaseSha256 -Publisher $Publisher -AllowUnsignedValidation:$AllowUnsignedValidation
+$package = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.msix' -File)
+if ($package.Count -ne 1) { throw 'Expected exactly one desktop MSIX.' }
+Assert-DesktopRuntime $package[0].FullName $release.payloadInventorySha256
 if ($Action -eq 'Verify') {
     Write-Host "Package inventory verified: desktop $($release.version). Unsigned MSIX cannot be installed by this tool."
     return
 }
-$package = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.msix' -File)
-if ($package.Count -ne 1) { throw 'Expected exactly one desktop MSIX.' }
 # There is deliberately no Add-AppxPackage -AllowUnsigned or certificate-import path.
 Assert-PackageSignature $package[0].FullName $Publisher
 if ($installed) {

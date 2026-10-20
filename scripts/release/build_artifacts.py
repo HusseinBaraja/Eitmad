@@ -161,6 +161,12 @@ def write_sbom(stage: Path, package: str, version: str) -> None:
                 component["purl"] = f"pkg:nuget/{name.removeprefix('runtimepack.')}@{component_version}"
             if component not in components:
                 components.append(component)
+    for path in sorted(stage.rglob("visual-cpp-runtime.json")):
+        runtime = json.loads(path.read_text(encoding="utf-8"))
+        component = {"type": "library", "name": "Microsoft Visual C++ Runtime", "version": runtime["version"],
+                     "properties": [{"name": "eitmad:deployment", "value": "app-local x64"}]}
+        if component not in components:
+            components.append(component)
     payload = {"bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
                "metadata": {"component": {"type": "application", "name": package, "version": version},
                             "properties": [{"name": "eitmad:inventory-scope", "value": "Resolved Rust normal/build inputs and published .NET libraries; excludes test-only roots. Payload hashes are in release.json."}]},
@@ -206,7 +212,47 @@ def publish(project: str, stage: Path, version: str) -> None:
         "--output", str(stage), "--nologo")
 
 
-def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsigned Validation", hook: Path | None = None) -> Path:
+def find_vc_runtime() -> Path:
+    installer = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
+    if not installer.is_file():
+        raise ValueError("Use --vc-runtime with the reviewed x64 Microsoft.VC143.CRT redistribution directory")
+    installations = json.loads(subprocess.check_output(
+        [str(installer), "-all", "-products", "*", "-format", "json", "-utf8"], text=True, encoding="utf-8-sig",
+    ))
+    candidates = []
+    for installation in installations:
+        root = Path(installation["installationPath"]) / "VC/Redist/MSVC"
+        for path in root.glob("*/x64/Microsoft.VC143.CRT"):
+            if re.fullmatch(r"\d+\.\d+\.\d+", path.parts[-3]):
+                candidates.append(path)
+    if not candidates:
+        raise ValueError("Install the Visual Studio x64 CRT redistribution files on the build host, or use --vc-runtime")
+    return max(candidates, key=lambda path: tuple(int(part) for part in path.parts[-3].split(".")))
+
+
+def copy_vc_runtime(stage: Path, source: Path | None) -> None:
+    """Use reviewed app-local redistribution files, never DLLs from System32."""
+    source = source if source is not None else find_vc_runtime()
+    metadata = json.loads(subprocess.check_output(
+        ["powershell.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/verify-vc-runtime.ps1"),
+         "-Directory", str(source.absolute())], cwd=ROOT, text=True, encoding="utf-8",
+    ))
+    for name in metadata["files"]:
+        # Refuse accidental replacement of files from a different published runtime.
+        target = stage / name
+        if target.exists() and sha256(target) != sha256(source / name):
+            raise ValueError("Published runtime conflicts with the reviewed Microsoft CRT")
+        shutil.copy2(source / name, target)
+        if sha256(target) != metadata["hashes"][name]:
+            raise ValueError("Copied Microsoft CRT differs from its authenticated input")
+    (stage / "visual-cpp-runtime.json").write_text(json.dumps({
+        "version": metadata["version"], "architecture": "x64", "deployment": "app-local",
+        "files": metadata["hashes"],
+    }, indent=2) + "\n", encoding="utf-8")
+
+
+def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsigned Validation", hook: Path | None = None,
+                  vc_runtime: Path | None = None) -> Path:
     if os.name != "nt":
         raise SystemExit("windows-desktop packaging requires Windows")
     plan = load_plan()["artifacts"]["windows_desktop"]
@@ -214,6 +260,7 @@ def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsign
     with tempfile.TemporaryDirectory(prefix="eitmad-package-") as temp_value:
         stage = Path(temp_value) / "Eitmad"
         publish(plan["shell_project"], stage, version)
+        copy_vc_runtime(stage, vc_runtime)
         shutil.copy2(binaries / "eitmad-engine-cli.exe", stage)
         verify_binary_version(stage / "eitmad-engine-cli.exe", "eitmad-engine-cli", version)
         report = json.loads(subprocess.check_output(
@@ -309,8 +356,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
     parser.add_argument("--publisher", default="CN=Eitmad Unsigned Validation")
     parser.add_argument("--signing-hook", type=Path, help="Reviewed hardware-backed signing script accepting -Path; no private key is packaged")
+    parser.add_argument("--vc-runtime", type=Path, help="Reviewed x64 Microsoft.VC143.CRT redistribution directory for offline Windows builds")
     arguments = parser.parse_args()
     windows_version(arguments.version)
+    if arguments.target != "windows-desktop" and arguments.vc_runtime is not None:
+        parser.error("--vc-runtime currently applies only to windows-desktop")
     if arguments.signing_hook:
         if arguments.publisher == "CN=Eitmad Unsigned Validation":
             parser.error("Signing requires the exact approved certificate-profile subject")
@@ -323,7 +373,8 @@ def main() -> None:
         artifact = build_server(arguments.output.resolve(), arguments.version)
     else:
         builder = build_windows if arguments.target == "windows-desktop" else build_windows_server
-        artifact = builder(arguments.output.resolve(), arguments.version, arguments.publisher, arguments.signing_hook)
+        options = {"vc_runtime": arguments.vc_runtime} if arguments.target == "windows-desktop" else {}
+        artifact = builder(arguments.output.resolve(), arguments.version, arguments.publisher, arguments.signing_hook, **options)
     manifest = write_manifest(arguments.output, artifact, arguments.version, arguments.target)
     verify(artifact, manifest)
     print(artifact)

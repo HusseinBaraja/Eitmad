@@ -43,5 +43,42 @@ $next.migrations.one = 'changed'
 Reject { Assert-AppendOnlyMigrations $previous $next } 'migration was removed or changed'
 $next.migrations = [pscustomobject]@{two='added'}
 Reject { Assert-AppendOnlyMigrations $previous $next } 'migration was removed or changed'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$desktop = Join-Path $root 'desktop'
+[void][IO.Directory]::CreateDirectory($desktop)
+$runtimeFiles = @{}
+foreach ($name in 'concrt140.dll', 'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll',
+    'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll', 'vccorlib140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+    $path = Join-Path $desktop $name
+    [IO.File]::WriteAllText($path, 'synthetic runtime: ' + $name)
+    $runtimeFiles[$name] = (Get-FileHash $path -Algorithm SHA256).Hash
+}
+$runtime = [pscustomobject]@{version='14.44.35211.0'; architecture='x64'; deployment='app-local'; files=$runtimeFiles.Clone()}
+$runtimePath = Join-Path $desktop 'visual-cpp-runtime.json'
+$runtime | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $runtimePath -Encoding UTF8
+$runtimeFiles['visual-cpp-runtime.json'] = (Get-FileHash $runtimePath -Algorithm SHA256).Hash
+$payloadPath = Join-Path $desktop 'release.json'
+[pscustomobject]@{files=$runtimeFiles} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $payloadPath -Encoding UTF8
+$payloadDigest = (Get-FileHash $payloadPath -Algorithm SHA256).Hash
+function Pack-Desktop([string]$Name) {
+    $package = Join-Path $root ($Name + '.msix')
+    [IO.Compression.ZipFile]::CreateFromDirectory($desktop, $package)
+    return $package
+}
+$complete = Pack-Desktop 'complete'
+Assert-DesktopRuntime $complete $payloadDigest
+Reject { Assert-DesktopRuntime $complete ('0' * 64) } 'inventory differs'
+[IO.File]::WriteAllText((Join-Path $desktop 'msvcp140.dll'), 'changed runtime')
+$changed = Pack-Desktop 'changed'
+Reject { Assert-DesktopRuntime $changed $payloadDigest } 'incomplete or differs'
+[IO.File]::WriteAllText((Join-Path $desktop 'msvcp140.dll'), 'synthetic runtime: msvcp140.dll')
+Remove-Item -LiteralPath (Join-Path $desktop 'vcruntime140_1.dll')
+$missing = Pack-Desktop 'missing'
+Reject { Assert-DesktopRuntime $missing $payloadDigest } 'missing, ambiguous'
+& (Get-Module package) {
+    function Get-ItemProperty { throw 'The per-user desktop queried the machine-wide runtime registry.' }
+    Assert-WindowsPrerequisites -PlatformOnly
+}
 Write-Host 'PASS: package inventory, tamper/extra-file/path rejection, unsigned refusal, and append-only migration gate.'
+Write-Host 'PASS: inventoried app-local desktop runtime, altered/missing DLL rejection, and no global runtime requirement.'
 Write-Host "Synthetic evidence: $root"

@@ -22,6 +22,31 @@ AUDIT_SPEC.loader.exec_module(docs_audit)
 
 
 class BuildArtifactsTests(unittest.TestCase):
+    def test_app_local_runtime_is_pinned_and_does_not_replace_other_publish_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            stage = root / "stage"
+            source.mkdir()
+            stage.mkdir()
+            runtime = source / "vcruntime140.dll"
+            runtime.write_bytes(b"reviewed runtime bytes")
+            metadata = {"version": "14.44.35211.0", "files": [runtime.name],
+                        "hashes": {runtime.name: artifacts.sha256(runtime)}}
+            with patch.object(artifacts.subprocess, "check_output", return_value=json.dumps(metadata)):
+                artifacts.copy_vc_runtime(stage, source)
+                retained = json.loads((stage / "visual-cpp-runtime.json").read_text())
+                self.assertEqual(retained["files"], metadata["hashes"])
+                self.assertEqual(retained["version"], metadata["version"])
+                self.assertEqual((stage / runtime.name).read_bytes(), runtime.read_bytes())
+                (stage / runtime.name).write_bytes(b"different published runtime")
+                with self.assertRaisesRegex(ValueError, "conflicts"):
+                    artifacts.copy_vc_runtime(stage, source)
+                (stage / runtime.name).unlink()
+                runtime.write_bytes(b"changed after review")
+                with self.assertRaisesRegex(ValueError, "differs from its authenticated input"):
+                    artifacts.copy_vc_runtime(stage, source)
+
     def test_server_tools_have_one_complete_location(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             stage = Path(temporary)

@@ -19,7 +19,7 @@ keywords:
 
 # Install and maintain Windows server and desktop packages
 
-Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, and self-contained .NET runtime. The server ZIP contains Rust, service installation tools, backup tools under `deploy/windows`, and the self-contained LAN certificate tool. Each service and backup module has one copy under `deploy/windows`; run its `restore-backup.ps1` to verify a recovery generation. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
+Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, self-contained .NET runtime, and app-local Microsoft C++ runtime. The server ZIP contains Rust, service installation tools, backup tools under `deploy/windows`, and the self-contained LAN certificate tool. Each service and backup module has one copy under `deploy/windows`; run its `restore-backup.ps1` to verify a recovery generation. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
 
 Both Windows ZIPs include the canonical `docs/` tree with its repository paths unchanged. After extraction, open `docs/operations/package-windows-desktop.md` for installation. Keep the tree together so linked procedures, reference pages, and heading anchors remain available without a repository checkout. `release.json` inventories these documentation files. External links still require network access. Build and developer-test procedures still require the source checkout and their stated tools.
 
@@ -36,6 +36,8 @@ python scripts/release/build_artifacts.py windows-server --version 0.1.0 --outpu
 ```powershell
 python scripts/release/build_artifacts.py windows-desktop --version 0.1.0 --output dist
 ```
+
+The desktop builder locates the newest numeric `VC/Redist/MSVC/<version>/x64/Microsoft.VC143.CRT` directory from installed Visual Studio instances through `vswhere.exe`. Use `--vc-runtime <REVIEWED_CRT_DIRECTORY>` to pin another approved redistribution source. It refuses missing files, mixed versions, versions below 14.40, non-x64 DLLs, untrusted Microsoft signatures, missing timestamps, and conflicts with published runtime files. It never takes DLLs from System32 or installs a global runtime. `visual-cpp-runtime.json`, the payload inventory, and SBOM retain the exact shipped version and digests. Review redistribution rights and servicing status for the selected source before release.
 
 `0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
 
@@ -61,11 +63,13 @@ Keep packages under `dist`, outside Git. Transfer the ZIP digest and extracted `
 
 | Machine | Requirements |
 | --- | --- |
-| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+; sufficient disk space; encrypted disk and protected backups |
-| Desktop | MSIX permitted by local policy; approved publisher chain trusted through enterprise/public distribution; install as each intended ordinary Windows user; no Rust or .NET SDK required |
-| Server | Supported Windows Server 2022/2025 or Windows 11; elevation for services; patched .NET Framework 4.8 for WinSW; `curl.exe`; PowerShell 7.4+ for LAN settings; trusted PostgreSQL 17 binaries and dedicated provisioned primary cluster; reviewed WinSW 2.12.0 and its authenticated SHA-256 |
+| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; encrypted disk and protected backups |
+| Desktop | MSIX permitted by local policy; approved publisher chain trusted through enterprise/public distribution; install as each intended ordinary Windows user; no administrator rights, global C++ runtime installation, Rust compiler, or .NET SDK required |
+| Server | Supported Windows Server 2022/2025 or Windows 11; elevation for services; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+; patched .NET Framework 4.8 for WinSW; `curl.exe`; PowerShell 7.4+ for LAN settings; trusted PostgreSQL 17 binaries and dedicated provisioned primary cluster; reviewed WinSW 2.12.0 and its authenticated SHA-256 |
 
-Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist). The tools do not download prerequisites, disable security policy, import a root CA, or open broad firewall access. The bundled .NET runtime requires package rebuilds for runtime security fixes. The host must stay awake and use stable private IPv4/DNS; review [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
+Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) for the server. The desktop installer verifies the app-local C++ runtime inside the authenticated MSIX before registration; it does not require the machine-wide runtime registry entry. Microsoft [supports local deployment](https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp?view=msvc-170), but Windows Update does not service those copies. Rebuild and distribute the package for C++ and .NET runtime security fixes. The tools do not download prerequisites, disable security policy, import a root CA, or open broad firewall access. The host must stay awake and use stable private IPv4/DNS; review [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
+
+On 2026-10-20, an unsigned desktop validation ZIP built successfully with Rust 1.85.1 and self-contained .NET 8. Its outer inventory, inner MSIX inventory, ten app-local CRT files, and SBOM version `14.44.35211.0` were verified without package registration. Focused tests rejected changed and missing DLLs and verified that the per-user platform check does not query the global C++ runtime registry. A clean offline PC without a global C++ runtime remains **Needs verification**. This result does not prove production signatures or complete guided onboarding.
 
 ## Install the server
 
