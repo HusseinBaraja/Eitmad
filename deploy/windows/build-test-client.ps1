@@ -100,7 +100,7 @@ $record = [ordered]@{purpose='local-test-only'; productionEligible=$false; ident
     certificateSha256=(Get-FileHash -LiteralPath $publicCertificate -Algorithm SHA256).Hash.ToLowerInvariant();
     packageSha256=(Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant();
     sourceArchiveSha256=$ExpectedSourceSha256.ToLowerInvariant(); sourceCommit=$release.sourceCommit;
-    privateKey='Non-exported Windows CurrentUser My certificate key; never copy to clients';
+    signingKeyStorage='Non-exported Windows CurrentUser My certificate key; never copy to clients';
     runtime='%LOCALAPPDATA%\Eitmad\TestClient\engine'; expiresAt=$certificate.NotAfter.ToUniversalTime().ToString('o')}
 $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'test-release.json') -Encoding UTF8
 foreach ($entry in @(@('Trust-TestCertificate.cmd', 'Trust'), @('Install-TestApp.cmd', 'Install'))) {
