@@ -123,7 +123,7 @@ function Invoke-EitmadInstallationElevation {
         [EitmadInstallationChannel]::Send($pipe, $PrivateInput)
         $PrivateInput = $null
         while ($true) {
-            $event = [EitmadInstallationChannel]::Receive($pipe, 1024)
+            $event = [EitmadInstallationChannel]::Receive($pipe, 32768)
             if (-not $event) { break }
             [Console]::Out.WriteLine($event)
             [Console]::Out.Flush()

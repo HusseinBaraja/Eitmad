@@ -84,7 +84,7 @@ pub struct InstallWindowsClient {
     pub desktop: WindowsInstallPackage,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstallWindowsServer {
     pub version: u32,
@@ -95,6 +95,62 @@ pub struct InstallWindowsServer {
     pub service_name: String,
     pub server_progress_directory: String,
     pub winsw_executable: String,
+    pub winsw_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_desktop: Option<crate::server::LoginRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup: Option<SetupBackupDestinations>,
+}
+
+impl std::fmt::Debug for InstallWindowsServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("InstallWindowsServer([redacted])")
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetupBackupDestinations {
+    pub local: String,
+    pub external: Option<String>,
+}
+
+/// Public trust returned only over the original user's authenticated elevation channel.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetupDesktopHandoff {
+    pub version: u32,
+    pub prepared: PreparedWindowsWorkshop,
+    pub public_ca_pem: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum GuidedSetupAction {
+    Inspect,
+    Client,
+    Server,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GuidedWindowsSetup {
+    pub version: u32,
+    pub action: GuidedSetupAction,
+    pub bundle_directory: String,
+    pub intended_user_sid: String,
+    pub workshop: Option<InitializeWorkshop>,
+    pub backup: Option<SetupBackupDestinations>,
+}
+
+/// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WindowsSetupBundle {
+    pub version: u32,
+    pub publisher: String,
+    pub desktop_release_sha256: String,
+    pub server_release_sha256: String,
     pub winsw_sha256: String,
 }
 
@@ -111,6 +167,8 @@ pub enum WindowsInstallStage {
     ConfigureFirewall,
     VerifyHttps,
     RegisterDesktop,
+    EnrollDesktop,
+    ConfigureBackups,
     Complete,
 }
 

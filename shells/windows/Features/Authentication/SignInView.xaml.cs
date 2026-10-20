@@ -11,6 +11,29 @@ namespace Eitmad.WindowsShell.Features.Authentication;
 
 public partial class SignInView : UserControl
 {
+    private Eitmad.Platform.Windows.Shell.IEngineShellBridge? engine;
+    public void Attach(Eitmad.Platform.Windows.Shell.IEngineShellBridge bridge)
+    {
+        engine = bridge; ServerSelection.Engine = bridge;
+        ServerSelection.Paired += (_, _) => { ServerSelection.Visibility = Visibility.Collapsed; SignInError.Visibility = Visibility.Collapsed; ConnectionStatus.Text = "تم ربط الجهاز. سجل الدخول بحسابك الشخصي."; UsernameBox.Focus(); };
+    }
+    private async void ReconnectClick(object sender, RoutedEventArgs e) => await LoadConnectionAsync();
+    public async Task LoadConnectionAsync()
+    {
+        if (engine is null) return;
+        ReconnectButton.IsEnabled = false;
+        try
+        {
+            var state = await engine.OnboardingAsync(new Eitmad.Contracts.DesktopOnboardingAction { Kind = Eitmad.Contracts.DesktopOnboardingActionKind.State });
+            ServerSelection.Visibility = state.Paired ? Visibility.Collapsed : Visibility.Visible;
+            SignInError.Visibility = Visibility.Collapsed;
+            ConnectionStatus.Text = state.Paired ? "إعداد اتصال الورشة محفوظ. سجل الدخول للتحقق من الحساب والاتصال بالخادم." : "";
+            if (!state.Paired) await ServerSelection.DiscoverAsync();
+        }
+        catch (Exception error) when (error is EngineIpcException or IOException or NotSupportedException)
+        { ShowConnectionFailure(); }
+        finally { ReconnectButton.IsEnabled = true; }
+    }
     public SignInView()
     {
         InitializeComponent();
@@ -106,6 +129,7 @@ public partial class SignInView : UserControl
 
     public void Reset(SessionEndReason? reason = null)
     {
+        ServerSelection.Clear();
         signInCancellation?.Cancel();
         UsernameBox.Clear();
         PasswordInput.Clear();

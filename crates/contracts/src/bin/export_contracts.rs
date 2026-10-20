@@ -45,6 +45,8 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
+    windows_setup_bundle: eitmad_contracts::setup::WindowsSetupBundle,
     server_backup_configuration: eitmad_contracts::backup::ServerBackupConfiguration,
     server_backup_status: eitmad_contracts::backup::ServerBackupStatus,
     open_pairing: eitmad_contracts::pairing::OpenPairing,
@@ -141,6 +143,8 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
+    windows_setup_bundle: eitmad_contracts::setup::WindowsSetupBundle,
     server_backup_configuration: eitmad_contracts::backup::ServerBackupConfiguration,
     server_backup_status: eitmad_contracts::backup::ServerBackupStatus,
     install_windows: eitmad_contracts::setup::InstallWindows,

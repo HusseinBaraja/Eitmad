@@ -64,6 +64,13 @@ public partial class MainWindow : Window
         this.sessions = sessions;
         if (engine is not null)
         {
+            SignInSurface.Attach(engine);
+            UsersSurface.PairDeviceRequested += (_, _) =>
+            {
+                var pairing = new OwnerPairingWindow(engine) { Owner = this };
+                pairing.StaffRequested += (_, _) => OpenManagerDestination("المستخدمون");
+                pairing.ShowDialog();
+            };
             UsersSurface.Attach(engine);
             RawMaterialsSurface.Attach(engine);
             PartsSurface.Attach(engine);

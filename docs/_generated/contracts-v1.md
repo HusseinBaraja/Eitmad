@@ -22,6 +22,8 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 ## IPC messages
 
 - `eitmad.ipc.discover-servers.v1`
+- `eitmad.ipc.desktop-onboarding.v1`
+- `eitmad.ipc.desktop-onboarding-response.v1`
 - `eitmad.ipc.cancel-server-discovery.v1`
 - `eitmad.ipc.server-discovery.v1`
 - `eitmad.ipc.desktop-session-response.v1`
@@ -195,6 +197,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 - `eitmad.capability.server-pairing.v1`
 - `eitmad.capability.server-discovery.v1`
+- `eitmad.capability.desktop-onboarding.v1`
 - `eitmad.capability.shared-accounts.v1`
 - `eitmad.capability.home.v1`
 - `eitmad.capability.work-orders.v1`

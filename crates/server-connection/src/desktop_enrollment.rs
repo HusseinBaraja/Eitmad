@@ -61,7 +61,12 @@ impl DesktopEnrollment {
             .lock()
             .map_err(|_| authentication_failure())?;
         let retained = DesktopConnectionSettings::load(&self.directory)?;
-        let inputs = Self::inputs(request, retained.as_ref())?;
+        let inputs = if request.connection.is_none() && retained.is_none() {
+            self.paired_connection()?
+                .ok_or_else(authentication_failure)?
+        } else {
+            Self::inputs(request, retained.as_ref())?
+        };
         self.check_paired_inputs(&inputs)?;
         let paired = self.paired_connection()?;
         let trust_path = Path::new(

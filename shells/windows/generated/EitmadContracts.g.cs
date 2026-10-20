@@ -22,6 +22,9 @@ namespace Eitmad.Contracts
 
     public partial class EitmadContractSchema
     {
+        [JsonPropertyName("guided_windows_setup")]
+        public GuidedWindowsSetup GuidedWindowsSetup { get; set; }
+
         [JsonPropertyName("initialize_workshop")]
         public InitializeWorkshop InitializeWorkshop { get; set; }
 
@@ -69,6 +72,39 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("windows_installation_state")]
         public WindowsInstallationState WindowsInstallationState { get; set; }
+
+        [JsonPropertyName("windows_setup_bundle")]
+        public WindowsSetupBundle WindowsSetupBundle { get; set; }
+    }
+
+    public partial class GuidedWindowsSetup
+    {
+        [JsonPropertyName("action")]
+        public GuidedSetupAction Action { get; set; }
+
+        [JsonPropertyName("backup")]
+        public SetupBackupDestinations Backup { get; set; }
+
+        [JsonPropertyName("bundleDirectory")]
+        public string BundleDirectory { get; set; }
+
+        [JsonPropertyName("intendedUserSid")]
+        public string IntendedUserSid { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshop")]
+        public InitializeWorkshop Workshop { get; set; }
+    }
+
+    public partial class SetupBackupDestinations
+    {
+        [JsonPropertyName("external")]
+        public string External { get; set; }
+
+        [JsonPropertyName("local")]
+        public string Local { get; set; }
     }
 
     public partial class InitializeWorkshop
@@ -142,8 +178,14 @@ namespace Eitmad.Contracts
 
     public partial class InstallWindowsServer
     {
+        [JsonPropertyName("backup")]
+        public SetupBackupDestinations Backup { get; set; }
+
         [JsonPropertyName("client")]
         public InstallWindowsClient Client { get; set; }
+
+        [JsonPropertyName("firstDesktop")]
+        public LoginRequest FirstDesktop { get; set; }
 
         [JsonPropertyName("preparation")]
         public PrepareWindowsWorkshop Preparation { get; set; }
@@ -168,6 +210,57 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("winswSha256")]
         public string WinswSha256 { get; set; }
+    }
+
+    /// <summary>
+    /// Secret-bearing login request. It intentionally has no `Debug` implementation.
+    /// </summary>
+    public partial class LoginRequest
+    {
+        [JsonPropertyName("deviceId")]
+        public Guid DeviceId { get; set; }
+
+        [JsonPropertyName("deviceLabel")]
+        public string DeviceLabel { get; set; }
+
+        [JsonPropertyName("deviceProof")]
+        public DeviceProof DeviceProof { get; set; }
+
+        [JsonPropertyName("devicePublicKey")]
+        public DevicePublicKey DevicePublicKey { get; set; }
+
+        [JsonPropertyName("password")]
+        public string Password { get; set; }
+
+        [JsonPropertyName("tenantCode")]
+        public string TenantCode { get; set; }
+
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+    }
+
+    public partial class DeviceProof
+    {
+        [JsonPropertyName("deviceId")]
+        public Guid DeviceId { get; set; }
+
+        [JsonPropertyName("issuedAt")]
+        public long IssuedAt { get; set; }
+
+        [JsonPropertyName("nonce")]
+        public string Nonce { get; set; }
+
+        [JsonPropertyName("signatureBase64")]
+        public string SignatureBase64 { get; set; }
+    }
+
+    public partial class DevicePublicKey
+    {
+        [JsonPropertyName("algorithm")]
+        public string Algorithm { get; set; }
+
+        [JsonPropertyName("base64")]
+        public string Base64 { get; set; }
     }
 
     /// <summary>
@@ -826,6 +919,10 @@ namespace Eitmad.Contracts
         public CommandEnvelope IpcClientMessageIpcCommand { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDesktopOnboarding")]
+        public DesktopOnboardingRequest IpcClientMessageIpcDesktopOnboarding { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcDesktopSessionState")]
         public DesktopSessionRequest IpcClientMessageIpcDesktopSessionState { get; set; }
 
@@ -864,6 +961,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcCommandResponse")]
         public CommandResponseEnvelope IpcServerMessageIpcCommandResponse { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcServerMessage_IpcDesktopOnboardingResponse")]
+        public DesktopOnboardingResponse IpcServerMessageIpcDesktopOnboardingResponse { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcDesktopSessionResponse")]
@@ -3354,6 +3455,61 @@ namespace Eitmad.Contracts
         public Guid? ServiceId { get; set; }
     }
 
+    public partial class DesktopOnboardingRequest
+    {
+        [JsonPropertyName("action")]
+        public DesktopOnboardingAction Action { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+    }
+
+    public partial class DesktopOnboardingAction
+    {
+        [JsonPropertyName("kind")]
+        public DesktopOnboardingActionKind Kind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("payload")]
+        public DesktopOnboardingActionPayload Payload { get; set; }
+    }
+
+    public partial class DesktopOnboardingActionPayload
+    {
+        [JsonPropertyName("candidate")]
+        public DiscoveredServer Candidate { get; set; }
+
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+    }
+
+    public partial class DiscoveredServer
+    {
+        /// <summary>
+        /// A hint only. Pairing must authenticate the server identity and TLS name separately.
+        /// </summary>
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long ExpiresAt { get; set; }
+
+        /// <summary>
+        /// More than one running installation claims this identity. Never select it automatically.
+        /// </summary>
+        [JsonPropertyName("identityConflict")]
+        public bool IdentityConflict { get; set; }
+
+        [JsonPropertyName("port")]
+        public long Port { get; set; }
+
+        [JsonPropertyName("serverId")]
+        public Guid ServerId { get; set; }
+    }
+
     public partial class DesktopSessionRequest
     {
         [JsonPropertyName("correlationId")]
@@ -3589,6 +3745,33 @@ namespace Eitmad.Contracts
         public RetryDisposition Retry { get; set; }
     }
 
+    public partial class DesktopOnboardingResponse
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("error")]
+        public ContractError Error { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("state")]
+        public DesktopOnboardingState State { get; set; }
+    }
+
+    public partial class DesktopOnboardingState
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long? ExpiresAt { get; set; }
+
+        [JsonPropertyName("paired")]
+        public bool Paired { get; set; }
+    }
+
     public partial class DesktopSessionResponse
     {
         [JsonPropertyName("correlationId")]
@@ -3806,30 +3989,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("status")]
         public DiscoveryStatus Status { get; set; }
-    }
-
-    public partial class DiscoveredServer
-    {
-        /// <summary>
-        /// A hint only. Pairing must authenticate the server identity and TLS name separately.
-        /// </summary>
-        [JsonPropertyName("address")]
-        public string Address { get; set; }
-
-        [JsonPropertyName("expiresAt")]
-        public long ExpiresAt { get; set; }
-
-        /// <summary>
-        /// More than one running installation claims this identity. Never select it automatically.
-        /// </summary>
-        [JsonPropertyName("identityConflict")]
-        public bool IdentityConflict { get; set; }
-
-        [JsonPropertyName("port")]
-        public long Port { get; set; }
-
-        [JsonPropertyName("serverId")]
-        public Guid ServerId { get; set; }
     }
 
     public partial class ShutdownResponse
@@ -5301,6 +5460,29 @@ namespace Eitmad.Contracts
         public long Version { get; set; }
     }
 
+    /// <summary>
+    /// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
+    /// </summary>
+    public partial class WindowsSetupBundle
+    {
+        [JsonPropertyName("desktopReleaseSha256")]
+        public string DesktopReleaseSha256 { get; set; }
+
+        [JsonPropertyName("publisher")]
+        public string Publisher { get; set; }
+
+        [JsonPropertyName("serverReleaseSha256")]
+        public string ServerReleaseSha256 { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("winswSha256")]
+        public string WinswSha256 { get; set; }
+    }
+
+    public enum GuidedSetupAction { Client, Inspect, Server };
+
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
 
     public enum QuotationField { ColorId, Customer, CustomerRevision, Dimensions, DiscountBasisPoints, HandleId, LineId, Lines, PriceRevision, Quantity, Target, Total };
@@ -5374,6 +5556,8 @@ namespace Eitmad.Contracts
 
     public enum PermissionDecision { Denied, Granted };
 
+    public enum DesktopOnboardingActionKind { OpenPairing, Pair, State };
+
     public enum PeerKind { DiagnosticClient, Engine, Server, Shell };
 
     public enum CommandOutcomeStatus { Failed, Succeeded };
@@ -5404,7 +5588,7 @@ namespace Eitmad.Contracts
 
     public enum HomeDestination { Catalog, Customer, Order, Quotation };
 
-    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureFirewall, Elevation, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
+    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureBackups, ConfigureFirewall, Elevation, EnrollDesktop, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
 
     public enum WindowsInstallStatus { Failed, Running, Succeeded };
 
@@ -5446,6 +5630,7 @@ namespace Eitmad.Contracts
         {
             Converters =
             {
+                GuidedSetupActionConverter.Singleton,
                 DetailKindConverter.Singleton,
                 QuotationFieldConverter.Singleton,
                 QuotationIssueConverter.Singleton,
@@ -5483,6 +5668,7 @@ namespace Eitmad.Contracts
                 QuotationDraftResolutionChoiceConverter.Singleton,
                 MaterialRecordKindConverter.Singleton,
                 PermissionDecisionConverter.Singleton,
+                DesktopOnboardingActionKindConverter.Singleton,
                 PeerKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
                 DesktopSessionStatusConverter.Singleton,
@@ -5502,6 +5688,45 @@ namespace Eitmad.Contracts
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class GuidedSetupActionConverter : JsonConverter<GuidedSetupAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(GuidedSetupAction);
+
+        public override GuidedSetupAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "client":
+                    return GuidedSetupAction.Client;
+                case "inspect":
+                    return GuidedSetupAction.Inspect;
+                case "server":
+                    return GuidedSetupAction.Server;
+            }
+            throw new Exception("Cannot unmarshal type GuidedSetupAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, GuidedSetupAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case GuidedSetupAction.Client:
+                    JsonSerializer.Serialize(writer, "client", options);
+                    return;
+                case GuidedSetupAction.Inspect:
+                    JsonSerializer.Serialize(writer, "inspect", options);
+                    return;
+                case GuidedSetupAction.Server:
+                    JsonSerializer.Serialize(writer, "server", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type GuidedSetupAction");
+        }
+
+        public static readonly GuidedSetupActionConverter Singleton = new GuidedSetupActionConverter();
     }
 
     internal class DetailKindConverter : JsonConverter<DetailKind>
@@ -7183,6 +7408,45 @@ namespace Eitmad.Contracts
         public static readonly PermissionDecisionConverter Singleton = new PermissionDecisionConverter();
     }
 
+    internal class DesktopOnboardingActionKindConverter : JsonConverter<DesktopOnboardingActionKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DesktopOnboardingActionKind);
+
+        public override DesktopOnboardingActionKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "openPairing":
+                    return DesktopOnboardingActionKind.OpenPairing;
+                case "pair":
+                    return DesktopOnboardingActionKind.Pair;
+                case "state":
+                    return DesktopOnboardingActionKind.State;
+            }
+            throw new Exception("Cannot unmarshal type DesktopOnboardingActionKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DesktopOnboardingActionKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DesktopOnboardingActionKind.OpenPairing:
+                    JsonSerializer.Serialize(writer, "openPairing", options);
+                    return;
+                case DesktopOnboardingActionKind.Pair:
+                    JsonSerializer.Serialize(writer, "pair", options);
+                    return;
+                case DesktopOnboardingActionKind.State:
+                    JsonSerializer.Serialize(writer, "state", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DesktopOnboardingActionKind");
+        }
+
+        public static readonly DesktopOnboardingActionKindConverter Singleton = new DesktopOnboardingActionKindConverter();
+    }
+
     internal class PeerKindConverter : JsonConverter<PeerKind>
     {
         public override bool CanConvert(Type t) => t == typeof(PeerKind);
@@ -7689,10 +7953,14 @@ namespace Eitmad.Contracts
                     return WindowsInstallStage.ApplyMigrations;
                 case "complete":
                     return WindowsInstallStage.Complete;
+                case "configureBackups":
+                    return WindowsInstallStage.ConfigureBackups;
                 case "configureFirewall":
                     return WindowsInstallStage.ConfigureFirewall;
                 case "elevation":
                     return WindowsInstallStage.Elevation;
+                case "enrollDesktop":
+                    return WindowsInstallStage.EnrollDesktop;
                 case "initializeOwner":
                     return WindowsInstallStage.InitializeOwner;
                 case "installServices":
@@ -7721,11 +7989,17 @@ namespace Eitmad.Contracts
                 case WindowsInstallStage.Complete:
                     JsonSerializer.Serialize(writer, "complete", options);
                     return;
+                case WindowsInstallStage.ConfigureBackups:
+                    JsonSerializer.Serialize(writer, "configureBackups", options);
+                    return;
                 case WindowsInstallStage.ConfigureFirewall:
                     JsonSerializer.Serialize(writer, "configureFirewall", options);
                     return;
                 case WindowsInstallStage.Elevation:
                     JsonSerializer.Serialize(writer, "elevation", options);
+                    return;
+                case WindowsInstallStage.EnrollDesktop:
+                    JsonSerializer.Serialize(writer, "enrollDesktop", options);
                     return;
                 case WindowsInstallStage.InitializeOwner:
                     JsonSerializer.Serialize(writer, "initializeOwner", options);

@@ -28,6 +28,7 @@ FIXED_ZIP_TIME = (2020, 1, 1, 0, 0, 0)
 
 # These paths are the later setup program's role boundary. Client has no server dependency.
 OFFLINE_COMPONENTS = {
+    "setup": ("setup", ("EitmadSetup.exe", "EitmadSetup.dll", "EitmadSetup.runtimeconfig.json", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll")),
     "desktop": ("client/desktop", ("install-client.ps1", "package.psm1", "release.json")),
     "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json",
         "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1",
@@ -187,7 +188,7 @@ def load_payload_review(path: Path, expected: str, version: str) -> dict:
         if not isinstance(selected, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?", selected):
             raise ValueError("Invalid reviewed component version")
         parts = tuple(int(part) for part in selected.split("-")[0].split("."))
-        if ((name in {"desktop", "application"} and selected != version) or
+        if ((name in {"desktop", "application", "setup"} and selected != version) or
             (name == "postgresql" and (len(parts) != 2 or parts[0] != 17)) or
             (name == "winsw" and selected != "2.12.0") or
             (name == "powershell" and (parts[0] != 7 or parts < (7, 4))) or
@@ -319,7 +320,7 @@ def validate_offline_tree(root: Path, review: dict, *, prepared: bool = False) -
     for name, (directory, _) in OFFLINE_COMPONENTS.items():
         for relative, entry in review["components"][name]["files"].items():
             expected[f"{directory}/{relative}"] = entry
-    metadata = {"reviewed-inputs.json", "payload.json"} if prepared else set()
+    metadata = {"reviewed-inputs.json", "payload.json", "setup-bundle.json"} if prepared else set()
     if set(actual) != set(expected) | metadata:
         raise ValueError("Offline payload contains missing or unexpected files")
     for relative, entry in expected.items():
@@ -343,6 +344,7 @@ def validate_offline_tree(root: Path, review: dict, *, prepared: bool = False) -
     runtimes = {"certificateTool": self_contained_runtime(server / "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.runtimeconfig.json"),
                 "powershell": self_contained_runtime(root / "server/powershell/pwsh.runtimeconfig.json")}
     desktop = check_desktop_payload(root / OFFLINE_COMPONENTS["desktop"][0], review["version"])
+    runtimes["setup"] = self_contained_runtime(root / "setup/EitmadSetup.runtimeconfig.json", desktop=True)
     return {"schemaVersion": 1, "version": review["version"], "architecture": "x64",
             "productionEligible": False,
             "roles": {"Client": ["client/desktop"], "Server": ["client/desktop", "server"]},
@@ -372,6 +374,7 @@ def prepare_offline_payload(source: Path, output: Path, review_path: Path, expec
         if sha256(stage / "reviewed-inputs.json") != expected_review:
             raise ValueError("Review manifest changed during preparation")
         inventory["reviewManifestSha256"] = expected_review
+        (stage / "setup-bundle.json").write_text(json.dumps(setup_bundle_metadata(stage, review), indent=2) + "\n", encoding="utf-8")
         (stage / "payload.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
         stage.rename(output)
     return output
@@ -385,6 +388,17 @@ def verify_offline_payload(output: Path, expected_review: str, version: str) -> 
     expected["reviewManifestSha256"] = expected_review
     if read_json(output / "payload.json") != expected:
         raise ValueError("Prepared payload inventory differs from the verified review")
+    if read_json(output / "setup-bundle.json") != setup_bundle_metadata(output, review):
+        raise ValueError("Setup metadata differs from the authenticated payload")
+
+
+def setup_bundle_metadata(root: Path, review: dict) -> dict:
+    """Bind the native launcher's inputs to the independently authenticated review."""
+    return {"version": 1,
+            "publisher": review["components"]["application"]["files"]["eitmad-server.exe"]["publisher"],
+            "desktopReleaseSha256": sha256(root / "client/desktop/release.json"),
+            "serverReleaseSha256": sha256(root / "server/application/release.json"),
+            "winswSha256": review["components"]["winsw"]["files"]["WinSW.NET461.exe"]["sha256"]}
 
 
 def run(*command: str, env: dict | None = None) -> None:

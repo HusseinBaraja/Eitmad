@@ -208,7 +208,8 @@ async fn desktop_enrollment_recovers_interruption_expiry_and_credential_loss() {
     assert_server_restart(&first, &mut server).await;
     let second = Installation::new();
     second.pair(&server).await;
-    assert!(second.sign_in(request(Some(inputs))).await.unwrap());
+    // Native onboarding retains the authenticated pairing; sign-in needs no copied settings.
+    assert!(second.sign_in(request(None)).await.unwrap());
     assert_ne!(first.device(), second.device());
     assert_eq!(
         first.store.local_organization_id().unwrap(),

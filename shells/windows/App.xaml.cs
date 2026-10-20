@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application
         try
         {
             await sessions.StartAsync();
+            await window.SignInSurface.LoadConnectionAsync();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
         {

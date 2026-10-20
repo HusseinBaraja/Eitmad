@@ -10,13 +10,13 @@ use std::{
 };
 use zeroize::Zeroizing;
 
-pub(super) struct WindowsPlatform;
+pub(in crate::windows_setup) struct WindowsPlatform;
 
 fn invoke(
     action: &str,
     request: &impl serde::Serialize,
     mut progress: Option<&mut Progress>,
-) -> Result<(), MainError> {
+) -> Result<Option<eitmad_contracts::setup::SetupDesktopHandoff>, MainError> {
     let executable = std::env::current_exe().map_err(|_| MainError::Setup)?;
     let script = executable
         .parent()
@@ -30,6 +30,7 @@ fn invoke(
             .args(["-NoProfile", "-NonInteractive", "-File"])
             .arg(script)
             .args(["-Action", action])
+            .env_remove("PSModulePath")
             .arg("-Backend")
             .arg(executable)
             .stdin(Stdio::piped())
@@ -49,19 +50,30 @@ fn invoke(
         let mut sequence = 0;
         let mut ready = false;
         let mut complete = false;
+        let mut handoff = None;
         loop {
             let mut line = Vec::new();
             // Only typed bounded progress can cross back from the elevated worker.
             let read = reader
                 .by_ref()
-                .take(1025)
+                .take(32769)
                 .read_until(b'\n', &mut line)
                 .map_err(|_| MainError::Setup)?;
             if read == 0 {
                 break;
             }
-            if read > 1024 || complete {
+            if read > 32768 {
                 return Err(MainError::Setup);
+            }
+            if complete {
+                if handoff.is_some() {
+                    return Err(MainError::Setup);
+                }
+                handoff = Some(
+                    serde_json::from_slice::<eitmad_contracts::setup::SetupDesktopHandoff>(&line)
+                        .map_err(|_| MainError::Setup)?,
+                );
+                continue;
             }
             let event: WindowsInstallProgress =
                 serde_json::from_slice(&line).map_err(|_| MainError::Setup)?;
@@ -80,7 +92,7 @@ fn invoke(
                 if matches!(event.stage, Stage::Elevation | Stage::RegisterDesktop) {
                     return Err(MainError::Setup);
                 }
-                ready = event.stage == Stage::VerifyHttps && event.status == Status::Running;
+                ready |= event.stage == Stage::VerifyHttps && event.status == Status::Running;
                 target.record(event.stage, event.status)?;
             }
         }
@@ -89,7 +101,7 @@ fn invoke(
         {
             return Err(MainError::Setup);
         }
-        Ok(())
+        Ok(handoff)
     })();
     if result.is_err() {
         let _ = child.kill();
@@ -100,16 +112,16 @@ fn invoke(
 
 impl Platform for WindowsPlatform {
     fn client_preflight(&mut self, request: &InstallWindowsClient) -> Result<(), MainError> {
-        invoke("ClientPreflight", request, None)
+        invoke("ClientPreflight", request, None).map(|_| ())
     }
     fn server_preflight(&mut self, request: &InstallWindowsServer) -> Result<(), MainError> {
-        invoke("ServerPreflight", request, None)
+        invoke("ServerPreflight", request, None).map(|_| ())
     }
     fn elevate(
         &mut self,
         request: &InstallWindowsServer,
         progress: &mut Progress,
-    ) -> Result<(), MainError> {
+    ) -> Result<Option<eitmad_contracts::setup::SetupDesktopHandoff>, MainError> {
         invoke("Elevate", request, Some(progress))
     }
     async fn prepare(
@@ -121,9 +133,9 @@ impl Platform for WindowsPlatform {
         Ok(())
     }
     fn host(&mut self, request: &InstallWindowsServer, action: &str) -> Result<(), MainError> {
-        invoke(action, request, None)
+        invoke(action, request, None).map(|_| ())
     }
     fn desktop(&mut self, request: &InstallWindowsClient) -> Result<(), MainError> {
-        invoke("Desktop", request, None)
+        invoke("Desktop", request, None).map(|_| ())
     }
 }

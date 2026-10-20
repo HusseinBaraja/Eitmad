@@ -64,6 +64,64 @@ pub(super) fn check_recovery_access(
 }
 
 impl DesktopServerAuthentication for DesktopOnlineAuthentication {
+    fn onboarding(
+        &self,
+        action: &eitmad_contracts::onboarding::DesktopOnboardingAction,
+        actor: Option<&eitmad_contracts::identity::AuthorizationContext>,
+    ) -> Result<eitmad_contracts::onboarding::DesktopOnboardingState, DesktopAuthenticationError>
+    {
+        use eitmad_contracts::onboarding::{
+            DesktopOnboardingAction as Action, DesktopOnboardingState,
+        };
+
+        let secrets = eitmad_secret_storage::SecretStore::open(&self.directory, None)
+            .map_err(|_| DesktopAuthenticationError::Failed)?;
+        let enrollment = eitmad_server_connection::DesktopEnrollment::new(
+            self.directory.clone(),
+            self.store.clone(),
+            secrets,
+        );
+        let mut state = DesktopOnboardingState {
+            paired: enrollment
+                .paired_connection()
+                .map_err(|_| DesktopAuthenticationError::Failed)?
+                .is_some()
+                || eitmad_server_connection::DesktopConnectionSettings::load(&self.directory)
+                    .map_err(|_| DesktopAuthenticationError::Failed)?
+                    .is_some(),
+            code: None,
+            expires_at: None,
+        };
+        match action {
+            Action::State => (),
+            Action::Pair { candidate, code } => {
+                if actor.is_some() || state.paired {
+                    return Err(DesktopAuthenticationError::Failed);
+                }
+                enrollment
+                    .pair(candidate, code)
+                    .map_err(|_| DesktopAuthenticationError::Failed)?;
+                state.paired = true;
+            }
+            Action::OpenPairing => {
+                let actor = actor.ok_or(DesktopAuthenticationError::Failed)?;
+                self.check_access(actor)?;
+                let settings =
+                    eitmad_server_connection::DesktopConnectionSettings::load(&self.directory)
+                        .map_err(|_| DesktopAuthenticationError::Failed)?;
+                let client =
+                    crate::accounts::client(&self.store, &self.directory, settings.as_ref())
+                        .map_err(|()| DesktopAuthenticationError::Failed)?
+                        .ok_or(DesktopAuthenticationError::Unavailable)?;
+                let opened = client
+                    .open_pairing(actor)
+                    .map_err(|_| DesktopAuthenticationError::Failed)?;
+                state.code = Some(opened.code);
+                state.expires_at = Some(opened.offer.expires_at);
+            }
+        }
+        Ok(state)
+    }
     fn check_access(
         &self,
         authorization: &eitmad_contracts::identity::AuthorizationContext,

@@ -8,7 +8,10 @@
  <Grid x:Name="ListSurface" Visibility="{Binding IsListVisible, Converter={StaticResource BooleanToVisibility}}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <controls:PageHeader Title="المستخدمون">
-   <Button Content="+ إضافة مستخدم" IsEnabled="{Binding CanManageAccounts}" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
+   <WrapPanel>
+    <Button Content="ربط جهاز" IsEnabled="{Binding CanManageAccounts}" Style="{StaticResource SecondaryButton}" Click="PairDeviceClick" Margin="0,0,8,0" AutomationProperties.Name="ربط جهاز جديد بالورشة"/>
+    <Button Content="+ إضافة مستخدم" IsEnabled="{Binding CanManageAccounts}" Style="{StaticResource PrimaryButton}" Click="AddClick" AutomationProperties.Name="إضافة مستخدم"/>
+   </WrapPanel>
   </controls:PageHeader>
   <Grid Grid.Row="1" Margin="28,22,28,28">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>

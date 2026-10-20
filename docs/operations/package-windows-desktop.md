@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -61,12 +61,13 @@ Keep packages under `dist`, outside Git. Transfer the ZIP digest and extracted `
 
 ## Prepare the combined offline payload
 
-The `windows-offline` target collects prebuilt, reviewed inputs into a **new** verified directory for the later `EitmadSetup.exe`. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. The setup EXE remains unimplemented. Preparation does not grant production acceptance.
+The `windows-offline` target collects prebuilt, reviewed inputs into a **new** verified directory for `setup/EitmadSetup.exe`. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. The native setup uses this verified tree; build its self-contained output with `dotnet publish shells/windows-setup/Eitmad.WindowsSetup.csproj --configuration Release --runtime win-x64 --self-contained true --output <reviewed-input-tree>/setup` before reviewing inputs. Preparation does not grant production acceptance.
 
 Use the existing signed desktop and server ZIPs from the same release version. Extract them without changing their inventories. Supply the following input tree; the collector copies these paths unchanged:
 
 | Input path | Required reviewed content | Installation role |
 | --- | --- | --- |
+| `setup` | Self-contained x64 `EitmadSetup.exe`, native WPF resources, .NET 8 Windows Desktop runtime, approved signatures, and redistribution notices | Launcher for both roles; installs no host component for Client |
 | `client/desktop` | Existing desktop ZIP contents: signed MSIX, installation scripts, and offline documentation; retain self-contained .NET and app-local x64 Microsoft C++ runtime | Client and Server |
 | `server/application` | Existing server ZIP contents, including the self-contained LAN certificate tool and workshop preparation scripts | Server only |
 | `server/postgresql` | Complete reviewed PostgreSQL 17 x64 `bin`, `lib`, and `share`; include initialization, service, SQL, dump/restore, `pg_basebackup.exe`, and `pg_verifybackup.exe` tools | Server only |
@@ -81,7 +82,7 @@ Windows PowerShell 5.1, Windows `curl.exe` with Schannel, supported patched x64 
 
 Keep the input review JSON **outside** the payload input tree. Authenticate its SHA-256 through the approved release channel before collection. Do not calculate a new approval digest from an untrusted download merely to make validation pass. No vendor versions, hashes, or licenses are inferred from installed software or accepted from filenames.
 
-The review format has four root fields: `schemaVersion` (`1`), `version` (the exact Eitmad semantic version), `architecture` (`x64`), and `components`. The `components` object must contain exactly `desktop`, `application`, `postgresql`, `winsw`, `powershell`, `vc-redist`, and `netfx`. Each component has these fields:
+The review format has four root fields: `schemaVersion` (`1`), `version` (the exact Eitmad semantic version), `architecture` (`x64`), and `components`. The `components` object must contain exactly `setup`, `desktop`, `application`, `postgresql`, `winsw`, `powershell`, `vc-redist`, and `netfx`. Each component has these fields:
 
 | Field | Review requirement |
 | --- | --- |
@@ -135,7 +136,7 @@ On 2026-10-20, an unsigned desktop validation ZIP built successfully with Rust 1
 
 ## Install the server
 
-For a fresh workshop, use the [Rust Server or Client installation backend](prepare-windows-workshop.md#install-server-or-client-through-rust). Server composes preparation, services, Private-network access, HTTPS readiness, and original-user desktop registration. The native setup UI selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) remains unimplemented. For separate operator preparation, create the stopped cluster and prepared LAN root there, then use this service installation flow.
+For a fresh workshop, use the [Rust Server or Client installation backend](prepare-windows-workshop.md#install-server-or-client-through-rust). Server composes preparation, services, Private-network access, HTTPS readiness, and original-user desktop registration. The native Arabic setup selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) now calls that backend and adds first-desktop enrollment and backup destination controls. See [native setup and interruption handling](prepare-windows-workshop.md#use-native-arabic-setup). For separate operator preparation, create the stopped cluster and prepared LAN root there, then use this service installation flow.
 
 1. Extract the server ZIP into a new local staging directory. Compare ZIP and inventory digests with the authenticated release record. In elevated x64 PowerShell, set `$releaseDigest` and `$approvedPublisher` to its non-secret values, then run:
 

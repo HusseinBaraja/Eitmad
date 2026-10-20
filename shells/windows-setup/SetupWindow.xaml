@@ -1,0 +1,69 @@
+<Window x:Class="Eitmad.WindowsSetup.SetupWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls;assembly=Eitmad.WindowsShell"
+ Title="إعداد الاعتماد" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen"
+ FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource CanvasBrush}" UseLayoutRounding="True">
+ <Grid Margin="24">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <DockPanel Margin="0,0,0,16">
+   <TextBlock Text="الاعتماد" Foreground="{DynamicResource CopperBrush}" FontSize="26" FontWeight="Bold"/>
+   <TextBlock x:Name="StepTitle" Text="إعداد جهاز الورشة" FontSize="18" Margin="20,0,0,0" VerticalAlignment="Center"/>
+  </DockPanel>
+  <ScrollViewer x:Name="SetupScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel MaxWidth="760" HorizontalAlignment="Stretch" Margin="0,0,0,20">
+    <StackPanel x:Name="InputPanel">
+     <TextBlock Text="كيف ستستخدم هذا الجهاز؟" FontSize="27" FontWeight="Bold" Margin="0,4,0,8"/>
+     <TextBlock Text="اختر الخادم للجهاز الذي تبقى عليه بيانات الورشة. اختر جهاز موظف لبقية الأجهزة." Margin="0,0,0,18"/>
+     <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,10">
+      <StackPanel><RadioButton x:Name="ServerChoice" GroupName="Role" Content="خادم الورشة ومعه تطبيق الموظف" FontSize="17" Checked="RoleChanged" AutomationProperties.Name="تثبيت خادم الورشة والتطبيق"/>
+       <TextBlock Text="ينشئ ورشة جديدة وحساب المالك، ويثبت الخدمات وتطبيق الاعتماد لهذا المستخدم في Windows. يجب إبقاء الجهاز مشغّلًا ومتصلًا بالشبكة الخاصة." Margin="24,8,0,0"/>
+      </StackPanel>
+     </Border>
+     <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,18">
+      <StackPanel><RadioButton x:Name="ClientChoice" GroupName="Role" Content="جهاز موظف" FontSize="17" Checked="RoleChanged" AutomationProperties.Name="تثبيت تطبيق الموظف فقط"/>
+       <TextBlock Text="يثبت التطبيق فقط دون صلاحيات مسؤول Windows. بعد فتحه، اختر خادم الورشة وأدخل رمز الربط من المالك، ثم سجل الدخول بحسابك." Margin="24,8,0,0"/>
+      </StackPanel>
+     </Border>
+     <StackPanel x:Name="ServerFields" Visibility="Collapsed">
+      <TextBlock Text="الورشة وحساب المالك" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+      <controls:FormField Label="اسم الورشة" IsRequired="True"><TextBox x:Name="WorkshopName" Style="{StaticResource TextInput}" MaxLength="160" AutomationProperties.Name="اسم الورشة"/></controls:FormField>
+      <controls:FormField Label="اسم مستخدم المالك" IsRequired="True" Margin="0,12,0,0"><TextBox x:Name="OwnerUsername" Style="{StaticResource TextInput}" MaxLength="128" AutomationProperties.Name="اسم مستخدم مالك المنشأة"/></controls:FormField>
+      <controls:FormField Label="كلمة مرور المالك" IsRequired="True" Margin="0,12,0,0"><PasswordBox x:Name="OwnerPassword" Padding="12,8" MaxLength="256" AutomationProperties.Name="كلمة مرور مالك المنشأة"/></controls:FormField>
+      <TextBlock Text="استخدم كلمة مرور من 12 حرفًا على الأقل. ينشئ المالك حسابًا مستقلًا لكل موظف من المستخدمون." Margin="0,8,0,18"/>
+      <Expander Header="وجهات النسخ الاحتياطي" IsExpanded="True" AutomationProperties.Name="اختيار وجهات النسخ الاحتياطي">
+       <StackPanel Margin="0,12,0,0">
+        <TextBlock Text="نسخة محلية تلقائية كل يوم. النسخة على القرص نفسه لا تحمي من تلف القرص. استخدم قرصًا خارجيًا مشفّرًا لحماية إضافية." Margin="0,0,0,12"/>
+        <controls:FormField Label="وجهة النسخة المحلية">
+         <DockPanel><Button DockPanel.Dock="Left" Content="اختيار مجلد" Style="{StaticResource SecondaryButton}" Click="LocalFolderClick" Margin="8,0,0,0" AutomationProperties.Name="اختيار مجلد النسخة المحلية"/>
+          <TextBox x:Name="LocalDestination" Style="{StaticResource TextInput}" IsReadOnly="True" FlowDirection="LeftToRight" AutomationProperties.Name="مجلد النسخة المحلية" ToolTip="اتركه فارغًا لاستخدام المجلد المحلي التلقائي"/>
+         </DockPanel>
+        </controls:FormField>
+        <TextBlock Text="اترك الوجهة المحلية فارغة لاستخدام مجلد الاعتماد التلقائي. يلزم قرص NTFS مشفّر ومجلد محمي." FontSize="12" Margin="0,6,0,12"/>
+        <controls:FormField Label="وجهة خارجية اختيارية">
+         <DockPanel><Button DockPanel.Dock="Left" Content="اختيار قرص خارجي" Style="{StaticResource SecondaryButton}" Click="ExternalFolderClick" Margin="8,0,0,0" AutomationProperties.Name="اختيار مجلد على قرص خارجي"/>
+          <TextBox x:Name="ExternalDestination" Style="{StaticResource TextInput}" IsReadOnly="True" FlowDirection="LeftToRight" AutomationProperties.Name="مجلد النسخة الخارجية"/>
+         </DockPanel>
+        </controls:FormField>
+        <Button Content="إلغاء الوجهة الخارجية" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ClearExternalClick" Margin="0,8,0,0" AutomationProperties.Name="إلغاء اختيار وجهة النسخ الخارجية"/>
+       </StackPanel>
+      </Expander>
+     </StackPanel>
+    </StackPanel>
+    <StackPanel x:Name="ProgressPanel" Visibility="Collapsed">
+     <TextBlock Text="حالة الإعداد" FontSize="27" FontWeight="Bold"/>
+     <TextBlock Text="تظهر المراحل التي أبلغ عنها برنامج التثبيت. لا توقف الخادم أو تحذف ملفاته إذا انقطع الإعداد." Margin="0,8,0,16"/>
+     <ProgressBar x:Name="BusyProgress" Height="5" IsIndeterminate="True" AutomationProperties.Name="تنفيذ مرحلة الإعداد الحالية" Margin="0,0,0,16"/>
+     <ItemsControl x:Name="StageList"><ItemsControl.ItemTemplate><DataTemplate>
+      <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,12"><TextBlock Text="{Binding}" FontSize="15"/></Border>
+     </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    </StackPanel>
+    <TextBlock x:Name="SetupNotice" Text="جارٍ فحص وجود إعداد سابق…" FontSize="14" Margin="0,18,0,0" AutomationProperties.LiveSetting="Assertive"/>
+   </StackPanel>
+  </ScrollViewer>
+  <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,12,0,0">
+   <Button x:Name="InstallButton" Content="بدء التثبيت" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="InstallClick" AutomationProperties.Name="بدء تثبيت الاعتماد"/>
+   <Button x:Name="InspectButton" Content="فحص حالة الإعداد" Style="{StaticResource SecondaryButton}" Click="InspectClick" Margin="10,0,0,0" AutomationProperties.Name="فحص حالة الإعداد المحفوظة"/>
+   <Button x:Name="OpenDesktopButton" Content="فتح الاعتماد" Style="{StaticResource PrimaryButton}" Click="OpenDesktopClick" Visibility="Collapsed" Margin="10,0,0,0" AutomationProperties.Name="فتح تطبيق الاعتماد وتسجيل الدخول"/>
+  </WrapPanel>
+ </Grid>
+</Window>

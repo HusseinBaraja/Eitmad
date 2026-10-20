@@ -1,8 +1,21 @@
 //! Fresh offline host preparation. Native installation mechanics stay in the Windows adapter.
 #[cfg(windows)]
+mod guided;
+#[cfg(windows)]
 mod installation;
 #[cfg(windows)]
 mod preparation;
+
+pub(super) async fn guided() -> Result<(), super::MainError> {
+    #[cfg(windows)]
+    {
+        guided::execute().await
+    }
+    #[cfg(not(windows))]
+    {
+        Err(super::MainError::Setup)
+    }
+}
 
 pub(super) async fn prepare() -> Result<(), super::MainError> {
     #[cfg(windows)]

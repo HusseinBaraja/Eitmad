@@ -121,7 +121,7 @@ public static class EitmadInstallationChannel
                         var read = process.StandardOutput.ReadAsync(character, 0, 1);
                         Await(read);
                         if (read.Result == 0 || character[0] == '\n') break;
-                        if (line.Length >= 1024) throw new IOException("Invalid progress frame.");
+                        if (line.Length >= 32768) throw new IOException("Invalid progress frame.");
                         line.Append(character[0]);
                     }
                     if (line.Length == 0) break;

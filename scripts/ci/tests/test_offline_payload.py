@@ -44,7 +44,7 @@ class OfflinePayloadTests(unittest.TestCase):
         self.review_path = self.root / "review.json"
         self.version = "1.2.3"
         self.review = {"schemaVersion": 1, "version": self.version, "architecture": "x64", "components": {}}
-        versions = {"desktop": self.version, "application": self.version, "postgresql": "17.6",
+        versions = {"setup": self.version, "desktop": self.version, "application": self.version, "postgresql": "17.6",
                     "winsw": "2.12.0", "powershell": "7.4.13", "vc-redist": "14.44.35211", "netfx": "4.8"}
         for name, (directory, required) in artifacts.OFFLINE_COMPONENTS.items():
             stage = self.source / directory
@@ -59,7 +59,8 @@ class OfflinePayloadTests(unittest.TestCase):
                 path.write_bytes(pe() if path.suffix in {".exe", ".dll"} else b"synthetic input")
                 if path.name.endswith(".runtimeconfig.json"):
                     path.write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [
-                        {"name": "Microsoft.NETCore.App", "version": "8.0.0"}]}}))
+                        {"name": "Microsoft.NETCore.App", "version": "8.0.0"},
+                        *([{"name": "Microsoft.WindowsDesktop.App", "version": "8.0.0"}] if name == "setup" else [])]}}))
             (stage / "LICENSE.txt").write_text("Synthetic redistribution terms only.")
             if name == "desktop":
                 self.make_desktop(stage)

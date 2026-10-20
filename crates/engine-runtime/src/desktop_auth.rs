@@ -22,6 +22,17 @@ pub struct DesktopAuthenticator {
 
 /// Rust-owned online authentication, called only after the local IPC handshake.
 pub trait DesktopServerAuthentication: Send + Sync {
+    /// Runs native onboarding under the process handshake or a live account session.
+    /// # Errors
+    /// Fails closed when this authority has no onboarding integration.
+    fn onboarding(
+        &self,
+        _action: &eitmad_contracts::onboarding::DesktopOnboardingAction,
+        _actor: Option<&AuthorizationContext>,
+    ) -> Result<eitmad_contracts::onboarding::DesktopOnboardingState, DesktopAuthenticationError>
+    {
+        Err(DesktopAuthenticationError::Unavailable)
+    }
     /// Requires a fresh authenticated server response for protected desktop access.
     /// # Errors
     /// Fails closed on denial, missing configuration, or an unreachable server.
@@ -46,6 +57,20 @@ pub enum DesktopAuthenticationError {
 }
 
 impl DesktopAuthenticator {
+    /// Delegates onboarding without granting account authority to the process identity.
+    /// # Errors
+    /// Requires a configured Rust server boundary.
+    pub fn onboarding(
+        &self,
+        action: &eitmad_contracts::onboarding::DesktopOnboardingAction,
+        actor: Option<&AuthorizationContext>,
+    ) -> Result<eitmad_contracts::onboarding::DesktopOnboardingState, DesktopAuthenticationError>
+    {
+        self.server
+            .as_ref()
+            .ok_or(DesktopAuthenticationError::Unavailable)?
+            .onboarding(action, actor)
+    }
     #[must_use]
     pub const fn new(store: AuthorityStore) -> Self {
         Self {

@@ -15,7 +15,7 @@ use std::{
 };
 use zeroize::Zeroizing;
 
-mod native;
+pub(super) mod native;
 #[cfg(test)]
 mod tests;
 
@@ -102,7 +102,7 @@ fn installation_path(value: &str) -> Result<(), MainError> {
     Ok(())
 }
 
-fn validate_client(request: &InstallWindowsClient) -> Result<(), MainError> {
+pub(super) fn validate_client(request: &InstallWindowsClient) -> Result<(), MainError> {
     if request.version != 1
         || !request.intended_user_sid.starts_with("S-1-5-")
         || request.intended_user_sid.len() > 184
@@ -113,7 +113,7 @@ fn validate_client(request: &InstallWindowsClient) -> Result<(), MainError> {
     validate_package(&request.desktop)
 }
 
-fn validate_server(request: &InstallWindowsServer) -> Result<(), MainError> {
+pub(super) fn validate_server(request: &InstallWindowsServer) -> Result<(), MainError> {
     if request.version != 1
         || request.client.version != 1
         || request.service_name.is_empty()
@@ -166,7 +166,7 @@ fn validate_server(request: &InstallWindowsServer) -> Result<(), MainError> {
 }
 
 /// Append-only, flushed stage records survive failures and power loss without rewriting old state.
-struct Progress {
+pub(super) struct Progress {
     root: PathBuf,
     _lock: File,
     sequence: u32,
@@ -221,7 +221,7 @@ impl Progress {
     }
 }
 
-fn read_state(root: &Path) -> Result<WindowsInstallationState, MainError> {
+pub(super) fn read_state(root: &Path) -> Result<WindowsInstallationState, MainError> {
     plain_path(root, true)?;
     let lock = OpenOptions::new()
         .read(true)
@@ -264,14 +264,14 @@ fn read_state(root: &Path) -> Result<WindowsInstallationState, MainError> {
     })
 }
 
-trait Platform {
+pub(super) trait Platform {
     fn client_preflight(&mut self, request: &InstallWindowsClient) -> Result<(), MainError>;
     fn server_preflight(&mut self, request: &InstallWindowsServer) -> Result<(), MainError>;
     fn elevate(
         &mut self,
         request: &InstallWindowsServer,
         progress: &mut Progress,
-    ) -> Result<(), MainError>;
+    ) -> Result<Option<eitmad_contracts::setup::SetupDesktopHandoff>, MainError>;
     async fn prepare(
         &mut self,
         request: &InstallWindowsServer,
@@ -281,7 +281,10 @@ trait Platform {
     fn desktop(&mut self, request: &InstallWindowsClient) -> Result<(), MainError>;
 }
 
-async fn install(request: &InstallWindows, platform: &mut impl Platform) -> Result<(), MainError> {
+pub(super) async fn install(
+    request: &InstallWindows,
+    platform: &mut impl Platform,
+) -> Result<(), MainError> {
     let client = match request {
         InstallWindows::Client(client) => client,
         InstallWindows::Server(server) => &server.client,
@@ -292,7 +295,11 @@ async fn install(request: &InstallWindows, platform: &mut impl Platform) -> Resu
         platform.client_preflight(client)?;
         if let InstallWindows::Server(server) = request {
             progress.begin(Stage::Elevation)?;
-            platform.elevate(server, &mut progress)?;
+            let handoff = platform.elevate(server, &mut progress)?;
+            if server.first_desktop.is_some() {
+                progress.begin(Stage::EnrollDesktop)?;
+                super::guided::enroll_desktop(server, handoff.ok_or(MainError::Setup)?)?;
+            }
         }
         progress.begin(Stage::RegisterDesktop)?;
         platform.desktop(client)?;
@@ -317,6 +324,7 @@ async fn install_server(
         return Err(error);
     }
     let mut progress = Progress::create(&request.server_progress_directory)?;
+    let mut handoff = None;
     let result = async {
         progress.begin(Stage::Preflight)?;
         platform.prepare(request, &mut progress).await?;
@@ -328,8 +336,20 @@ async fn install_server(
             progress.begin(stage)?;
             platform.host(request, action)?;
         }
+        if request.first_desktop.is_some() {
+            progress.begin(Stage::EnrollDesktop)?;
+            handoff = Some(super::guided::approve_first_desktop(request).await?);
+        }
+        if request.backup.is_some() {
+            progress.begin(Stage::ConfigureBackups)?;
+            super::guided::configure_backups(request)?;
+        }
         Ok(())
     }
     .await;
-    progress.finish(result)
+    progress.finish(result)?;
+    if let Some(handoff) = handoff {
+        publish(&handoff)?;
+    }
+    Ok(())
 }

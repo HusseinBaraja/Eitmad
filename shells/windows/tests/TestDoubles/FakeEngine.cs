@@ -10,6 +10,12 @@ namespace Eitmad.WindowsShell.Tests.TestDoubles;
 
 internal sealed class FakeEngine : IEngineShellBridge
 {
+    public Func<DesktopOnboardingAction, Task<DesktopOnboardingState>>? OnboardingHandler { get; set; }
+    public Func<Task<ServerDiscoveryResult>>? DiscoveryHandler { get; set; }
+    public Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default) =>
+        OnboardingHandler?.Invoke(action) ?? Task.FromException<DesktopOnboardingState>(new NotSupportedException());
+    public Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default) =>
+        DiscoveryHandler?.Invoke() ?? Task.FromException<ServerDiscoveryResult>(new NotSupportedException());
     private readonly Dictionary<string, List<FakeSubscription>> subscriptions = [];
     private readonly HashSet<string> queriedKinds = [];
     private readonly object stateLock = new();

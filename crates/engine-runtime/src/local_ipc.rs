@@ -423,12 +423,70 @@ impl LocalIpcServer {
         }
     }
 
+    async fn onboarding(
+        &self,
+        session: Option<&Session>,
+        request: eitmad_contracts::onboarding::DesktopOnboardingRequest,
+    ) -> IpcServerMessage {
+        let actor = session.and_then(|s| s.user_authorization.clone());
+        let auth = self.desktop_auth.clone().filter(|_| {
+            session.is_some_and(|s| {
+                s.negotiated
+                    .capabilities
+                    .iter()
+                    .any(|c| c.as_str() == "eitmad.capability.desktop-onboarding.v1")
+            })
+        });
+        let request_id = request.request_id;
+        let correlation_id = request.correlation_id;
+        let result = tokio::task::spawn_blocking(move || {
+            let mut action = request.action;
+            let result = auth
+                .ok_or(DesktopAuthenticationError::Failed)
+                .and_then(|auth| {
+                    if matches!(
+                        action,
+                        eitmad_contracts::onboarding::DesktopOnboardingAction::OpenPairing
+                    ) && !actor
+                        .as_ref()
+                        .is_some_and(|actor| auth.active(actor, now()) == Ok(true))
+                    {
+                        return Err(DesktopAuthenticationError::Failed);
+                    }
+                    auth.onboarding(&action, actor.as_ref())
+                });
+            if let eitmad_contracts::onboarding::DesktopOnboardingAction::Pair { code, .. } =
+                &mut action
+            {
+                code.clear();
+            }
+            result
+        })
+        .await
+        .unwrap_or(Err(DesktopAuthenticationError::Unavailable));
+        let (state, error) = match result {
+            Ok(state) => (Some(state), None),
+            Err(error) => (None, Some(desktop_auth_error(error, correlation_id))),
+        };
+        IpcServerMessage::DesktopOnboarding(
+            eitmad_contracts::onboarding::DesktopOnboardingResponse {
+                request_id,
+                correlation_id,
+                state,
+                error,
+            },
+        )
+    }
+
     async fn handle_message(
         &self,
         message: IpcClientMessage,
         session: &mut Option<Session>,
     ) -> IpcServerMessage {
         match message {
+            IpcClientMessage::DesktopOnboarding(request) => {
+                self.onboarding(session.as_ref(), request).await
+            }
             IpcClientMessage::DiscoverServers(request)
             | IpcClientMessage::CancelServerDiscovery(request) => {
                 IpcServerMessage::ServerDiscovery(
@@ -1464,6 +1522,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.local-ipc.v1",
             "eitmad.capability.local-ipc-subscriptions.v1",
             "eitmad.capability.server-discovery.v1",
+            "eitmad.capability.desktop-onboarding.v1",
             "eitmad.capability.authorization-policy-events.v1",
             "eitmad.capability.authorization-scopes.v1",
             "eitmad.capability.config.v1",
@@ -2122,6 +2181,84 @@ mod tests {
             user_authorization: None,
         });
         (directory, store, owner, user_id, service, connection)
+    }
+
+    #[tokio::test]
+    async fn onboarding_requires_handshake_and_live_account_before_owner_code() {
+        use eitmad_contracts::onboarding::{
+            DesktopOnboardingAction as Action, DesktopOnboardingRequest, DesktopOnboardingState,
+        };
+        struct Probe(std::sync::atomic::AtomicUsize);
+        impl crate::DesktopServerAuthentication for Probe {
+            fn check_access(
+                &self,
+                _: &AuthorizationContext,
+            ) -> Result<(), DesktopAuthenticationError> {
+                Ok(())
+            }
+            fn sign_in(
+                &self,
+                _: &DesktopSignInRequest,
+            ) -> Result<bool, DesktopAuthenticationError> {
+                Err(DesktopAuthenticationError::Failed)
+            }
+            fn onboarding(
+                &self,
+                _: &Action,
+                _: Option<&AuthorizationContext>,
+            ) -> Result<DesktopOnboardingState, DesktopAuthenticationError> {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(DesktopOnboardingState {
+                    paired: true,
+                    code: Some("synthetic-code".into()),
+                    expires_at: None,
+                })
+            }
+        }
+        let (_directory, store, _owner, _user, mut service, mut connection) =
+            signed_in_service_fixture();
+        let probe = Arc::new(Probe(std::sync::atomic::AtomicUsize::new(0)));
+        service.desktop_auth = Some(DesktopAuthenticator::new(store).with_server(probe.clone()));
+        let request = || {
+            IpcClientMessage::DesktopOnboarding(DesktopOnboardingRequest {
+                request_id: RequestId::new(uuid::Uuid::new_v4()),
+                correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+                action: Action::OpenPairing,
+            })
+        };
+        for active in [&mut None, &mut connection] {
+            let IpcServerMessage::DesktopOnboarding(response) =
+                service.handle_message(request(), active).await
+            else {
+                panic!("onboarding response expected")
+            };
+            assert!(response.state.is_none());
+            assert!(response.error.is_some());
+        }
+        assert_eq!(probe.0.load(std::sync::atomic::Ordering::SeqCst), 0);
+        let actor = fixture_sign_in(&service, &mut connection).await;
+        let IpcServerMessage::DesktopOnboarding(response) =
+            service.handle_message(request(), &mut connection).await
+        else {
+            panic!("onboarding response expected")
+        };
+        assert_eq!(
+            response.state.unwrap().code.as_deref(),
+            Some("synthetic-code")
+        );
+        service
+            .desktop_auth
+            .as_ref()
+            .unwrap()
+            .sign_out(&actor, CorrelationId::new(uuid::Uuid::new_v4()), now())
+            .unwrap();
+        let IpcServerMessage::DesktopOnboarding(response) =
+            service.handle_message(request(), &mut connection).await
+        else {
+            panic!("onboarding response expected")
+        };
+        assert!(response.state.is_none());
+        assert_eq!(probe.0.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 
     async fn fixture_sign_in(

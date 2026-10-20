@@ -10,6 +10,9 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-server-connection = { path = "../../crates/server-connection" }
+eitmad-secret-storage = { path = "../../crates/secret-storage" }
+eitmad-storage = { path = "../../crates/storage" }
 url = "=2.5.4"
 eitmad-server-discovery = { path = "../../crates/server-discovery" }
 eitmad-customer = { path = "../../crates/customer" }

@@ -211,6 +211,29 @@ public sealed class EngineIpcClient : IAsyncDisposable
         return result.State;
     }
 
+    public async Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default)
+    {
+        var id = Guid.NewGuid();
+        var response = await SendFrameAsync(IpcClientMessage.IpcDesktopOnboardingKind,
+            new DesktopOnboardingRequest { RequestId = id, CorrelationId = Guid.NewGuid(), Action = action },
+            id, TimeSpan.FromSeconds(45), cancellationToken, commandOutcomeUnknown: true).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessage.IpcDesktopOnboardingResponseKind);
+        var result = response.AsIpcDesktopOnboardingResponse();
+        if (result?.State is null || result.Error is not null)
+            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected, "Onboarding was not confirmed.", result?.Error);
+        return result.State;
+    }
+
+    public async Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default)
+    {
+        var id = Guid.NewGuid();
+        var response = await SendFrameAsync(IpcClientMessage.IpcDiscoverServersKind,
+            new DiscoverServers { RequestId = id, CorrelationId = Guid.NewGuid() }, id,
+            TimeSpan.FromSeconds(15), cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessage.IpcServerDiscoveryKind);
+        return response.AsIpcServerDiscovery() ?? throw ProtocolViolation("Invalid discovery response.");
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -726,6 +749,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         IpcServerMessage.IpcHandshakeResponseKind => message.AsIpcHandshakeResponse()?.RequestId,
         IpcServerMessage.IpcDesktopSessionResponseKind => message.AsIpcDesktopSessionResponse()?.RequestId,
+        IpcServerMessage.IpcDesktopOnboardingResponseKind => message.AsIpcDesktopOnboardingResponse()?.RequestId,
+        IpcServerMessage.IpcServerDiscoveryKind => message.AsIpcServerDiscovery()?.RequestId,
         IpcServerMessage.IpcCommandResponseKind => message.AsIpcCommandResponse()?.RequestId,
         IpcServerMessage.IpcQueryResponseKind => message.AsIpcQueryResponse()?.RequestId,
         IpcServerMessage.IpcSubscribeResponseKind => message.AsIpcSubscribeResponse()?.RequestId,

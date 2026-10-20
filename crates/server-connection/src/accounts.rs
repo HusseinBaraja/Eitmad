@@ -25,6 +25,26 @@ pub struct DirectAccountClient {
 }
 
 impl DirectAccountClient {
+    /// Opens a short-lived code only after the server verifies live Owner authority and audit.
+    /// # Errors
+    /// Rejects non-Owners, stale sessions, and unavailable authority.
+    pub fn open_pairing(
+        &self,
+        actor: &AuthorizationContext,
+    ) -> Result<eitmad_contracts::pairing::OpenedPairing, DesktopAccountError> {
+        self.http
+            .request(
+                actor,
+                "/v1/pairing/open",
+                &eitmad_contracts::pairing::OpenPairing {
+                    version: 1,
+                    organization_id: self.organization,
+                    branch_id: self.branch,
+                },
+                Instant::now() + Duration::from_secs(10),
+            )
+            .map_err(|error| map_error(&error))
+    }
     #[must_use]
     pub fn from_config(
         config: crate::DirectServerConfig,

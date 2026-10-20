@@ -598,6 +598,7 @@ public enum InstallWindows: Codable, Sendable {
     }
 }
 public enum IpcClientMessage: Codable, Sendable {
+    case ipcDesktopOnboarding(DesktopOnboardingRequest)
     case ipcDiscoverServers(DiscoverServers)
     case ipcCancelServerDiscovery(DiscoverServers)
     case ipcHandshake(HandshakeRequest)
@@ -611,6 +612,7 @@ public enum IpcClientMessage: Codable, Sendable {
     case ipcShutdown(ShutdownRequest)
 
     private enum Kind: String, Codable, Sendable {
+        case ipcDesktopOnboarding = "eitmad.ipc.desktop-onboarding.v1"
         case ipcDiscoverServers = "eitmad.ipc.discover-servers.v1"
         case ipcCancelServerDiscovery = "eitmad.ipc.cancel-server-discovery.v1"
         case ipcHandshake = "eitmad.ipc.handshake.v1"
@@ -632,6 +634,7 @@ public enum IpcClientMessage: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .ipcDesktopOnboarding: self = .ipcDesktopOnboarding(try container.decode(DesktopOnboardingRequest.self, forKey: .payload))
         case .ipcDiscoverServers: self = .ipcDiscoverServers(try container.decode(DiscoverServers.self, forKey: .payload))
         case .ipcCancelServerDiscovery: self = .ipcCancelServerDiscovery(try container.decode(DiscoverServers.self, forKey: .payload))
         case .ipcHandshake: self = .ipcHandshake(try container.decode(HandshakeRequest.self, forKey: .payload))
@@ -649,6 +652,9 @@ public enum IpcClientMessage: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .ipcDesktopOnboarding(let payload):
+            try container.encode(Kind.ipcDesktopOnboarding, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .ipcDiscoverServers(let payload):
             try container.encode(Kind.ipcDiscoverServers, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -686,6 +692,7 @@ public enum IpcClientMessage: Codable, Sendable {
     }
 }
 public enum IpcServerMessage: Codable, Sendable {
+    case ipcDesktopOnboardingResponse(DesktopOnboardingResponse)
     case ipcServerDiscovery(ServerDiscoveryResult)
     case ipcHandshakeResponse(HandshakeResponse)
     case ipcDesktopSessionResponse(DesktopSessionResponse)
@@ -699,6 +706,7 @@ public enum IpcServerMessage: Codable, Sendable {
     case ipcFailure(IPCFailureResponse)
 
     private enum Kind: String, Codable, Sendable {
+        case ipcDesktopOnboardingResponse = "eitmad.ipc.desktop-onboarding-response.v1"
         case ipcServerDiscovery = "eitmad.ipc.server-discovery.v1"
         case ipcHandshakeResponse = "eitmad.ipc.handshake-response.v1"
         case ipcDesktopSessionResponse = "eitmad.ipc.desktop-session-response.v1"
@@ -720,6 +728,7 @@ public enum IpcServerMessage: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .ipcDesktopOnboardingResponse: self = .ipcDesktopOnboardingResponse(try container.decode(DesktopOnboardingResponse.self, forKey: .payload))
         case .ipcServerDiscovery: self = .ipcServerDiscovery(try container.decode(ServerDiscoveryResult.self, forKey: .payload))
         case .ipcHandshakeResponse: self = .ipcHandshakeResponse(try container.decode(HandshakeResponse.self, forKey: .payload))
         case .ipcDesktopSessionResponse: self = .ipcDesktopSessionResponse(try container.decode(DesktopSessionResponse.self, forKey: .payload))
@@ -737,6 +746,9 @@ public enum IpcServerMessage: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .ipcDesktopOnboardingResponse(let payload):
+            try container.encode(Kind.ipcDesktopOnboardingResponse, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .ipcServerDiscovery(let payload):
             try container.encode(Kind.ipcServerDiscovery, forKey: .kind)
             try container.encode(payload, forKey: .payload)

@@ -52,6 +52,8 @@ impl TestRoot {
             server_progress_directory: self.path("server-progress"),
             winsw_executable: self.path("winsw.exe"),
             winsw_sha256: "b".repeat(64),
+            first_desktop: None,
+            backup: None,
         }
     }
 }
@@ -87,10 +89,11 @@ impl Platform for FakePlatform {
         &mut self,
         _: &InstallWindowsServer,
         progress: &mut Progress,
-    ) -> Result<(), MainError> {
+    ) -> Result<Option<eitmad_contracts::setup::SetupDesktopHandoff>, MainError> {
         self.call(Stage::Elevation)?;
         progress.begin(Stage::VerifyHttps)?;
-        progress.record(Stage::VerifyHttps, Status::Succeeded)
+        progress.record(Stage::VerifyHttps, Status::Succeeded)?;
+        Ok(None)
     }
     async fn prepare(
         &mut self,

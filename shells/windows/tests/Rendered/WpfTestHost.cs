@@ -14,6 +14,15 @@ internal static class WpfTestHost
 {
     private static readonly Lazy<Dispatcher> TestDispatcher = new(StartDispatcher);
 
+    public static void RunWindow(Func<Window> create, Action<Window> test) => TestDispatcher.Value.Invoke(() =>
+    {
+        var window = create();
+        window.Left = -10_000; window.Top = 0; window.ShowInTaskbar = false;
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        try { window.Show(); window.Activate(); CompleteLayout(window); test(window); }
+        finally { window.Close(); PumpDispatcher(); }
+    });
+
     public static void Run(
         double width,
         double height,

@@ -26,6 +26,7 @@ pub mod identity;
 pub mod ipc;
 pub mod material;
 pub mod observability;
+pub mod onboarding;
 pub mod order;
 pub mod pairing;
 pub mod part;

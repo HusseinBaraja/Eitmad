@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "fresh setup contracts, PostgreSQL preparation, credentials, certificates, or service import changes"
 keywords:
@@ -23,7 +23,33 @@ keywords:
 
 `eitmad-server prepare-windows-workshop` prepares a **new** Windows state directory using reviewed offline tools. It creates a private CA and matching leaf certificate, an isolated PostgreSQL 17 cluster with SCRAM authentication, separate random administrator and application credentials, an application database, migrations, and the active Owner/Manager and branch. PostgreSQL binds only to `127.0.0.1`. The command stops this cluster before it returns public enrollment coordinates and writes `prepared-workshop.json`.
 
-The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. Rust [automatic discovery](../developer/subsystems/server-discovery.md) returns untrusted candidates. The native `EitmadSetup.exe` interface, authenticated pairing, and automatic backup scheduling remain unimplemented. [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) defines the selected user experience.
+The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. The native `EitmadSetup.exe` now composes the installation backend, Rust [discovery](../developer/subsystems/server-discovery.md), authenticated pairing, and automatic local backup scheduling. [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) defines the selected user experience.
+
+## Use native Arabic setup
+
+Launch `setup/EitmadSetup.exe` as the intended normal Windows user. Choose **خادم الورشة ومعه تطبيق الموظف** for a new host or **جهاز موظف** for a client. Do not run development setup against an installed workshop. The WPF project is `shells/windows-setup/Eitmad.WindowsSetup.csproj`; its executable uses the existing native theme and controls.
+
+Server asks for the workshop name and Owner credentials once. Rust validates the reviewed `setup-bundle.json` inputs, derives this computer's DNS name and private IPv4 address, and selects the existing protected ProgramData installation paths. It refuses existing journals and state. Keep the Windows computer name resolvable on the workshop LAN. A missing private IPv4 or invalid computer name stops preflight; correct Windows network or naming settings before retrying only when **فحص حالة الإعداد** confirms that no journal exists.
+
+Rust refuses a nonempty existing desktop data directory before opening a store, then creates the independent desktop key under the initiating user's normal engine directory. The elevated worker uses the existing first-desktop claim, verifies the Owner and key proof, and returns public trust and scope over the existing peer-PID-verified local pipe. The original process performs verified TLS enrollment under the initiating user's SID, then registers the same desktop MSIX used by clients. A different UAC administrator does not receive that user's device key, desktop registration, or connection settings. Setup does not open an application session; the Owner signs in in the normal desktop.
+
+The first key proof has the existing five-minute lifetime. A delayed UAC prompt or long installation can fail the enrollment stage. Preserve the installation and key; follow the first-desktop recovery procedure rather than initializing the workshop again. Public handoff frames are bounded to 32 KiB and never enter the progress journal. Passwords remain private stdin/pipe input and are not process arguments or progress text.
+
+Server also offers a local backup folder and an optional external folder. An empty local selection uses `ProgramData/EitmadBackups`. Rust configures the existing backup backend for a daily capture and seven retained generations, registers its existing scheduled task, and requires a successful first local capture and any selected external copy before setup completes. Destination checks still require protected local NTFS folders and encrypted volumes; an external copy must be on a verified separate physical disk. A same-disk backup does not protect against disk loss. See [automatic local server backups](backup-lan-installation.md#automatic-local-server-backups), including restore verification. Setup does not claim restore acceptance.
+
+Client installs only the per-user desktop. Open **الاعتماد**, select the discovered server, and enter the code from the Owner's **المستخدمون** → **ربط جهاز** screen. Discovery is untrusted; Rust authenticates pairing and retains this device's key and trust. Pairing does not sign in or create a staff account. Each employee then signs in with an individual account. The Owner uses **إدارة حسابات الموظفين** to return to the existing Users workflow. Codes are transient, expire in three minutes, and are cleared when the screen closes, the engine connection is lost, or the deadline passes. Do not include code screens in screenshots.
+
+**فحص إعداد الاتصال** on sign-in checks Rust's retained connection state and offers discovery when enrollment is absent. A saved connection is not proof of live access. Sign-in and reconnect still require the [live server authority](../developer/subsystems/server-authority.md). Failure preserves keys, saved work, and trust; the shell cannot replace a connection silently.
+
+### Interrupted native setup
+
+The window prevents ordinary close while installation runs. After process termination or power loss, reopen setup and use **فحص حالة الإعداد**. It reads the existing Rust journal and displays the last durable stage, failure, or active worker. It never retries installation, deletes state, resets a database, or converts readiness alone into completion. Repair remains the existing operator procedure below. A ready host can remain when backup, first-desktop enrollment, or MSIX registration fails; do not choose new paths to bypass that failure.
+
+### Development proof and remaining acceptance
+
+Use synthetic data and doubles for the native setup and discovery screens. `OnboardingRenderedTests` covers roles, scrollable forms, keyboard traversal, Arabic accessible names, pairing rejection, Owner denial, reconnect presentation, and interrupted progress without installing anything. The existing control-level system-color path was rendered; this does not verify Windows high-contrast mode. The development display is 1920 × 1080 physical pixels at 125% (1536 × 864 DIP). The rendered maximized window is approximately 1550.4 × 830.4 DIP, the default is 1338.4 × 752.8 DIP, and the minimum is 720 × 560 DIP. Exact 100% baseline captures remain **Needs verification**; no display setting was changed.
+
+The real `desktop_enrollment_recovers_interruption_expiry_and_credential_loss` test passed against a fresh disposable PostgreSQL cluster and temporary desktop directories with `EITMAD_DESKTOP_ENROLLMENT_ENGINE` set. It includes the Windows bridge/IPC, paired sign-in without manual settings, interrupted persistence, server restart, credential recovery, and Owner-code authorization before sign-in, during the live Owner session, and after sign-out. No installed service, product database, or system trust store was used. Windows high-contrast mode and clean-machine end-to-end setup, different-account UAC, signed MSIX, offline runtime prerequisites, first-desktop setup enrollment, scheduled capture, restore, and independent-client reconnect remain isolated-VM acceptance requirements.
 
 ## Before you start
 
@@ -41,7 +67,7 @@ The command is not a sandbox for untrusted scripts or binaries. Malicious same-a
 
 ## Install Server or Client through Rust
 
-Run from the intended user's **non-elevated** process. Use the authenticated extracted bundle and the existing [Windows package prerequisites](package-windows-desktop.md). The command currently runs from `server/application/eitmad-server.exe` for either role; Client executes this backend but installs no server payload. No setup UI is provided yet. Keep the extracted bundle available to the administrator selected in UAC. Use the reviewed PostgreSQL and WinSW inputs from that bundle. This command does not install missing system runtimes.
+Run from the intended user's **non-elevated** process. Use the authenticated extracted bundle and the existing [Windows package prerequisites](package-windows-desktop.md). The command currently runs from `server/application/eitmad-server.exe` for either role; Client executes this backend but installs no server payload. For the guided interface, use `setup/EitmadSetup.exe` from the complete reviewed offline bundle. Keep the extracted bundle available to the administrator selected in UAC. Use the reviewed PostgreSQL and WinSW inputs from that bundle. This command does not install missing system runtimes.
 
 The authority is `server/host/src/windows_setup/installation.rs`; native mechanics are in packaged `deploy/windows/installation.ps1`, `installation.psm1`, and `installation-channel.cs`. Rust contracts in `crates/contracts/src/setup.rs` generate native bindings. The local request is bounded to 64 KiB and rejects unknown fields and unsupported versions. It is a private local deployment interface, not a remotely callable application command. The initiating user selects the installation; Windows authorizes elevated OS changes. Application Owner/Manager relationships and audit still use the existing [atomic first-owner authority](run-server-authority.md#bootstrap-the-first-owner).
 
@@ -137,7 +163,7 @@ UAC can use a different administrator account. That worker runs only `install-wi
 
 ### Progress, interruption, and recovery
 
-New service installations listen on IPv4 wildcard and add executable-scoped Private + LocalSubnet rules for the configured HTTPS port and UDP 58444. PostgreSQL remains loopback-only. Rust [server discovery](../developer/subsystems/server-discovery.md) preserves an installation UUID and returns typed, untrusted candidates. It cannot install trust or enroll a device. Native onboarding and authenticated pairing remain separate work. Development tests do not update the installed service or effective firewall policy.
+New service installations listen on IPv4 wildcard and add executable-scoped Private + LocalSubnet rules for the configured HTTPS port and UDP 58444. PostgreSQL remains loopback-only. Rust [server discovery](../developer/subsystems/server-discovery.md) preserves an installation UUID and returns typed, untrusted candidates. It cannot install trust or enroll a device. The native desktop presents candidates and submits the Owner code to Rust authenticated pairing. Development tests do not update the installed service or effective firewall policy.
 
 Each progress line has `version`, increasing `sequence`, `stage`, and `status`. The contract defines the exact stage/status values. Rust writes each record with exclusive creation and flushes it before emitting it. Records contain no credentials, account input, private paths, or native error text. The original-user journal contains the combined flow; the separate server journal contains elevated stages. A failed stage emits `failed` and prevents later stages. A server that is ready can remain installed if desktop registration fails; do not initialize it again.
 

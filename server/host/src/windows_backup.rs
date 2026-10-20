@@ -32,6 +32,55 @@ struct Observation {
     generations: Vec<String>,
 }
 
+/// Reuses the privileged CLI and destination checks without emitting backup state as installer progress.
+pub(super) fn configure_setup(
+    state: &Path,
+    configuration: &Configuration,
+) -> Result<(), MainError> {
+    backup::validate(configuration).map_err(|_| MainError::Input)?;
+    let observation = native(
+        "SetupDestination",
+        state,
+        &json!({"configuration":configuration}),
+    )?;
+    if observation.outcome != Outcome::Succeeded {
+        return Err(MainError::Backup);
+    }
+    let executable = std::env::current_exe().map_err(|_| MainError::Backup)?;
+    for action in ["configure", "schedule", "run"] {
+        let mut child = Command::new(&executable)
+            .args(["windows-backup", action])
+            .arg(state)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .map_err(|_| MainError::Backup)?;
+        if action == "configure" {
+            serde_json::to_writer(child.stdin.take().ok_or(MainError::Backup)?, &configuration)
+                .map_err(|_| MainError::Backup)?;
+        } else {
+            drop(child.stdin.take());
+        }
+        let output = child.wait_with_output().map_err(|_| MainError::Backup)?;
+        if !output.status.success() || output.stdout.len() > 65536 {
+            return Err(MainError::Backup);
+        }
+        let status: Status =
+            serde_json::from_slice(&output.stdout).map_err(|_| MainError::Backup)?;
+        if action == "schedule" && status.schedule_outcome != Outcome::Succeeded
+            || action == "run"
+                && (status.local_outcome != Outcome::Succeeded
+                    || configuration.external_destination.is_some()
+                        && status.external_outcome != Outcome::Succeeded)
+        {
+            return Err(MainError::Backup);
+        }
+    }
+    Ok(())
+}
+
 fn now() -> Result<u64, MainError> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

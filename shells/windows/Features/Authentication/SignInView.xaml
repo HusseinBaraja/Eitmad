@@ -4,6 +4,7 @@
              xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
              xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
              xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout"
+             xmlns:authentication="clr-namespace:Eitmad.WindowsShell.Features.Authentication"
              layout:ResponsiveLayout.IsEnabled="True"
              FlowDirection="RightToLeft"
              Language="ar-YE"
@@ -95,6 +96,9 @@
                     </StackPanel>
 
                     <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,24,0,24" />
+                    <authentication:ServerSelectionView x:Name="ServerSelection" Visibility="Collapsed" Margin="0,0,0,20"/>
+                    <Button x:Name="ReconnectButton" Content="فحص إعداد الاتصال" Style="{StaticResource SecondaryButton}" Click="ReconnectClick" Margin="0,0,0,16" AutomationProperties.Name="فحص إعداد الاتصال المحفوظ أو ربط جهاز"/>
+                    <TextBlock x:Name="ConnectionStatus" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,12" automation:AutomationProperties.LiveSetting="Polite"/>
 
                     <controls:FormField Label="اسم المستخدم" IsRequired="True">
                         <TextBox x:Name="UsernameBox"
@@ -150,7 +154,7 @@
 
                     <TextBlock Text="يتطلب الدخول والعمل اتصالًا بالخادم. تبقى بياناتك محفوظة عند انقطاع الاتصال."
                                TextWrapping="Wrap" Margin="0,12,0,0" />
-                    <Expander x:Name="ConnectionSetup" Header="ربط هذا الجهاز بالمنشأة" Margin="0,12,0,0"
+                    <Expander x:Name="ConnectionSetup" Header="إعداد اتصال يدوي للتشخيص" Margin="0,12,0,0"
                               automation:AutomationProperties.Name="إعداد اتصال المنشأة">
                         <StackPanel Margin="0,12,0,0">
                             <TextBlock Text="أدخل الإعدادات التي حصلت عليها من مسؤول المنشأة. اتركها مغلقة لاستخدام الاتصال المحفوظ."

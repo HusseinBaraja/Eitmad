@@ -72,6 +72,9 @@
     "event": {
       "$ref": "#/definitions/EventEnvelope"
     },
+    "guided_windows_setup": {
+      "$ref": "#/definitions/GuidedWindowsSetup"
+    },
     "initialize_workshop": {
       "$ref": "#/definitions/InitializeWorkshop"
     },
@@ -260,9 +263,14 @@
     },
     "windows_installation_state": {
       "$ref": "#/definitions/WindowsInstallationState"
+    },
+    "windows_setup_bundle": {
+      "$ref": "#/definitions/WindowsSetupBundle"
     }
   },
   "required": [
+    "guided_windows_setup",
+    "windows_setup_bundle",
     "server_backup_configuration",
     "server_backup_status",
     "open_pairing",
@@ -3960,6 +3968,151 @@
         "branch"
       ]
     },
+    "DesktopOnboardingAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "state"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pair"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "candidate": {
+                  "$ref": "#/definitions/DiscoveredServer"
+                },
+                "code": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "candidate",
+                "code"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "openPairing"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "DesktopOnboardingRequest": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/DesktopOnboardingAction"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId",
+        "action"
+      ]
+    },
+    "DesktopOnboardingResponse": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopOnboardingState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "DesktopOnboardingState": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expiresAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "paired": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "paired"
+      ]
+    },
     "DesktopSessionRequest": {
       "type": "object",
       "properties": {
@@ -4104,6 +4257,31 @@
         "correlationId",
         "username",
         "password"
+      ]
+    },
+    "DeviceProof": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "issuedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nonce": {
+          "type": "string"
+        },
+        "signatureBase64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "nonce",
+        "issuedAt",
+        "signatureBase64"
       ]
     },
     "DevicePublicKey": {
@@ -5923,6 +6101,60 @@
         "relation"
       ]
     },
+    "GuidedSetupAction": {
+      "type": "string",
+      "enum": [
+        "inspect",
+        "client",
+        "server"
+      ]
+    },
+    "GuidedWindowsSetup": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/GuidedSetupAction"
+        },
+        "backup": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bundleDirectory": {
+          "type": "string"
+        },
+        "intendedUserSid": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/InitializeWorkshop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "action",
+        "bundleDirectory",
+        "intendedUserSid"
+      ]
+    },
     "HandshakeAccepted": {
       "type": "object",
       "properties": {
@@ -6441,8 +6673,28 @@
     "InstallWindowsServer": {
       "type": "object",
       "properties": {
+        "backup": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "client": {
           "$ref": "#/definitions/InstallWindowsClient"
+        },
+        "firstDesktop": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LoginRequest"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "preparation": {
           "$ref": "#/definitions/PrepareWindowsWorkshop"
@@ -6486,6 +6738,22 @@
     },
     "IpcClientMessage": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-onboarding.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopOnboardingRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -6685,6 +6953,22 @@
     },
     "IpcServerMessage": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-onboarding-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopOnboardingResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -7495,6 +7779,49 @@
       },
       "required": [
         "change"
+      ]
+    },
+    "LoginRequest": {
+      "description": "Secret-bearing login request. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceLabel": {
+          "type": "string"
+        },
+        "deviceProof": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DeviceProof"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "password": {
+          "type": "string"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenantCode",
+        "username",
+        "password",
+        "deviceId",
+        "deviceLabel",
+        "devicePublicKey"
       ]
     },
     "Material": {
@@ -14261,6 +14588,24 @@
         "validityDays"
       ]
     },
+    "SetupBackupDestinations": {
+      "type": "object",
+      "properties": {
+        "external": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "local": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "local"
+      ]
+    },
     "ShutdownRequest": {
       "type": "object",
       "properties": {
@@ -16215,6 +16560,8 @@
         "configureFirewall",
         "verifyHttps",
         "registerDesktop",
+        "enrollDesktop",
+        "configureBackups",
         "complete"
       ]
     },
@@ -16246,6 +16593,37 @@
         "version",
         "progress",
         "interrupted"
+      ]
+    },
+    "WindowsSetupBundle": {
+      "description": "Release metadata, emitted by offline bundle assembly. It contains no machine settings.",
+      "type": "object",
+      "properties": {
+        "desktopReleaseSha256": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "serverReleaseSha256": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "winswSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "publisher",
+        "desktopReleaseSha256",
+        "serverReleaseSha256",
+        "winswSha256"
       ]
     },
     "WorkOrderFurniture": {

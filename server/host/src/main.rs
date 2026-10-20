@@ -32,7 +32,14 @@ async fn main() -> ExitCode {
         .without_time()
         .with_target(false)
         .init();
-    match execute().await {
+    let result = if std::env::args().len() == 2
+        && std::env::args().nth(1).as_deref() == Some("guided-windows-setup")
+    {
+        windows_setup::guided().await
+    } else {
+        execute().await
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(error = error.code(), "server command failed");

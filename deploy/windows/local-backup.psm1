@@ -375,6 +375,12 @@ function Restore-LocalServerBackup([string]$Generation, [string]$PostgresBin, [s
 }
 
 function Invoke-LocalBackupAction([string]$Action, [string]$StateDirectory, [string]$Backend, $Request) {
+    if ($Action -eq 'SetupDestination') {
+        & $script:HostTools { Assert-Administrator }
+        Assert-BackupPathSeparation $Request.configuration $StateDirectory
+        New-LocalBackupDirectory $Request.configuration.localDestination
+        return @()
+    }
     & $script:HostTools { Assert-Administrator }
     $state = Get-LocalBackupPath $StateDirectory
     if ($Action -eq 'Initialize') { New-LocalBackupDirectory $state }
