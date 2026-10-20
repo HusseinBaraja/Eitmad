@@ -27,6 +27,14 @@ Use a local deployment operator who can create the intended protected directory.
 
 Use the actual stable private listener address, reserved DNS name or matching private IPv4, two unused ports, and reviewed tool paths. The values below are machine-specific examples. Keep the request in memory and disable transcripts. Never put a password in process arguments.
 
+### Authority and trust boundaries
+
+The local deployment operator is trusted to select reviewed native tools. Discovery responses and remote application accounts cannot invoke this command. Rust owns generated secrets, credential validation, database provisioning, migrations, configuration, first-owner relationships, and mandatory product audit. The Windows adapter owns private-directory permissions, certificate API use, native process invocation, and PostgreSQL process startup and stop.
+
+Protected assets are the first-owner credential, application and administrator database credentials, token key, CA signing key, leaf key, and new product state. Input is bounded to 16 KiB, unknown fields and unsupported versions are refused, account validation precedes native changes, and paths reject UNC input and reparse points. The new root must not exist. Child tools receive private input instead of secret arguments; inherited libpq environment settings are removed. Native output is discarded, administrator SQL statement logging is disabled, and errors contain stable identifiers. The completion marker is written only after PostgreSQL stops.
+
+The command is not a sandbox for untrusted scripts or binaries. Malicious same-account or administrator processes can read process memory or change selected tools; authenticate the offline bundle before execution. A native failure, disk failure, or forced termination can leave incomplete new state. Atomic product initialization does not make filesystem and PostgreSQL cluster creation one transaction. Preserve incomplete state for operator diagnosis and keep the normal service installer's additional protected-parent and virtual-account checks.
+
 ## Prepare the new state
 
 From the extracted server package in PowerShell 7.4 or later:
