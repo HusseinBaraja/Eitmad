@@ -59,6 +59,68 @@ Executables are signed before MSIX assembly, then the final MSIX is signed. The 
 
 Keep packages under `dist`, outside Git. Transfer the ZIP digest and extracted `release.json` digest through an authenticated release channel. A checksum beside an untrusted download is not independent proof. The outer `.manifest.json` remains conservatively unsigned/non-production; a server ZIP also needs the authenticated release channel or approved detached release signature. Never edit generated inventory to pass verification. Package inventory is not the Rust signed update manifest. Do not create automatic-update assignments for this manual path; the [automatic update adapter](../developer/subsystems/update-distribution.md) remains unimplemented.
 
+## Prepare the combined offline payload
+
+The `windows-offline` target collects prebuilt, reviewed inputs into a **new** verified directory for the later `EitmadSetup.exe`. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. The setup EXE remains unimplemented. Preparation does not grant production acceptance.
+
+Use the existing signed desktop and server ZIPs from the same release version. Extract them without changing their inventories. Supply the following input tree; the collector copies these paths unchanged:
+
+| Input path | Required reviewed content | Installation role |
+| --- | --- | --- |
+| `client/desktop` | Existing desktop ZIP contents: signed MSIX, installation scripts, and offline documentation; retain self-contained .NET and app-local x64 Microsoft C++ runtime | Client and Server |
+| `server/application` | Existing server ZIP contents, including the self-contained LAN certificate tool and workshop preparation scripts | Server only |
+| `server/postgresql` | Complete reviewed PostgreSQL 17 x64 `bin`, `lib`, and `share`; include initialization, service, SQL, dump/restore, `pg_basebackup.exe`, and `pg_verifybackup.exe` tools | Server only |
+| `server/winsw` | Reviewed `WinSW.NET461.exe` version 2.12.0 and redistribution terms | Server only |
+| `server/powershell` | Extracted self-contained PowerShell 7.4+ x64 distribution, including its runtime and notices | Server only |
+| `server/vc-redist` | Reviewed Microsoft C++ 14.40+ x64 offline installer named `vc_redist.x64.exe` and redistribution terms | Server only |
+| `server/netfx` | Reviewed .NET Framework 4.8 full offline installer named `ndp48-x86-x64-allos-enu.exe` and redistribution terms for the WinSW Framework build | Server only |
+
+Windows PowerShell 5.1, Windows `curl.exe` with Schannel, supported patched x64 Windows build 19041+, local NTFS, and MSIX policy remain OS prerequisites. They are recorded in `payload.json`. Do not copy system executables from an installed machine. The server's C++ and Framework installers stay under `server/`; Client has no dependency on them. The later setup must select the exact role paths in `payload.json` rather than recursively install all files. PowerShell is delivered as extracted app-local files; selecting its executable and invoking server runtime installers belongs to the later setup adapter.
+
+### Review manifest and trust
+
+Keep the input review JSON **outside** the payload input tree. Authenticate its SHA-256 through the approved release channel before collection. Do not calculate a new approval digest from an untrusted download merely to make validation pass. No vendor versions, hashes, or licenses are inferred from installed software or accepted from filenames.
+
+The review format has four root fields: `schemaVersion` (`1`), `version` (the exact Eitmad semantic version), `architecture` (`x64`), and `components`. The `components` object must contain exactly `desktop`, `application`, `postgresql`, `winsw`, `powershell`, `vc-redist`, and `netfx`. Each component has these fields:
+
+| Field | Review requirement |
+| --- | --- |
+| `version` | Exact reviewed product version. Eitmad components match the release; PostgreSQL uses `17.minor`; WinSW is `2.12.0`; PowerShell is 7.4+ within major 7; C++ is 14.40+ within major 14; Framework is `4.8` |
+| `provenance` | Object with `url` (HTTPS acquisition URL) and `sha256` (lowercase 64-digit source archive or installer digest). Use a version-specific immutable release URL. Review binds these acquisition records to the extracted file list; collection does not fetch the source archive again |
+| `licenses` | Nonempty array of objects with `name`, `version`, `expression` (SPDX expression or reviewed `LicenseRef-` identifier), and `files` (nonempty array of relative paths to shipped terms/notices). Include all redistributed inputs, including .NET, the Windows Desktop runtime, Microsoft C++, and transitive vendor libraries. Add terms before creating the original signed package inventory |
+| `files` | Exact component-relative file map. Each entry has lowercase `sha256`; every EXE/DLL also declares `architecture`: `x64` or verified IL-only `anycpu`. PostgreSQL native files and runtime entry points must be x64. The Framework offline bootstrapper can declare `x86` because it carries both target architectures |
+| Executable trust | Every EXE, DLL, PowerShell script/module, and MSIX file entry has the exact trusted certificate subject in `publisher`. Windows must report a valid Authenticode signature, matching subject, and timestamp. Only PostgreSQL and WinSW can instead specify `unsignedReason`, documenting reviewed unsigned upstream content bound to its authenticated hashes. Both fields together are refused |
+
+For example, an unsigned upstream WinSW file entry uses `sha256`, `architecture: "anycpu"`, and a nonempty `unsignedReason`. A signed Microsoft installer uses `sha256`, its verified PE `architecture`, and the exact Microsoft certificate subject in `publisher`. These are schema examples, not approved payload pins. There is no signature-bypass switch. Trusted signature validation requires Windows; an offline build host must already have the required trust-chain and revocation evidence. Unknown trust fails preparation. See Microsoft's [signature inspection](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/get-authenticodesignature) and [PE format](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format).
+
+The collector rejects absent components, missing required tools, changed or unlisted files, unsafe Windows paths, links/junctions/hard links, opaque nested archives, and architecture mismatches. It checks the Eitmad release inventories and the desktop's inner MSIX inventory and runtime hashes. It refuses operational databases, cluster directories, credentials, certificates, keys, and device identity files even when listed in the review. Start with clean vendor distributions and clean package output, never an operational installation. Redistribution review remains responsible for classifying the allowlisted bytes; filenames cannot detect secrets deliberately hidden inside an approved binary.
+
+### Collect and recheck without installation
+
+On the release build host, set `$approvedReviewDigest` to the independently authenticated review digest, then run:
+
+```powershell
+python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --output dist\eitmad-offline-payload
+```
+
+Success creates `client/`, `server/`, `reviewed-inputs.json`, and `payload.json`. The latter records role paths, component versions, provenance, shipped license files, file hashes, included .NET runtime versions, and the retained desktop C++ inventory. Source files remain unchanged. The collector validates the source and its staged copy before publishing the output directory. It refuses an existing destination and leaves no completed output after validation failure.
+
+Recheck the directory before the later setup build consumes it:
+
+```powershell
+python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --output dist\eitmad-offline-payload --verify-payload --expected-review-sha256 $approvedReviewDigest
+```
+
+This repeats file, architecture, package, and signature validation and compares the generated inventory with `payload.json`. Authenticate the review digest independently again at the consuming boundary. Altering both the review and payload metadata cannot satisfy an unchanged approved review digest. To recover from rejection, correct the reviewed acquisition or source package, obtain a new approved review when bytes change, and select a new output directory. Never edit generated hashes as a repair.
+
+Focused automated proof uses temporary synthetic inputs and installs nothing:
+
+```powershell
+python -m unittest discover -s scripts/ci/tests -p test_offline_payload.py -v
+```
+
+The complete synthetic case mocks only Windows signature approval. A separate Windows test invokes the real signature check and proves refusal of an unsigned synthetic PE. Passing these tests does not prove trusted production payload acceptance, runtime installation, a clean offline host, or the later setup EXE. See [release acceptance](validate-release-candidate.md) before distribution.
+
 ## Target prerequisites
 
 | Machine | Requirements |
