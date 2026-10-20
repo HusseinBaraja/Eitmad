@@ -69,6 +69,8 @@ Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cp
 
 ## Install the server
 
+For a fresh workshop, [prepare a new Windows workshop](prepare-windows-workshop.md) to create a separate cluster, TLS material, runtime settings, and active first Owner. Then use its stopped cluster and prepared LAN root with this service installation flow. This backend is not yet the combined Server or Client installer selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md).
+
 1. Extract the server ZIP into a new local staging directory. Compare ZIP and inventory digests with the authenticated release record. In elevated x64 PowerShell, set `$releaseDigest` and `$approvedPublisher` to its non-secret values, then run:
 
    ```powershell

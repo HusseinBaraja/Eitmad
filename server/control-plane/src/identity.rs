@@ -20,6 +20,7 @@ mod owner_recovery;
 mod workshop_setup;
 pub use accounts::ServerAccountError;
 pub use owner_recovery::recover_owner_password;
+pub use workshop_setup::validate_workshop_initialization;
 
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;

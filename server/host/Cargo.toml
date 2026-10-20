@@ -20,6 +20,7 @@ axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
 rustls = { version = "=0.23.43", features = ["ring"] }
 async-trait = "=0.1.89"
 base64 = "=0.22.1"
+rand = "=0.9.3"
 ed25519-dalek = "=2.2.0"
 eitmad-admin-plane = { path = "../admin-plane" }
 eitmad-contracts = { path = "../../crates/contracts" }

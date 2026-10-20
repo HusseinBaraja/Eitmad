@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-20"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -23,6 +23,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 
 - [Validate a release candidate](validate-release-candidate.md): run mandatory code, contract, security, Arabic/RTL, packaging, desktop, server, restore, and rollback gates.
 - [Install and maintain Windows server and desktop packages](package-windows-desktop.md): build versioned server and MSIX client packages; sign, enroll, repair, remove, and upgrade with retained data.
+- [Prepare a fresh Windows workshop](prepare-windows-workshop.md): create a new private PostgreSQL cluster, TLS material, runtime settings, and first active Owner before service import.
 - [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
 - [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.
 - [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Formats.Asn1;
 using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -73,6 +74,16 @@ public static class Certificates
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.1") }, true));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+        // RFC 5280 requires issuer key identification on certificates issued by this CA.
+        // Encode the implicit context tag explicitly because .NET 8 has no typed AKI extension.
+        var issuerKey = ca.Extensions.OfType<X509SubjectKeyIdentifierExtension>().Single().SubjectKeyIdentifier
+            ?? throw new CryptographicException("The retained authority has no subject key identifier.");
+        var authorityKey = new AsnWriter(AsnEncodingRules.DER);
+        authorityKey.PushSequence();
+        authorityKey.WriteOctetString(Convert.FromHexString(issuerKey), new Asn1Tag(TagClass.ContextSpecific, 0));
+        authorityKey.PopSequence();
+        request.CertificateExtensions.Add(new X509Extension("2.5.29.35", authorityKey.Encode(), false));
         var names = new SubjectAlternativeNameBuilder();
         if (IPAddress.TryParse(serverName, out var address)) names.AddIpAddress(address);
         else names.AddDnsName(serverName);

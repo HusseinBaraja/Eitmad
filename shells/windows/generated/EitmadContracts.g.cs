@@ -37,6 +37,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("lifecycle_snapshot")]
         public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
+        [JsonPropertyName("prepare_windows_workshop")]
+        public PrepareWindowsWorkshop PrepareWindowsWorkshop { get; set; }
+
+        [JsonPropertyName("prepared_windows_workshop")]
+        public PreparedWindowsWorkshop PreparedWindowsWorkshop { get; set; }
+
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
     }
@@ -261,6 +267,54 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("minor")]
         public long Minor { get; set; }
+    }
+
+    /// <summary>
+    /// Local deployment input. Paths identify reviewed offline installation tools.
+    /// </summary>
+    public partial class PrepareWindowsWorkshop
+    {
+        [JsonPropertyName("certificateExecutable")]
+        public string CertificateExecutable { get; set; }
+
+        [JsonPropertyName("databasePort")]
+        public long DatabasePort { get; set; }
+
+        [JsonPropertyName("listenAddress")]
+        public string ListenAddress { get; set; }
+
+        [JsonPropertyName("platformScript")]
+        public string PlatformScript { get; set; }
+
+        [JsonPropertyName("postgresBin")]
+        public string PostgresBin { get; set; }
+
+        [JsonPropertyName("serverName")]
+        public string ServerName { get; set; }
+
+        [JsonPropertyName("serverPort")]
+        public long ServerPort { get; set; }
+
+        [JsonPropertyName("stateDirectory")]
+        public string StateDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshop")]
+        public InitializeWorkshop Workshop { get; set; }
+    }
+
+    public partial class PreparedWindowsWorkshop
+    {
+        [JsonPropertyName("endpoint")]
+        public string Endpoint { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshop")]
+        public InitializedWorkshop Workshop { get; set; }
     }
 
     public partial class UnionPayloadKeepAlive

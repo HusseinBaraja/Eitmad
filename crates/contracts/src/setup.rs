@@ -28,3 +28,27 @@ pub struct InitializedWorkshop {
     pub branch_id: ScopeId,
     pub owner_account_id: AccountId,
 }
+
+/// Local deployment input. Paths identify reviewed offline installation tools.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PrepareWindowsWorkshop {
+    pub version: u32,
+    pub state_directory: String,
+    pub platform_script: String,
+    pub postgres_bin: String,
+    pub certificate_executable: String,
+    pub server_name: String,
+    pub listen_address: String,
+    pub server_port: u16,
+    pub database_port: u16,
+    pub workshop: InitializeWorkshop,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PreparedWindowsWorkshop {
+    pub version: u32,
+    pub endpoint: String,
+    pub workshop: InitializedWorkshop,
+}

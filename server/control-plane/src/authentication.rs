@@ -1039,7 +1039,7 @@ fn verify_password(password: &str, encoded: &str) -> Result<(), AuthenticationEr
         .map_err(|_| AuthenticationError::Failed)
 }
 
-fn validate_password_input(password: &str) -> Result<(), AuthenticationError> {
+pub(crate) fn validate_password_input(password: &str) -> Result<(), AuthenticationError> {
     let length = password.chars().count();
     ((12..=256).contains(&length) && password.len() <= 1_024)
         .then_some(())

@@ -17,7 +17,7 @@ pub use branches::{BranchError, BranchService};
 pub use database::{ControlDatabase, ControlDatabaseError};
 pub use identity::{
     BootstrapInput, BootstrapResult, IdentityError, IdentityService, ServerAccountError,
-    recover_owner_password,
+    recover_owner_password, validate_workshop_initialization,
 };
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 

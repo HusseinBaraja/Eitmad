@@ -17,9 +17,12 @@ use eitmad_sync_plane::{
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 use zeroize::Zeroizing;
 
+mod windows_setup;
+
 #[tokio::main]
 async fn main() -> ExitCode {
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
@@ -53,6 +56,9 @@ async fn execute() -> Result<(), MainError> {
     if command == ServerCommand::Usage {
         print_help();
         return Err(MainError::Input);
+    }
+    if command == ServerCommand::PrepareWindowsWorkshop {
+        return windows_setup::prepare().await;
     }
     if let ServerCommand::RecoverOwner {
         tenant_code,
@@ -299,6 +305,7 @@ fn print_help() {
     );
     println!("eitmad-server recover-owner <tenant-code> <owner-username> (password on stdin)");
     println!("eitmad-server initialize-workshop (version-one setup JSON on stdin)");
+    println!("eitmad-server prepare-windows-workshop (private local setup JSON on stdin)");
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -310,6 +317,7 @@ enum MainError {
     Bootstrap,
     Recovery,
     Runtime,
+    Setup,
 }
 
 impl MainError {
@@ -322,6 +330,7 @@ impl MainError {
             Self::Bootstrap => "eitmad.error.server-bootstrap-failed.v1",
             Self::Recovery => "eitmad.error.server-owner-recovery-failed.v1",
             Self::Runtime => "eitmad.error.server-runtime-failed.v1",
+            Self::Setup => "eitmad.error.windows-workshop-setup-failed.v1",
         }
     }
 }

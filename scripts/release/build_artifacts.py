@@ -176,7 +176,7 @@ def copy_install_tools(stage: Path, target: str) -> None:
         shutil.copy2(ROOT / "run-services.ps1", stage)
         tools = stage / "deploy/windows"
         tools.mkdir(parents=True)
-        for name in ("host.psm1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
+        for name in ("host.psm1", "prepare-workshop.ps1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
             shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")

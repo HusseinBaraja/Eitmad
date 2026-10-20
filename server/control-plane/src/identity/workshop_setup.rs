@@ -13,6 +13,21 @@ use eitmad_server_audit::{
 };
 use uuid::Uuid;
 
+/// Checks first-owner input before a native installer creates fresh host state.
+///
+/// # Errors
+/// Rejects unsupported versions and invalid workshop names or account credentials.
+pub fn validate_workshop_initialization(request: &InitializeWorkshop) -> Result<(), IdentityError> {
+    if request.version != 1 {
+        return Err(IdentityError::InvalidInput);
+    }
+    validate_display_name(&request.workshop_name)?;
+    crate::authentication::canonical_username(&request.owner_username)
+        .map_err(map_authentication)?;
+    crate::authentication::validate_password_input(request.owner_password.expose_secret())
+        .map_err(map_authentication)
+}
+
 impl IdentityService {
     /// Creates the first active Owner/Manager and branch in one audited transaction.
     /// This local deployment operation is never exposed as a network route.
@@ -25,10 +40,7 @@ impl IdentityService {
         correlation_id: CorrelationId,
         now: UnixMillis,
     ) -> Result<InitializedWorkshop, IdentityError> {
-        if request.version != 1 {
-            return Err(IdentityError::InvalidInput);
-        }
-        validate_display_name(&request.workshop_name)?;
+        validate_workshop_initialization(request)?;
         let canonical_username = crate::authentication::canonical_username(&request.owner_username)
             .map_err(map_authentication)?;
         let password = request.owner_password.clone();

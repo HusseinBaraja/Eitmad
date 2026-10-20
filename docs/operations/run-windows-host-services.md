@@ -24,6 +24,8 @@ The implementation is in `deploy/windows/host.psm1`. Rust owns application valid
 
 ## Prerequisites and safe cutover
 
+For a new workshop without a prepared database, use the [fresh Windows preparation backend](prepare-windows-workshop.md). It creates a separate stopped cluster, TLS material, runtime settings, and active first Owner. This service adapter then imports that prepared state through the procedure below.
+
 - Use a supported Windows host with NTFS, Windows PowerShell 5.1 or later, `curl.exe`, and .NET Framework 4.8 for WinSW. Run each service command in an elevated PowerShell window. Runtime services need neither PowerShell nor the repository after installation.
 - Complete [LAN TLS setup](setup-lan-server.md), including stable DNS/address, the saved `server.json`, certificate pair, and verified public CA. Preserve the original token key and client trust. Supply the saved LAN directory as `-LanDirectory`.
 - Supply trusted PostgreSQL 17 binaries as `-PostgresBin` and a dedicated, provisioned PostgreSQL 17 primary cluster as `-ClusterDirectory`. Use a SCRAM application role with `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, and `NOCREATEROLE`. The current runtime still applies migrations during startup; follow [migration and backup requirements](deploy-server-environments.md#deploy-and-migrate).

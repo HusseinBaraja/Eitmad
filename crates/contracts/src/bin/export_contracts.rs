@@ -45,6 +45,8 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    prepare_windows_workshop: eitmad_contracts::setup::PrepareWindowsWorkshop,
+    prepared_windows_workshop: eitmad_contracts::setup::PreparedWindowsWorkshop,
     initialize_workshop: eitmad_contracts::setup::InitializeWorkshop,
     initialized_workshop: eitmad_contracts::setup::InitializedWorkshop,
     reconcile_customer_resolution: eitmad_contracts::sync::ReconcileResolution<
@@ -125,6 +127,8 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    prepare_windows_workshop: eitmad_contracts::setup::PrepareWindowsWorkshop,
+    prepared_windows_workshop: eitmad_contracts::setup::PreparedWindowsWorkshop,
     initialize_workshop: eitmad_contracts::setup::InitializeWorkshop,
     initialized_workshop: eitmad_contracts::setup::InitializedWorkshop,
     ipc_client_message: IpcClientMessage,

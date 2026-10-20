@@ -12,6 +12,8 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let initializedWorkshop: InitializedWorkshop
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
+    public let prepareWindowsWorkshop: PrepareWindowsWorkshop
+    public let preparedWindowsWorkshop: PreparedWindowsWorkshop
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
 
     public enum CodingKeys: String, CodingKey {
@@ -20,15 +22,19 @@ public struct EitmadContractSchema: Codable, Sendable {
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
+        case prepareWindowsWorkshop = "prepare_windows_workshop"
+        case preparedWindowsWorkshop = "prepared_windows_workshop"
         case unionPayloadKeepAlive
     }
 
-    public init(initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, unionPayloadKeepAlive: UnionPayloadKeepAlive) {
+    public init(initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, unionPayloadKeepAlive: UnionPayloadKeepAlive) {
         self.initializeWorkshop = initializeWorkshop
         self.initializedWorkshop = initializedWorkshop
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
+        self.prepareWindowsWorkshop = prepareWindowsWorkshop
+        self.preparedWindowsWorkshop = preparedWindowsWorkshop
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
     }
 }
@@ -376,6 +382,44 @@ public enum LifecycleState: String, Codable, Sendable {
     case starting = "starting"
     case stopped = "stopped"
     case stopping = "stopping"
+}
+
+/// Local deployment input. Paths identify reviewed offline installation tools.
+// MARK: - PrepareWindowsWorkshop
+public struct PrepareWindowsWorkshop: Codable, Sendable {
+    public let certificateExecutable: String
+    public let databasePort: Int
+    public let listenAddress, platformScript, postgresBin, serverName: String
+    public let serverPort: Int
+    public let stateDirectory: String
+    public let version: Int
+    public let workshop: InitializeWorkshop
+
+    public init(certificateExecutable: String, databasePort: Int, listenAddress: String, platformScript: String, postgresBin: String, serverName: String, serverPort: Int, stateDirectory: String, version: Int, workshop: InitializeWorkshop) {
+        self.certificateExecutable = certificateExecutable
+        self.databasePort = databasePort
+        self.listenAddress = listenAddress
+        self.platformScript = platformScript
+        self.postgresBin = postgresBin
+        self.serverName = serverName
+        self.serverPort = serverPort
+        self.stateDirectory = stateDirectory
+        self.version = version
+        self.workshop = workshop
+    }
+}
+
+// MARK: - PreparedWindowsWorkshop
+public struct PreparedWindowsWorkshop: Codable, Sendable {
+    public let endpoint: String
+    public let version: Int
+    public let workshop: InitializedWorkshop
+
+    public init(endpoint: String, version: Int, workshop: InitializedWorkshop) {
+        self.endpoint = endpoint
+        self.version = version
+        self.workshop = workshop
+    }
 }
 
 // MARK: - UnionPayloadKeepAlive

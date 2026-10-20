@@ -137,6 +137,8 @@ Stop the server, start it with the same saved settings, and repeat secure readin
 
 Old bundles remain for recovery. For rollback after a failed restart, stop the host and restore a backed-up `active-tls.json` that points to an existing, unexpired pair from this same CA. Run `Check` before startup. Never roll back to an expired or compromised key. Do not delete retained state or customer data.
 
+The current tool includes the leaf Subject Key Identifier and the issuer Authority Key Identifier required by [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.1). Earlier tool output omitted the issuer identifier and can fail strict clients with `Missing Authority Key Identifier`. Under the state owner, use the corrected tool's normal renewal procedure with the retained CA password, then restart and verify the server. This retains CA trust; it does not require copying keys or weakening client validation. No existing machine certificate is changed by rebuilding the tool.
+
 When fewer than 91 days remain on the CA, renewal refuses to issue another 90-day leaf. Plan an explicit operator-reviewed CA transition before that point. CA replacement after expiry or compromise is a separate trust change; this tool and desktop recovery do not silently replace existing trust. This private CA has no revocation service. A compromised CA or server key requires an incident response, not a validation exception or ordinary restart.
 
 ## Verify the configuration and two-PC outcome

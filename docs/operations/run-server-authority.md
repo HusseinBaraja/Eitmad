@@ -69,6 +69,8 @@ Expected output is `server migrations are current`. This command reads only `EIT
 
 ## Bootstrap the first owner
 
+For an empty Windows host, [fresh Windows preparation](prepare-windows-workshop.md) can also create a new private PostgreSQL cluster and runtime settings before this initialization. It is an installer backend, not yet the combined setup window.
+
 For a new workshop installation, use `eitmad-server initialize-workshop`. This local deployment command accepts version-one JSON on standard input, creates an active Owner with the Manager role and a first branch, and returns only public enrollment coordinates. It creates no activation invitation. Rust commits the tenant, organization, account, password verifier, branch, relationships, publication event, and mandatory audit together. It does not install PostgreSQL, configure Windows services, enroll a desktop, or provide the combined installer UI.
 
 Use the dedicated application database and full runtime configuration above. The command applies normal migrations before initialization. Run it as the local deployment operator with access to those protected settings. It is not a network endpoint, and an application account or discovered server cannot invoke it remotely. Do not use a superuser or a role with `BYPASSRLS`.

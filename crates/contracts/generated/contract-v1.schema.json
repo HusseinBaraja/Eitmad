@@ -111,6 +111,12 @@
     "peer_hello": {
       "$ref": "#/definitions/PeerHello"
     },
+    "prepare_windows_workshop": {
+      "$ref": "#/definitions/PrepareWindowsWorkshop"
+    },
+    "prepared_windows_workshop": {
+      "$ref": "#/definitions/PreparedWindowsWorkshop"
+    },
     "published_price_page": {
       "$ref": "#/definitions/PublishedPricePage"
     },
@@ -215,6 +221,8 @@
     }
   },
   "required": [
+    "prepare_windows_workshop",
+    "prepared_windows_workshop",
     "initialize_workshop",
     "initialized_workshop",
     "reconcile_customer_resolution",
@@ -8383,6 +8391,85 @@
       "enum": [
         "granted",
         "denied"
+      ]
+    },
+    "PrepareWindowsWorkshop": {
+      "description": "Local deployment input. Paths identify reviewed offline installation tools.",
+      "type": "object",
+      "properties": {
+        "certificateExecutable": {
+          "type": "string"
+        },
+        "databasePort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "listenAddress": {
+          "type": "string"
+        },
+        "platformScript": {
+          "type": "string"
+        },
+        "postgresBin": {
+          "type": "string"
+        },
+        "serverName": {
+          "type": "string"
+        },
+        "serverPort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "stateDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "$ref": "#/definitions/InitializeWorkshop"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "stateDirectory",
+        "platformScript",
+        "postgresBin",
+        "certificateExecutable",
+        "serverName",
+        "listenAddress",
+        "serverPort",
+        "databasePort",
+        "workshop"
+      ]
+    },
+    "PreparedWindowsWorkshop": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "$ref": "#/definitions/InitializedWorkshop"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "endpoint",
+        "workshop"
       ]
     },
     "PriceAdjustment": {

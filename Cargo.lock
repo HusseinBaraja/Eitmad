@@ -1138,6 +1138,7 @@ dependencies = [
  "eitmad-sync-plane",
  "eitmad-update-plane",
  "eitmad-update-policy",
+ "rand 0.9.3",
  "rustls",
  "semver",
  "serde",

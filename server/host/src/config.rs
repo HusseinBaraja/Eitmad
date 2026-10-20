@@ -70,6 +70,7 @@ pub enum ServerCommand {
     Migrate,
     CheckConfig,
     InitializeWorkshop,
+    PrepareWindowsWorkshop,
     RecoverOwner {
         tenant_code: String,
         owner_username: String,
@@ -226,6 +227,9 @@ impl ServerCommand {
             Some("migrate") => Self::Migrate,
             Some("check-config") => Self::CheckConfig,
             Some("initialize-workshop") if arguments.len() == 2 => Self::InitializeWorkshop,
+            Some("prepare-windows-workshop") if arguments.len() == 2 => {
+                Self::PrepareWindowsWorkshop
+            }
             Some("recover-owner") if arguments.len() == 4 => Self::RecoverOwner {
                 tenant_code: arguments[2].clone(),
                 owner_username: arguments[3].clone(),
@@ -236,7 +240,9 @@ impl ServerCommand {
                 organization_name: arguments[4].clone(),
                 owner_username: arguments[5].clone(),
             },
-            Some("bootstrap" | "recover-owner" | "initialize-workshop") => Self::Usage,
+            Some(
+                "bootstrap" | "recover-owner" | "initialize-workshop" | "prepare-windows-workshop",
+            ) => Self::Usage,
             _ => Self::Help,
         }
     }
