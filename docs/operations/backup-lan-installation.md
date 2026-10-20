@@ -1,11 +1,11 @@
 ---
 title: "Back up and recover the Windows LAN installation"
-description: "Schedule consistent off-device recovery generations, retain explicit history, and restore PostgreSQL and Windows credential dependencies together."
+description: "Configure automatic Rust-owned local server backups, an optional external disk, and coordinated Windows recovery generations."
 audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "backup cadence, retention, participant inventory, Windows credentials, PostgreSQL version, or measured recovery changes"
 keywords:
@@ -23,6 +23,85 @@ keywords:
 `deploy/windows/run-backup.ps1` supplies Windows Task Scheduler integration, a coordinated backup worker, an explicit retention policy, and failure reporting. `restore-backup.ps1` verifies a complete generation and stages its PostgreSQL cluster without replacing existing data. Rust continues to own product authorization, audit, schemas, and synchronization. These tools perform privileged installation recovery, outside product IPC; they do not grant disconnected product access or change business records.
 
 **Deployment status:** the scripts and isolated data recovery have been checked. No off-device destination or backup identity was supplied for this installation, so no live task was installed. Windows image creation, replacement-machine image restore, and native credential recovery remain **Needs verification**. Do not treat this installation as recovery-ready until the replacement acceptance procedure below passes.
+
+## Automatic local server backups
+
+The Rust host module `server/host/src/backup.rs` owns policy. `windows_backup.rs` owns configuration persistence, operational audit, capture/copy decisions, retention selection, and reported state. The Windows adapter `deploy/windows/local-backup.psm1` checks OS observations, copies files, invokes the shared PostgreSQL tools, and registers Task Scheduler. The legacy coordinated Windows-image procedure below remains available and uses its separate plan and generation namespace.
+
+This is a version-one **privileged local installation boundary**, like the existing installer. Every operation requires a Windows administrator and protected controls. It does not expose a remotely callable account operation or grant application Owner access. Rust-derived `ServerBackupConfiguration` and `ServerBackupStatus` are included in the generated contracts for a later onboarding adapter. The UI must use this boundary through a privileged adapter; it must not read the private files itself. Timestamps are UTC Unix seconds. Status excludes paths, passwords, keys, native output, and exception text.
+
+### Inputs, protection, and defaults
+
+Use the installed host directory and its retained offline setup/CA directory on the server PC. The CA directory owner must be a directly enrolled local Administrators member, with access limited to that identity and SYSTEM. SYSTEM can read the original CA state when the task runs without a user session. Keep the original profile and password for any Windows-bound dependencies. Remote CA state, external PostgreSQL tablespaces, redirected paths, configuration includes, and externally located PostgreSQL key/configuration files are rejected by this local mode. Use the coordinated inventory procedure for other installations.
+
+Provision dedicated local and optional external folders with Administrators/SYSTEM access only, under protected parents. Both destinations require unlocked, fully encrypted BitLocker NTFS volumes. The tool does not enable BitLocker, change a disk, change its recovery keys, or change existing destination permissions. Retain each disk's BitLocker recovery key **independently of both the source machine and backup media**. Disk encryption and access rules protect all copied plaintext server credentials, including the CA unlock password. Backups have the same sensitivity as the live installation. They are not immutable or safe from an administrator with deletion rights.
+
+The optional external destination is a mounted local disk, such as an encrypted USB disk. It must have a different physical disk number from the host, retained CA state, and local destination. Another partition on the same disk is refused. Virtual disks, Storage Spaces, and other disk providers without a directly identifiable physical boundary are also refused for external protection. UNC shares use the separate coordinated backup tools below. Physical-disk observations do not prove disaster, theft, or ransomware protection. The tool never presents a local copy alone as disk-loss protection.
+
+Defaults are a 24-hour capture interval, seven newest complete generations per destination, and a 1 GiB free-space reserve. Allowed values are 1?24 hours, 2?31 generations, and 1 GiB?1 TiB reserve. A 24-hour interval is a cadence, not a strict 24-hour RPO guarantee: capture duration, outages, and failures add exposure. The existing coordinated procedure below has separate strict RPO targets. Use short destination paths: the deployment-specific root must fit within 120 characters because PostgreSQL Windows tools have path-length limits. Reject links, overlapping paths, Win32 path aliases, and unsafe control permissions before capture.
+
+The capacity check reserves twice the measured source size for database/WAL growth plus `reserveBytes`. It checks remaining space again before publication. This is an estimate, not a disk quota. A low-space observation reports `insufficientSpace`; other native failures report `captureFailed`. No failure deletes existing backups to free space.
+
+### Configure and schedule
+
+Use a reviewed, protected server package in a stable location. Keep `eitmad-server.exe` together with its packaged `deploy/windows` tools. Do not schedule a temporary download or an installation's standalone copied executable that lacks these tools. Package updates must preserve or deliberately replace this stable task backend; an existing task with a different command is refused.
+
+Copy `deploy/windows/server-backup.example.json` to private operator storage. Replace its synthetic deployment UUID and paths. The request contains references only, never credentials. Set `externalDestination` to `null` for local-only operation. Both selected destinations must be available and protected during validation. For example, from an elevated Windows PowerShell console in the reviewed package:
+
+```powershell
+Get-Content -LiteralPath <private-configuration-json> -Raw | .\eitmad-server.exe windows-backup configure <private-state-directory>
+```
+
+The state directory must be separate from all source and destination trees. Initial configuration creates protected state. Repeating `configure` updates cadence, retention, capacity, and destination references for the same deployment and host. It preserves all old backup directories and resets only the affected destination evidence. Deployment identity, source host, service name, and CA source cannot be changed through this update. Policy and status writes append a sanitized operational audit with the Windows actor and deployment scope before atomic state publication.
+
+```powershell
+.\eitmad-server.exe windows-backup schedule <private-state-directory>
+```
+
+This explicitly registers `EitmadServerBackup-<deployment-uuid>` as SYSTEM with highest privileges. It starts after one minute and invokes Rust `tick` hourly. Task settings use `StartWhenAvailable`, `IgnoreNew`, and a three-hour execution limit. Rust decides whether capture is due. A missed run produces one catch-up attempt, without replaying every missed slot. A disconnected external disk is retried on a later hourly tick from the newest successful local generation. Overlapping writers cannot acquire the state lease. An interrupted run retains `running` in durable state; the next reader with the lease reports `interrupted` and a later tick retries. No server service is stopped by this local capture path.
+
+```powershell
+.\eitmad-server.exe windows-backup run <private-state-directory>
+```
+
+`run` requests a capture now. `tick` follows the saved due time. `configuration` returns the typed saved configuration to the privileged caller. `status` checks the current task and the selected generation's hashes and PostgreSQL manifest. Status can read atomically published state during a run. Task absence/disablement or a changed command reports `scheduleFailed`. Last successful local and external timestamps remain separate from current outcomes. A local success does not hide external failure. `diskLossProtected` is false without a fresh, verified, independently located external copy; `overdue` identifies a missed local due time. Failed runs exit nonzero; scheduled task Last Run Result and typed status are the operator's failure signals. A powered-off PC cannot report its own missed task: check status daily.
+
+### Payload and retention
+
+Each complete `server-v1-<deployment-uuid>/<cut-seconds>-<generation-uuid>` contains:
+
+- The complete PostgreSQL physical base backup, streamed WAL, roles/SCRAM verifiers, records, sessions, audit, catalog image bytes, and receipts. PostgreSQL configuration, HBA, and identity files remain inside the captured cluster.
+- Installed `host.json`, private database URL, token key, TLS certificate/key/trust, update manifests, and both service wrapper XML configurations. Binaries come from the reviewed matching release, not from this backup.
+- Retained CA certificate, encrypted signing key, renewal identity and TLS bundles, active TLS pointer, CA password, PostgreSQL administrator password, application recovery password, and retained server settings.
+- The Rust-owned backup configuration and a SHA-256 inventory of the entire payload. The marker contains private filenames and must stay in protected storage; it is not a diagnostic artifact.
+
+Capture holds the existing host-maintenance and CA-renewal locks. PostgreSQL's online backup supplies database consistency while authenticated server traffic can continue. File-based server policy/secret changes must use the maintenance boundary; do not hand-edit protected files during capture. The tool uses the retained PostgreSQL administrator credential for the private loopback physical backup; no new database role, password, or HBA rule is created. Never grant this OS operation to an application user.
+
+Capture and external copy use private temporary generation trees. Full hash and PostgreSQL verification precede the final same-volume rename into the recognized generation namespace. Copy failure leaves an unrecognized partial tree; a later retry uses a new temporary tree. A completion marker is never inferred from directory existence. The external copy is verified independently before success.
+
+Only after successful publication does Rust select expired recognized generations. The adapter rechecks direct-child containment, deployment/version/kind identity, hold state, and the entire tree for reparse points before deletion. Foreign, legacy, malformed, partial, and held generations are preserved. Failed capture does not prune. Failed retention reports `retentionFailed` while retaining the successful capture timestamp. Retention bounds complete managed generations; held/unknown/partial evidence can exceed the bound and requires explicit operator review. Add `hold` before an investigation or restore. Never remove one merely to make a new backup pass.
+
+### Isolated server restore and client requirements
+
+Keep the original installation disconnected from replacement tests. Select one complete generation and retain it. Stage only into a **new**, private directory on an unlocked encrypted NTFS volume:
+
+```powershell
+powershell -NoProfile -File deploy/windows/restore-backup.ps1 -ServerLocal -Generation <complete-server-generation> -PostgresBin <matching-postgresql-bin> -StageDirectory <new-private-stage>
+```
+
+The existing restore entry point verifies every payload hash, required recovery file, and PostgreSQL backup. It copies `cluster`, `host`, `recovery`, and backup configuration into the new stage and verifies staged bytes. An existing stage or changed file is refused. Failed stages and source generations remain intact. It never installs services, changes a listener, rewrites source paths, or activates the staged installation. It prepares the restored CA directory for the restoring administrator's private use; Windows-profile credential recovery is separate.
+
+Use the existing isolated replacement procedure below to install the matching PostgreSQL/release binaries, preserve any replacement `data` before staging the recovered cluster, restore host secrets/configuration, and reapply service ACLs. Review absolute source paths in saved XML/JSON for the replacement; never start a wrapper still pointing at the original host. Require restored SCRAM login, TLS with the retained trust, original token key, normal authenticated application work, scope denial, receipt replay without duplicate effects, and CA renewal using the **restored** password/key. No live installation is changed by the development drill.
+
+A server-only backup does **not** contain client SQLite outboxes, per-device private keys, Credential Manager entries, DPAPI master keys, or Windows profiles. Each client is independent. Recover its original installation identity, Windows SID/profile/password, and runtime as a coherent recovery point through the coordinated Windows-image procedure. A new account with the same name is insufficient. Do not copy another client's identity or use re-enrollment as proof that the original identity was recovered. Retain out-of-band fallback keys and hardware-provider recovery credentials if used. Never reset a lost Windows password offline as a recovery shortcut. Unsent work after the selected client recovery point needs explicit reconciliation with server receipts.
+
+Run the isolated proof with a fresh short directory outside compiler output:
+
+```powershell
+python tools/run-lan-recovery-drill.py --postgres-bin <test-postgresql-bin> --root <new-short-private-evidence-directory> --server-backup
+```
+
+The fixture makes a recoverable CA and a test-only loopback leaf under that CA. It runs the real shared capture, external copy, hash verification, isolated staging, restored CA renewal, and two-client authenticated recovery path. It uses synthetic data and separate loopback clusters. The development process substitutes administrator, ancestor-permission, BitLocker, physical-disk, and installed-service observations; it does not prove privileged deployment or independent media. No task is installed. Run the focused adapter test with `powershell -NoProfile -File deploy/windows/test-local-backup.ps1`. Complete real encrypted-media and scheduler acceptance under a Windows administrator before enabling a deployment.
 
 ## Recovery objectives and scope
 
@@ -86,11 +165,11 @@ See the [Windows backup command](https://learn.microsoft.com/en-us/windows-serve
 
 Use an elevated console as the task account. Create a **new** private `C:\ProgramData\EitmadBackup` directory and private `status` child. Use the existing host module's `Protect-Directory` helper, which restricts access to Administrators and SYSTEM. If a separate task account is not an administrator, explicitly grant its required access and validate the resulting ACLs. Do not weaken an existing operational directory's ACLs to make the command pass.
 
-Copy `backup.psm1`, `backup-worker.ps1`, `run-backup.ps1`, `restore-backup.ps1`, and `host.psm1` from `deploy/windows` into that protected directory. Copy `backup.example.json` as `plan.json`; replace synthetic machine names, paths, and deployment ID. Generate a new ID with `[Guid]::NewGuid().ToString('N')`. Set `recoveryKitId` to the non-secret reference for the independently held recovery kit. Retain password/key versions needed by every retained generation; a current password alone may not unlock an older Windows image. Update this reference when dependencies rotate. The reference is recorded in each completion manifest; key material is never recorded there. Do not store operational state in the repository or `target`.
+Copy `backup.psm1`, `backup-worker.ps1`, `backup-tools.psm1`, `run-backup.ps1`, `restore-backup.ps1`, and `host.psm1` from `deploy/windows` into that protected directory. Copy `backup.example.json` as `plan.json`; replace synthetic machine names, paths, and deployment ID. Generate a new ID with `[Guid]::NewGuid().ToString('N')`. Set `recoveryKitId` to the non-secret reference for the independently held recovery kit. Retain password/key versions needed by every retained generation; a current password alone may not unlock an older Windows image. Update this reference when dependencies rotate. The reference is recorded in each completion manifest; key material is never recorded there. Do not store operational state in the repository or `target`.
 
 Set `share` to the selected UNC path, `storage.computer` to the storage computer's trusted WinRM HTTPS name, and `storage.shareName` to the share name. Keep `time: "02:00"`, `intervalHours: 12`, `rpoHours: 24`, `rtoHours: 4`, and retention `daily: 14`, `weekly: 8`. The task account is selected by the Windows identity running `Install`; it is not a separate plan field.
 
-Supply the real runtime paths; the example is not an assertion about this machine's default path. Each `runtimes` entry must select the engine directory that contains `engine.authority.lock`, normally `%LOCALAPPDATA%\Eitmad\engine`. Include any non-system drive that holds profiles, runtimes, trust, manifests, keys, or installation files. `requiredPaths` checks that retained dependencies exist on selected volumes; it does not discover an unknown key provider. Keep the coordinator's plan, scripts, credential files, and status directory on an included volume. Copy the protected host module to the server's configured `hostModule` path as well.
+Supply the real runtime paths; the example is not an assertion about this machine's default path. Each `runtimes` entry must select the engine directory that contains `engine.authority.lock`, normally `%LOCALAPPDATA%\Eitmad\engine`. Include any non-system drive that holds profiles, runtimes, trust, manifests, keys, or installation files. `requiredPaths` checks that retained dependencies exist on selected volumes; it does not discover an unknown key provider. Keep the coordinator's plan, scripts, credential files, and status directory on an included volume. Copy the protected host module to the server's configured `hostModule` path as well, and put `backup-tools.psm1` beside it for the remote server worker.
 
 Capture each credential with an interactive hidden prompt. Example for the SMB credential, repeated with the correct file and identity for the other dependencies:
 
@@ -163,6 +242,16 @@ This verifies the PostgreSQL manifest digest, full backup/WAL with [pg_verifybac
 10. For a drill, stop and disconnect the replacements and retain evidence. Resume only the original installation. For a real cutover, keep originals isolated, obtain the operator's selected recovery point, then reconnect replacement clients to the single replacement authority. Later data from preserved originals needs explicit reconciliation; never reconnect it to replay blindly. Re-enable the verified schedule after the replacement is accepted.
 
 ## Measured evidence
+
+### Local-server restore proof, 2026-10-21
+
+`tools/run-lan-recovery-drill.py --postgres-bin target/direct-order-test/pgsql/bin --root <Windows-TEMP>/eb-20261021-h --server-backup` passed with Rust 1.85.1, explicit `RUSTC`/`PATH`, `CARGO_TARGET_DIR=target/toolchain-1.85.1`, and `CARGO_INCREMENTAL=0`. The measured recovery interval was **104,404 ms**; the complete synthetic command, including setup/build, took **148.120 seconds**. These numbers describe this small fixture, not a production RTO.
+
+The real adapter captured PostgreSQL and protected file payloads, copied and verified a separate fixture destination, staged from that copy, renewed the CA from restored key/password with unchanged trust, refused an existing stage, and refused tampered credentials. The restored server used the staged application database credential, token key, and TLS files. Both clients completed authenticated work; PostgreSQL/SQLite rowsets and image bytes matched, pending customer/draft/catalog work became confirmed, and receipt replay retained order revision `2` with **zero duplicate effects**.
+
+Administrator/ancestor-permission, BitLocker, physical-disk, and installed-service observations were substituted in the test process. Fixture directories had real current-user/SYSTEM ACLs. No task, live service, live installation, independent encrypted media, Windows image, or lost-profile credential recovery was exercised. Scheduler behavior was checked through mocks in `test-local-backup.ps1`; real scheduler/media/profile acceptance remains **Needs verification**. Private evidence is retained under the selected temporary directory. Only its sanitized `result.json` belongs in reports.
+
+### Earlier coordinated data-plane proof
 
 On 2026-10-19, this command created a fresh synthetic source cluster and a separate restored PostgreSQL 17 cluster on a different loopback port:
 

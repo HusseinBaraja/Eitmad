@@ -55,6 +55,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("read_windows_installation")]
         public ReadWindowsInstallation ReadWindowsInstallation { get; set; }
 
+        [JsonPropertyName("server_backup_configuration")]
+        public ServerBackupConfiguration ServerBackupConfiguration { get; set; }
+
+        [JsonPropertyName("server_backup_status")]
+        public ServerBackupStatus ServerBackupStatus { get; set; }
+
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
 
@@ -399,6 +405,87 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("progressDirectory")]
         public string ProgressDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public partial class ServerBackupConfiguration
+    {
+        [JsonPropertyName("deploymentId")]
+        public Guid DeploymentId { get; set; }
+
+        [JsonPropertyName("externalDestination")]
+        public string ExternalDestination { get; set; }
+
+        [JsonPropertyName("hostRoot")]
+        public string HostRoot { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("intervalHours")]
+        public long? IntervalHours { get; set; }
+
+        [JsonPropertyName("localDestination")]
+        public string LocalDestination { get; set; }
+
+        [JsonPropertyName("recoveryDirectory")]
+        public string RecoveryDirectory { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("reserveBytes")]
+        public long? ReserveBytes { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("retentionCount")]
+        public long? RetentionCount { get; set; }
+
+        [JsonPropertyName("serviceName")]
+        public string ServiceName { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    /// <summary>
+    /// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
+    /// </summary>
+    public partial class ServerBackupStatus
+    {
+        [JsonPropertyName("deploymentId")]
+        public Guid DeploymentId { get; set; }
+
+        /// <summary>
+        /// Only a copy verified on a different physical disk can set this value.
+        /// </summary>
+        [JsonPropertyName("diskLossProtected")]
+        public bool DiskLossProtected { get; set; }
+
+        [JsonPropertyName("externalConfigured")]
+        public bool ExternalConfigured { get; set; }
+
+        [JsonPropertyName("externalOutcome")]
+        public ServerBackupOutcome ExternalOutcome { get; set; }
+
+        [JsonPropertyName("lastAttemptAt")]
+        public long? LastAttemptAt { get; set; }
+
+        [JsonPropertyName("lastExternalSuccessAt")]
+        public long? LastExternalSuccessAt { get; set; }
+
+        [JsonPropertyName("lastLocalSuccessAt")]
+        public long? LastLocalSuccessAt { get; set; }
+
+        [JsonPropertyName("localOutcome")]
+        public ServerBackupOutcome LocalOutcome { get; set; }
+
+        [JsonPropertyName("nextDueAt")]
+        public long NextDueAt { get; set; }
+
+        [JsonPropertyName("overdue")]
+        public bool Overdue { get; set; }
+
+        [JsonPropertyName("scheduleOutcome")]
+        public ServerBackupOutcome ScheduleOutcome { get; set; }
 
         [JsonPropertyName("version")]
         public long Version { get; set; }
@@ -5234,6 +5321,8 @@ namespace Eitmad.Contracts
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
 
+    public enum ServerBackupOutcome { CaptureFailed, DestinationUnavailable, InsufficientSpace, Interrupted, NeverRun, RetentionFailed, Running, ScheduleFailed, Succeeded };
+
     public enum PrincipalKind { Device, Service, User };
 
     public enum CatalogImageKind { Furniture, Product };
@@ -5368,6 +5457,7 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
+                ServerBackupOutcomeConverter.Singleton,
                 CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
@@ -5933,6 +6023,75 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
+    }
+
+    internal class ServerBackupOutcomeConverter : JsonConverter<ServerBackupOutcome>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerBackupOutcome);
+
+        public override ServerBackupOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "captureFailed":
+                    return ServerBackupOutcome.CaptureFailed;
+                case "destinationUnavailable":
+                    return ServerBackupOutcome.DestinationUnavailable;
+                case "insufficientSpace":
+                    return ServerBackupOutcome.InsufficientSpace;
+                case "interrupted":
+                    return ServerBackupOutcome.Interrupted;
+                case "neverRun":
+                    return ServerBackupOutcome.NeverRun;
+                case "retentionFailed":
+                    return ServerBackupOutcome.RetentionFailed;
+                case "running":
+                    return ServerBackupOutcome.Running;
+                case "scheduleFailed":
+                    return ServerBackupOutcome.ScheduleFailed;
+                case "succeeded":
+                    return ServerBackupOutcome.Succeeded;
+            }
+            throw new Exception("Cannot unmarshal type ServerBackupOutcome");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerBackupOutcome value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerBackupOutcome.CaptureFailed:
+                    JsonSerializer.Serialize(writer, "captureFailed", options);
+                    return;
+                case ServerBackupOutcome.DestinationUnavailable:
+                    JsonSerializer.Serialize(writer, "destinationUnavailable", options);
+                    return;
+                case ServerBackupOutcome.InsufficientSpace:
+                    JsonSerializer.Serialize(writer, "insufficientSpace", options);
+                    return;
+                case ServerBackupOutcome.Interrupted:
+                    JsonSerializer.Serialize(writer, "interrupted", options);
+                    return;
+                case ServerBackupOutcome.NeverRun:
+                    JsonSerializer.Serialize(writer, "neverRun", options);
+                    return;
+                case ServerBackupOutcome.RetentionFailed:
+                    JsonSerializer.Serialize(writer, "retentionFailed", options);
+                    return;
+                case ServerBackupOutcome.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case ServerBackupOutcome.ScheduleFailed:
+                    JsonSerializer.Serialize(writer, "scheduleFailed", options);
+                    return;
+                case ServerBackupOutcome.Succeeded:
+                    JsonSerializer.Serialize(writer, "succeeded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerBackupOutcome");
+        }
+
+        public static readonly ServerBackupOutcomeConverter Singleton = new ServerBackupOutcomeConverter();
     }
 
     internal class CatalogImageKindConverter : JsonConverter<CatalogImageKind>

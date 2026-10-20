@@ -3,13 +3,21 @@
 param(
     [Parameter(Mandatory)][string]$Generation,
     [Parameter(Mandatory)][string]$PostgresBin,
-    [string]$StageDirectory
+    [string]$StageDirectory,
+    [switch]$ServerLocal
 )
 # Run after Windows image recovery, with the original installations disconnected.
 # This command validates the cohort and optionally stages PostgreSQL into a NEW directory.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 try {
+    if ($ServerLocal) {
+        if (-not $StageDirectory) { throw 'A new private staging directory is required.' }
+        Import-Module (Join-Path $PSScriptRoot 'local-backup.psm1') -Force -DisableNameChecking
+        Restore-LocalServerBackup $Generation $PostgresBin $StageDirectory
+        Write-Host 'Server backup verified and staged. No installation was activated.'
+        exit 0
+    }
     $generationPath = (Get-Item -LiteralPath $Generation -Force).FullName.TrimEnd('\')
     if ((Split-Path $generationPath -Leaf) -notmatch '^\d{8}T\d{6}Z-[a-f0-9]{32}$') { throw 'Invalid generation.' }
     foreach ($item in @((Get-Item -LiteralPath $generationPath -Force)) + @(Get-ChildItem -LiteralPath $generationPath -Force -Recurse)) {

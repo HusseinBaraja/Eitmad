@@ -28,25 +28,31 @@ pub(super) fn recover(root: &Path, port: &str) -> String {
     let backup = root.join("cluster-backup");
     let cluster = root.join("replacement-cluster");
     let source_port = original.port().unwrap().to_string();
-    run(
-        &bin,
-        "pg_basebackup",
-        &[
-            "--host=127.0.0.1".as_ref(),
-            "--port".as_ref(),
-            source_port.as_ref(),
-            "--username".as_ref(),
-            backup_user.as_ref(),
-            "--no-password".as_ref(),
-            "--format=plain".as_ref(),
-            "--wal-method=stream".as_ref(),
-            "--checkpoint=fast".as_ref(),
-            "--manifest-checksums=SHA256".as_ref(),
-            "--pgdata".as_ref(),
-            backup.as_os_str(),
-        ],
-        &backup_password,
-    );
+    let backup = if let Some(script) = env::var_os("EITMAD_RECOVERY_LOCAL_BACKUP_SCRIPT") {
+        local_backup(&script, root, &bin, &source_port);
+        root.join("staged-recovery/cluster")
+    } else {
+        run(
+            &bin,
+            "pg_basebackup",
+            &[
+                "--host=127.0.0.1".as_ref(),
+                "--port".as_ref(),
+                source_port.as_ref(),
+                "--username".as_ref(),
+                backup_user.as_ref(),
+                "--no-password".as_ref(),
+                "--format=plain".as_ref(),
+                "--wal-method=stream".as_ref(),
+                "--checkpoint=fast".as_ref(),
+                "--manifest-checksums=SHA256".as_ref(),
+                "--pgdata".as_ref(),
+                backup.as_os_str(),
+            ],
+            &backup_password,
+        );
+        backup
+    };
     run(&bin, "pg_verifybackup", &[backup.as_os_str()], &password);
     copy_tree(&backup, &cluster);
     let options =
@@ -67,6 +73,17 @@ pub(super) fn recover(root: &Path, port: &str) -> String {
         &password,
     );
     let mut restored = original.clone();
+    if env::var_os("EITMAD_RECOVERY_LOCAL_BACKUP_SCRIPT").is_some() {
+        let recovered =
+            std::fs::read_to_string(root.join("staged-recovery/host/private/database-url"))
+                .unwrap();
+        assert_eq!(
+            recovered,
+            original.as_str(),
+            "restored application credential changed"
+        );
+        restored = url::Url::parse(&recovered).unwrap();
+    }
     restored.set_port(Some(port.parse().unwrap())).unwrap();
     let mut admin_source = original;
     admin_source.set_username("postgres").unwrap();
@@ -109,4 +126,27 @@ fn copy_tree(source: &Path, target: &Path) {
             std::fs::copy(entry.path(), destination).unwrap();
         }
     }
+}
+
+fn local_backup(script: &OsStr, root: &Path, bin: &Path, source_port: &str) {
+    let log = std::fs::File::create(root.join("backup-adapter-private.log")).unwrap();
+    let status = Command::new("powershell.exe")
+        .env_remove("PSModulePath")
+        .args(["-NoProfile", "-NonInteractive", "-File"])
+        .arg(script)
+        .arg("-Root")
+        .arg(root)
+        .arg("-PostgresBin")
+        .arg(bin)
+        .arg("-DatabasePort")
+        .arg(source_port)
+        .stdin(std::process::Stdio::null())
+        .stdout(log.try_clone().unwrap())
+        .stderr(log)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "server backup drill failed; private diagnostics withheld"
+    );
 }

@@ -210,6 +210,12 @@
     "server_account_watch": {
       "$ref": "#/definitions/ServerAccountWatch"
     },
+    "server_backup_configuration": {
+      "$ref": "#/definitions/ServerBackupConfiguration"
+    },
+    "server_backup_status": {
+      "$ref": "#/definitions/ServerBackupStatus"
+    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
@@ -257,6 +263,8 @@
     }
   },
   "required": [
+    "server_backup_configuration",
+    "server_backup_status",
     "open_pairing",
     "opened_pairing",
     "start_pairing",
@@ -13754,6 +13762,154 @@
       "required": [
         "profile",
         "revision"
+      ]
+    },
+    "ServerBackupConfiguration": {
+      "type": "object",
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "externalDestination": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hostRoot": {
+          "type": "string"
+        },
+        "intervalHours": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 24,
+          "minimum": 0
+        },
+        "localDestination": {
+          "type": "string"
+        },
+        "recoveryDirectory": {
+          "type": "string"
+        },
+        "reserveBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 1073741824,
+          "minimum": 0
+        },
+        "retentionCount": {
+          "type": "integer",
+          "format": "uint",
+          "default": 7,
+          "minimum": 0
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "deploymentId",
+        "hostRoot",
+        "serviceName",
+        "recoveryDirectory",
+        "localDestination"
+      ]
+    },
+    "ServerBackupOutcome": {
+      "type": "string",
+      "enum": [
+        "neverRun",
+        "running",
+        "succeeded",
+        "destinationUnavailable",
+        "insufficientSpace",
+        "captureFailed",
+        "interrupted",
+        "retentionFailed",
+        "scheduleFailed"
+      ]
+    },
+    "ServerBackupStatus": {
+      "description": "Safe for later onboarding UI. Paths, credentials, and tool output are excluded.",
+      "type": "object",
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "diskLossProtected": {
+          "description": "Only a copy verified on a different physical disk can set this value.",
+          "type": "boolean"
+        },
+        "externalConfigured": {
+          "type": "boolean"
+        },
+        "externalOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "lastAttemptAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lastExternalSuccessAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lastLocalSuccessAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "localOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "nextDueAt": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "overdue": {
+          "type": "boolean"
+        },
+        "scheduleOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "deploymentId",
+        "localOutcome",
+        "externalOutcome",
+        "nextDueAt",
+        "overdue",
+        "externalConfigured",
+        "diskLossProtected",
+        "scheduleOutcome"
       ]
     },
     "ServerClientMessage": {

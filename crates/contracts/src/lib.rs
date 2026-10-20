@@ -10,6 +10,7 @@ mod macros;
 pub mod accounts;
 pub mod administration;
 pub mod authorization;
+pub mod backup;
 pub mod catalog;
 pub mod catalog_image;
 pub mod catalog_revision;

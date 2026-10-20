@@ -2,9 +2,9 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-if (args.Length != 1)
+if (args.Length != 1 && (args.Length != 3 || args[1] != "--issuer-directory"))
 {
-    Console.Error.WriteLine("usage: Eitmad.DevCertificate <output-directory>");
+    Console.Error.WriteLine("usage: Eitmad.DevCertificate <output-directory> [--issuer-directory <private-CA-directory>] (CA password on stdin)");
     return 1;
 }
 
@@ -23,7 +23,16 @@ static X509Certificate2 CreateAuthority(string name, DateTimeOffset now)
     return request.CreateSelfSigned(now.AddMinutes(-5), now.AddDays(7));
 }
 
-using var authority = CreateAuthority("Eitmad direct test CA", now);
+static X509Certificate2 LoadAuthority(string path)
+{
+    var password = Console.ReadLine() ?? throw new InvalidOperationException("Missing private CA input.");
+    using var key = ECDsa.Create();
+    key.ImportFromEncryptedPem(File.ReadAllText(Path.Combine(path, "ca-key.encrypted.pem")), password);
+    using var certificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(path, "trusted-ca.pem")));
+    return certificate.CopyWithPrivateKey(key);
+}
+
+using var authority = args.Length == 3 ? LoadAuthority(args[2]) : CreateAuthority("Eitmad direct test CA", now);
 using var wrongAuthority = CreateAuthority("Eitmad unrelated test CA", now);
 using var serverKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
 var serverRequest = new CertificateRequest("CN=localhost", serverKey, HashAlgorithmName.SHA256);

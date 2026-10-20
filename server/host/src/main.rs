@@ -17,6 +17,8 @@ use eitmad_sync_plane::{
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 use zeroize::Zeroizing;
 
+#[cfg(windows)]
+mod windows_backup;
 mod windows_setup;
 
 #[tokio::main]
@@ -41,6 +43,13 @@ async fn main() -> ExitCode {
 
 async fn execute() -> Result<(), MainError> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    if arguments.get(1).is_some_and(|arg| arg == "windows-backup") {
+        #[cfg(windows)]
+        if arguments.len() == 4 {
+            return windows_backup::execute(&arguments[2], &arguments[3]);
+        }
+        return Err(MainError::Input);
+    }
     if arguments.len() == 2 && arguments[1] == "--version" {
         println!(
             "eitmad-server {}",
@@ -310,6 +319,9 @@ fn compose_server_state(
 }
 
 fn print_help() {
+    println!(
+        "eitmad-server windows-backup <configure|configuration|schedule|run|tick|status> <private-state-directory>"
+    );
     println!("eitmad-server enroll-first-desktop (private local LoginRequest JSON on stdin)");
     println!("eitmad-server [serve|migrate|check-config]");
     println!(
@@ -361,6 +373,8 @@ enum MainError {
     Recovery,
     Runtime,
     Setup,
+    #[cfg(windows)]
+    Backup,
 }
 
 impl MainError {
@@ -374,6 +388,8 @@ impl MainError {
             Self::Recovery => "eitmad.error.server-owner-recovery-failed.v1",
             Self::Runtime => "eitmad.error.server-runtime-failed.v1",
             Self::Setup => "eitmad.error.windows-workshop-setup-failed.v1",
+            #[cfg(windows)]
+            Self::Backup => "eitmad.error.server-backup-failed.v1",
         }
     }
 }

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-21"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -190,7 +190,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | انحراف العقد | Contract drift | A generated schema, fixture, reference, or platform binding that no longer exactly matches the Rust contract authority. |
 | ترحيل قاعدة البيانات | Database migration | An immutable, ordered, checksummed Rust-owned schema change attributed to one storage feature. |
 | انحراف المخطط | Schema drift | A difference between the live SQLite schema and the schema produced by the registered Rust migrations. |
-| نسخة احتياطية | Backup | A validated SQLite copy that includes committed WAL state and has the same sensitivity as the live database. |
+| نسخة احتياطية | Backup | A validated recovery copy with the same sensitivity as live data. Local SQLite backups include committed WAL state; server backups include PostgreSQL state and the protected configuration, secrets, and CA renewal dependencies. |
 | استعادة قاعدة البيانات | Database restore | A stopped-engine replacement flow that validates the candidate and preserves the previous database before installation. |
 | ملف الاسترداد | Recovery artifact | A preserved pre-migration, pre-restore, or failed-restore SQLite candidate that must be validated before use. |
 | تصدير البيانات المحلية | Local data export | A tenant-scoped portable JSON projection that excludes sessions, devices, audit, credentials, and operational storage; it is not a backup. |

@@ -27,7 +27,7 @@ Use the [shared server account lifecycle](identity-foundation.md#shared-server-a
 
 The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-The host registers branch-scoped Customer contacts and organization-scoped Material, Part, Product, Furniture, public catalog, and Pricing schemas. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI, backup scheduling, or customer conflict resolution. The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
+The host registers branch-scoped Customer contacts and organization-scoped Material, Part, Product, Furniture, public catalog, and Pricing schemas. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI or customer conflict resolution. Privileged local server backup policy, scheduling decisions, and typed status are implemented in the host CLI; see [server backup and recovery](../../operations/backup-lan-installation.md#automatic-local-server-backups). The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
 
 ## Ownership and module boundaries
 

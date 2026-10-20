@@ -18,6 +18,8 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let prepareWindowsWorkshop: PrepareWindowsWorkshop
     public let preparedWindowsWorkshop: PreparedWindowsWorkshop
     public let readWindowsInstallation: ReadWindowsInstallation
+    public let serverBackupConfiguration: ServerBackupConfiguration
+    public let serverBackupStatus: ServerBackupStatus
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
     public let windowsInstallProgress: WindowsInstallProgress
     public let windowsInstallationState: WindowsInstallationState
@@ -34,12 +36,14 @@ public struct EitmadContractSchema: Codable, Sendable {
         case prepareWindowsWorkshop = "prepare_windows_workshop"
         case preparedWindowsWorkshop = "prepared_windows_workshop"
         case readWindowsInstallation = "read_windows_installation"
+        case serverBackupConfiguration = "server_backup_configuration"
+        case serverBackupStatus = "server_backup_status"
         case unionPayloadKeepAlive
         case windowsInstallProgress = "windows_install_progress"
         case windowsInstallationState = "windows_installation_state"
     }
 
-    public init(initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, installWindows: [String: JSONAny], installWindowsClient: InstallWindowsClient, installWindowsServer: InstallWindowsServer, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, readWindowsInstallation: ReadWindowsInstallation, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallProgress: WindowsInstallProgress, windowsInstallationState: WindowsInstallationState) {
+    public init(initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, installWindows: [String: JSONAny], installWindowsClient: InstallWindowsClient, installWindowsServer: InstallWindowsServer, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, readWindowsInstallation: ReadWindowsInstallation, serverBackupConfiguration: ServerBackupConfiguration, serverBackupStatus: ServerBackupStatus, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallProgress: WindowsInstallProgress, windowsInstallationState: WindowsInstallationState) {
         self.initializeWorkshop = initializeWorkshop
         self.initializedWorkshop = initializedWorkshop
         self.installWindows = installWindows
@@ -51,6 +55,8 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.prepareWindowsWorkshop = prepareWindowsWorkshop
         self.preparedWindowsWorkshop = preparedWindowsWorkshop
         self.readWindowsInstallation = readWindowsInstallation
+        self.serverBackupConfiguration = serverBackupConfiguration
+        self.serverBackupStatus = serverBackupStatus
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
         self.windowsInstallProgress = windowsInstallProgress
         self.windowsInstallationState = windowsInstallationState
@@ -498,6 +504,84 @@ public struct ReadWindowsInstallation: Codable, Sendable {
         self.progressDirectory = progressDirectory
         self.version = version
     }
+}
+
+// MARK: - ServerBackupConfiguration
+public struct ServerBackupConfiguration: Codable, Sendable {
+    public let deploymentID: String
+    public let externalDestination: String?
+    public let hostRoot: String
+    public let intervalHours: Int?
+    public let localDestination, recoveryDirectory: String
+    public let reserveBytes, retentionCount: Int?
+    public let serviceName: String
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case deploymentID = "deploymentId"
+        case externalDestination, hostRoot, intervalHours, localDestination, recoveryDirectory, reserveBytes, retentionCount, serviceName, version
+    }
+
+    public init(deploymentID: String, externalDestination: String?, hostRoot: String, intervalHours: Int?, localDestination: String, recoveryDirectory: String, reserveBytes: Int?, retentionCount: Int?, serviceName: String, version: Int) {
+        self.deploymentID = deploymentID
+        self.externalDestination = externalDestination
+        self.hostRoot = hostRoot
+        self.intervalHours = intervalHours
+        self.localDestination = localDestination
+        self.recoveryDirectory = recoveryDirectory
+        self.reserveBytes = reserveBytes
+        self.retentionCount = retentionCount
+        self.serviceName = serviceName
+        self.version = version
+    }
+}
+
+/// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
+// MARK: - ServerBackupStatus
+public struct ServerBackupStatus: Codable, Sendable {
+    public let deploymentID: String
+    /// Only a copy verified on a different physical disk can set this value.
+    public let diskLossProtected: Bool
+    public let externalConfigured: Bool
+    public let externalOutcome: ServerBackupOutcome
+    public let lastAttemptAt, lastExternalSuccessAt, lastLocalSuccessAt: Int?
+    public let localOutcome: ServerBackupOutcome
+    public let nextDueAt: Int
+    public let overdue: Bool
+    public let scheduleOutcome: ServerBackupOutcome
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case deploymentID = "deploymentId"
+        case diskLossProtected, externalConfigured, externalOutcome, lastAttemptAt, lastExternalSuccessAt, lastLocalSuccessAt, localOutcome, nextDueAt, overdue, scheduleOutcome, version
+    }
+
+    public init(deploymentID: String, diskLossProtected: Bool, externalConfigured: Bool, externalOutcome: ServerBackupOutcome, lastAttemptAt: Int?, lastExternalSuccessAt: Int?, lastLocalSuccessAt: Int?, localOutcome: ServerBackupOutcome, nextDueAt: Int, overdue: Bool, scheduleOutcome: ServerBackupOutcome, version: Int) {
+        self.deploymentID = deploymentID
+        self.diskLossProtected = diskLossProtected
+        self.externalConfigured = externalConfigured
+        self.externalOutcome = externalOutcome
+        self.lastAttemptAt = lastAttemptAt
+        self.lastExternalSuccessAt = lastExternalSuccessAt
+        self.lastLocalSuccessAt = lastLocalSuccessAt
+        self.localOutcome = localOutcome
+        self.nextDueAt = nextDueAt
+        self.overdue = overdue
+        self.scheduleOutcome = scheduleOutcome
+        self.version = version
+    }
+}
+
+public enum ServerBackupOutcome: String, Codable, Sendable {
+    case captureFailed = "captureFailed"
+    case destinationUnavailable = "destinationUnavailable"
+    case insufficientSpace = "insufficientSpace"
+    case interrupted = "interrupted"
+    case neverRun = "neverRun"
+    case retentionFailed = "retentionFailed"
+    case running = "running"
+    case scheduleFailed = "scheduleFailed"
+    case succeeded = "succeeded"
 }
 
 // MARK: - UnionPayloadKeepAlive
