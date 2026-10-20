@@ -546,11 +546,42 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         else { [IO.File]::Move($inventoryStage, $previousFile) }
         Invoke-Native sc.exe @('config', ($Settings.name + 'Postgres'), 'start=', 'auto')
         Invoke-Native sc.exe @('config', ($Settings.name + 'Server'), 'start=', 'delayed-auto')
-        Remove-Item -LiteralPath $pendingFile
+        Remove-Item -LiteralPath $pendingFile -ErrorAction Stop
         Write-Host 'Release installed; explicit Rust migrations and verified HTTPS readiness passed. Verify authenticated client work before reopening access.'
     } catch {
-        Stop-Host $Settings
-        throw 'Release failed. Services are stopped; pending recovery details and all data are retained. Repair the exact release or restore the complete recovery point.'
+        $releaseFailure = $_
+        $cleanupFailures = New-Object 'Collections.Generic.List[string]'
+        # Each action is independent: one SCM failure must not skip the other
+        # startup-mode reset or either stop attempt. Recheck ownership each time.
+        foreach ($kind in 'Server', 'Postgres') {
+            $service = $null
+            try {
+                $service = Get-OwnedService $Settings $kind
+                try {
+                    if (-not $service) { throw 'Owned service is missing.' }
+                    Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand')
+                } finally { Close-Service $service }
+            } catch { $cleanupFailures.Add("Set $kind to demand-start: $($_.Exception.Message)") }
+        }
+        foreach ($kind in 'Server', 'Postgres') {
+            $service = $null
+            try {
+                $service = Get-OwnedService $Settings $kind
+                try {
+                    if (-not $service) { throw 'Owned service is missing.' }
+                    if ($service.Status -ne 'Stopped') {
+                        $service.Stop()
+                        $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(60))
+                    }
+                } finally { Close-Service $service }
+            } catch { $cleanupFailures.Add("Stop ${kind}: $($_.Exception.Message)") }
+        }
+        $state = if ($cleanupFailures.Count) {
+            'Cleanup failed; stopped/demand-start service state is not confirmed. ' + ($cleanupFailures -join '; ')
+        } else { 'Services are stopped with demand-start.' }
+        throw [InvalidOperationException]::new(
+            "Release failed: $($releaseFailure.Exception.Message) $state Pending recovery details and all data are retained. Repair the exact release or restore the complete recovery point.",
+            $releaseFailure.Exception)
     }
 }
 

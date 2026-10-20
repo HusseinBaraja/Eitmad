@@ -21,18 +21,54 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     [IO.File]::WriteAllText((Join-Path $root 'data/retained'), 'committed and pending work')
     [IO.File]::WriteAllText((Join-Path $root 'private/retained'), 'synthetic credential dependency')
     $script:events = New-Object 'Collections.Generic.List[string]'
+    $script:startupModes = @{ EitmadReleaseProofPostgres = 'auto'; EitmadReleaseProofServer = 'delayed-auto' }
+    $script:failServerAuto = $false
+    $script:failMarkerRemoval = $false
+    $script:failDemand = ''
+    $script:failStop = ''
+    $script:finalizationFailure = $null
+    $script:finalizationFailed = $false
     $script:services = @{}
     foreach ($kind in 'Server', 'Postgres') {
         $item = [pscustomobject]@{Kind=$kind; Status='Stopped'}
         $item | Add-Member ScriptMethod Start { $script:events.Add('start:'+$this.Kind); $this.Status='Running' }
-        $item | Add-Member ScriptMethod Stop { $script:events.Add('stop:'+$this.Kind); $this.Status='Stopped' }
+        $item | Add-Member ScriptMethod Stop {
+            $script:events.Add('stop:'+$this.Kind)
+            if ($script:failStop -eq $this.Kind) { throw ('synthetic stop failure: ' + $this.Kind) }
+            $this.Status='Stopped'
+        }
         $item | Add-Member ScriptMethod WaitForStatus { param($Status, $Timeout) }
         $script:services[$kind] = $item
     }
     function Get-OwnedService { param($Settings, $Kind) return $script:services[$Kind] }
     function Get-NetTCPConnection { param($State, $LocalPort, $ErrorAction) }
     function Protect-Directory { param($Path, $Readers) [void][IO.Directory]::CreateDirectory($Path) }
-    function Invoke-Native { param($File, $Arguments) $script:events.Add(($Arguments -join '|')) }
+    function Invoke-Native {
+        param($File, $Arguments)
+        $script:events.Add(($Arguments -join '|'))
+        if ($Arguments[0] -eq 'config') {
+            if ($Arguments[3] -eq 'delayed-auto' -and $script:failServerAuto) {
+                $script:finalizationFailed = $true
+                throw $script:finalizationFailure
+            }
+            if ($script:finalizationFailed -and $Arguments[3] -eq 'demand' -and $Arguments[1] -eq ('EitmadReleaseProof' + $script:failDemand)) {
+                throw ('synthetic demand-start failure: ' + $script:failDemand)
+            }
+            $script:startupModes[$Arguments[1]] = $Arguments[3]
+        }
+    }
+    function Remove-Item {
+        [CmdletBinding()]
+        param($LiteralPath)
+        if ($LiteralPath -eq (Join-Path $root 'release-pending.json')) {
+            $script:events.Add('remove:pending')
+            if ($script:failMarkerRemoval) {
+                $script:finalizationFailed = $true
+                throw $script:finalizationFailure
+            }
+        }
+        Microsoft.PowerShell.Management\Remove-Item -LiteralPath $LiteralPath -ErrorAction Stop
+    }
     function Test-RustConfiguration {
         param($Root, $Executable, $Command='check-config')
         $script:events.Add('rust:'+$Command)
@@ -79,6 +115,7 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade $generation $true } 'Release failed'
     Assert (Test-Path -LiteralPath (Join-Path $root 'release-pending.json')) 'Failed upgrade lost recovery marker.'
     Assert ($script:services.Server.Status -eq 'Stopped' -and $script:services.Postgres.Status -eq 'Stopped') 'Failed migration left a writer running.'
+    Assert ($script:startupModes.EitmadReleaseProofServer -eq 'demand' -and $script:startupModes.EitmadReleaseProofPostgres -eq 'demand') 'Failed migration left automatic startup enabled.'
     Assert (-not ($script:events -join ',').Contains('delayed-auto')) 'Failed upgrade enabled automatic startup.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release two') 'Failure silently rolled back a possibly migrated database.'
     $eventCount = $script:events.Count
@@ -90,8 +127,76 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'release-pending.json'))) 'Successful recovery retained the pending gate.'
     Assert ((Get-Content -LiteralPath (Join-Path $root 'app/release.json') -Raw | ConvertFrom-Json).version -ceq '1.1.0') 'Recovery inventory is incorrect.'
+    $pendingFile = Join-Path $root 'release-pending.json'
+    $outcomes = New-Object 'Collections.Generic.List[object]'
+    foreach ($scenario in @(
+        @{name='Pending-marker removal failure'; serverAuto=$false; demand=''; stop=''},
+        @{name='Server automatic-start configuration failure'; serverAuto=$true; demand=''; stop=''},
+        @{name='Server cleanup failures'; serverAuto=$false; demand='Server'; stop='Server'},
+        @{name='Postgres cleanup failures'; serverAuto=$false; demand='Postgres'; stop='Postgres'}
+    )) {
+        Stop-Host $settings
+        $script:events.Clear()
+        $script:failServerAuto = $scenario.serverAuto
+        $script:failMarkerRemoval = -not $scenario.serverAuto
+        $script:failDemand = $scenario.demand
+        $script:failStop = $scenario.stop
+        $script:finalizationFailure = [IO.IOException]::new('synthetic finalization failure: ' + $scenario.name)
+        $script:finalizationFailed = $false
+        $failure = $null
+        try { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false } catch { $failure = $_ }
+        Assert ($null -ne $failure) ('Finalization did not fail: ' + $scenario.name)
+        Assert ([object]::ReferenceEquals($failure.Exception.InnerException, $script:finalizationFailure)) 'Cleanup lost the original finalization exception.'
+        Assert ($failure.Exception.Message.Contains($script:finalizationFailure.Message)) 'Release error omitted the original failure.'
+        Assert (Test-Path -LiteralPath $pendingFile) 'Finalization failure lost the pending marker.'
+        $pendingBytes = [IO.File]::ReadAllText($pendingFile)
+        $marker = $pendingBytes | ConvertFrom-Json
+        Assert ($marker.version -ceq $two.version -and $marker.binarySha256 -ceq $two.files.'eitmad-server.exe' -and
+            $marker.previousRelease.version -ceq $two.version) 'Finalization failure changed pending recovery details.'
+        Assert ((Get-Content -LiteralPath (Join-Path $root 'app/release.json') -Raw | ConvertFrom-Json).version -ceq $two.version) 'Finalization failure lost the target inventory.'
+        $events = $script:events -join ','
+        Assert ($events.Contains('config|EitmadReleaseProofPostgres|start=|auto,config|EitmadReleaseProofServer|start=|delayed-auto')) 'Failure did not reach automatic-start finalization.'
+        Assert ($script:events.Contains('remove:pending') -eq $script:failMarkerRemoval) 'Marker removal occurred at the wrong finalization stage.'
+        Assert ($events.EndsWith('config|EitmadReleaseProofServer|start=|demand,config|EitmadReleaseProofPostgres|start=|demand,stop:Server,stop:Postgres')) 'A cleanup failure skipped or reordered the remaining cleanup attempts.'
+        foreach ($kind in 'Server', 'Postgres') {
+            $expectedMode = if ($scenario.demand -eq $kind) { if ($kind -eq 'Server') { 'delayed-auto' } else { 'auto' } } else { 'demand' }
+            $expectedState = if ($scenario.stop -eq $kind) { 'Running' } else { 'Stopped' }
+            Assert ($script:startupModes['EitmadReleaseProof'+$kind] -eq $expectedMode) ("Incorrect $kind startup mode after finalization failure.")
+            Assert ($script:services[$kind].Status -eq $expectedState) ("Incorrect $kind state after finalization failure.")
+        }
+        if ($scenario.demand) {
+            Assert ($failure.Exception.Message.Contains("Set $($scenario.demand) to demand-start: synthetic demand-start failure: $($scenario.demand)")) 'Demand-start cleanup failure was not reported.'
+            Assert ($failure.Exception.Message.Contains("Stop $($scenario.stop):") -and
+                $failure.Exception.Message.Contains("synthetic stop failure: $($scenario.stop)")) 'Stop cleanup failure was not reported.'
+            Assert ($failure.Exception.Message.Contains('state is not confirmed') -and
+                -not $failure.Exception.Message.Contains('Services are stopped')) 'Failed cleanup claimed a safe service state.'
+        } else {
+            Assert ($failure.Exception.Message.Contains('Services are stopped with demand-start.')) 'Successful cleanup did not report its result.'
+        }
+        $outcomes.Add([pscustomobject]@{outcome=$scenario.name; postgresMode=$script:startupModes.EitmadReleaseProofPostgres;
+            postgresState=$script:services.Postgres.Status; serverMode=$script:startupModes.EitmadReleaseProofServer;
+            serverState=$script:services.Server.Status; pendingMarker=(Test-Path -LiteralPath $pendingFile)})
+        $eventCount = $script:events.Count
+        Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false } 'exact interrupted release'
+        Assert ($script:events.Count -eq $eventCount -and [IO.File]::ReadAllText($pendingFile) -ceq $pendingBytes) 'Wrong-release repair changed pending recovery state.'
+        $script:failServerAuto = $false; $script:failMarkerRemoval = $false; $script:failDemand = ''; $script:failStop = ''
+        Stop-Host $settings
+        Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false
+        Assert (-not (Test-Path -LiteralPath $pendingFile)) 'Successful finalization retained the pending marker.'
+        Assert ($script:startupModes.EitmadReleaseProofPostgres -eq 'auto' -and
+            $script:startupModes.EitmadReleaseProofServer -eq 'delayed-auto') 'Successful finalization changed intended automatic startup modes.'
+        Assert ($script:services.Postgres.Status -eq 'Running' -and $script:services.Server.Status -eq 'Running') 'Successful finalization stopped a service.'
+    }
+    $outcomes.Add([pscustomobject]@{outcome='Successful finalization'; postgresMode=$script:startupModes.EitmadReleaseProofPostgres;
+        postgresState=$script:services.Postgres.Status; serverMode=$script:startupModes.EitmadReleaseProofServer;
+        serverState=$script:services.Server.Status; pendingMarker=(Test-Path -LiteralPath $pendingFile)})
+    $outcomes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Evidence 'finalization-outcomes.json') -Encoding UTF8
+    Assert ((Get-Content -LiteralPath (Join-Path $root 'releases/1.0.0.0/release.json') -Raw | ConvertFrom-Json).version -ceq '1.0.0') 'Release changed the prior inventory.'
+    Assert ([IO.File]::ReadAllText((Join-Path $root 'releases/1.0.0.0/eitmad-server.exe')) -ceq 'release one') 'Release changed the prior binary.'
+    Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release two') 'Finalization changed the target binary.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'data/retained')) -ceq 'committed and pending work') 'Release changed durable work.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'private/retained')) -ceq 'synthetic credential dependency') 'Release replaced credential dependencies.'
 } $evidence
 Write-Host 'PASS: real file replacement; mocked services; repair, backup gate, failed migration, exact-release recovery, and retained work/credentials.'
+Write-Host 'PASS: finalization failures restore demand-start and stop both services; cleanup failures retain the original error, report unsafe state, and allow remaining cleanup; success retains automatic startup.'
 Write-Host "Synthetic evidence: $evidence"
