@@ -1,5 +1,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Service types must also resolve before Get-Service runs, including with mocked SCM access.
+Add-Type -AssemblyName System.ServiceProcess
 
 function Invoke-Native([string]$File, [string[]]$Arguments) {
     # Preserve embedded quotes and trailing backslashes through Windows argv parsing on PS 5.1.
