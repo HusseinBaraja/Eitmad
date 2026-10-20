@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.parse import unquote, urlsplit
 import zipfile
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "release" / "build_artifacts.py"
@@ -14,8 +15,44 @@ assert SPEC and SPEC.loader
 artifacts = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(artifacts)
 
+AUDIT_PATH = artifacts.ROOT / ".agents/skills/maintain-project-documentation/scripts/audit_docs.py"
+AUDIT_SPEC = importlib.util.spec_from_file_location("audit_docs", AUDIT_PATH)
+assert AUDIT_SPEC and AUDIT_SPEC.loader
+docs_audit = importlib.util.module_from_spec(AUDIT_SPEC)
+AUDIT_SPEC.loader.exec_module(docs_audit)
+
 
 class BuildArtifactsTests(unittest.TestCase):
+    def test_windows_packages_deliver_resolvable_inventoried_documentation(self) -> None:
+        manuals = ("package-windows-desktop.md", "run-windows-host-services.md", "setup-lan-server.md",
+                   "run-server-authority.md", "backup-lan-installation.md")
+        for target in ("windows-desktop", "windows-server"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as temporary:
+                stage = Path(temporary).resolve()
+                artifacts.copy_install_tools(stage, target)
+                for name in manuals:
+                    self.assertTrue((stage / "docs/operations" / name).is_file(), name)
+                with patch.object(artifacts.subprocess, "check_output", side_effect=["abc123", b""]):
+                    artifacts.release_inventory(stage, "1.2.3", target, "CN=Test")
+                inventory = json.loads((stage / "release.json").read_text(encoding="utf-8"))["files"]
+                for page in sorted(stage.rglob("*.md")):
+                    relative = page.relative_to(stage).as_posix()
+                    self.assertEqual(inventory[relative], artifacts.sha256(page), relative)
+                    for raw_target in docs_audit.LINK_RE.findall(page.read_text(encoding="utf-8")):
+                        link = raw_target.strip().strip("<>").split(maxsplit=1)[0]
+                        url = urlsplit(link)
+                        if url.scheme or url.netloc:
+                            continue
+                        linked = (page.parent / unquote(url.path)).resolve() if url.path else page
+                        with self.subTest(page=relative, link=link):
+                            self.assertTrue(linked.is_relative_to(stage), "Link escapes the package")
+                            self.assertTrue(linked.is_file(), "Link target is absent from the package")
+                            if url.fragment:
+                                self.assertEqual(linked.suffix.lower(), ".md")
+                                anchors = {docs_audit.slug(heading) for heading in docs_audit.HEADING_RE.findall(
+                                    linked.read_text(encoding="utf-8"))}
+                                self.assertIn(unquote(url.fragment).lower(), anchors)
+
     def test_rust_sbom_includes_transitive_build_inputs_but_not_test_only_roots(self) -> None:
         metadata = {
             "packages": [{"id": name, "name": name, "version": "1.0.0"} for name in ("engine", "runtime", "compiler", "leaf", "test-only", "other")],

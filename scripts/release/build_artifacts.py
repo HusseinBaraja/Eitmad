@@ -178,9 +178,8 @@ def copy_install_tools(stage: Path, target: str) -> None:
     ]
     for name in names:
         shutil.copy2(ROOT / "deploy/windows" / name, stage / name)
-    # Include the canonical task pages, not operational examples or test harnesses.
-    for name in ("package-windows-desktop.md", "run-windows-host-services.md", "setup-lan-server.md", "run-server-authority.md", "backup-lan-installation.md"):
-        shutil.copy2(ROOT / "docs/operations" / name, stage / name)
+    # Preserve the canonical documentation tree so all relative links work offline.
+    shutil.copytree(ROOT / "docs", stage / "docs")
 
 
 def sign_path(path: Path, publisher: str, hook: Path | None) -> None:
