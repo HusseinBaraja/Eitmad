@@ -6,6 +6,7 @@ pub use catalog_sync::CatalogSyncProjection;
 mod configuration;
 mod customer;
 mod desktop_auth;
+mod draft_resolution;
 mod export;
 mod furniture;
 mod identity;
@@ -18,7 +19,7 @@ mod pricing;
 mod quotation_draft;
 mod quotation_lifecycle;
 mod work_orders;
-pub use quotation_draft::QuotationDraftCommit;
+pub use quotation_draft::{PendingQuotationDraft, QuotationDraftCommit};
 mod product;
 mod recovery;
 mod reference_marker;
@@ -40,10 +41,7 @@ pub use configuration::{ConfigurationCommitOutcome, StoredConfiguration};
 pub use customer::{
     CustomerCommit, CustomerCommitOutcome, CustomerSyncProjection, MAX_CUSTOMER_SYNC_BATCH,
 };
-pub use desktop_auth::{
-    DesktopAccount, DesktopAccountCommitOutcome, DesktopAccountMutation, DesktopRole,
-    canonical_desktop_username,
-};
+pub use desktop_auth::{DesktopAccount, DesktopRole, canonical_desktop_username};
 use eitmad_contracts::{
     events::Event,
     identity::{ScopeId, ScopeKind, ScopeRef},
@@ -62,7 +60,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavio
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
 pub const DATABASE_FILE_NAME: &str = "eitmad.sqlite3";
-pub const CURRENT_STORAGE_VERSION: u32 = 28;
+pub const CURRENT_STORAGE_VERSION: u32 = 31;
 pub const MIN_SUPPORTED_STORAGE_VERSION: u32 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;

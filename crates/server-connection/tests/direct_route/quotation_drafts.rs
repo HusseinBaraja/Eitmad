@@ -2,6 +2,10 @@
 mod lifecycle;
 #[path = "orders.rs"]
 mod orders;
+#[path = "quotation_recovery.rs"]
+mod recovery;
+#[path = "draft_resolution.rs"]
+mod resolution;
 use super::*;
 use eitmad_contracts::{
     quotation::{EvaluateQuotation, QuotationCustomerIntent, QuotationLineIntent},
@@ -210,7 +214,10 @@ async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_serv
     let auth_b = scenario.server.second_authentication.clone();
     let endpoint = scenario.endpoint.clone();
     let trust = scenario.trust.clone();
+    let resolution_client =
+        approval_connection(second.directory.path(), auth_b.clone(), [12; 32], &scenario);
     let fixture = DraftTransferFixture {
+        resolution_client,
         created_customer,
         target,
         furniture_target,
@@ -289,6 +296,7 @@ async fn verify_server_permissions(scenario: &CatalogScenario) -> sqlx::PgPool {
     pool
 }
 struct DraftTransferFixture {
+    resolution_client: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
     created_customer: Customer,
     target: PriceTarget,
     furniture_target: PriceTarget,
@@ -469,6 +477,12 @@ fn verify_clients(
     let tenant = second.client.actor.tenant_id;
     authorize_draft_writer(&mut second.client, tenant);
     let conflict = verify_competing_updates(&mut first, &mut second, &created);
+    resolution::run(
+        &mut first,
+        &mut second,
+        &conflict,
+        fixture.resolution_client.as_ref(),
+    );
     // Compare durable customer state, including revision and bytes, per client.
     assert_eq!(customer_sync_state(&first), first_customer_state);
     assert_eq!(customer_sync_state(&second), second_customer_state);
@@ -590,9 +604,9 @@ async fn verify_postgres_history(
     .fetch_one(&mut *tx)
     .await
     .unwrap();
-    assert_eq!(count, 2);
+    assert_eq!(count, 4);
     let conflicts:i64=sqlx::query_scalar("SELECT count(*) FROM sync.conflicts WHERE tenant_id=$1 AND schema_id='eitmad.schema.quotation-draft.v1'").bind(tenant.value()).fetch_one(&mut *tx).await.unwrap();
-    assert_eq!(conflicts, 1);
+    assert_eq!(conflicts, 2);
     let retained: serde_json::Value = sqlx::query_scalar(
         "SELECT conflict_json FROM sync.conflicts WHERE tenant_id=$1 AND conflict_id=$2",
     )
@@ -689,7 +703,15 @@ async fn discount_approval_cross_client_live_replay_invalidation_and_rejection()
     let final_request = tokio::task::spawn_blocking(move || {
         let mut reception =
             DraftTestClient::new(reception, auth, [11; 32], (&endpoint, &trust, &catalog));
+        recovery::run(&reception, customer.id, target.clone(), &clients);
         let result = run_approval_workflow(&mut reception, customer.id, target.clone(), &clients);
+        resolution::boundary_scenarios(
+            &reception,
+            customer.id,
+            target.clone(),
+            &clients,
+            &lifecycle_pool,
+        );
         lifecycle::run(
             &mut reception,
             customer.id,

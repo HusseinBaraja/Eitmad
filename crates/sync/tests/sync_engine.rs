@@ -214,6 +214,42 @@ fn committed_domain_change_replays_after_restart_without_a_second_queue_entry() 
 }
 
 #[test]
+fn downloaded_revision_does_not_block_staging_a_committed_offline_edit() {
+    let fixture = Fixture::new();
+    let mut engine = fixture.engine(SyncMode::LocalFirst, true);
+    connect(&mut engine, &fixture, SyncMode::LocalFirst, 157);
+    let remote = record(51, 71, 91, 3, Some(2), "تعديل الخادم");
+    engine
+        .reconcile(
+            &fixture.actor,
+            &fixture.request,
+            &audit(51),
+            &delivery(52, 53, 54, vec![remote], None, Vec::new(), 100),
+        )
+        .unwrap();
+    let local = record(55, 71, 92, 2, Some(1), "تعديل محلي محفوظ");
+    engine
+        .stage_committed_local_change(&fixture.actor, &fixture.request, &audit(56), local.clone())
+        .unwrap();
+    assert_eq!(engine.pending_changes(), std::slice::from_ref(&local));
+    let out_of_order = record(57, 71, 93, 2, Some(1), "تعديل متأخر");
+    assert_eq!(
+        engine.stage_committed_local_change(
+            &fixture.actor,
+            &fixture.request,
+            &audit(58),
+            out_of_order
+        ),
+        Err(SyncEngineError::InvalidChange)
+    );
+    drop(engine);
+    assert_eq!(
+        fixture.engine(SyncMode::LocalFirst, true).pending_changes(),
+        std::slice::from_ref(&local)
+    );
+}
+
+#[test]
 fn held_domain_change_frees_queue_capacity_and_does_not_create_a_second_conflict() {
     let fixture = Fixture::new();
     let held = record(52, 72, 92, 1, None, "عميل مرفوض");

@@ -125,8 +125,10 @@ impl AuthenticatedHttpClient {
             && actor.scope.id.value() == actor.tenant_id.value()
             || actor.scope.kind.as_str() == "branch"
                 && (route.starts_with("/v1/quotation-approvals/")
+                    || route.starts_with("/v1/quotation-drafts/")
                     || route.starts_with("/v1/quotations/")
-                    || route.starts_with("/v1/orders/")))
+                    || route.starts_with("/v1/orders/")
+                    || route.starts_with("/v1/customers/")))
         {
             return Err(HttpError::Denied);
         }
@@ -148,15 +150,16 @@ impl AuthenticatedHttpClient {
         );
         let peer = URL_SAFE_NO_PAD
             .encode(serde_json::to_vec(&driver.local_hello).map_err(|_| HttpError::Invalid)?);
-        let body = serde_json::to_vec(input).map_err(|_| HttpError::Invalid)?;
+        let body =
+            zeroize::Zeroizing::new(serde_json::to_vec(input).map_err(|_| HttpError::Invalid)?);
         if body.len() > MAX_IMAGE_BYTES.div_ceil(3) * 4 + 4096 {
             return Err(HttpError::Invalid);
         }
-        let header = format!(
+        let header = zeroize::Zeroizing::new(format!(
             "POST {route} HTTP/1.1\r\nHost: {host}\r\nAuthorization: Bearer {}\r\nx-eitmad-device-proof: {proof}\r\nx-eitmad-peer-hello: {peer}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             credential.access_token,
             body.len()
-        );
+        ));
         super::diagnostics::measure_io(DiagnosticPhase::Send, FailurePhase::Send, budget, || {
             stream
                 .write_all(header.as_bytes())
@@ -166,8 +169,10 @@ impl AuthenticatedHttpClient {
         .map_err(HttpError::Unavailable)?;
         let maximum = if route == "/v1/pricing/read"
             || route.starts_with("/v1/quotation-approvals/")
+            || route.starts_with("/v1/quotation-drafts/")
             || route.starts_with("/v1/quotations/")
             || route.starts_with("/v1/orders/")
+            || route.starts_with("/v1/customers/")
         {
             4 * 1024 * 1024
         } else {

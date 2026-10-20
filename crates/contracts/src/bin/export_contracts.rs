@@ -45,6 +45,28 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    reconcile_customer_resolution: eitmad_contracts::sync::ReconcileResolution<
+        eitmad_contracts::customer::ConfirmCustomerResolution,
+    >,
+    reconcile_quotation_draft_resolution: eitmad_contracts::sync::ReconcileResolution<
+        eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+    >,
+    read_quotation_draft_recovery: eitmad_contracts::quotation_draft::ReadQuotationDraftRecovery,
+    read_quotation_draft_review: eitmad_contracts::quotation_draft::ReadQuotationDraftReview,
+    confirm_quotation_draft_resolution:
+        eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+    read_customers: eitmad_contracts::customer::ReadCustomers,
+    read_customer_conflicts: eitmad_contracts::customer::ReadCustomerConflicts,
+    confirm_customer_resolution: eitmad_contracts::customer::ConfirmCustomerResolution,
+    watch_server_accounts: eitmad_contracts::server_accounts::WatchServerAccounts,
+    server_account_watch: eitmad_contracts::server_accounts::ServerAccountWatch,
+    change_server_account: eitmad_contracts::server_accounts::ChangeServerAccount,
+    list_server_accounts: eitmad_contracts::server_accounts::ListServerAccounts,
+    server_account_page: eitmad_contracts::server_accounts::ServerAccountPage,
+    server_account_result: eitmad_contracts::server_accounts::ServerAccountResult,
+    activate_account_request: eitmad_contracts::server::ActivateAccountRequest,
+    authentication_result: eitmad_contracts::server::AuthenticationResult,
+    desktop_enrollment_profile: eitmad_contracts::server::DesktopEnrollmentProfile,
     confirm_order: eitmad_contracts::order::ConfirmOrder,
     read_orders: eitmad_contracts::order::ReadOrders,
     read_work_orders: eitmad_contracts::work_order::ReadWorkOrders,

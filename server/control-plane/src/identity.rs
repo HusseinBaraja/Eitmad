@@ -14,8 +14,11 @@ use crate::authentication::{
     AuthenticationError, TokenCodec, TokenKey, canonical_username, is_direction_control,
 };
 
-mod workflow_accounts;
-pub use workflow_accounts::{AccountInvitation, WorkflowRole};
+mod account_projection;
+mod accounts;
+mod owner_recovery;
+pub use accounts::ServerAccountError;
+pub use owner_recovery::recover_owner_password;
 
 const OWNER_RELATION: &str = "eitmad.relation.organization.owner.v1";
 const BOOTSTRAP_LOCK_KEY: i64 = 1_163_158_102;
@@ -201,8 +204,8 @@ async fn insert_bootstrap_identity(
         .map_err(|_| IdentityError::Unavailable)?;
     sqlx::query(
         "INSERT INTO control.accounts
-            (tenant_id, account_id, user_id, username, canonical_username, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, 'pending_activation', $6)",
+            (tenant_id, account_id, user_id, username, canonical_username, status, created_at, display_name)
+         VALUES ($1, $2, $3, $4, $5, 'pending_activation', $6, $4)",
     )
     .bind(state.tenant_id.value())
     .bind(state.account_id.value())
@@ -265,6 +268,9 @@ async fn insert_bootstrap_defaults(
     state: &BootstrapState,
     now: UnixMillis,
 ) -> Result<(), IdentityError> {
+    sqlx::query("INSERT INTO control.account_organizations(tenant_id,account_id,organization_id) VALUES($1,$2,$3)")
+        .bind(state.tenant_id.value()).bind(state.account_id.value()).bind(state.organization_id.value())
+        .execute(&mut **transaction).await.map_err(|_| IdentityError::Unavailable)?;
     sqlx::query(
         "INSERT INTO control.relationship_tuples
             (tenant_id, subject_principal_id, subject_kind, relation,

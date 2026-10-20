@@ -47,6 +47,9 @@ pub(super) fn start(
             let client = client.clone();
             let dispatcher = dispatcher.clone();
             let result = tokio::task::spawn_blocking(move || {
+                // Incoming history must run even when this installation has never edited
+                // a customer. Upload failures must not disable this independent read path.
+                let _ = client.receive_incoming();
                 let result = client.retry_pending();
                 // Projection can commit before a later exchange fails.
                 let _ = dispatcher.drain_pending_publications();

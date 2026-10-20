@@ -39,6 +39,7 @@ pub mod runtime;
 pub mod sales_catalog;
 pub mod secrets;
 pub mod server;
+pub mod server_accounts;
 pub mod sync;
 pub mod sync_transport;
 pub mod transport;

@@ -259,6 +259,7 @@ public sealed class AccountSwitchRenderedTests
 
     private sealed class SwitchSessions : IDesktopSessionController
     {
+        public Task<AuthenticatedSurface> SignInAsync(string username, string password, DesktopEnrollmentSettings? connection = null, CancellationToken cancellationToken = default) => Task.FromResult(AuthenticatedSurface.Manager);
         public event EventHandler<SessionEndedEventArgs>? SessionEnded;
         public int SignOutCount { get; private set; }
         public int StopCount { get; private set; }
@@ -271,8 +272,6 @@ public sealed class AccountSwitchRenderedTests
             Assert.IsFalse(cancellationToken.IsCancellationRequested, "An expired transition token must not bypass containment.");
             StopCount++; OnStop?.Invoke(); return StopFailure is null ? Task.CompletedTask : Task.FromException(StopFailure);
         }
-        public Task<AuthenticatedSurface> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
-            Task.FromResult(AuthenticatedSurface.Manager);
         public Task SignOutAsync(CancellationToken cancellationToken = default) { SignOutCount++; return Task.CompletedTask; }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

@@ -25,6 +25,8 @@ public enum Command: Codable, Sendable {
     case quotationDraftUpdate(UpdateQuotationDraft)
     case customerCreate(CreateCustomer)
     case customerUpdate(UpdateCustomer)
+    case quotationDraftResolve(ResolveQuotationDraft)
+    case customerResolveConflict(ResolveCustomerConflict)
     case materialCategorySave(SaveMaterialCategory)
     case materialUnitSave(SaveMaterialUnit)
     case materialSave(SaveMaterial)
@@ -62,6 +64,8 @@ public enum Command: Codable, Sendable {
         case quotationDraftUpdate = "eitmad.quotation-draft.update.v1"
         case customerCreate = "eitmad.customer.create.v1"
         case customerUpdate = "eitmad.customer.update.v1"
+        case quotationDraftResolve = "eitmad.quotation-draft.resolve.v1"
+        case customerResolveConflict = "eitmad.customer.resolve-conflict.v1"
         case materialCategorySave = "eitmad.material-category.save.v1"
         case materialUnitSave = "eitmad.material-unit.save.v1"
         case materialSave = "eitmad.material.save.v1"
@@ -107,6 +111,8 @@ public enum Command: Codable, Sendable {
         case .quotationDraftUpdate: self = .quotationDraftUpdate(try container.decode(UpdateQuotationDraft.self, forKey: .payload))
         case .customerCreate: self = .customerCreate(try container.decode(CreateCustomer.self, forKey: .payload))
         case .customerUpdate: self = .customerUpdate(try container.decode(UpdateCustomer.self, forKey: .payload))
+        case .quotationDraftResolve: self = .quotationDraftResolve(try container.decode(ResolveQuotationDraft.self, forKey: .payload))
+        case .customerResolveConflict: self = .customerResolveConflict(try container.decode(ResolveCustomerConflict.self, forKey: .payload))
         case .materialCategorySave: self = .materialCategorySave(try container.decode(SaveMaterialCategory.self, forKey: .payload))
         case .materialUnitSave: self = .materialUnitSave(try container.decode(SaveMaterialUnit.self, forKey: .payload))
         case .materialSave: self = .materialSave(try container.decode(SaveMaterial.self, forKey: .payload))
@@ -194,6 +200,12 @@ public enum Command: Codable, Sendable {
         case .customerUpdate(let payload):
             try container.encode(Kind.customerUpdate, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .quotationDraftResolve(let payload):
+            try container.encode(Kind.quotationDraftResolve, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerResolveConflict(let payload):
+            try container.encode(Kind.customerResolveConflict, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .materialCategorySave(let payload):
             try container.encode(Kind.materialCategorySave, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -246,6 +258,8 @@ public enum CommandResult: Codable, Sendable {
     case quotationDraftUpdated(QuotationDraft)
     case customerCreated(CustomerMutationResult)
     case customerUpdated(CustomerMutationResult)
+    case quotationDraftResolved(ChangeRecord)
+    case customerConflictResolved(ChangeRecord)
     case materialCategorySaved(MaterialCategory)
     case materialUnitSaved(MaterialUnit)
     case materialSaved(Material)
@@ -272,6 +286,8 @@ public enum CommandResult: Codable, Sendable {
         case quotationDraftUpdated = "quotationDraftUpdated"
         case customerCreated = "customerCreated"
         case customerUpdated = "customerUpdated"
+        case quotationDraftResolved = "quotationDraftResolved"
+        case customerConflictResolved = "customerConflictResolved"
         case materialCategorySaved = "materialCategorySaved"
         case materialUnitSaved = "materialUnitSaved"
         case materialSaved = "materialSaved"
@@ -306,6 +322,8 @@ public enum CommandResult: Codable, Sendable {
         case .quotationDraftUpdated: self = .quotationDraftUpdated(try container.decode(QuotationDraft.self, forKey: .payload))
         case .customerCreated: self = .customerCreated(try container.decode(CustomerMutationResult.self, forKey: .payload))
         case .customerUpdated: self = .customerUpdated(try container.decode(CustomerMutationResult.self, forKey: .payload))
+        case .quotationDraftResolved: self = .quotationDraftResolved(try container.decode(ChangeRecord.self, forKey: .payload))
+        case .customerConflictResolved: self = .customerConflictResolved(try container.decode(ChangeRecord.self, forKey: .payload))
         case .materialCategorySaved: self = .materialCategorySaved(try container.decode(MaterialCategory.self, forKey: .payload))
         case .materialUnitSaved: self = .materialUnitSaved(try container.decode(MaterialUnit.self, forKey: .payload))
         case .materialSaved: self = .materialSaved(try container.decode(Material.self, forKey: .payload))
@@ -360,6 +378,12 @@ public enum CommandResult: Codable, Sendable {
         case .customerUpdated(let payload):
             try container.encode(Kind.customerUpdated, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .quotationDraftResolved(let payload):
+            try container.encode(Kind.quotationDraftResolved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerConflictResolved(let payload):
+            try container.encode(Kind.customerConflictResolved, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .materialCategorySaved(let payload):
             try container.encode(Kind.materialCategorySaved, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -399,7 +423,42 @@ public enum CommandResult: Codable, Sendable {
         }
     }
 }
+public enum CustomerResolutionSource: Codable, Sendable {
+    case conflict(CustomerConflictSource)
+    case pendingReview(ChangeRecord)
+
+    private enum Kind: String, Codable, Sendable {
+        case conflict = "conflict"
+        case pendingReview = "pendingReview"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .conflict: self = .conflict(try container.decode(CustomerConflictSource.self, forKey: .payload))
+        case .pendingReview: self = .pendingReview(try container.decode(ChangeRecord.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .conflict(let payload):
+            try container.encode(Kind.conflict, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .pendingReview(let payload):
+            try container.encode(Kind.pendingReview, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        }
+    }
+}
 public enum Event: Codable, Sendable {
+    case desktopAccountChangedEvent(DesktopAccountChangeNotice)
     case pricingChangedEvent(PriceChangeNotice)
     case configChangedEvent(ConfigSnapshot)
     case permissionsChangedEvent(EffectivePermissions)
@@ -415,6 +474,7 @@ public enum Event: Codable, Sendable {
     case partChangedEvent(PartChangeNotice)
 
     private enum Kind: String, Codable, Sendable {
+        case desktopAccountChangedEvent = "eitmad.desktop-account.changed.event.v1"
         case pricingChangedEvent = "eitmad.pricing.changed.event.v1"
         case configChangedEvent = "eitmad.config.changed.event.v1"
         case permissionsChangedEvent = "eitmad.permissions.changed.event.v1"
@@ -438,6 +498,7 @@ public enum Event: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .desktopAccountChangedEvent: self = .desktopAccountChangedEvent(try container.decode(DesktopAccountChangeNotice.self, forKey: .payload))
         case .pricingChangedEvent: self = .pricingChangedEvent(try container.decode(PriceChangeNotice.self, forKey: .payload))
         case .configChangedEvent: self = .configChangedEvent(try container.decode(ConfigSnapshot.self, forKey: .payload))
         case .permissionsChangedEvent: self = .permissionsChangedEvent(try container.decode(EffectivePermissions.self, forKey: .payload))
@@ -457,6 +518,9 @@ public enum Event: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .desktopAccountChangedEvent(let payload):
+            try container.encode(Kind.desktopAccountChangedEvent, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingChangedEvent(let payload):
             try container.encode(Kind.pricingChangedEvent, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -774,6 +838,9 @@ public enum Query: Codable, Sendable {
     case permissionsGetEffective(GetEffectivePermissions)
     case authorizationRelationshipsList(ListScopeRelationships)
     case customerGet(GetCustomer)
+    case customerHistory(GetCustomerHistory)
+    case quotationDraftReview(GetQuotationDraftReview)
+    case customerConflicts(GetCustomerConflicts)
     case customerSearch(SearchCustomers)
     case furnitureList(ListFurnitures)
     case furnitureCategoryList(ListFurnitureCategories)
@@ -816,6 +883,9 @@ public enum Query: Codable, Sendable {
         case permissionsGetEffective = "eitmad.permissions.get-effective.v1"
         case authorizationRelationshipsList = "eitmad.authorization.relationships.list.v1"
         case customerGet = "eitmad.customer.get.v1"
+        case customerHistory = "eitmad.customer.history.v1"
+        case quotationDraftReview = "eitmad.quotation-draft.review.v1"
+        case customerConflicts = "eitmad.customer.conflicts.v1"
         case customerSearch = "eitmad.customer.search.v1"
         case furnitureList = "eitmad.furniture.list.v1"
         case furnitureCategoryList = "eitmad.furniture-category.list.v1"
@@ -866,6 +936,9 @@ public enum Query: Codable, Sendable {
         case .permissionsGetEffective: self = .permissionsGetEffective(try container.decode(GetEffectivePermissions.self, forKey: .payload))
         case .authorizationRelationshipsList: self = .authorizationRelationshipsList(try container.decode(ListScopeRelationships.self, forKey: .payload))
         case .customerGet: self = .customerGet(try container.decode(GetCustomer.self, forKey: .payload))
+        case .customerHistory: self = .customerHistory(try container.decode(GetCustomerHistory.self, forKey: .payload))
+        case .quotationDraftReview: self = .quotationDraftReview(try container.decode(GetQuotationDraftReview.self, forKey: .payload))
+        case .customerConflicts: self = .customerConflicts(try container.decode(GetCustomerConflicts.self, forKey: .payload))
         case .customerSearch: self = .customerSearch(try container.decode(SearchCustomers.self, forKey: .payload))
         case .furnitureList: self = .furnitureList(try container.decode(ListFurnitures.self, forKey: .payload))
         case .furnitureCategoryList: self = .furnitureCategoryList(try container.decode(ListFurnitureCategories.self, forKey: .payload))
@@ -960,6 +1033,15 @@ public enum Query: Codable, Sendable {
         case .customerGet(let payload):
             try container.encode(Kind.customerGet, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .customerHistory(let payload):
+            try container.encode(Kind.customerHistory, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationDraftReview(let payload):
+            try container.encode(Kind.quotationDraftReview, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerConflicts(let payload):
+            try container.encode(Kind.customerConflicts, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .customerSearch(let payload):
             try container.encode(Kind.customerSearch, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1033,6 +1115,9 @@ public enum QueryResult: Codable, Sendable {
     case effectivePermissions(EffectivePermissions)
     case scopeRelationships(RelationshipPage)
     case customer(Customer)
+    case customerHistory(CustomerHistoryPage)
+    case quotationDraftReview(QuotationDraftReview)
+    case customerConflicts(CustomerConflictPage)
     case customers(CustomerPage)
     case furnitures(FurniturePage)
     case furnitureCategories(FurnitureCategories)
@@ -1072,6 +1157,9 @@ public enum QueryResult: Codable, Sendable {
         case effectivePermissions = "effectivePermissions"
         case scopeRelationships = "scopeRelationships"
         case customer = "customer"
+        case customerHistory = "customerHistory"
+        case quotationDraftReview = "quotationDraftReview"
+        case customerConflicts = "customerConflicts"
         case customers = "customers"
         case furnitures = "furnitures"
         case furnitureCategories = "furnitureCategories"
@@ -1119,6 +1207,9 @@ public enum QueryResult: Codable, Sendable {
         case .effectivePermissions: self = .effectivePermissions(try container.decode(EffectivePermissions.self, forKey: .payload))
         case .scopeRelationships: self = .scopeRelationships(try container.decode(RelationshipPage.self, forKey: .payload))
         case .customer: self = .customer(try container.decode(Customer.self, forKey: .payload))
+        case .customerHistory: self = .customerHistory(try container.decode(CustomerHistoryPage.self, forKey: .payload))
+        case .quotationDraftReview: self = .quotationDraftReview(try container.decode(QuotationDraftReview.self, forKey: .payload))
+        case .customerConflicts: self = .customerConflicts(try container.decode(CustomerConflictPage.self, forKey: .payload))
         case .customers: self = .customers(try container.decode(CustomerPage.self, forKey: .payload))
         case .furnitures: self = .furnitures(try container.decode(FurniturePage.self, forKey: .payload))
         case .furnitureCategories: self = .furnitureCategories(try container.decode(FurnitureCategories.self, forKey: .payload))
@@ -1204,6 +1295,15 @@ public enum QueryResult: Codable, Sendable {
         case .customer(let payload):
             try container.encode(Kind.customer, forKey: .kind)
             try container.encode(payload, forKey: .payload)
+        case .customerHistory(let payload):
+            try container.encode(Kind.customerHistory, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .quotationDraftReview(let payload):
+            try container.encode(Kind.quotationDraftReview, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .customerConflicts(let payload):
+            try container.encode(Kind.customerConflicts, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .customers(let payload):
             try container.encode(Kind.customers, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1255,7 +1355,42 @@ public enum QueryResult: Codable, Sendable {
         }
     }
 }
+public enum QuotationDraftResolutionSource: Codable, Sendable {
+    case conflict(QuotationDraftConflictSource)
+    case pendingReview(ChangeRecord)
+
+    private enum Kind: String, Codable, Sendable {
+        case conflict = "conflict"
+        case pendingReview = "pendingReview"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .conflict: self = .conflict(try container.decode(QuotationDraftConflictSource.self, forKey: .payload))
+        case .pendingReview: self = .pendingReview(try container.decode(ChangeRecord.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .conflict(let payload):
+            try container.encode(Kind.conflict, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .pendingReview(let payload):
+            try container.encode(Kind.pendingReview, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        }
+    }
+}
 public enum Subscription: Codable, Sendable {
+    case desktopAccountChangedSubscribe(DesktopAccountChanges)
     case pricingChangedSubscribe(PriceChanges)
     case configChangedSubscribe(ConfigurationChanges)
     case permissionsChangedSubscribe(PermissionChanges)
@@ -1271,6 +1406,7 @@ public enum Subscription: Codable, Sendable {
     case partChangedSubscribe(PartChanges)
 
     private enum Kind: String, Codable, Sendable {
+        case desktopAccountChangedSubscribe = "eitmad.desktop-account.changed.subscribe.v1"
         case pricingChangedSubscribe = "eitmad.pricing.changed.subscribe.v1"
         case configChangedSubscribe = "eitmad.config.changed.subscribe.v1"
         case permissionsChangedSubscribe = "eitmad.permissions.changed.subscribe.v1"
@@ -1294,6 +1430,7 @@ public enum Subscription: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .kind) {
+        case .desktopAccountChangedSubscribe: self = .desktopAccountChangedSubscribe(try container.decode(DesktopAccountChanges.self, forKey: .payload))
         case .pricingChangedSubscribe: self = .pricingChangedSubscribe(try container.decode(PriceChanges.self, forKey: .payload))
         case .configChangedSubscribe: self = .configChangedSubscribe(try container.decode(ConfigurationChanges.self, forKey: .payload))
         case .permissionsChangedSubscribe: self = .permissionsChangedSubscribe(try container.decode(PermissionChanges.self, forKey: .payload))
@@ -1313,6 +1450,9 @@ public enum Subscription: Codable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .desktopAccountChangedSubscribe(let payload):
+            try container.encode(Kind.desktopAccountChangedSubscribe, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
         case .pricingChangedSubscribe(let payload):
             try container.encode(Kind.pricingChangedSubscribe, forKey: .kind)
             try container.encode(payload, forKey: .payload)
@@ -1494,6 +1634,7 @@ public enum SubscriptionOutcome: Codable, Sendable {
 public struct AuthorizationPolicyChanges: Codable, Sendable {}
 public struct ConfigurationChanges: Codable, Sendable {}
 public struct CustomerChanges: Codable, Sendable {}
+public struct DesktopAccountChanges: Codable, Sendable {}
 public struct FurnitureChanges: Codable, Sendable {}
 public struct GetConfiguration: Codable, Sendable {}
 public struct GetEffectivePermissions: Codable, Sendable {}

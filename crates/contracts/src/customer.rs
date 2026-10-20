@@ -313,7 +313,51 @@ pub struct CustomerMutationResult {
 #[serde(rename_all = "camelCase")]
 pub struct CustomerPage {
     pub items: Vec<Customer>,
-    pub next: Option<CustomerId>,
+    pub next: Option<CustomerCursor>,
+}
+
+/// Stable ordering across branches, including equal customer IDs in different branches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerCursor {
+    pub customer_id: CustomerId,
+    pub branch_id: crate::identity::ScopeId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetCustomerHistory {
+    pub customer: GetCustomer,
+    pub quotations_after: Option<crate::quotation_draft::QuotationDraftId>,
+    pub orders_after: Option<uuid::Uuid>,
+    pub include_quotations: bool,
+    pub include_orders: bool,
+}
+
+/// Each source examines at most 100 authorized records per page. Empty matching pages can continue.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerHistoryPage {
+    pub quotations: Vec<crate::quotation_lifecycle::QuotationRecord>,
+    pub orders: Vec<crate::order::OrderRecord>,
+    pub quotations_next: Option<crate::quotation_draft::QuotationDraftId>,
+    pub orders_next: Option<uuid::Uuid>,
+    pub server_available: bool,
+}
+
+/// Server reads use the authenticated scope; callers cannot widen it through a cursor.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadCustomers {
+    pub scope: ScopeRef,
+    pub query: CustomerRead,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
+pub enum CustomerRead {
+    Get(GetCustomer),
+    Search(SearchCustomers),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -330,13 +374,94 @@ pub struct CustomerChangeNotice {
 #[serde(rename_all = "camelCase")]
 pub struct GetCustomer {
     pub customer_id: CustomerId,
+    pub branch_id: Option<crate::identity::ScopeId>,
+}
+
+/// Contact values selected explicitly by a Manager; no implicit merge is performed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CustomerContact {
+    pub name: CustomerName,
+    pub phone: CustomerPhone,
+    pub address: Option<CustomerAddress>,
+    pub notes: Option<CustomerNotes>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetCustomerConflicts {
+    pub customer: GetCustomer,
+    pub after: Option<crate::sync::ConflictId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictView {
+    pub conflict: crate::sync::ConflictRecord,
+    pub local: CustomerSyncPayload,
+    pub remote: CustomerSyncPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictPage {
+    pub current: Customer,
+    pub items: Vec<CustomerConflictView>,
+    pub next: Option<crate::sync::ConflictId>,
+    /// Later local edits retained outside the delivery queue, for explicit separate review.
+    pub pending_reviews: Vec<CustomerPendingReview>,
+    pub pending_resolution: Option<ConfirmCustomerResolution>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerPendingReview {
+    pub change: crate::sync::ChangeRecord,
+    pub contact: CustomerSyncPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", content = "payload", rename_all = "camelCase")]
+pub enum CustomerResolutionSource {
+    Conflict(CustomerConflictSource),
+    PendingReview(Box<crate::sync::ChangeRecord>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerConflictSource {
+    pub conflict_id: crate::sync::ConflictId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ResolveCustomerConflict {
+    pub customer: GetCustomer,
+    pub source: CustomerResolutionSource,
+    pub expected_server_revision: u64,
+    pub contact: CustomerContact,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfirmCustomerResolution {
+    pub scope: ScopeRef,
+    pub idempotency_key: crate::transport::IdempotencyKey,
+    pub command: ResolveCustomerConflict,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadCustomerConflicts {
+    pub scope: ScopeRef,
+    pub query: GetCustomerConflicts,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchCustomers {
     pub term: CustomerSearchTerm,
-    pub after: Option<CustomerId>,
+    pub after: Option<CustomerCursor>,
     #[schemars(range(min = 1, max = 100))]
     limit: u32,
 }
@@ -349,7 +474,7 @@ impl SearchCustomers {
     /// Returns [`PageSizeError`] for a zero or oversized page.
     pub fn new(
         term: CustomerSearchTerm,
-        after: Option<CustomerId>,
+        after: Option<CustomerCursor>,
         limit: u32,
     ) -> Result<Self, PageSizeError> {
         if (1..=MAX_CUSTOMER_PAGE_SIZE).contains(&limit) {
@@ -374,7 +499,7 @@ impl<'de> Deserialize<'de> for SearchCustomers {
         #[serde(rename_all = "camelCase")]
         struct RawQuery {
             term: CustomerSearchTerm,
-            after: Option<CustomerId>,
+            after: Option<CustomerCursor>,
             limit: u32,
         }
 

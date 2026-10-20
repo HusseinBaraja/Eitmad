@@ -71,6 +71,21 @@ impl StoredLocalAuthority {
 }
 
 impl AuthorityStore {
+    /// Checks bootstrap state without creating an installation identity.
+    /// # Errors
+    /// Fails when durable identity state cannot be read.
+    pub fn has_local_installation(&self) -> Result<bool, StorageError> {
+        self.read_transaction(|connection| {
+            connection
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM local_installation_authority)",
+                    [],
+                    |row| row.get(0),
+                )
+                .map_err(|_| StorageError)
+        })
+    }
+
     /// Initializes an empty installation from a server-verified tenant and registered device.
     /// The caller must authenticate the server account before calling this import boundary.
     /// Existing installations must match exactly; their identity and work are never replaced.

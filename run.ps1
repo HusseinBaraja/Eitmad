@@ -15,9 +15,6 @@ $previousIncremental = $env:CARGO_INCREMENTAL
 
 if ($RuntimeDirectory) {
     $RuntimeDirectory = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($RuntimeDirectory)
-    if (-not (Test-Path -LiteralPath (Join-Path $RuntimeDirectory 'eitmad.sqlite3') -PathType Leaf)) {
-        throw 'RuntimeDirectory must contain an existing engine installation. No data was changed.'
-    }
 }
 
 Push-Location $repositoryRoot
@@ -50,12 +47,6 @@ try {
     $shellArguments = @('--engine', $enginePath)
     if ($RuntimeDirectory) {
         $shellArguments += @('--runtime-directory', $RuntimeDirectory)
-    } else {
-        & $enginePath seed-development-accounts
-        if ($LASTEXITCODE -ne 0) {
-            throw "Development account provisioning failed with exit code $LASTEXITCODE."
-        }
-        Write-Host 'Local development sign-in names: admin and rec. Use the existing credentials after account changes.'
     }
 
     & $shellPath @shellArguments

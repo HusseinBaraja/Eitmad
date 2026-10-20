@@ -18,6 +18,7 @@ public sealed class QuotationDraftClient : IAsyncDisposable
     private readonly EngineChangeFeed changes;
     private readonly EngineChangeFeed approvals;
     private readonly EngineChangeFeed lifecycle;
+    public bool SupportsDraftResolution => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftResolutionV1);
     public bool SupportsLifecycle => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1);
     public bool SupportsApprovals => engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1);
     public QuotationDraftClient(IEngineShellBridge engine)
@@ -65,6 +66,18 @@ public sealed class QuotationDraftClient : IAsyncDisposable
             var r = await engine.SubmitCommandAsync(command, key, token);
             return Result(r.Outcome.Status, r.Outcome.Payload.AsQuotationDraftCreated() ?? r.Outcome.Payload.AsQuotationDraftUpdated(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
         }, token);
+    public Task<DraftResult<QuotationDraftReview>> ReviewAsync(GetQuotationDraftReview query) =>
+        RequestAsync(async () => {
+            if (!SupportsDraftResolution) return new DraftResult<QuotationDraftReview>(null, DraftFailure.Unavailable, []);
+            var r = await engine.QueryAsync(Query.ForQuotationDraftReview(query));
+            return Result(r.Outcome.Status, r.Outcome.Payload.AsQuotationDraftReview(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
+        }, CancellationToken.None);
+    public Task<DraftResult<ChangeRecord>> ResolveAsync(ResolveQuotationDraft command, Guid key) =>
+        RequestAsync(async () => {
+            if (!SupportsDraftResolution) return new DraftResult<ChangeRecord>(null, DraftFailure.Unavailable, []);
+            var r = await engine.SubmitCommandAsync(Command.ForQuotationDraftResolve(command), key);
+            return Result(r.Outcome.Status, r.Outcome.Payload.AsQuotationDraftResolved(), r.Outcome.Payload.Code, r.Outcome.Payload.Detail);
+        }, CancellationToken.None);
     public Task<DraftResult<DiscountApprovalPage>> ApprovalsAsync(Guid? after, CancellationToken token = default) =>
         RequestAsync(async () => {
             if (!SupportsApprovals) return new DraftResult<DiscountApprovalPage>(null, DraftFailure.Unavailable, []);

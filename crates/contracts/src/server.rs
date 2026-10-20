@@ -194,6 +194,17 @@ pub struct AuthenticationResult {
     pub tokens: IssuedTokens,
 }
 
+/// Only the authenticated account's assignment for the requested installation scope.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopEnrollmentProfile {
+    pub session: AuthenticatedServerSession,
+    pub organization: OrganizationId,
+    pub branch: ScopeId,
+    pub username: String,
+    pub role: crate::accounts::DesktopAccountRole,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectiveUpdateAssignment {

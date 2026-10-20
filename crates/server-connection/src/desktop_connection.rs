@@ -20,6 +20,8 @@ pub struct DesktopConnectionSettings {
     pub credential: SecretId,
     pub organization: OrganizationId,
     pub branch: ScopeId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_code: Option<eitmad_contracts::server::TenantCode>,
 }
 
 impl DesktopConnectionSettings {

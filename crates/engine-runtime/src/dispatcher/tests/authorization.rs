@@ -259,6 +259,49 @@ fn fixture() -> (TempDir, ProductDispatcher, EventBroker) {
     (directory, dispatcher, broker)
 }
 
+#[tokio::test]
+async fn draft_resolution_checks_role_before_remote_availability() {
+    let (_directory, dispatcher, _) = fixture();
+    let draft_id = QuotationDraftId::new(Uuid::new_v4());
+    for (principal, expected) in [
+        (3, "eitmad.error.quotation-draft-unavailable.v1"),
+        (4, "eitmad.error.authorization-denied.v1"),
+    ] {
+        let actor = role_context(principal, true);
+        let branch_id = actor.authorization.scope.id;
+        let error = dispatcher
+            .dispatch_query(
+                actor.clone(),
+                Query::QuotationDraftReview(GetQuotationDraftReview {
+                    draft_id,
+                    branch_id,
+                    after: None,
+                }),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code.as_str(), expected);
+        let error = dispatcher
+            .dispatch_command(
+                actor,
+                Command::ResolveQuotationDraft(ResolveQuotationDraft {
+                    draft_id,
+                    branch_id,
+                    expected_server_revision: 2,
+                    source: QuotationDraftResolutionSource::Conflict(
+                        QuotationDraftConflictSource {
+                            conflict_id: eitmad_contracts::sync::ConflictId::new(Uuid::new_v4()),
+                        },
+                    ),
+                    choice: QuotationDraftResolutionChoice::KeepCurrent,
+                }),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code.as_str(), expected);
+    }
+}
+
 async fn deny_commands(
     dispatcher: &ProductDispatcher,
     actor: DispatchContext,

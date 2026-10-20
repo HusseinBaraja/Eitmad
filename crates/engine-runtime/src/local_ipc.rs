@@ -416,8 +416,13 @@ impl LocalIpcServer {
                 }
                 IpcServerMessage::Handshake(response)
             }
-            IpcClientMessage::DesktopSignIn(request) => self.sign_in(session, &request),
-            IpcClientMessage::DesktopSessionState(request) => self.session_state(session, &request),
+            IpcClientMessage::DesktopSignIn(request) if request.server_login => {
+                self.server_sign_in(session, request).await
+            }
+            IpcClientMessage::DesktopSignIn(request) => self.sign_in(session, &request).await,
+            IpcClientMessage::DesktopSessionState(request) => {
+                self.session_state(session, &request).await
+            }
             IpcClientMessage::DesktopSignOut(request) => self.sign_out(session, &request),
             IpcClientMessage::Command(request) => {
                 IpcServerMessage::Command(self.command(session.as_ref(), request).await)
@@ -448,7 +453,7 @@ impl LocalIpcServer {
         }
     }
 
-    fn sign_in(
+    async fn sign_in(
         &self,
         session: &mut Option<Session>,
         request: &DesktopSignInRequest,
@@ -465,12 +470,22 @@ impl LocalIpcServer {
                     request.correlation_id,
                     now(),
                 ) {
-                    Ok(state) => {
+                    Ok(state)
+                        if protected_session_active(
+                            Some(auth),
+                            state
+                                .authorization
+                                .as_ref()
+                                .expect("signed-in authorization"),
+                        )
+                        .await =>
+                    {
                         connection
                             .user_authorization
                             .clone_from(&state.authorization);
                         DesktopSessionOutcome::Active(state)
                     }
+                    Ok(_) => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
                     Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
                         error,
                         request.correlation_id,
@@ -482,30 +497,72 @@ impl LocalIpcServer {
         desktop_session_response(request.request_id, request.correlation_id, outcome)
     }
 
-    fn session_state(
+    async fn server_sign_in(
+        &self,
+        session: &mut Option<Session>,
+        mut request: DesktopSignInRequest,
+    ) -> IpcServerMessage {
+        let request_id = request.request_id;
+        let correlation_id = request.correlation_id;
+        let Some(auth) = self.desktop_auth.clone().filter(|_| session.is_some()) else {
+            return desktop_session_response(
+                request_id,
+                correlation_id,
+                DesktopSessionOutcome::Failed(session_invalid(correlation_id)),
+            );
+        };
+        if let Some(previous) = session.as_mut().and_then(|s| s.user_authorization.take()) {
+            let _ = auth.sign_out(&previous, correlation_id, now());
+        }
+        let result = tokio::task::spawn_blocking(move || {
+            let result = auth.server_sign_in(&request);
+            // Password input remains transient even when online authentication fails.
+            request.password.clear();
+            result
+        })
+        .await
+        .unwrap_or(Err(DesktopAuthenticationError::Unavailable));
+        match result {
+            Ok(restart) => IpcServerMessage::DesktopSession(DesktopSessionResponse {
+                request_id,
+                correlation_id,
+                status: if restart {
+                    DesktopSessionStatus::Configured
+                } else {
+                    DesktopSessionStatus::SignedOut
+                },
+                state: None,
+                error: None,
+            }),
+            Err(error) => desktop_session_response(
+                request_id,
+                correlation_id,
+                DesktopSessionOutcome::Failed(desktop_auth_error(error, correlation_id)),
+            ),
+        }
+    }
+
+    async fn session_state(
         &self,
         session: &mut Option<Session>,
         request: &DesktopSessionRequest,
     ) -> IpcServerMessage {
         let outcome = match (session.as_mut(), self.desktop_auth.as_ref()) {
             (Some(connection), Some(auth)) => match connection.user_authorization.as_ref() {
-                Some(authorization) => match auth.active(authorization, now()) {
-                    Ok(true) => match auth.session_state(authorization) {
-                        Ok(state) => DesktopSessionOutcome::Active(state),
-                        Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
-                            error,
-                            request.correlation_id,
-                        )),
-                    },
-                    Ok(false) => {
+                Some(authorization) => {
+                    if auth.protected_active(authorization).await {
+                        match auth.session_state(authorization) {
+                            Ok(state) => DesktopSessionOutcome::Active(state),
+                            Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
+                                error,
+                                request.correlation_id,
+                            )),
+                        }
+                    } else {
                         connection.user_authorization = None;
                         DesktopSessionOutcome::SignedOut
                     }
-                    Err(error) => DesktopSessionOutcome::Failed(desktop_auth_error(
-                        error,
-                        request.correlation_id,
-                    )),
-                },
+                }
                 None => DesktopSessionOutcome::SignedOut,
             },
             _ => DesktopSessionOutcome::Failed(session_invalid(request.correlation_id)),
@@ -622,11 +679,7 @@ impl LocalIpcServer {
                 correlation_id: request.correlation_id,
                 protocol_version: request.protocol_version,
             };
-            if self
-                .desktop_auth
-                .as_ref()
-                .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
-            {
+            if !protected_session_active(self.desktop_auth.as_ref(), &request.authorization).await {
                 return SubscriptionResponseEnvelope {
                     request_id: request.request_id,
                     correlation_id: request.correlation_id,
@@ -933,10 +986,7 @@ async fn write_authorized_subscription_event<W>(
 where
     W: AsyncWrite + Unpin,
 {
-    if active
-        .desktop_auth
-        .as_ref()
-        .is_some_and(|auth| auth.active(&active.context.authorization, now()) != Ok(true))
+    if !protected_session_active(active.desktop_auth.as_ref(), &active.context.authorization).await
         || active
             .dispatcher
             .authorize_subscription(active.context.clone(), &active.subscription)
@@ -962,9 +1012,7 @@ where
                     }
                 };
                 if must_reauthorize
-                    && (active.desktop_auth.as_ref().is_some_and(|auth| {
-                        auth.active(&active.context.authorization, now()) != Ok(true)
-                    }) || active.dispatcher
+                    && (!protected_session_active(active.desktop_auth.as_ref(), &active.context.authorization).await || active.dispatcher
                         .authorize_subscription(active.context.clone(), &active.subscription)
                         .await
                         .is_err())
@@ -1000,6 +1048,8 @@ struct SubscriptionPump {
 /// Reauthorizes scoped events and sends closure reasons when a projection becomes invalid.
 async fn pump_subscription(mut pump: SubscriptionPump) {
     let mut sequence = 0_u64;
+    let mut recheck = tokio::time::interval(std::time::Duration::from_secs(3));
+    recheck.tick().await;
     loop {
         let received = tokio::select! {
             biased;
@@ -1031,6 +1081,10 @@ async fn pump_subscription(mut pump: SubscriptionPump) {
                     }).await;
                     return;
                 }
+                continue;
+            }
+            _ = recheck.tick(), if pump.desktop_auth.is_some() => {
+                if !reauthorize_subscription(&pump).await { return; }
                 continue;
             }
             received = pump.feed.recv() => received,
@@ -1100,10 +1154,7 @@ fn policy_affects_session(
 }
 
 async fn reauthorize_subscription(pump: &SubscriptionPump) -> bool {
-    if pump
-        .desktop_auth
-        .as_ref()
-        .is_none_or(|auth| auth.active(&pump.context.authorization, now()) == Ok(true))
+    if protected_session_active(pump.desktop_auth.as_ref(), &pump.context.authorization).await
         && pump
             .dispatcher
             .authorize_subscription(pump.context.clone(), &pump.subscription)
@@ -1154,7 +1205,8 @@ async fn dispatch_command(
         request.protocol_version,
         request.deadline,
         request.correlation_id,
-    );
+    )
+    .await;
     let outcome = if let Some(error) = error {
         CommandOutcome::Failed(error)
     } else {
@@ -1174,12 +1226,10 @@ async fn dispatch_command(
         .await
         {
             Ok(Ok(result)) => {
-                if desktop_auth
-                    .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
-                {
-                    CommandOutcome::Failed(session_invalid(request.correlation_id))
-                } else {
+                if protected_session_active(desktop_auth, &request.authorization).await {
                     CommandOutcome::Succeeded(result)
+                } else {
+                    CommandOutcome::Failed(session_invalid(request.correlation_id))
                 }
             }
             Ok(Err(error)) => CommandOutcome::Failed(error),
@@ -1208,7 +1258,8 @@ async fn dispatch_query(
         request.protocol_version,
         request.deadline,
         request.correlation_id,
-    );
+    )
+    .await;
     let outcome = if let Some(error) = error {
         QueryOutcome::Failed(error)
     } else {
@@ -1225,12 +1276,10 @@ async fn dispatch_query(
             .await
         {
             Ok(Ok(result)) => {
-                if desktop_auth
-                    .is_some_and(|auth| auth.active(&request.authorization, now()) != Ok(true))
-                {
-                    QueryOutcome::Failed(session_invalid(request.correlation_id))
-                } else {
+                if protected_session_active(desktop_auth, &request.authorization).await {
                     QueryOutcome::Succeeded(result)
+                } else {
+                    QueryOutcome::Failed(session_invalid(request.correlation_id))
                 }
             }
             Ok(Err(error)) => QueryOutcome::Failed(error),
@@ -1246,7 +1295,17 @@ async fn dispatch_query(
     }
 }
 
-fn validate_request(
+async fn protected_session_active(
+    auth: Option<&DesktopAuthenticator>,
+    authorization: &AuthorizationContext,
+) -> bool {
+    match auth {
+        Some(auth) => auth.protected_active(authorization).await,
+        None => true,
+    }
+}
+
+async fn validate_request(
     desktop_auth: Option<&DesktopAuthenticator>,
     session: Option<&Session>,
     authorization: &AuthorizationContext,
@@ -1268,7 +1327,7 @@ fn validate_request(
     if !authorization_matches(expected, authorization) || session.negotiated.protocol != protocol {
         return Some(session_invalid(correlation_id));
     }
-    if desktop_auth.is_some_and(|auth| auth.active(authorization, now()) != Ok(true)) {
+    if !protected_session_active(desktop_auth, authorization).await {
         return Some(session_invalid(correlation_id));
     }
     (duration_until(deadline).is_zero()).then(|| deadline_exceeded(correlation_id, deadline))
@@ -1346,7 +1405,10 @@ fn default_engine_hello() -> PeerHello {
     PeerHello {
         peer_kind: PeerKind::Engine,
         product_version: ReleaseVersion::new(
-            semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("package version is valid"),
+            semver::Version::parse(
+                option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+            )
+            .expect("release version is valid"),
         ),
         protocols: vec![SupportedProtocol {
             major: PROTOCOL_VERSION.major,
@@ -1378,6 +1440,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.part.v1",
             "eitmad.capability.material.v1",
             "eitmad.capability.desktop-account-management.v1",
+            "eitmad.capability.shared-accounts.v1",
         ]
         .into_iter()
         .map(|id| {
@@ -1623,7 +1686,7 @@ async fn write_pending_response<W: AsyncWrite + Unpin>(
         }
     });
     if !authorization_matches(expected, &response.authorization)
-        || desktop_auth.is_some_and(|auth| auth.active(&response.authorization, now()) != Ok(true))
+        || !protected_session_active(desktop_auth, &response.authorization).await
     {
         match &mut response.message {
             IpcServerMessage::Command(envelope)
@@ -1703,7 +1766,7 @@ mod tests {
     };
 
     struct TestDispatcher;
-    struct SlowDispatcher;
+    struct PendingDispatcher;
 
     struct BlockingDispatcher {
         entered: mpsc::UnboundedSender<()>,
@@ -1759,26 +1822,24 @@ mod tests {
     }
 
     #[async_trait]
-    impl CommandDispatcher for SlowDispatcher {
+    impl CommandDispatcher for PendingDispatcher {
         async fn dispatch_command(
             &self,
-            context: DispatchContext,
-            command: Command,
+            _context: DispatchContext,
+            _command: Command,
         ) -> Result<CommandResult, ContractError> {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            TestDispatcher.dispatch_command(context, command).await
+            std::future::pending().await
         }
     }
 
     #[async_trait]
-    impl QueryDispatcher for SlowDispatcher {
+    impl QueryDispatcher for PendingDispatcher {
         async fn dispatch_query(
             &self,
-            context: DispatchContext,
-            query: Query,
+            _context: DispatchContext,
+            _query: Query,
         ) -> Result<QueryResult, ContractError> {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            TestDispatcher.dispatch_query(context, query).await
+            std::future::pending().await
         }
     }
 
@@ -2025,6 +2086,8 @@ mod tests {
         let response = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "استقبال".into(),
@@ -2286,50 +2349,14 @@ mod tests {
             terminate_connection: false,
         };
         if role_change {
-            let authorization = eitmad_authorization::AuthorizationService::new(store.clone());
-            let mutation = eitmad_authorization::MutationContext {
-                authorization: owner.clone(),
-                correlation_id,
-                causation_id: None,
-                idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-                occurred_at: now(),
-            };
-            authorization
-                .grant_relationship(
-                    &mutation,
-                    &eitmad_contracts::commands::GrantScopeRelationship {
-                        expected_policy_version: store.policy_version(&owner.scope).unwrap(),
-                        subject: eitmad_contracts::authorization::RelationshipSubject {
-                            principal_id: owner.identity.principal_id,
-                            principal_kind: PrincipalKind::User,
-                        },
-                        relation: eitmad_contracts::authorization::RelationId::parse(
-                            eitmad_authorization::MANAGER_RELATION,
-                        )
-                        .unwrap(),
-                    },
-                )
-                .unwrap();
-            let account = store
-                .list_desktop_accounts(owner.tenant_id)
+            let username = "\u{627}\u{633}\u{62a}\u{642}\u{628}\u{627}\u{644}";
+            let mut account = store
+                .desktop_account(owner.tenant_id, username)
                 .unwrap()
-                .accounts
-                .into_iter()
-                .find(|account| account.user_id.value() == user.identity.principal_id.value())
                 .unwrap();
-            crate::accounts::DesktopAccountService::new(store.clone(), authorization)
-                .update(
-                    &eitmad_authorization::MutationContext {
-                        idempotency_key: IdempotencyKey::new(uuid::Uuid::new_v4()),
-                        ..mutation
-                    },
-                    &eitmad_contracts::accounts::UpdateDesktopAccount {
-                        account_id: account.account_id,
-                        expected_revision: account.revision,
-                        display_name: account.display_name,
-                        role: eitmad_contracts::accounts::DesktopAccountRole::Manager,
-                    },
-                )
+            account.role = DesktopRole::Manager;
+            store
+                .provision_desktop_account(&owner, &account, username, now())
                 .unwrap();
         } else {
             store
@@ -2393,6 +2420,8 @@ mod tests {
         }) = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "مدير".into(),
@@ -2465,6 +2494,8 @@ mod tests {
         ));
         let sign_in = || {
             IpcClientMessage::DesktopSignIn(DesktopSignInRequest {
+                server_login: false,
+                connection: None,
                 request_id: RequestId::new(uuid::Uuid::new_v4()),
                 correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                 username: "استقبال".into(),
@@ -2514,6 +2545,8 @@ mod tests {
         let sign_in = service
             .handle_message(
                 IpcClientMessage::DesktopSignIn(eitmad_contracts::ipc::DesktopSignInRequest {
+                    server_login: false,
+                    connection: None,
                     request_id: RequestId::new(uuid::Uuid::new_v4()),
                     correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
                     username: "استقبال".to_owned(),
@@ -3209,7 +3242,7 @@ mod tests {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
             configuration(Some("token")),
-            Arc::new(SlowDispatcher),
+            Arc::new(PendingDispatcher),
             shutdown,
         );
         let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));
@@ -3242,7 +3275,7 @@ mod tests {
         let (shutdown, _) = mpsc::channel(1);
         let service = LocalIpcServer::new(
             configuration(Some("token")),
-            Arc::new(SlowDispatcher),
+            Arc::new(PendingDispatcher),
             shutdown,
         );
         let response = service.handshake(handshake(PROTOCOL_VERSION, "token"));

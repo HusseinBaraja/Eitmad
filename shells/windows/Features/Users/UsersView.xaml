@@ -12,9 +12,12 @@
   </controls:PageHeader>
   <Grid Grid.Row="1" Margin="28,22,28,28">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <StackPanel>
+   <TextBlock Text="تتطلب إدارة الحسابات المشتركة اتصالًا بالخادم وصلاحية مالك المنشأة." TextWrapping="Wrap" Margin="0,0,0,12"/>
    <TextBlock Text="{Binding EditorError}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16">
     <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding EditorError}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
    </TextBlock>
+   </StackPanel>
    <WrapPanel Grid.Row="1" Margin="0,0,0,18">
     <controls:FormField Label="البحث" Width="360" Margin="0,0,12,8"><TextBox x:Name="UsersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث باسم المستخدم" AutomationProperties.Name="البحث عن مستخدم"/></controls:FormField>
     <controls:FormField Label="الدور" Width="240" Margin="0,0,12,8"><ComboBox ItemsSource="{Binding RoleOptions}" SelectedItem="{Binding SelectedRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="تصفية الدور"/></controls:FormField>

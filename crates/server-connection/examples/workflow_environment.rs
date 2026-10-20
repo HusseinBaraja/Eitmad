@@ -15,9 +15,12 @@ use eitmad_contracts::{
         ActivateAccountRequest, AuthenticationResult, DeviceProof, DevicePublicKey, LoginRequest,
         RegisterBranchRequest, TenantCode,
     },
+    server_accounts::{
+        ChangeServerAccount, ListServerAccounts, ServerAccountChange, ServerRoleAssignment,
+    },
     transport::{CorrelationId, IdempotencyKey, SchemaId, UnixMillis},
 };
-use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane, TokenKey, WorkflowRole};
+use eitmad_control_plane::{BootstrapInput, ControlDatabase, ControlPlane, TokenKey};
 use eitmad_engine_runtime::DesktopAuthenticator;
 use eitmad_secret_storage::SecretStore;
 use eitmad_server_connection::{
@@ -154,42 +157,28 @@ async fn prepare() -> Result<()> {
             .await,
         "register branch",
     )?;
-    checked(
-        control
-            .identity
-            .grant_workflow_role(
-                &manager.session,
-                &WorkflowRole {
-                    organization: journal.organization,
-                    branch: journal.branch,
-                    role: DesktopAccountRole::Manager,
-                },
-                manager.session.user_id,
-                correlation(),
-                now(),
-            )
-            .await,
-        "assign manager role",
-    )?;
+    let manager = provision_manager(&control, &journal, &settings, manager).await?;
     let reception = receptionist(&root, &settings, &control, &mut journal, &manager).await?;
     journal.reception_invite = None;
     save(&root, &journal)?;
     // A Receptionist must never be able to provision another account.
     if control
         .identity
-        .grant_workflow_role(
+        .change_account(
             &reception.session,
-            &WorkflowRole {
-                organization: journal.organization,
-                branch: journal.branch,
-                role: DesktopAccountRole::Manager,
+            &ChangeServerAccount {
+                idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                change: ServerAccountChange::RevokeSessions {
+                    account_id: reception.session.account_id,
+                    expected_revision: 2,
+                },
             },
-            reception.session.user_id,
             correlation(),
             now(),
         )
         .await
-        != Err(eitmad_control_plane::IdentityError::Denied)
+        .err()
+        != Some(eitmad_control_plane::ServerAccountError::Denied)
     {
         return Err("receptionist provisioning denial");
     }
@@ -304,6 +293,75 @@ async fn load_or_bootstrap(root: &Path, control: &ControlPlane) -> Result<Journa
     Ok(journal)
 }
 
+async fn provision_manager(
+    control: &ControlPlane,
+    journal: &Journal,
+    settings: &Settings,
+    manager: AuthenticationResult,
+) -> Result<AuthenticationResult> {
+    let page = checked(
+        control
+            .identity
+            .list_accounts(
+                &manager.session,
+                &ListServerAccounts {
+                    after: None,
+                    limit: 100,
+                },
+                correlation(),
+                now(),
+            )
+            .await,
+        "list accounts",
+    )?;
+    let current = page
+        .accounts
+        .into_iter()
+        .find(|a| a.account_id == manager.session.account_id)
+        .ok_or("owner account")?;
+    if current.organizations.iter().any(|o| {
+        o.organization_id == journal.organization
+            && o.assignments
+                .iter()
+                .any(|a| a.role == DesktopAccountRole::Manager)
+    }) {
+        return Ok(manager);
+    }
+    checked(
+        control
+            .identity
+            .change_account(
+                &manager.session,
+                &ChangeServerAccount {
+                    idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                    change: ServerAccountChange::Assign {
+                        account_id: current.account_id,
+                        expected_revision: current.revision,
+                        organization_id: journal.organization,
+                        assignments: vec![ServerRoleAssignment {
+                            role: DesktopAccountRole::Manager,
+                            branch_ids: vec![journal.branch],
+                        }],
+                    },
+                },
+                correlation(),
+                now(),
+            )
+            .await,
+        "assign manager role",
+    )?;
+    // Role assignment revokes the old session. Sign in again before provisioning or sync.
+    authenticate(
+        control,
+        "manager",
+        &settings.manager_password,
+        settings.manager_device,
+        &settings.manager_seed,
+        None,
+    )
+    .await
+}
+
 async fn receptionist(
     root: &Path,
     settings: &Settings,
@@ -327,21 +385,26 @@ async fn receptionist(
             let invite = checked(
                 control
                     .identity
-                    .invite_workflow_account(
+                    .change_account(
                         &manager.session,
-                        &WorkflowRole {
-                            organization: journal.organization,
-                            branch: journal.branch,
-                            role: DesktopAccountRole::Receptionist,
+                        &ChangeServerAccount {
+                            idempotency_key: IdempotencyKey::new(Uuid::new_v4()),
+                            change: ServerAccountChange::Invite {
+                                organization_id: journal.organization,
+                                username: "receptionist".into(),
+                                assignments: vec![ServerRoleAssignment {
+                                    role: DesktopAccountRole::Receptionist,
+                                    branch_ids: vec![journal.branch],
+                                }],
+                            },
                         },
-                        "receptionist",
                         correlation(),
                         now(),
                     )
                     .await,
                 "invite receptionist",
             )?;
-            journal.reception_invite = Some(invite.activation_token);
+            journal.reception_invite = invite.activation_token;
             save(root, journal)?;
             authenticate(
                 control,
@@ -530,6 +593,7 @@ fn persist_connection(
         credential,
         organization: journal.organization,
         branch: journal.branch,
+        tenant_code: Some(checked(TenantCode::parse("workflow-e2e"), "tenant code")?),
     };
     let bytes = checked(
         serde_json::to_vec(&connection),

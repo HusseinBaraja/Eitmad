@@ -1,4 +1,5 @@
 using System.Windows;
+using Eitmad.Contracts;
 using System.Windows.Threading;
 using Eitmad.Platform.Windows.Shell;
 using Button = System.Windows.Controls.Button;
@@ -6,19 +7,29 @@ using UserControl = System.Windows.Controls.UserControl;
 
 namespace Eitmad.WindowsShell.Features.Users;
 
-public partial class UsersView : UserControl
+public partial class UsersView : UserControl, IAsyncDisposable
 {
+    private EngineChangeFeed? changes;
     public UsersView()
     {
         InitializeComponent();
         DataContext = ViewModel;
         IsVisibleChanged += async (_, _) =>
         {
-            if (IsVisible) await ViewModel.LoadAsync();
+            if (IsVisible) { if (changes is not null) await changes.ActivateAsync(); await ViewModel.LoadAsync(); }
         };
     }
     public UsersViewModel ViewModel { get; } = new();
-    public void Attach(IEngineShellBridge engine) => ViewModel.Attach(engine);
+    public void ClearSession() { if (changes is not null) _ = changes.DeactivateAsync(); UserPasswordInput.Clear(); ViewModel.ClearSession(); editorReturnTarget = null; }
+    public void Attach(IEngineShellBridge engine)
+    {
+        ViewModel.Attach(engine);
+        changes = new EngineChangeFeed(engine, ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1,
+            Subscription.ForDesktopAccountChangedSubscribe(new DesktopAccountChanges()),
+            notice => { if (IsVisible) _ = ViewModel.LoadAsync(); },
+            invalidated: () => ViewModel.ClearSession(), refreshOnStart: false);
+    }
+    public ValueTask DisposeAsync() => changes?.DisposeAsync() ?? ValueTask.CompletedTask;
     private async void RetryClick(object sender, RoutedEventArgs e) => await ViewModel.LoadAsync();
     private System.Windows.Controls.Control? editorReturnTarget;
     private void OpenEditor(object sender, UserPreview? user = null)

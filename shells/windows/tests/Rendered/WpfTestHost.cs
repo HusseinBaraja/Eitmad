@@ -184,6 +184,7 @@ internal static class WpfTestHost
         public Task<AuthenticatedSurface> SignInAsync(
             string username,
             string password,
+            Contracts.DesktopEnrollmentSettings? connection = null,
             CancellationToken cancellationToken = default) => Task.FromResult(
                 username == "receptionist" ? AuthenticatedSurface.Receptionist : AuthenticatedSurface.Manager);
 

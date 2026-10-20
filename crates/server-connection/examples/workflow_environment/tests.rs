@@ -1,10 +1,8 @@
 use super::*;
 use eitmad_contracts::{
-    accounts::{DeactivateDesktopAccount, ListDesktopAccounts, UpdateDesktopAccount},
     identity::{AccountId, SessionId, UserId},
     server::{AuthenticatedServerSession, IssuedTokens},
 };
-use eitmad_engine_runtime::DesktopAccountService;
 
 #[test]
 fn restart_import_preserves_role_credentials_sessions_and_deactivation() {
@@ -43,33 +41,19 @@ fn restart_import_preserves_role_credentials_sessions_and_deactivation() {
         DesktopRole::Receptionist,
     )
     .unwrap();
-    let mut manager = store
+    let mut account = store
         .desktop_account(journal.tenant, "receptionist")
         .unwrap()
         .unwrap();
-    manager.account_id = AccountId::new(Uuid::new_v4());
-    manager.user_id = UserId::new(Uuid::new_v4());
-    manager.role = DesktopRole::Manager;
+    account.role = DesktopRole::Manager;
     store
-        .provision_desktop_account(&installer, &manager, "manager", now())
+        .provision_desktop_account(&installer, &account, "receptionist", now())
         .unwrap();
-    let (manager_actor, _) =
-        sign_in(&store, installer.clone(), "manager", "original-password-1").unwrap();
-    let service = DesktopAccountService::new(
-        store.clone(),
-        eitmad_authorization::AuthorizationService::new(store.clone()),
-    );
-    let changed = service
-        .update(
-            &mutation(&manager_actor, 501),
-            &UpdateDesktopAccount {
-                account_id: authentication.session.account_id,
-                expected_revision: 1,
-                display_name: "حساب اختبار معدل".into(),
-                role: DesktopAccountRole::Manager,
-            },
-        )
-        .unwrap();
+    let changed = store
+        .list_desktop_accounts(journal.tenant)
+        .unwrap()
+        .accounts
+        .remove(0);
     let (actor, branch) = sign_in(
         &store,
         installer.clone(),
@@ -113,22 +97,20 @@ fn restart_import_preserves_role_credentials_sessions_and_deactivation() {
             .unwrap()
     );
     assert!(
-        service
-            .list(&manager_actor, &ListDesktopAccounts {})
+        reopened
+            .list_desktop_accounts(journal.tenant)
             .unwrap()
             .accounts
             .contains(&changed)
     );
-
-    let disabled = service
-        .deactivate(
-            &mutation(&manager_actor, 502),
-            &DeactivateDesktopAccount {
-                account_id: changed.account_id,
-                expected_revision: changed.revision,
-            },
-        )
+    store
+        .revoke_connected_desktop_account(&actor, changed.revision, now())
         .unwrap();
+    let disabled = store
+        .list_desktop_accounts(journal.tenant)
+        .unwrap()
+        .accounts
+        .remove(0);
     let relationships = store.list_relationships(&branch.scope, None, 100).unwrap();
     let (reopened, _) = import_account(
         directory.path(),

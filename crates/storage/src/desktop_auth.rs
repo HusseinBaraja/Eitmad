@@ -1,7 +1,5 @@
 use eitmad_contracts::{
     accounts::{DesktopAccountPage, DesktopAccountRole, DesktopAccountSummary},
-    authorization::AuthorizationPolicyChangeNotice,
-    events::Event,
     identity::{
         AccountId, AuthorizationContext, OrganizationId, PrincipalKind, ScopeId, ScopeKind,
         ScopeRef, TenantId, UserId,
@@ -13,10 +11,7 @@ use rusqlite::{OptionalExtension as _, params};
 use unicode_normalization::UnicodeNormalization as _;
 use uuid::Uuid;
 
-use crate::{
-    AuthorityStore, DurableIdempotency, DurablePublication, PersistentSession, StorageError,
-    insert_audit, insert_idempotency, insert_publication, load_idempotency, migrations::Migration,
-};
+use crate::{AuthorityStore, PersistentSession, StorageError, insert_audit, migrations::Migration};
 
 pub(crate) const MIGRATIONS: &[Migration] = &[
     Migration::new(
@@ -102,28 +97,39 @@ pub struct DesktopAccount {
     pub role: DesktopRole,
 }
 
-#[derive(Clone, Debug)]
-pub struct DesktopAccountMutation<'a> {
-    pub account: &'a DesktopAccountSummary,
-    pub password_hash: Option<&'a str>,
-    pub expected_revision: Option<u64>,
-    pub operation: &'a str,
-    pub idempotency: &'a DurableIdempotency,
-    pub audit: &'a MutationAuditRecord,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum DesktopAccountCommitOutcome {
-    Committed(DesktopAccountSummary),
-    Replayed(Vec<u8>),
-    RevisionConflict { actual_revision: Option<u64> },
-    LastUsableManager,
-    DuplicateUsername,
-    NotFound,
-    IdempotencyMismatch,
-}
-
 impl AuthorityStore {
+    /// Removes imported access after a confirmed server denial. Retains records, caches, and authorship.
+    /// # Errors
+    /// Fails atomically if identity, grant, session, or audit storage is unavailable.
+    pub fn revoke_connected_desktop_account(
+        &self,
+        actor: &AuthorizationContext,
+        expected_revision: u64,
+        now: UnixMillis,
+    ) -> Result<bool, StorageError> {
+        let observer = self.existing_local_authorization_context()?;
+        self.write_transaction(|connection| {
+            let tenant = actor.tenant_id.value().to_string();
+            let user = actor.identity.principal_id.value().to_string();
+            let changed = connection.execute("UPDATE desktop_accounts SET active=0
+                WHERE tenant_id=?1 AND user_id=?2 AND active=1 AND revision=?3", params![tenant,user,i64::try_from(expected_revision).map_err(|_| StorageError)?]).map_err(|_| StorageError)?;
+            if changed == 0 { return Ok(false); }
+            connection.execute("UPDATE identity_sessions SET closed_at=?3 WHERE tenant_id=?1 AND user_id=?2 AND closed_at IS NULL",
+                params![tenant,user,now.0]).map_err(|_| StorageError)?;
+            connection.execute("DELETE FROM scope_relationships WHERE principal_id=?1 AND
+                (scope_kind='organization' AND scope_id=?2 OR scope_kind='branch' AND scope_id IN
+                (SELECT branch_id FROM local_desktop_branch WHERE tenant_id=?2))",params![user,tenant]).map_err(|_| StorageError)?;
+            connection.execute("UPDATE authorization_scopes SET policy_version=policy_version+1 WHERE
+                scope_kind='organization' AND scope_id=?1 OR scope_kind='branch' AND scope_id IN
+                (SELECT branch_id FROM local_desktop_branch WHERE tenant_id=?1)",[tenant]).map_err(|_| StorageError)?;
+            insert_audit(connection, &MutationAuditRecord::from_authorization(&observer, now,
+                CorrelationId::new(Uuid::new_v4()), "eitmad.desktop.account.server-revoked.v1", AuditTarget {
+                    kind: "desktop-account".to_owned(), identifiers: vec![user],
+                }))?;
+            Ok(true)
+        })
+    }
+
     /// Persists one authenticated desktop session and its audit record.
     ///
     /// # Errors
@@ -278,18 +284,20 @@ impl AuthorityStore {
             let changed = connection.execute("INSERT INTO desktop_accounts(account_id, user_id, tenant_id, organization_id, canonical_username, password_hash, role, active, display_name, revision)
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?5, 1)
                 ON CONFLICT(account_id) DO UPDATE SET password_hash = excluded.password_hash,
-                    active = 1, revision = desktop_accounts.revision + 1
+                    active = 1, role = excluded.role, revision = desktop_accounts.revision + 1
                     WHERE desktop_accounts.user_id = excluded.user_id
                     AND desktop_accounts.tenant_id = excluded.tenant_id
                     AND desktop_accounts.organization_id = excluded.organization_id
-                    AND desktop_accounts.canonical_username = excluded.canonical_username
-                    AND desktop_accounts.role = excluded.role",
+                    AND desktop_accounts.canonical_username = excluded.canonical_username",
                 params![account_id, user, tenant, account.organization_id.value().to_string(), username, account.password_hash, account.role.as_str()]
             ).map_err(|_| StorageError)?;
             if changed != 1 { return Err(StorageError); }
             connection.execute("UPDATE identity_sessions SET closed_at = ?3
                 WHERE tenant_id = ?1 AND account_id = ?2 AND closed_at IS NULL",
                 params![tenant, account_id, created_at.0]).map_err(|_| StorageError)?;
+            connection.execute("DELETE FROM scope_relationships WHERE principal_id=?1
+                AND relation IN ('eitmad.relation.organization.manager.v1','eitmad.relation.organization.receptionist.v1')",
+                [&user]).map_err(|_| StorageError)?;
             let relation_changed = connection.execute("INSERT OR IGNORE INTO scope_relationships
                 (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
                 VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
@@ -490,376 +498,6 @@ impl AuthorityStore {
             Ok(DesktopAccountPage { accounts })
         })
     }
-
-    /// Commits one revisioned account mutation with relationships, sessions, and audit.
-    ///
-    /// # Errors
-    ///
-    /// Returns a sanitized storage error when the atomic mutation cannot be evaluated or committed.
-    pub fn commit_desktop_account(
-        &self,
-        tenant_id: TenantId,
-        mutation: &DesktopAccountMutation<'_>,
-    ) -> Result<DesktopAccountCommitOutcome, StorageError> {
-        self.write_transaction(|connection| {
-            let scope = ScopeRef {
-                kind: ScopeKind::parse("organization").map_err(|_| StorageError)?,
-                id: ScopeId::new(tenant_id.value()),
-            };
-            if let Some((stored_hash, response_json)) =
-                load_idempotency(connection, &scope, mutation.idempotency.key)?
-            {
-                if stored_hash == mutation.idempotency.request_hash {
-                    return Ok(DesktopAccountCommitOutcome::Replayed(response_json));
-                }
-                insert_audit(
-                    connection,
-                    &mutation.audit.clone().with_outcome(
-                        AuditOutcome::Invalid,
-                        Some("eitmad.error.contract-invalid.v1".to_owned()),
-                    ),
-                )?;
-                return Ok(DesktopAccountCommitOutcome::IdempotencyMismatch);
-            }
-
-            let account_id = mutation.account.account_id.value().to_string();
-            let tenant = tenant_id.value().to_string();
-            let stored = connection
-                .query_row(
-                    "SELECT revision, role, active FROM desktop_accounts
-                     WHERE tenant_id = ?1 AND account_id = ?2",
-                    params![tenant, account_id],
-                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, bool>(2)?)),
-                )
-                .optional()
-                .map_err(|_| StorageError)?;
-            let actual_revision = stored
-                .as_ref()
-                .map(|value| u64::try_from(value.0).map_err(|_| StorageError))
-                .transpose()?;
-            if actual_revision != mutation.expected_revision {
-                let mut audit = mutation.audit.clone().with_outcome(
-                    AuditOutcome::Conflict,
-                    Some("eitmad.error.desktop-account-revision-conflict.v1".to_owned()),
-                );
-                audit.previous_revision = actual_revision;
-                audit.resulting_revision = actual_revision;
-                insert_audit(connection, &audit)?;
-                return Ok(DesktopAccountCommitOutcome::RevisionConflict { actual_revision });
-            }
-
-            let access_changed = match apply_account_state(
-                connection,
-                &tenant,
-                &account_id,
-                stored,
-                mutation,
-            )? {
-                AccountApply::Applied { access_changed } => access_changed,
-                AccountApply::Rejected(outcome) => return Ok(outcome),
-            };
-
-            let policy_version = apply_account_access(
-                connection,
-                &tenant,
-                mutation.account,
-                access_changed,
-            )?;
-
-            let stored = connection.query_row(
-                "SELECT account_id, user_id, display_name, canonical_username, role, active, revision
-                 FROM desktop_accounts WHERE account_id = ?1",
-                [account_id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, bool>(5)?, row.get::<_, i64>(6)?)),
-            ).map_err(|_| StorageError)?;
-            let stored = decode_account_summary(stored)?;
-            finish_account_commit(
-                connection,
-                &scope,
-                mutation,
-                actual_revision,
-                policy_version,
-                &stored,
-            )?;
-            Ok(DesktopAccountCommitOutcome::Committed(stored))
-        })
-    }
-}
-
-fn apply_account_access(
-    connection: &rusqlite::Connection,
-    tenant: &str,
-    account: &DesktopAccountSummary,
-    access_changed: bool,
-) -> Result<Option<u64>, StorageError> {
-    if !access_changed {
-        return Ok(None);
-    }
-    if account.active {
-        connection
-            .execute(
-                "INSERT OR IGNORE INTO scope_relationships
-                 (relationship_id, scope_kind, scope_id, principal_id, principal_kind, relation)
-                 VALUES (?1, 'organization', ?2, ?3, ?4, ?5)",
-                params![
-                    Uuid::new_v4().to_string(),
-                    tenant,
-                    account.user_id.value().to_string(),
-                    serde_json::to_string(&PrincipalKind::User).map_err(|_| StorageError)?,
-                    DesktopRole::from(account.role).relation()
-                ],
-            )
-            .map_err(|_| StorageError)?;
-        grant_branch_access(
-            connection,
-            tenant,
-            &account.user_id.value().to_string(),
-            DesktopRole::from(account.role),
-        )?;
-    } else {
-        connection.execute(
-            "DELETE FROM scope_relationships WHERE scope_kind = 'branch'
-             AND scope_id = (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)
-             AND principal_id = ?2",
-            params![tenant, account.user_id.value().to_string()],
-        ).map_err(|_| StorageError)?;
-        connection
-            .execute(
-                "UPDATE authorization_scopes SET policy_version = policy_version + 1
-             WHERE scope_kind = 'branch' AND scope_id =
-               (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)",
-                [tenant],
-            )
-            .map_err(|_| StorageError)?;
-    }
-    connection
-        .execute(
-            "UPDATE authorization_scopes SET policy_version = policy_version + 1
-             WHERE scope_kind = 'organization' AND scope_id = ?1",
-            [tenant],
-        )
-        .map_err(|_| StorageError)?;
-    connection
-        .query_row(
-            "SELECT policy_version FROM authorization_scopes
-             WHERE scope_kind = 'organization' AND scope_id = ?1",
-            [tenant],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(|_| StorageError)?
-        .try_into()
-        .map(Some)
-        .map_err(|_| StorageError)
-}
-
-fn finish_account_commit(
-    connection: &rusqlite::Connection,
-    scope: &ScopeRef,
-    mutation: &DesktopAccountMutation<'_>,
-    previous_revision: Option<u64>,
-    policy_version: Option<u64>,
-    account: &DesktopAccountSummary,
-) -> Result<(), StorageError> {
-    let mut audit = mutation.audit.clone();
-    audit.outcome = AuditOutcome::Succeeded;
-    audit.previous_revision = previous_revision;
-    audit.resulting_revision = Some(account.revision);
-    insert_audit(connection, &audit)?;
-    insert_idempotency(connection, scope, mutation.operation, mutation.idempotency)?;
-    if let Some(policy_version) = policy_version {
-        insert_publication(
-            connection,
-            scope,
-            mutation.idempotency.key,
-            &DurablePublication {
-                event: Event::AuthorizationPolicyChanged(AuthorizationPolicyChangeNotice {
-                    scope: scope.clone(),
-                    policy_version,
-                }),
-                policy_changed: true,
-            },
-        )?;
-    }
-    Ok(())
-}
-
-enum AccountApply {
-    Applied { access_changed: bool },
-    Rejected(DesktopAccountCommitOutcome),
-}
-
-fn apply_account_state(
-    connection: &rusqlite::Connection,
-    tenant: &str,
-    account_id: &str,
-    stored: Option<(i64, String, bool)>,
-    mutation: &DesktopAccountMutation<'_>,
-) -> Result<AccountApply, StorageError> {
-    if mutation.expected_revision.is_none() {
-        return create_account_state(connection, tenant, account_id, mutation);
-    }
-    let Some((_, old_role, was_active)) = stored else {
-        return Ok(AccountApply::Rejected(
-            DesktopAccountCommitOutcome::NotFound,
-        ));
-    };
-    update_account_state(
-        connection, tenant, account_id, &old_role, was_active, mutation,
-    )
-}
-
-fn create_account_state(
-    connection: &rusqlite::Connection,
-    tenant: &str,
-    account_id: &str,
-    mutation: &DesktopAccountMutation<'_>,
-) -> Result<AccountApply, StorageError> {
-    let password_hash = mutation.password_hash.ok_or(StorageError)?;
-    let duplicate: bool = connection
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM desktop_accounts
-             WHERE tenant_id = ?1 AND canonical_username = ?2)",
-            params![tenant, mutation.account.username],
-            |row| row.get(0),
-        )
-        .map_err(|_| StorageError)?;
-    if duplicate {
-        insert_audit(
-            connection,
-            &mutation.audit.clone().with_outcome(
-                AuditOutcome::Invalid,
-                Some("eitmad.error.desktop-account-invalid.v1".to_owned()),
-            ),
-        )?;
-        return Ok(AccountApply::Rejected(
-            DesktopAccountCommitOutcome::DuplicateUsername,
-        ));
-    }
-    let user_id = mutation.account.user_id.value().to_string();
-    connection
-        .execute(
-            "INSERT INTO identity_users(user_id, created_at) VALUES (?1, ?2)",
-            params![user_id, mutation.audit.occurred_at.0],
-        )
-        .map_err(|_| StorageError)?;
-    connection
-        .execute(
-            "INSERT INTO identity_accounts(account_id, user_id, tenant_id, created_at)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![account_id, user_id, tenant, mutation.audit.occurred_at.0],
-        )
-        .map_err(|_| StorageError)?;
-    let organization_id: String = connection
-        .query_row(
-            "SELECT organization_id FROM local_installation_authority
-             WHERE singleton = 1 AND tenant_id = ?1",
-            [tenant],
-            |row| row.get(0),
-        )
-        .map_err(|_| StorageError)?;
-    connection
-        .execute(
-            "INSERT INTO desktop_accounts
-             (account_id, user_id, tenant_id, organization_id, canonical_username,
-              password_hash, role, active, display_name, revision)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 1)",
-            params![
-                account_id,
-                user_id,
-                tenant,
-                organization_id,
-                mutation.account.username,
-                password_hash,
-                DesktopRole::from(mutation.account.role).as_str(),
-                mutation.account.display_name
-            ],
-        )
-        .map_err(|_| StorageError)?;
-    Ok(AccountApply::Applied {
-        access_changed: true,
-    })
-}
-
-fn update_account_state(
-    connection: &rusqlite::Connection,
-    tenant: &str,
-    account_id: &str,
-    old_role: &str,
-    was_active: bool,
-    mutation: &DesktopAccountMutation<'_>,
-) -> Result<AccountApply, StorageError> {
-    let new_role = DesktopRole::from(mutation.account.role).as_str();
-    let access_changed = old_role != new_role || was_active != mutation.account.active;
-    let removes_usable_manager = old_role == "manager"
-        && was_active
-        && (!mutation.account.active || mutation.account.role != DesktopAccountRole::Manager);
-    if removes_usable_manager {
-        let managers: i64 = connection
-            .query_row(
-                "SELECT COUNT(*) FROM desktop_accounts
-                 WHERE tenant_id = ?1 AND role = 'manager' AND active = 1",
-                [tenant],
-                |row| row.get(0),
-            )
-            .map_err(|_| StorageError)?;
-        if managers <= 1 {
-            insert_audit(
-                connection,
-                &mutation.audit.clone().with_outcome(
-                    AuditOutcome::Invalid,
-                    Some("eitmad.error.desktop-account-last-manager.v1".to_owned()),
-                ),
-            )?;
-            return Ok(AccountApply::Rejected(
-                DesktopAccountCommitOutcome::LastUsableManager,
-            ));
-        }
-    }
-    let changed = connection
-        .execute(
-            "UPDATE desktop_accounts SET display_name = ?3, role = ?4, active = ?5,
-                 revision = revision + 1
-             WHERE tenant_id = ?1 AND account_id = ?2 AND revision = ?6",
-            params![
-                tenant,
-                account_id,
-                mutation.account.display_name,
-                new_role,
-                mutation.account.active,
-                i64::try_from(mutation.expected_revision.ok_or(StorageError)?)
-                    .map_err(|_| StorageError)?
-            ],
-        )
-        .map_err(|_| StorageError)?;
-    if changed != 1 {
-        return Err(StorageError);
-    }
-    if access_changed {
-        connection
-            .execute(
-                "UPDATE identity_sessions SET closed_at = ?3
-                 WHERE tenant_id = ?1 AND account_id = ?2 AND closed_at IS NULL",
-                params![tenant, account_id, mutation.audit.occurred_at.0],
-            )
-            .map_err(|_| StorageError)?;
-        connection
-            .execute(
-                "DELETE FROM scope_relationships WHERE scope_kind = 'organization'
-                 AND scope_id = ?1 AND principal_id = ?2
-                 AND relation IN ('eitmad.relation.organization.manager.v1',
-                                  'eitmad.relation.organization.receptionist.v1')",
-                params![tenant, mutation.account.user_id.value().to_string()],
-            )
-            .map_err(|_| StorageError)?;
-        connection.execute(
-            "DELETE FROM scope_relationships WHERE scope_kind = 'branch'
-             AND scope_id = (SELECT branch_id FROM local_desktop_branch WHERE singleton = 1 AND tenant_id = ?1)
-             AND principal_id = ?2",
-            params![tenant, mutation.account.user_id.value().to_string()],
-        ).map_err(|_| StorageError)?;
-    }
-    Ok(AccountApply::Applied { access_changed })
 }
 
 fn grant_branch_access(
@@ -907,11 +545,11 @@ fn decode_account_summary(
         user_id: UserId::new(Uuid::parse_str(&row.1).map_err(|_| StorageError)?),
         display_name: row.2,
         username: row.3,
-        role: match row.4.as_str() {
+        role: Some(match row.4.as_str() {
             "manager" => DesktopAccountRole::Manager,
             "receptionist" => DesktopAccountRole::Receptionist,
             _ => return Err(StorageError),
-        },
+        }),
         active: row.5,
         revision: u64::try_from(row.6).map_err(|_| StorageError)?,
     })

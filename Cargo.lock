@@ -888,6 +888,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "tokio",
  "unicode-normalization",
  "uuid",
 ]
@@ -1128,6 +1129,7 @@ dependencies = [
  "eitmad-catalog-image",
  "eitmad-contracts",
  "eitmad-control-plane",
+ "eitmad-customer",
  "eitmad-orders",
  "eitmad-postgres-support",
  "eitmad-pricing",
@@ -1146,6 +1148,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -1191,6 +1194,7 @@ dependencies = [
  "eitmad-sync",
  "eitmad-sync-plane",
  "image",
+ "rand 0.9.3",
  "rusqlite",
  "rustls",
  "semver",
@@ -1244,6 +1248,7 @@ dependencies = [
  "base64",
  "eitmad-catalog-image",
  "eitmad-contracts",
+ "eitmad-customer",
  "eitmad-orders",
  "eitmad-postgres-support",
  "eitmad-pricing",

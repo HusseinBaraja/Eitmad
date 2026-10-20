@@ -68,6 +68,21 @@ pub(crate) const SYNC_MIGRATIONS: &[Migration] = &[Migration::new(
      );",
 )];
 
+pub(crate) const RESOLUTION_MIGRATIONS: &[Migration] = &[Migration::new(
+    29, "customer.conflict-resolution.v1", "customer",
+    "CREATE TABLE customer_pending_reviews (
+         change_id TEXT PRIMARY KEY, scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL,
+         customer_id TEXT NOT NULL, change_json BLOB NOT NULL, held_by TEXT NOT NULL,
+         reviewed_by TEXT
+     );
+     CREATE INDEX customer_pending_review_scope ON customer_pending_reviews(scope_kind,scope_id,customer_id);
+     CREATE TABLE customer_resolution_intents (
+         scope_kind TEXT NOT NULL, scope_id TEXT NOT NULL, customer_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+         principal_id TEXT NOT NULL, request_json BLOB NOT NULL,
+         PRIMARY KEY(scope_kind,scope_id,branch_id,customer_id)
+     );",
+)];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CustomerCommitOutcome {
     Committed(CustomerMutationResult),
@@ -94,8 +109,252 @@ pub struct CustomerSyncProjection<'a> {
     pub normalized_name: &'a str,
     pub normalized_phone: &'a str,
     pub source_change_id: ChangeId,
+    pub resolution: Option<&'a eitmad_contracts::sync::MergeMetadata>,
     pub audit: &'a MutationAuditRecord,
     pub publication: &'a DurablePublication,
+}
+
+// Only an explicit server resolution can retire a held input. Descendants leave the
+// delivery queue together and retain their original bytes for a separate decision.
+fn hold_resolved_customer_inputs(
+    tx: &rusqlite::Connection,
+    projection: &CustomerSyncProjection<'_>,
+) -> Result<bool, StorageError> {
+    let Some(merge) = projection.resolution else {
+        return Ok(false);
+    };
+    let (kind, id) = scope_parts(&projection.customer.scope);
+    let customer = projection.customer.id.value().to_string();
+    let resolution = projection.source_change_id.value().to_string();
+    let Some(source) = merge.source_changes.first() else {
+        return Err(StorageError);
+    };
+    let source = source.value().to_string();
+    let first: Option<i64> = tx
+        .query_row(
+            "SELECT rowid FROM customer_sync_outbox WHERE change_id=?1
+        AND scope_kind=?2 AND scope_id=?3 AND customer_id=?4",
+            params![source, kind, id, customer],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|_| StorageError)?;
+    let mut changed = false;
+    if let Some(first) = first {
+        tx.execute("INSERT OR IGNORE INTO customer_pending_reviews
+            (change_id,scope_kind,scope_id,customer_id,change_json,held_by,reviewed_by)
+            SELECT change_id,scope_kind,scope_id,customer_id,change_json,?5,
+                CASE WHEN change_id=?6 THEN ?5 ELSE NULL END
+            FROM customer_sync_outbox WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND rowid>=?4",
+            params![kind,id,customer,first,resolution,source]).map_err(|_| StorageError)?;
+        tx.execute("DELETE FROM customer_sync_outbox WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND rowid>=?4",
+            params![kind,id,customer,first]).map_err(|_| StorageError)?;
+        changed = true;
+    }
+    let reviewed = tx
+        .execute(
+            "UPDATE customer_pending_reviews SET reviewed_by=?1 WHERE change_id=?2
+        AND scope_kind=?3 AND scope_id=?4 AND customer_id=?5 AND reviewed_by IS NULL",
+            params![resolution, source, kind, id, customer],
+        )
+        .map_err(|_| StorageError)?;
+    Ok(changed || reviewed > 0)
+}
+
+impl AuthorityStore {
+    /// # Errors
+    /// Returns an error if the bounded retained review page cannot be decoded.
+    pub fn customer_pending_reviews(
+        &self,
+        scope: &ScopeRef,
+        customer: CustomerId,
+    ) -> Result<Vec<ChangeRecord>, StorageError> {
+        self.read_transaction(|tx| {
+            let (kind, id) = scope_parts(scope);
+            let mut query = tx
+                .prepare(
+                    "SELECT change_json FROM customer_pending_reviews WHERE scope_kind=?1
+                AND scope_id=?2 AND customer_id=?3 AND reviewed_by IS NULL ORDER BY rowid LIMIT 50",
+                )
+                .map_err(|_| StorageError)?;
+            query
+                .query_map(params![kind, id, customer.value().to_string()], |r| {
+                    r.get::<_, Vec<u8>>(0)
+                })
+                .map_err(|_| StorageError)?
+                .map(|r| {
+                    serde_json::from_slice(&r.map_err(|_| StorageError)?).map_err(|_| StorageError)
+                })
+                .collect()
+        })
+    }
+
+    /// Freezes uncertain intent before network I/O. A changed request cannot replace it.
+    /// # Errors
+    /// Returns an error for a different outstanding request or an audit/storage failure.
+    pub fn stage_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        input: &eitmad_contracts::customer::ConfirmCustomerResolution,
+        audit: &MutationAuditRecord,
+    ) -> Result<(), StorageError> {
+        self.write_transaction(|tx| {
+            let (kind,id) = scope_parts(&actor.scope);
+            let bytes = serde_json::to_vec(input).map_err(|_| StorageError)?;
+            let branch = input.command.customer.branch_id.ok_or(StorageError)?.value().to_string();
+            let prior: Option<(Vec<u8>,String)> = tx.query_row("SELECT request_json,principal_id FROM customer_resolution_intents
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND branch_id=?4", params![kind,id,input.command.customer.customer_id.value().to_string(),branch], |r| Ok((r.get(0)?,r.get(1)?)))
+                .optional().map_err(|_| StorageError)?;
+            if let Some((prior,principal)) = prior { return if prior == bytes && principal == actor.identity.principal_id.value().to_string() { Ok(()) } else { Err(StorageError) }; }
+            tx.execute("INSERT INTO customer_resolution_intents(scope_kind,scope_id,customer_id,principal_id,request_json,branch_id)
+                VALUES (?1,?2,?3,?4,?5,?6)", params![kind,id,input.command.customer.customer_id.value().to_string(),actor.identity.principal_id.value().to_string(),bytes,branch]).map_err(|_| StorageError)?;
+            insert_audit(tx,audit)
+        })
+    }
+
+    /// Reads the record's original author and frozen request for authorized reconciliation.
+    /// # Errors
+    /// The capability must authorize current Manager access before reading this evidence.
+    pub fn pending_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        record: CustomerId,
+        branch: eitmad_contracts::identity::ScopeId,
+    ) -> Result<
+        Option<
+            eitmad_contracts::sync::ReconcileResolution<
+                eitmad_contracts::customer::ConfirmCustomerResolution,
+            >,
+        >,
+        StorageError,
+    > {
+        self.read_transaction(|tx| {
+            let (kind, id) = scope_parts(&actor.scope);
+            let row: Option<(String, Vec<u8>)> = tx
+                .query_row(
+                    "SELECT principal_id,request_json FROM customer_resolution_intents
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND branch_id=?4",
+                    params![
+                        kind,
+                        id,
+                        record.value().to_string(),
+                        branch.value().to_string()
+                    ],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(|_| StorageError)?;
+            row.map(|(principal, bytes)| {
+                Ok(eitmad_contracts::sync::ReconcileResolution {
+                    original_user: eitmad_contracts::identity::UserId::new(
+                        principal.parse().map_err(|_| StorageError)?,
+                    ),
+                    request: serde_json::from_slice(&bytes).map_err(|_| StorageError)?,
+                })
+            })
+            .transpose()
+        })
+    }
+
+    /// Archives exact original evidence and the reconciled receipt before unlocking the record.
+    /// # Errors
+    /// Requires a server receipt or permanent key closure and current Manager authorization.
+    pub fn reconcile_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        recovery: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+        receipt: Option<&ChangeRecord>,
+        audit: &MutationAuditRecord,
+    ) -> Result<(), StorageError> {
+        self.write_transaction(|tx| {
+            let (kind,id) = scope_parts(&actor.scope);
+            let bytes = serde_json::to_vec(&recovery.request).map_err(|_| StorageError)?;
+            let original = recovery.original_user.value().to_string();
+            let archived = tx.execute("INSERT INTO resolution_reconciliations
+                (audit_id,schema_id,scope_kind,scope_id,branch_id,record_id,principal_id,request_json,receipt_json,reconciled_by)
+                SELECT ?1,'eitmad.schema.customer.v1',scope_kind,scope_id,branch_id,customer_id,principal_id,request_json,?2,?3
+                FROM customer_resolution_intents WHERE scope_kind=?4 AND scope_id=?5 AND principal_id=?6 AND request_json=?7",
+                params![audit.audit_id.to_string(),receipt.map(serde_json::to_vec).transpose().map_err(|_| StorageError)?,
+                    actor.identity.principal_id.value().to_string(),kind,id,original,bytes]).map_err(|_| StorageError)?;
+            if archived > 0 {
+                tx.execute("DELETE FROM customer_resolution_intents WHERE scope_kind=?1 AND scope_id=?2 AND principal_id=?3 AND request_json=?4",
+                    params![kind,id,original,bytes]).map_err(|_| StorageError)?;
+                insert_audit(tx,audit)?;
+            }
+            Ok(())
+        })
+    }
+
+    /// # Errors
+    /// Returns an error if the current actor's durable intent cannot be decoded.
+    pub fn customer_resolution_intent(
+        &self,
+        actor: &AuthorizationContext,
+        customer: CustomerId,
+        branch: eitmad_contracts::identity::ScopeId,
+    ) -> Result<Option<eitmad_contracts::customer::ConfirmCustomerResolution>, StorageError> {
+        self.read_transaction(|tx| {
+            let (kind,id) = scope_parts(&actor.scope);
+            let bytes: Option<Vec<u8>> = tx.query_row("SELECT request_json FROM customer_resolution_intents
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND principal_id=?4 AND branch_id=?5",
+                params![kind,id,customer.value().to_string(),actor.identity.principal_id.value().to_string(),branch.value().to_string()], |r| r.get(0)).optional().map_err(|_| StorageError)?;
+            bytes.map(|v| serde_json::from_slice(&v).map_err(|_| StorageError)).transpose()
+        })
+    }
+
+    /// # Errors
+    /// Removes only this actor's completed or definitively failed intent, with audit.
+    pub fn finish_customer_resolution(
+        &self,
+        actor: &AuthorizationContext,
+        customer: CustomerId,
+        branch: eitmad_contracts::identity::ScopeId,
+        audit: &MutationAuditRecord,
+    ) -> Result<(), StorageError> {
+        self.write_transaction(|tx| {
+            let (kind,id) = scope_parts(&actor.scope);
+            let removed = tx.execute("DELETE FROM customer_resolution_intents WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND principal_id=?4 AND branch_id=?5",
+                params![kind,id,customer.value().to_string(),actor.identity.principal_id.value().to_string(),branch.value().to_string()]).map_err(|_| StorageError)?;
+            if removed > 0 { insert_audit(tx,audit)?; }
+            Ok(())
+        })
+    }
+
+    /// # Errors
+    /// Checks the exact retained input, including already-reviewed inputs needed by retries.
+    pub fn has_customer_review_input(
+        &self,
+        scope: &ScopeRef,
+        change: &ChangeRecord,
+    ) -> Result<bool, StorageError> {
+        self.read_transaction(|tx| {
+            let (kind, id) = scope_parts(scope);
+            let bytes: Option<Vec<u8>> = tx
+                .query_row(
+                    "SELECT change_json FROM customer_pending_reviews
+                WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND change_id=?4",
+                    params![
+                        kind,
+                        id,
+                        change.record_id.value().to_string(),
+                        change.change_id.value().to_string()
+                    ],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(|_| StorageError)?;
+            bytes
+                .map(|v| {
+                    serde_json::from_slice::<ChangeRecord>(&v)
+                        .map(|v| v == *change)
+                        .map_err(|_| StorageError)
+                })
+                .transpose()
+                .map(|v| v.unwrap_or(false))
+        })
+    }
 }
 
 impl AuthorityStore {
@@ -200,6 +459,7 @@ impl AuthorityStore {
             let customer = projection.customer;
             let (scope_kind, scope_id) = scope_parts(&customer.scope);
             let customer_id = customer.id.value().to_string();
+            let resolved = hold_resolved_customer_inputs(transaction, projection)?;
             let removed = transaction
                 .execute(
                     "DELETE FROM customer_sync_outbox
@@ -233,7 +493,7 @@ impl AuthorityStore {
                 .optional()
                 .map_err(|_| StorageError)?;
             let target_revision = i64::try_from(customer.revision).map_err(|_| StorageError)?;
-            if current.as_ref().is_some_and(|(revision, _)| *revision > target_revision) {
+            if !resolved && current.as_ref().is_some_and(|(revision, _)| *revision > target_revision) {
                 if removed != 0 {
                     insert_audit(transaction, projection.audit)?;
                 }
@@ -243,7 +503,7 @@ impl AuthorityStore {
                 "SELECT 1 FROM customer_sync_exceptions WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
                 params![scope_kind, scope_id, customer_id], |_| Ok(()),
             ).optional().map_err(|_| StorageError)?.is_some();
-            if removed == 0 && !has_exception && current.as_ref().is_some_and(|(revision, state)| *revision == target_revision && state == "confirmed") {
+            if !resolved && removed == 0 && !has_exception && current.as_ref().is_some_and(|(revision, state)| *revision == target_revision && state == "confirmed") {
                 return Ok(false);
             }
             transaction.execute(
@@ -282,11 +542,12 @@ impl AuthorityStore {
     pub fn mark_customer_sync_exception(
         &self,
         scope: &ScopeRef,
-        customer_id: CustomerId,
+        change: &ChangeRecord,
         state: CustomerSyncState,
         audit: &MutationAuditRecord,
         publication: &DurablePublication,
     ) -> Result<(), StorageError> {
+        let customer_id = CustomerId::new(change.record_id.value());
         let state = match state {
             CustomerSyncState::Rejected => "rejected",
             CustomerSyncState::Conflicted => "conflicted",
@@ -294,6 +555,9 @@ impl AuthorityStore {
         };
         self.write_transaction(|transaction| {
             let (scope_kind, scope_id) = scope_parts(scope);
+            let pending = transaction.query_row("SELECT 1 FROM customer_sync_outbox WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3 AND change_id=?4 LIMIT 1",
+                params![scope_kind, scope_id, customer_id.value().to_string(), change.change_id.value().to_string()], |_| Ok(())).optional().map_err(|_| StorageError)?;
+            if pending.is_none() { return Ok(()); }
             let prior: Option<String> = transaction.query_row(
                 "SELECT state FROM customer_sync_exceptions WHERE scope_kind = ?1 AND scope_id = ?2 AND customer_id = ?3",
                 params![scope_kind, scope_id, customer_id.value().to_string()],
@@ -382,7 +646,9 @@ impl AuthorityStore {
             if has_more {
                 items.pop();
             }
-            let next = has_more.then(|| items.last().map(|item| item.id)).flatten();
+            let next = has_more.then(|| items.last().map(|item| eitmad_contracts::customer::CustomerCursor {
+                customer_id: item.id, branch_id: item.scope.id,
+            })).flatten();
             Ok(CustomerPage { items, next })
         })
     }
@@ -471,7 +737,9 @@ fn commit_customer_on(
         .map(u64::try_from)
         .transpose()
         .map_err(|_| StorageError)?;
-    if actual_revision != commit.expected_revision {
+    let held = transaction.query_row("SELECT 1 FROM customer_sync_exceptions WHERE scope_kind=?1 AND scope_id=?2 AND customer_id=?3",
+        params![scope_kind,scope_id,customer_id], |_| Ok(())).optional().map_err(|_| StorageError)?.is_some();
+    if actual_revision != commit.expected_revision || held {
         let mut conflict = commit.audit.clone().with_outcome(
             AuditOutcome::Conflict,
             Some(commit.conflict_error_code.to_owned()),

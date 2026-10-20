@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "decision"
 status: "active"
 owner: "product and architecture maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-18"
 review_triggers:
   - "Manager or Receptionist authority, commercial lifecycle, currency, offline policy, or branch visibility changes"
 keywords:
@@ -21,7 +21,7 @@ keywords:
 > - Status: Accepted
 > - Date: 2026-09-19
 > - Decision owners: Product and architecture maintainers
-> - Last verified: 2026-09-19
+> - Last verified: 2026-10-18
 > - Review trigger: Manager or Receptionist authority, scope, commercial lifecycle, currency, offline policy, or branch visibility changes
 > - Supersedes: None
 > - Superseded by: None
@@ -58,6 +58,8 @@ This supports offline preparation and keeps irreversible or organization-wide ou
 Adopt the separate-draft model defined by [the normative workflow specification](../developer/subsystems/manager-receptionist-workflows.md).
 
 Managers can see all organization branches and control catalog publication, pricing, discount decisions, quotation validity, order cancellation, and work-order progression. Receptionists operate only in assigned branches and control customer contact work, quotation drafts and issuance within policy, customer acceptance, order conversion, and delivery. Role permissions remain explicit; Manager is not an implicit super-role for Receptionist mutations.
+
+The accepted clarification on 2026-10-18 assigns quotation-draft conflict resolution to Managers only. This authority permits an explicit draft decision against the current server revision. Approval and issuance retain their separate permissions; issued and accepted documents remain immutable. The normative permission matrix defines the scope and confirmation boundary.
 
 Use `YER` as whole-rial integer money and display **ر.ي** in Arabic UI. The discount threshold is above `5.00%`. Quotation validity defaults to 30 days and is adjustable by the Manager. Official yearly organization-wide sequences use `QT`, `OR`, and `WO`. Customer contact, catalog draft, and quotation draft work is local-first. Publication, prices, approvals, issued commitments, conversion, production transitions, cancellation, and delivery require server confirmation.
 

@@ -41,6 +41,21 @@ pub struct DesktopSignInRequest {
     pub correlation_id: CorrelationId,
     pub username: String,
     pub password: String,
+    #[serde(default)]
+    pub server_login: bool,
+    #[serde(default)]
+    pub connection: Option<DesktopEnrollmentSettings>,
+}
+
+/// Non-secret operator inputs. Rust validates trust and the server-assigned scope.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DesktopEnrollmentSettings {
+    pub endpoint: String,
+    pub trusted_certificate: String,
+    pub tenant_code: crate::server::TenantCode,
+    pub organization: crate::identity::OrganizationId,
+    pub branch: crate::identity::ScopeId,
 }
 
 impl std::fmt::Debug for DesktopSignInRequest {
@@ -51,6 +66,8 @@ impl std::fmt::Debug for DesktopSignInRequest {
             .field("correlation_id", &self.correlation_id)
             .field("username", &"[redacted]")
             .field("password", &"[redacted]")
+            .field("server_login", &self.server_login)
+            .field("connection", &"[redacted]")
             .finish()
     }
 }
@@ -75,6 +92,7 @@ pub struct DesktopSessionRequest {
 #[serde(rename_all = "camelCase")]
 pub enum DesktopSessionStatus {
     Active,
+    Configured,
     SignedOut,
     Failed,
 }

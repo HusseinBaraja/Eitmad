@@ -1,0 +1,38 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Customers.CustomerResolutionView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls"
+ FlowDirection="RightToLeft" Language="ar-YE">
+ <controls:DialogHost x:Name="Dialog" Title="مراجعة تعارض العميل" PreferredWidth="820" CloseRequested="CloseClick" InitialFocusTarget="{Binding ElementName=Sources}">
+  <StackPanel>
+   <TextBlock Text="اختر القيمة النهائية لكل حقل. تُحفظ النسختان والقرار في سجل التدقيق. يحتاج الاعتماد إلى اتصال بالخادم." TextWrapping="Wrap" Margin="0,0,0,12"/>
+   <controls:FormField Label="التعارض أو التعديل المعلق"><ComboBox x:Name="Sources" DisplayMemberPath="Label" SelectionChanged="SourceChanged" AutomationProperties.Name="اختيار تعارض العميل أو تعديل معلق للمراجعة"/></controls:FormField>
+   <Button x:Name="NextButton" Content="صفحة التعارضات التالية" Click="NextClick" Style="{StaticResource InlineActionButton}" HorizontalAlignment="Left" Visibility="Collapsed" AutomationProperties.Name="صفحة تعارضات العميل التالية"/>
+   <TextBlock x:Name="RevisionLabel" Margin="0,12" TextWrapping="Wrap"/>
+   <ItemsControl x:Name="Fields">
+    <ItemsControl.ItemTemplate><DataTemplate>
+     <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,12">
+      <StackPanel>
+       <TextBlock Text="{Binding Label}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+       <Grid Margin="0,0,0,10" Visibility="{Binding ComparisonVisibility}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <StackPanel Margin="16,0,0,0"><TextBlock Text="التعديل المحلي" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/><TextBlock Text="{Binding LocalDisplay}" FlowDirection="{Binding Direction}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+        <StackPanel Grid.Column="1" Margin="16,0,0,0"><TextBlock Text="الخادم وقت التعارض" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/><TextBlock Text="{Binding RemoteDisplay}" FlowDirection="{Binding Direction}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+        <StackPanel Grid.Column="2"><TextBlock Text="الخادم الحالي" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/><TextBlock Text="{Binding CurrentDisplay}" FlowDirection="{Binding Direction}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+       </Grid>
+       <ComboBox Visibility="{Binding ComparisonVisibility}" ItemsSource="{Binding Choices}" SelectedIndex="{Binding Choice, Mode=TwoWay}" AutomationProperties.Name="{Binding ChoiceName}"/>
+       <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" FlowDirection="{Binding Direction}" IsReadOnly="{Binding IsReadOnly}" TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.Name="{Binding ValueName}"/>
+      </StackPanel>
+     </Border>
+    </DataTemplate></ItemsControl.ItemTemplate>
+   </ItemsControl>
+   <TextBlock x:Name="Notice" TextWrapping="Wrap" Margin="0,14,0,0" AutomationProperties.LiveSetting="Polite"/>
+   <TextBlock Text="التعديلات اللاحقة محفوظة لمراجعة مستقلة ولن تُرسل تلقائياً. افتح هذه المراجعة مرة أخرى بعد الاعتماد." TextWrapping="Wrap" Margin="0,12,0,0" Foreground="{DynamicResource MutedBrush}"/>
+  </StackPanel>
+  <controls:DialogHost.Footer><WrapPanel>
+   <Button x:Name="ConfirmButton" Content="اعتماد القيم المختارة" Click="ConfirmClick" Style="{StaticResource PrimaryButton}" AutomationProperties.Name="اعتماد حل تعارض العميل على الخادم"/>
+   <Button x:Name="ReloadButton" Content="تحديث المقارنة" Click="ReloadClick" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" AutomationProperties.Name="تحديث مقارنة العميل من الخادم"/>
+   <Button Content="إغلاق" Click="CloseClick" Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" AutomationProperties.Name="إغلاق مراجعة تعارض العميل"/>
+  </WrapPanel></controls:DialogHost.Footer>
+ </controls:DialogHost>
+</UserControl>

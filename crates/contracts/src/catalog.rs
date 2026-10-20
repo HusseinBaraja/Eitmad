@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.shared-accounts.v1",
     "eitmad.capability.home.v1",
     "eitmad.capability.work-orders.v1",
     "eitmad.capability.orders.v1",
@@ -17,6 +18,7 @@ pub const CAPABILITIES: &[&str] = &[
     "eitmad.capability.customer-documents.v1",
     "eitmad.capability.quotation-approval.v1",
     "eitmad.capability.quotation-draft.v1",
+    "eitmad.capability.quotation-draft-resolution.v1",
     "eitmad.capability.quotation-evaluation.v1",
     "eitmad.capability.sales-catalog.v1",
     "eitmad.capability.catalog-revisions.v1",
@@ -120,6 +122,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.update.report-installer.v1",
     "eitmad.permission.customer.read.v1",
     "eitmad.permission.customer.write.v1",
+    "eitmad.permission.customer.resolve.v1",
     "eitmad.permission.product.read.v1",
     "eitmad.permission.furniture.read.v1",
     "eitmad.permission.product.write.v1",
@@ -133,6 +136,7 @@ pub const PERMISSIONS: &[&str] = &[
     "eitmad.permission.catalog.draft.write.v1",
     "eitmad.permission.quotation.draft.read.v1",
     "eitmad.permission.quotation.draft.write.v1",
+    "eitmad.permission.quotation.draft.resolve.v1",
     "eitmad.permission.desktop-accounts.manage.v1",
 ];
 
@@ -228,7 +232,6 @@ pub const ERROR_CODES: &[&str] = &[
     "eitmad.error.material-unavailable.v1",
     "eitmad.error.desktop-account-invalid.v1",
     "eitmad.error.desktop-account-revision-conflict.v1",
-    "eitmad.error.desktop-account-last-manager.v1",
     "eitmad.error.desktop-account-unavailable.v1",
 ];
 
@@ -325,7 +328,6 @@ pub const MESSAGE_IDS: &[&str] = &[
     "eitmad.message.material-unavailable.v1",
     "eitmad.message.desktop-account-invalid.v1",
     "eitmad.message.desktop-account-revision-conflict.v1",
-    "eitmad.message.desktop-account-last-manager.v1",
     "eitmad.message.desktop-account-unavailable.v1",
 ];
 
@@ -348,6 +350,7 @@ pub const RELATIONS: &[&str] = &[
     "eitmad.relation.organization.owner.v1",
 ];
 pub const DOMAIN_SCHEMA_IDS: &[&str] = &[
+    "eitmad.schema.desktop-accounts.v1",
     "eitmad.schema.order.v1",
     "eitmad.schema.work-order.v1",
     "eitmad.schema.quotation-lifecycle.v1",

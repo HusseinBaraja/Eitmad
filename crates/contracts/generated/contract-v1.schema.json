@@ -3,6 +3,9 @@
   "title": "ContractSchemaRoot",
   "type": "object",
   "properties": {
+    "activate_account_request": {
+      "$ref": "#/definitions/ActivateAccountRequest"
+    },
     "administration_backup_status": {
       "$ref": "#/definitions/BackupStatus"
     },
@@ -15,17 +18,26 @@
     "administration_support_workflow": {
       "$ref": "#/definitions/SupportWorkflow"
     },
+    "authentication_result": {
+      "$ref": "#/definitions/AuthenticationResult"
+    },
     "catalog": {
       "$ref": "#/definitions/ProtocolCatalog"
     },
     "catalog_entry": {
       "$ref": "#/definitions/CatalogEntry"
     },
+    "change_server_account": {
+      "$ref": "#/definitions/ChangeServerAccount"
+    },
     "command_request": {
       "$ref": "#/definitions/CommandEnvelope"
     },
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
+    },
+    "confirm_customer_resolution": {
+      "$ref": "#/definitions/ConfirmCustomerResolution"
     },
     "confirm_discount_approval": {
       "$ref": "#/definitions/ConfirmDiscountApproval"
@@ -38,6 +50,12 @@
     },
     "confirm_quotation": {
       "$ref": "#/definitions/ConfirmQuotation"
+    },
+    "confirm_quotation_draft_resolution": {
+      "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+    },
+    "desktop_enrollment_profile": {
+      "$ref": "#/definitions/DesktopEnrollmentProfile"
     },
     "diagnostic_report": {
       "$ref": "#/definitions/DiagnosticReport"
@@ -59,6 +77,9 @@
     },
     "lifecycle_snapshot": {
       "$ref": "#/definitions/LifecycleSnapshot"
+    },
+    "list_server_accounts": {
+      "$ref": "#/definitions/ListServerAccounts"
     },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
@@ -93,6 +114,12 @@
     "query_response": {
       "$ref": "#/definitions/QueryResponseEnvelope"
     },
+    "read_customer_conflicts": {
+      "$ref": "#/definitions/ReadCustomerConflicts"
+    },
+    "read_customers": {
+      "$ref": "#/definitions/ReadCustomers"
+    },
     "read_discount_approvals": {
       "$ref": "#/definitions/ReadDiscountApprovals"
     },
@@ -102,11 +129,23 @@
     "read_published_prices": {
       "$ref": "#/definitions/ReadPublishedPrices"
     },
+    "read_quotation_draft_recovery": {
+      "$ref": "#/definitions/ReadQuotationDraftRecovery"
+    },
+    "read_quotation_draft_review": {
+      "$ref": "#/definitions/ReadQuotationDraftReview"
+    },
     "read_quotations": {
       "$ref": "#/definitions/ReadQuotations"
     },
     "read_work_orders": {
       "$ref": "#/definitions/ReadWorkOrders"
+    },
+    "reconcile_customer_resolution": {
+      "$ref": "#/definitions/ReconcileResolution"
+    },
+    "reconcile_quotation_draft_resolution": {
+      "$ref": "#/definitions/ReconcileResolution2"
     },
     "register_branch_request": {
       "$ref": "#/definitions/RegisterBranchRequest"
@@ -122,6 +161,15 @@
     },
     "relay_session": {
       "$ref": "#/definitions/RelaySessionMetadata"
+    },
+    "server_account_page": {
+      "$ref": "#/definitions/ServerAccountPage"
+    },
+    "server_account_result": {
+      "$ref": "#/definitions/ServerAccountResult"
+    },
+    "server_account_watch": {
+      "$ref": "#/definitions/ServerAccountWatch"
     },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
@@ -155,9 +203,29 @@
     },
     "upload_catalog_image": {
       "$ref": "#/definitions/UploadCatalogImage"
+    },
+    "watch_server_accounts": {
+      "$ref": "#/definitions/WatchServerAccounts"
     }
   },
   "required": [
+    "reconcile_customer_resolution",
+    "reconcile_quotation_draft_resolution",
+    "read_quotation_draft_recovery",
+    "read_quotation_draft_review",
+    "confirm_quotation_draft_resolution",
+    "read_customers",
+    "read_customer_conflicts",
+    "confirm_customer_resolution",
+    "watch_server_accounts",
+    "server_account_watch",
+    "change_server_account",
+    "list_server_accounts",
+    "server_account_page",
+    "server_account_result",
+    "activate_account_request",
+    "authentication_result",
+    "desktop_enrollment_profile",
     "confirm_order",
     "read_orders",
     "read_work_orders",
@@ -252,6 +320,35 @@
       "description": "A secret-bearing password value. Debug output is always redacted.",
       "type": "string"
     },
+    "ActivateAccountRequest": {
+      "description": "Secret-bearing activation request. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceLabel": {
+          "type": "string"
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "inviteToken": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "inviteToken",
+        "password",
+        "deviceId",
+        "deviceLabel",
+        "devicePublicKey"
+      ]
+    },
     "AuthenticatedIdentity": {
       "type": "object",
       "properties": {
@@ -280,6 +377,63 @@
       "required": [
         "principalId",
         "principalKind"
+      ]
+    },
+    "AuthenticatedServerSession": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "issuedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "sessionId",
+        "accountId",
+        "userId",
+        "deviceId",
+        "tenantId",
+        "issuedAt",
+        "expiresAt"
+      ]
+    },
+    "AuthenticationResult": {
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/definitions/AuthenticatedServerSession"
+        },
+        "tokens": {
+          "$ref": "#/definitions/IssuedTokens"
+        }
+      },
+      "required": [
+        "session",
+        "tokens"
       ]
     },
     "AuthorizationContext": {
@@ -942,6 +1096,23 @@
         "idempotencyKey"
       ]
     },
+    "ChangeServerAccount": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ServerAccountChange"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "idempotencyKey",
+        "change"
+      ]
+    },
     "CheckFurnitureSelection": {
       "type": "object",
       "properties": {
@@ -1362,6 +1533,38 @@
             },
             "payload": {
               "$ref": "#/definitions/UpdateCustomer"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-draft.resolve.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ResolveQuotationDraft"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.customer.resolve-conflict.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ResolveCustomerConflict"
             }
           },
           "required": [
@@ -1921,6 +2124,38 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "quotationDraftResolved"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "customerConflictResolved"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "materialCategorySaved"
             },
             "payload": {
@@ -2455,6 +2690,26 @@
     "ConfigurationChanges": {
       "type": "object"
     },
+    "ConfirmCustomerResolution": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "$ref": "#/definitions/ResolveCustomerConflict"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "idempotencyKey",
+        "command"
+      ]
+    },
     "ConfirmDiscountApproval": {
       "description": "Only the authenticated Rust engine sends a validated persisted snapshot for promotion.",
       "type": "object",
@@ -2556,6 +2811,27 @@
         "action"
       ]
     },
+    "ConfirmQuotationDraftResolution": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "$ref": "#/definitions/ResolveQuotationDraft"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "idempotencyKey",
+        "command"
+      ]
+    },
     "ConflictNotice": {
       "type": "object",
       "properties": {
@@ -2583,6 +2859,61 @@
         "recordId",
         "localRevision",
         "remoteRevision"
+      ]
+    },
+    "ConflictRecord": {
+      "type": "object",
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "detectedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "local": {
+          "$ref": "#/definitions/ChangeRecord"
+        },
+        "recordId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "remote": {
+          "$ref": "#/definitions/ChangeRecord"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/MergeMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        },
+        "status": {
+          "$ref": "#/definitions/ConflictStatus"
+        }
+      },
+      "required": [
+        "conflictId",
+        "scope",
+        "recordId",
+        "local",
+        "remote",
+        "detectedAt",
+        "status"
+      ]
+    },
+    "ConflictStatus": {
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved"
       ]
     },
     "ContractError": {
@@ -2825,6 +3156,127 @@
     "CustomerChanges": {
       "type": "object"
     },
+    "CustomerConflictPage": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "$ref": "#/definitions/Customer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CustomerConflictView"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "pendingResolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConfirmCustomerResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingReviews": {
+          "description": "Later local edits retained outside the delivery queue, for explicit separate review.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CustomerPendingReview"
+          }
+        }
+      },
+      "required": [
+        "current",
+        "items",
+        "pendingReviews"
+      ]
+    },
+    "CustomerConflictSource": {
+      "type": "object",
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "conflictId"
+      ]
+    },
+    "CustomerConflictView": {
+      "type": "object",
+      "properties": {
+        "conflict": {
+          "$ref": "#/definitions/ConflictRecord"
+        },
+        "local": {
+          "$ref": "#/definitions/CustomerSyncPayload"
+        },
+        "remote": {
+          "$ref": "#/definitions/CustomerSyncPayload"
+        }
+      },
+      "required": [
+        "conflict",
+        "local",
+        "remote"
+      ]
+    },
+    "CustomerContact": {
+      "description": "Contact values selected explicitly by a Manager; no implicit merge is performed.",
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "phone"
+      ]
+    },
+    "CustomerCursor": {
+      "description": "Stable ordering across branches, including equal customer IDs in different branches.",
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "customerId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "customerId",
+        "branchId"
+      ]
+    },
     "CustomerDocument": {
       "description": "Customer-only saved document. Internal intent, price policy and approval data are excluded.",
       "type": "object",
@@ -2973,6 +3425,46 @@
         "totalYer"
       ]
     },
+    "CustomerHistoryPage": {
+      "description": "Each source examines at most 100 authorized records per page. Empty matching pages can continue.",
+      "type": "object",
+      "properties": {
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OrderRecord"
+          }
+        },
+        "ordersNext": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "quotations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationRecord"
+          }
+        },
+        "quotationsNext": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "serverAvailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "quotations",
+        "orders",
+        "serverAvailable"
+      ]
+    },
     "CustomerMutationResult": {
       "type": "object",
       "properties": {
@@ -3002,15 +3494,105 @@
           }
         },
         "next": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CustomerCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
         "items"
+      ]
+    },
+    "CustomerPendingReview": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ChangeRecord"
+        },
+        "contact": {
+          "$ref": "#/definitions/CustomerSyncPayload"
+        }
+      },
+      "required": [
+        "change",
+        "contact"
+      ]
+    },
+    "CustomerRead": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "get"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCustomer"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "search"
+            },
+            "payload": {
+              "$ref": "#/definitions/SearchCustomers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "CustomerResolutionSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "conflict"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerConflictSource"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pendingReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
       ]
     },
     "CustomerStatus": {
@@ -3019,6 +3601,45 @@
         "active",
         "archived",
         "merged"
+      ]
+    },
+    "CustomerSyncPayload": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "customerId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "customerId",
+        "name",
+        "phone",
+        "revision"
       ]
     },
     "CustomerSyncState": {
@@ -3100,6 +3721,26 @@
         "decision"
       ]
     },
+    "DesktopAccountChangeNotice": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "revision"
+      ]
+    },
+    "DesktopAccountChanges": {
+      "type": "object"
+    },
     "DesktopAccountPage": {
       "type": "object",
       "properties": {
@@ -3140,7 +3781,14 @@
           "minimum": 0
         },
         "role": {
-          "$ref": "#/definitions/DesktopAccountRole"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopAccountRole"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "userId": {
           "type": "string",
@@ -3155,9 +3803,69 @@
         "userId",
         "displayName",
         "username",
-        "role",
         "active",
         "revision"
+      ]
+    },
+    "DesktopEnrollmentProfile": {
+      "description": "Only the authenticated account's assignment for the requested installation scope.",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organization": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        },
+        "session": {
+          "$ref": "#/definitions/AuthenticatedServerSession"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "session",
+        "organization",
+        "branch",
+        "username",
+        "role"
+      ]
+    },
+    "DesktopEnrollmentSettings": {
+      "description": "Non-secret operator inputs. Rust validates trust and the server-assigned scope.",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "trustedCertificate": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "endpoint",
+        "trustedCertificate",
+        "tenantCode",
+        "organization",
+        "branch"
       ]
     },
     "DesktopSessionRequest": {
@@ -3260,6 +3968,7 @@
       "type": "string",
       "enum": [
         "active",
+        "configured",
         "signedOut",
         "failed"
       ]
@@ -3268,6 +3977,17 @@
       "description": "Password input is transient and must never be logged or persisted by a shell.",
       "type": "object",
       "properties": {
+        "connection": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopEnrollmentSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "correlationId": {
           "type": "string",
           "format": "uuid"
@@ -3279,6 +3999,10 @@
           "type": "string",
           "format": "uuid"
         },
+        "serverLogin": {
+          "type": "boolean",
+          "default": false
+        },
         "username": {
           "type": "string"
         }
@@ -3288,6 +4012,21 @@
         "correlationId",
         "username",
         "password"
+      ]
+    },
+    "DevicePublicKey": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "base64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "base64"
       ]
     },
     "DiagnosticReport": {
@@ -4100,6 +4839,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.desktop-account.changed.event.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountChangeNotice"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.pricing.changed.event.v1"
             },
             "payload": {
@@ -4814,6 +5569,13 @@
     "GetCustomer": {
       "type": "object",
       "properties": {
+        "branchId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
         "customerId": {
           "type": "string",
           "format": "uuid"
@@ -4821,6 +5583,57 @@
       },
       "required": [
         "customerId"
+      ]
+    },
+    "GetCustomerConflicts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "customer": {
+          "$ref": "#/definitions/GetCustomer"
+        }
+      },
+      "required": [
+        "customer"
+      ]
+    },
+    "GetCustomerHistory": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "$ref": "#/definitions/GetCustomer"
+        },
+        "includeOrders": {
+          "type": "boolean"
+        },
+        "includeQuotations": {
+          "type": "boolean"
+        },
+        "ordersAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "quotationsAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "customer",
+        "includeQuotations",
+        "includeOrders"
       ]
     },
     "GetEffectivePermissions": {
@@ -4893,6 +5706,32 @@
       "additionalProperties": false,
       "required": [
         "draftId"
+      ]
+    },
+    "GetQuotationDraftReview": {
+      "description": "A review always names the branch, including an organization Manager's review.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "branchId"
       ]
     },
     "GetSalesCatalogItem": {
@@ -5147,6 +5986,13 @@
     "HomeItem": {
       "type": "object",
       "properties": {
+        "branchId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
         "changedAt": {
           "type": "integer",
           "format": "int64"
@@ -5196,13 +6042,13 @@
           "type": "boolean"
         },
         "count": {
-          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customer and catalog sections leave this zero, not a match total.",
+          "description": "Unfiltered count within visited records: open quotations (Draft, `PendingApproval`, Issued,\nAccepted, including non-cancelled local drafts), active orders (not Delivered or Cancelled),\nor Pending approvals. Customers count returned matches (a lower bound if incomplete); catalog leaves this zero.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "items": {
-          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
+          "description": "At most eight rows. Quotations and orders sort by `changed_at` descending, then UUID ascending.\nCustomers retain ascending customer UUID, then branch UUID order; catalog retains its sales-entry cursor order.\nApprovals have no rows. Empty searches omit customer/catalog rows; other rows match the term.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/HomeItem"
@@ -5215,7 +6061,7 @@
           "minimum": 0
         },
         "serverAvailable": {
-          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Customers are local reads: true does not prove synchronization.",
+          "description": "For quotations and orders, every visited page was server-confirmed; for catalog, refresh\nsucceeded. False permits cached data without current-server confirmation. Approvals require\na successful server read. Organization customers require a server read; branch customers are local reads and do not prove synchronization.",
           "type": "boolean"
         }
       },
@@ -5249,7 +6095,7 @@
           ]
         },
         "customers": {
-          "description": "Branch customer search results from local authority; organization-wide search is unavailable.",
+          "description": "Authorized customer search: organization server directory or assigned-branch local authority.",
           "allOf": [
             {
               "$ref": "#/definitions/HomeSection"
@@ -5659,6 +6505,32 @@
         "expectedDraftRevision"
       ]
     },
+    "IssuedTokens": {
+      "description": "Secret-bearing token response. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "accessExpiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "accessToken": {
+          "type": "string"
+        },
+        "refreshExpiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "refreshToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "accessToken",
+        "refreshToken",
+        "accessExpiresAt",
+        "refreshExpiresAt"
+      ]
+    },
     "LifecycleSnapshot": {
       "type": "object",
       "properties": {
@@ -6060,6 +6932,28 @@
           "minimum": 1
         }
       },
+      "required": [
+        "limit"
+      ]
+    },
+    "ListServerAccounts": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
       "required": [
         "limit"
       ]
@@ -8566,6 +9460,54 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.customer.history.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCustomerHistory"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.quotation-draft.review.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetQuotationDraftReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.customer.conflicts.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/GetCustomerConflicts"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.customer.search.v1"
             },
             "payload": {
@@ -9260,6 +10202,54 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "customerHistory"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerHistoryPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "quotationDraftReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftReview"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "customerConflicts"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerConflictPage"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "customers"
             },
             "payload": {
@@ -9790,6 +10780,38 @@
         }
       }
     },
+    "QuotationDraftConflictSource": {
+      "type": "object",
+      "properties": {
+        "conflictId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "conflictId"
+      ]
+    },
+    "QuotationDraftConflictView": {
+      "type": "object",
+      "properties": {
+        "conflict": {
+          "$ref": "#/definitions/ConflictRecord"
+        },
+        "local": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "remote": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        }
+      },
+      "required": [
+        "conflict",
+        "local",
+        "remote"
+      ]
+    },
     "QuotationDraftPage": {
       "type": "object",
       "properties": {
@@ -9809,6 +10831,111 @@
       },
       "required": [
         "items"
+      ]
+    },
+    "QuotationDraftResolutionChoice": {
+      "description": "Whole saved snapshots retain their exact prices and configurations.",
+      "type": "string",
+      "enum": [
+        "keepCurrent",
+        "useInput"
+      ]
+    },
+    "QuotationDraftResolutionSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "conflict"
+            },
+            "payload": {
+              "$ref": "#/definitions/QuotationDraftConflictSource"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pendingReview"
+            },
+            "payload": {
+              "$ref": "#/definitions/ChangeRecord"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "QuotationDraftReview": {
+      "type": "object",
+      "properties": {
+        "canResolve": {
+          "type": "boolean"
+        },
+        "current": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationDraftConflictView"
+          }
+        },
+        "next": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "pendingResolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingReviews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuotationDraftReviewInput"
+          }
+        }
+      },
+      "required": [
+        "current",
+        "items",
+        "pendingReviews",
+        "canResolve"
+      ]
+    },
+    "QuotationDraftReviewInput": {
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/ChangeRecord"
+        },
+        "snapshot": {
+          "$ref": "#/definitions/QuotationDraftSnapshot"
+        }
+      },
+      "required": [
+        "change",
+        "snapshot"
       ]
     },
     "QuotationDraftSnapshot": {
@@ -10162,6 +11289,37 @@
         "cancelled"
       ]
     },
+    "ReadCustomerConflicts": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/GetCustomerConflicts"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
+    "ReadCustomers": {
+      "description": "Server reads use the authenticated scope; callers cannot widen it through a cursor.",
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/CustomerRead"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
     "ReadDiscountApprovals": {
       "type": "object",
       "properties": {
@@ -10237,6 +11395,40 @@
         "limit"
       ]
     },
+    "ReadQuotationDraftRecovery": {
+      "description": "Authenticated recovery read; it conveys no resolution permission.",
+      "type": "object",
+      "properties": {
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "draftId"
+      ]
+    },
+    "ReadQuotationDraftReview": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/GetQuotationDraftReview"
+        },
+        "scope": {
+          "$ref": "#/definitions/ScopeRef"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "query"
+      ]
+    },
     "ReadQuotations": {
       "type": "object",
       "properties": {
@@ -10267,6 +11459,40 @@
       "required": [
         "scope",
         "query"
+      ]
+    },
+    "ReconcileResolution": {
+      "description": "Reconciles an earlier author's exact decision without executing it as the caller.",
+      "type": "object",
+      "properties": {
+        "originalUser": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request": {
+          "$ref": "#/definitions/ConfirmCustomerResolution"
+        }
+      },
+      "required": [
+        "originalUser",
+        "request"
+      ]
+    },
+    "ReconcileResolution2": {
+      "description": "Reconciles an earlier author's exact decision without executing it as the caller.",
+      "type": "object",
+      "properties": {
+        "originalUser": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request": {
+          "$ref": "#/definitions/ConfirmQuotationDraftResolution"
+        }
+      },
+      "required": [
+        "originalUser",
+        "request"
       ]
     },
     "ReconciliationDelivery": {
@@ -10757,6 +11983,64 @@
       "enum": [
         "local",
         "remote"
+      ]
+    },
+    "ResolveCustomerConflict": {
+      "type": "object",
+      "properties": {
+        "contact": {
+          "$ref": "#/definitions/CustomerContact"
+        },
+        "customer": {
+          "$ref": "#/definitions/GetCustomer"
+        },
+        "expectedServerRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/definitions/CustomerResolutionSource"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "customer",
+        "source",
+        "expectedServerRevision",
+        "contact"
+      ]
+    },
+    "ResolveQuotationDraft": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "choice": {
+          "$ref": "#/definitions/QuotationDraftResolutionChoice"
+        },
+        "draftId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedServerRevision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "source": {
+          "$ref": "#/definitions/QuotationDraftResolutionSource"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "draftId",
+        "branchId",
+        "expectedServerRevision",
+        "source",
+        "choice"
       ]
     },
     "RestartRequirement": {
@@ -11450,11 +12734,14 @@
       "type": "object",
       "properties": {
         "after": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "uuid"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CustomerCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "limit": {
           "type": "integer",
@@ -11495,6 +12782,338 @@
     "SemVer": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "ServerAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "organizations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerAccountOrganization"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "status": {
+          "$ref": "#/definitions/ServerAccountStatus"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenantId",
+        "accountId",
+        "userId",
+        "username",
+        "displayName",
+        "status",
+        "revision",
+        "organizations"
+      ]
+    },
+    "ServerAccountChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "account": {
+              "$ref": "#/definitions/CreateDesktopAccount"
+            },
+            "branchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operation": {
+              "type": "string",
+              "const": "createDesktop"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "branchId",
+            "account"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "account": {
+              "$ref": "#/definitions/UpdateDesktopAccount"
+            },
+            "branchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operation": {
+              "type": "string",
+              "const": "updateDesktop"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "branchId",
+            "account"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "assignments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ServerRoleAssignment"
+              }
+            },
+            "operation": {
+              "type": "string",
+              "const": "invite"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "username": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "organizationId",
+            "username",
+            "assignments"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "assignments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ServerRoleAssignment"
+              }
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "assign"
+            },
+            "organizationId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision",
+            "organizationId",
+            "assignments"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "deactivate"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "operation": {
+              "type": "string",
+              "const": "revokeSessions"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "accountId",
+            "expectedRevision"
+          ]
+        }
+      ]
+    },
+    "ServerAccountOrganization": {
+      "type": "object",
+      "properties": {
+        "assignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerRoleAssignment"
+          }
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "owner": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "organizationId",
+        "owner",
+        "assignments"
+      ]
+    },
+    "ServerAccountPage": {
+      "type": "object",
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ServerAccount"
+          }
+        },
+        "nextAfter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "accounts"
+      ]
+    },
+    "ServerAccountReceipt": {
+      "description": "Receipt metadata is safe to persist. The activation credential is returned separately.",
+      "type": "object",
+      "properties": {
+        "account": {
+          "$ref": "#/definitions/ServerAccount"
+        },
+        "invitationExpiresAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "invitationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "account"
+      ]
+    },
+    "ServerAccountResult": {
+      "description": "Secret-bearing response. Do not log or include it in diagnostics.",
+      "type": "object",
+      "properties": {
+        "activationToken": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receipt": {
+          "$ref": "#/definitions/ServerAccountReceipt"
+        }
+      },
+      "required": [
+        "receipt"
+      ]
+    },
+    "ServerAccountStatus": {
+      "type": "string",
+      "enum": [
+        "pendingActivation",
+        "active",
+        "disabled",
+        "locked"
+      ]
+    },
+    "ServerAccountWatch": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "$ref": "#/definitions/DesktopEnrollmentProfile"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "profile",
+        "revision"
+      ]
     },
     "ServerClientMessage": {
       "oneOf": [
@@ -11679,6 +13298,26 @@
             "payload"
           ]
         }
+      ]
+    },
+    "ServerRoleAssignment": {
+      "type": "object",
+      "properties": {
+        "branchIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "role": {
+          "$ref": "#/definitions/DesktopAccountRole"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "branchIds"
       ]
     },
     "ServerSubscriptionAcknowledgement": {
@@ -11987,6 +13626,22 @@
     },
     "Subscription": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.desktop-account.changed.subscribe.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopAccountChanges"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -13114,6 +14769,10 @@
         "records"
       ]
     },
+    "TenantCode": {
+      "description": "Stable, operator-assigned tenant sign-in code.",
+      "type": "string"
+    },
     "TransitionOrderWork": {
       "type": "object",
       "properties": {
@@ -13632,6 +15291,24 @@
         "scope",
         "reference",
         "base64"
+      ]
+    },
+    "WatchServerAccounts": {
+      "type": "object",
+      "properties": {
+        "registration": {
+          "$ref": "#/definitions/RegisterBranchRequest"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "registration",
+        "revision"
       ]
     },
     "WorkOrderFurniture": {

@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Windows platform maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-18"
 review_triggers:
   - "Windows engine launch, process containment, restart, lifecycle parsing, or shutdown behavior changes"
 keywords:
@@ -110,7 +110,7 @@ The implemented Windows operations shell maps typed states to Arabic recovery te
 
 ## Tests and safe extension points
 
-The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, projection invalidation, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds real Windows Job Object and Rust lifecycle checks, durable Part and Product saves, exact retries, restart persistence, and Product policy invalidation while Manager read access remains. The policy change uses Manager-authorized account administration; owner-only relationship queries remain denied.
+The dependency-free scenario harness beside the adapter covers intentional stop, unexpected death, exhaustion, stale exit, subscription queue overflow and reattachment, projection invalidation, graceful shutdown, and timeout termination. Passing `--engine target/debug/eitmad-engine-cli.exe` adds real Windows Job Object, Rust lifecycle, and engine restart checks. Seeded local credentials must not permit sign-in or protected queries without server authority, including after restart. Connected account and product workflows use the authenticated server environment described in [workflow verification](../../operations/run-workflow-test-environment.md).
 
 Use no application arguments for adapter-only checks, or exactly `--engine <path>` for real-engine checks. Other arguments fail with a usage error. Do not pass `--nologo` to `dotnet run`: it reaches the test executable as an application argument. Use it only with `dotnet build` or `dotnet test`.
 

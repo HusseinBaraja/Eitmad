@@ -198,6 +198,22 @@ public partial class Command
     public UpdateCustomer? AsCustomerUpdate() =>
         Kind == CustomerUpdateKind ? PayloadAs<UpdateCustomer>() : null;
 
+    public const string QuotationDraftResolveKind = "eitmad.quotation-draft.resolve.v1";
+
+    public static Command ForQuotationDraftResolve(ResolveQuotationDraft payload) =>
+        new() { Kind = QuotationDraftResolveKind, Payload = payload };
+
+    public ResolveQuotationDraft? AsQuotationDraftResolve() =>
+        Kind == QuotationDraftResolveKind ? PayloadAs<ResolveQuotationDraft>() : null;
+
+    public const string CustomerResolveConflictKind = "eitmad.customer.resolve-conflict.v1";
+
+    public static Command ForCustomerResolveConflict(ResolveCustomerConflict payload) =>
+        new() { Kind = CustomerResolveConflictKind, Payload = payload };
+
+    public ResolveCustomerConflict? AsCustomerResolveConflict() =>
+        Kind == CustomerResolveConflictKind ? PayloadAs<ResolveCustomerConflict>() : null;
+
     public const string MaterialCategorySaveKind = "eitmad.material-category.save.v1";
 
     public static Command ForMaterialCategorySave(SaveMaterialCategory payload) =>
@@ -407,6 +423,22 @@ public partial class CommandResult
     public CustomerMutationResult? AsCustomerUpdated() =>
         Kind == CustomerUpdatedKind ? PayloadAs<CustomerMutationResult>() : null;
 
+    public const string QuotationDraftResolvedKind = "quotationDraftResolved";
+
+    public static CommandResult ForQuotationDraftResolved(ChangeRecord payload) =>
+        new() { Kind = QuotationDraftResolvedKind, Payload = payload };
+
+    public ChangeRecord? AsQuotationDraftResolved() =>
+        Kind == QuotationDraftResolvedKind ? PayloadAs<ChangeRecord>() : null;
+
+    public const string CustomerConflictResolvedKind = "customerConflictResolved";
+
+    public static CommandResult ForCustomerConflictResolved(ChangeRecord payload) =>
+        new() { Kind = CustomerConflictResolvedKind, Payload = payload };
+
+    public ChangeRecord? AsCustomerConflictResolved() =>
+        Kind == CustomerConflictResolvedKind ? PayloadAs<ChangeRecord>() : null;
+
     public const string MaterialCategorySavedKind = "materialCategorySaved";
 
     public static CommandResult ForMaterialCategorySaved(MaterialCategory payload) =>
@@ -511,6 +543,39 @@ public partial class CommandResult
     };
 }
 
+public partial class CustomerResolutionSource
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConflictKind = "conflict";
+
+    public static CustomerResolutionSource ForConflict(CustomerConflictSource payload) =>
+        new() { Kind = ConflictKind, Payload = payload };
+
+    public CustomerConflictSource? AsConflict() =>
+        Kind == ConflictKind ? PayloadAs<CustomerConflictSource>() : null;
+
+    public const string PendingReviewKind = "pendingReview";
+
+    public static CustomerResolutionSource ForPendingReview(ChangeRecord payload) =>
+        new() { Kind = PendingReviewKind, Payload = payload };
+
+    public ChangeRecord? AsPendingReview() =>
+        Kind == PendingReviewKind ? PayloadAs<ChangeRecord>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class Event
 {
     [JsonPropertyName("kind")]
@@ -519,6 +584,14 @@ public partial class Event
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string DesktopAccountChangedEventKind = "eitmad.desktop-account.changed.event.v1";
+
+    public static Event ForDesktopAccountChangedEvent(DesktopAccountChangeNotice payload) =>
+        new() { Kind = DesktopAccountChangedEventKind, Payload = payload };
+
+    public DesktopAccountChangeNotice? AsDesktopAccountChangedEvent() =>
+        Kind == DesktopAccountChangedEventKind ? PayloadAs<DesktopAccountChangeNotice>() : null;
 
     public const string PricingChangedEventKind = "eitmad.pricing.changed.event.v1";
 
@@ -1117,6 +1190,30 @@ public partial class Query
     public GetCustomer? AsCustomerGet() =>
         Kind == CustomerGetKind ? PayloadAs<GetCustomer>() : null;
 
+    public const string CustomerHistoryKind = "eitmad.customer.history.v1";
+
+    public static Query ForCustomerHistory(GetCustomerHistory payload) =>
+        new() { Kind = CustomerHistoryKind, Payload = payload };
+
+    public GetCustomerHistory? AsCustomerHistory() =>
+        Kind == CustomerHistoryKind ? PayloadAs<GetCustomerHistory>() : null;
+
+    public const string QuotationDraftReviewKind = "eitmad.quotation-draft.review.v1";
+
+    public static Query ForQuotationDraftReview(GetQuotationDraftReview payload) =>
+        new() { Kind = QuotationDraftReviewKind, Payload = payload };
+
+    public GetQuotationDraftReview? AsQuotationDraftReview() =>
+        Kind == QuotationDraftReviewKind ? PayloadAs<GetQuotationDraftReview>() : null;
+
+    public const string CustomerConflictsKind = "eitmad.customer.conflicts.v1";
+
+    public static Query ForCustomerConflicts(GetCustomerConflicts payload) =>
+        new() { Kind = CustomerConflictsKind, Payload = payload };
+
+    public GetCustomerConflicts? AsCustomerConflicts() =>
+        Kind == CustomerConflictsKind ? PayloadAs<GetCustomerConflicts>() : null;
+
     public const string CustomerSearchKind = "eitmad.customer.search.v1";
 
     public static Query ForCustomerSearch(SearchCustomers payload) =>
@@ -1430,6 +1527,30 @@ public partial class QueryResult
     public Customer? AsCustomer() =>
         Kind == CustomerKind ? PayloadAs<Customer>() : null;
 
+    public const string CustomerHistoryKind = "customerHistory";
+
+    public static QueryResult ForCustomerHistory(CustomerHistoryPage payload) =>
+        new() { Kind = CustomerHistoryKind, Payload = payload };
+
+    public CustomerHistoryPage? AsCustomerHistory() =>
+        Kind == CustomerHistoryKind ? PayloadAs<CustomerHistoryPage>() : null;
+
+    public const string QuotationDraftReviewKind = "quotationDraftReview";
+
+    public static QueryResult ForQuotationDraftReview(QuotationDraftReview payload) =>
+        new() { Kind = QuotationDraftReviewKind, Payload = payload };
+
+    public QuotationDraftReview? AsQuotationDraftReview() =>
+        Kind == QuotationDraftReviewKind ? PayloadAs<QuotationDraftReview>() : null;
+
+    public const string CustomerConflictsKind = "customerConflicts";
+
+    public static QueryResult ForCustomerConflicts(CustomerConflictPage payload) =>
+        new() { Kind = CustomerConflictsKind, Payload = payload };
+
+    public CustomerConflictPage? AsCustomerConflicts() =>
+        Kind == CustomerConflictsKind ? PayloadAs<CustomerConflictPage>() : null;
+
     public const string CustomersKind = "customers";
 
     public static QueryResult ForCustomers(CustomerPage payload) =>
@@ -1566,6 +1687,39 @@ public partial class QueryResult
     };
 }
 
+public partial class QuotationDraftResolutionSource
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ConflictKind = "conflict";
+
+    public static QuotationDraftResolutionSource ForConflict(QuotationDraftConflictSource payload) =>
+        new() { Kind = ConflictKind, Payload = payload };
+
+    public QuotationDraftConflictSource? AsConflict() =>
+        Kind == ConflictKind ? PayloadAs<QuotationDraftConflictSource>() : null;
+
+    public const string PendingReviewKind = "pendingReview";
+
+    public static QuotationDraftResolutionSource ForPendingReview(ChangeRecord payload) =>
+        new() { Kind = PendingReviewKind, Payload = payload };
+
+    public ChangeRecord? AsPendingReview() =>
+        Kind == PendingReviewKind ? PayloadAs<ChangeRecord>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class Subscription
 {
     [JsonPropertyName("kind")]
@@ -1574,6 +1728,14 @@ public partial class Subscription
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string DesktopAccountChangedSubscribeKind = "eitmad.desktop-account.changed.subscribe.v1";
+
+    public static Subscription ForDesktopAccountChangedSubscribe(DesktopAccountChanges payload) =>
+        new() { Kind = DesktopAccountChangedSubscribeKind, Payload = payload };
+
+    public DesktopAccountChanges? AsDesktopAccountChangedSubscribe() =>
+        Kind == DesktopAccountChangedSubscribeKind ? PayloadAs<DesktopAccountChanges>() : null;
 
     public const string PricingChangedSubscribeKind = "eitmad.pricing.changed.subscribe.v1";
 
@@ -1696,6 +1858,10 @@ public partial class ConfigurationChanges
 }
 
 public partial class CustomerChanges
+{
+}
+
+public partial class DesktopAccountChanges
 {
 }
 

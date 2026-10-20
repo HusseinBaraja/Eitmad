@@ -16,8 +16,8 @@ pub use authentication::{AuthenticationError, AuthenticationService, TokenKey, u
 pub use branches::{BranchError, BranchService};
 pub use database::{ControlDatabase, ControlDatabaseError};
 pub use identity::{
-    AccountInvitation, BootstrapInput, BootstrapResult, IdentityError, IdentityService,
-    WorkflowRole,
+    BootstrapInput, BootstrapResult, IdentityError, IdentityService, ServerAccountError,
+    recover_owner_password,
 };
 pub use update_assignment::{UpdateAssignmentError, UpdateAssignmentService};
 
@@ -33,6 +33,11 @@ pub struct ControlPlane {
 }
 
 impl ControlPlane {
+    /// Checks the same database used by authentication, without returning database errors.
+    pub async fn database_available(&self) -> bool {
+        self.authentication.database_available().await
+    }
+
     #[must_use]
     pub fn new(pool: PgPool, token_key: TokenKey) -> Self {
         Self {

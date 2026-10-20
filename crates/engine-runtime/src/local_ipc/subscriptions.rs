@@ -313,6 +313,7 @@ fn now() -> UnixMillis {
 
 fn event_scope(event: &Event) -> Option<&ScopeRef> {
     match event {
+        Event::DesktopAccountChanged(notice) => Some(&notice.scope),
         Event::ConfigurationChanged(snapshot) => Some(&snapshot.scope),
         Event::AuthorizationPolicyChanged(notice) => Some(&notice.scope),
         Event::OrderChanged(value) => Some(&value.scope),

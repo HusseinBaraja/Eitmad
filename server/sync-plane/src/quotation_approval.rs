@@ -203,6 +203,27 @@ pub(super) async fn invalidate_for_draft(
     snapshot: &QuotationDraftSnapshot,
     now: UnixMillis,
 ) -> Result<(), E> {
+    invalidate_draft(tx, actor, scope, snapshot, now, false).await
+}
+
+pub(super) async fn invalidate_for_resolution(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    snapshot: &QuotationDraftSnapshot,
+    now: UnixMillis,
+) -> Result<(), E> {
+    invalidate_draft(tx, actor, scope, snapshot, now, true).await
+}
+
+async fn invalidate_draft(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    snapshot: &QuotationDraftSnapshot,
+    now: UnixMillis,
+    resolution: bool,
+) -> Result<(), E> {
     let Some(mut a) = latest(tx, actor, snapshot.id).await? else {
         return Ok(());
     };
@@ -212,7 +233,7 @@ pub(super) async fn invalidate_for_draft(
     if matches!(
         a.state,
         DiscountApprovalState::Pending | DiscountApprovalState::Approved
-    ) && (snapshot.cancelled || !same_commercial_terms(&a.quotation, snapshot))
+    ) && (resolution || snapshot.cancelled || !same_commercial_terms(&a.quotation, snapshot))
     {
         a.state = DiscountApprovalState::Invalidated;
         a.revision += 1;

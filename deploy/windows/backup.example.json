@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "deploymentId": "00000000000000000000000000000001",
+  "recoveryKitId": "synthetic-recovery-kit-20261019",
+  "time": "02:00",
+  "intervalHours": 12,
+  "rpoHours": 24,
+  "rtoHours": 4,
+  "retention": { "daily": 14, "weekly": 8 },
+  "share": "\\\\BACKUP-PC\\EitmadRecovery",
+  "storageCredentialFile": "C:\\ProgramData\\EitmadBackup\\smb.credential.xml",
+  "postgresCredentialFile": "C:\\ProgramData\\EitmadBackup\\postgres.credential.xml",
+  "statusDirectory": "C:\\ProgramData\\EitmadBackup\\status",
+  "storage": {
+    "computer": "backup-pc.workshop.test",
+    "shareName": "EitmadRecovery",
+    "credentialFile": "C:\\ProgramData\\EitmadBackup\\storage-admin.credential.xml"
+  },
+  "nodes": [
+    {
+      "id": "server", "kind": "server", "computer": "server-pc.workshop.test",
+      "credentialFile": "C:\\ProgramData\\EitmadBackup\\server-admin.credential.xml",
+      "volumes": ["C:"], "runtimes": [],
+      "requiredPaths": ["C:\\ProgramData\\EitmadHost", "C:\\ProgramData\\EitmadLan", "C:\\ProgramData\\EitmadBackup"],
+      "hostModule": "C:\\ProgramData\\EitmadBackup\\host.psm1",
+      "hostRoot": "C:\\ProgramData\\EitmadHost", "serviceName": "Eitmad"
+    },
+    {
+      "id": "client-1", "kind": "client", "computer": "client-1.workshop.test",
+      "credentialFile": "C:\\ProgramData\\EitmadBackup\\client-1-admin.credential.xml",
+      "volumes": ["C:"],
+      "requiredPaths": ["C:\\Eitmad"],
+      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad\\engine"]
+    },
+    {
+      "id": "client-2", "kind": "client", "computer": "client-2.workshop.test",
+      "credentialFile": "C:\\ProgramData\\EitmadBackup\\client-2-admin.credential.xml",
+      "volumes": ["C:"],
+      "requiredPaths": ["C:\\Eitmad"],
+      "runtimes": ["C:\\Users\\Workshop\\AppData\\Local\\Eitmad\\engine"]
+    }
+  ]
+}

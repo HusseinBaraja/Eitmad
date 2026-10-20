@@ -309,6 +309,13 @@ public sealed class RawMaterialsViewModel : ObservableObject
         new(UnitDimension.Mass, "كتلة"),
     ];
 
+    public void ClearSession()
+    {
+        CancelEditor(); CancelReferenceEditor(); CloseReferenceManager();
+        Set(ref searchText, string.Empty, nameof(SearchText));
+        ApplyDurableData(new MaterialReferences { Categories = [], Units = [] }, []);
+    }
+
     public void ApplyDurableData(MaterialReferences references, IReadOnlyList<Material> records)
     {
         var priorCategory = SelectedCategory;

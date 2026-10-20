@@ -11,11 +11,13 @@ mod dispatcher;
 pub mod local_ipc;
 mod recovery;
 
-pub use accounts::{DesktopAccountError, DesktopAccountService};
+pub use accounts::{DesktopAccountAuthority, DesktopAccountError};
 pub use authority_store::{
     AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck,
 };
-pub use desktop_auth::{DesktopAuthenticationError, DesktopAuthenticator};
+pub use desktop_auth::{
+    DesktopAuthenticationError, DesktopAuthenticator, DesktopServerAuthentication,
+};
 pub use dispatcher::ProductDispatcher;
 pub use recovery::{ManualRecovery, RecoveryError};
 
@@ -215,8 +217,10 @@ impl EngineRuntime {
             builder.mode,
             now(),
             ReleaseVersion::new(
-                semver::Version::parse(env!("CARGO_PKG_VERSION"))
-                    .expect("Cargo package version must be valid semver"),
+                semver::Version::parse(
+                    option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+                )
+                .expect("Cargo package version must be valid semver"),
             ),
         );
         let snapshot = LifecycleSnapshot {

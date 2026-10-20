@@ -19,6 +19,7 @@ public interface IEngineShellBridge : IAsyncDisposable
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
     Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default);
+    Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default);
     Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
     Task<QueryResponseEnvelope> QueryAsync(Query query, CancellationToken cancellationToken = default);
@@ -74,6 +75,9 @@ public sealed class WindowsEngineBridge : IEngineShellBridge
 
     public Task<DesktopSessionState> SignInAsync(string username, string password, CancellationToken cancellationToken = default) =>
         supervisor.SignInAsync(username, password, cancellationToken);
+
+    public Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection, CancellationToken cancellationToken = default) =>
+        supervisor.AuthenticateServerAsync(username, password, connection, cancellationToken);
 
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         supervisor.GetSessionStateAsync(cancellationToken);

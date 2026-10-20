@@ -1,3 +1,4 @@
+use std::future::IntoFuture as _;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -65,7 +66,8 @@ pub struct ServerState {
     relay: Option<RelayCoordinator>,
     updates: Option<UpdateCatalog>,
     administration: Option<AdministrationService>,
-    approval_notifications: Arc<tokio::sync::OnceCell<ApprovalNotifications>>,
+    account_notifications: Arc<tokio::sync::OnceCell<DatabaseNotifications>>,
+    approval_notifications: Arc<tokio::sync::OnceCell<DatabaseNotifications>>,
     quotation_expiry_checks: Arc<
         tokio::sync::Mutex<std::collections::HashMap<QuotationExpiryScope, std::time::Instant>>,
     >,
@@ -93,6 +95,7 @@ impl ServerState {
             relay: None,
             updates: None,
             administration: None,
+            account_notifications: Arc::new(tokio::sync::OnceCell::new()),
             approval_notifications: Arc::new(tokio::sync::OnceCell::new()),
             quotation_expiry_checks: Arc::new(tokio::sync::Mutex::new(
                 std::collections::HashMap::new(),
@@ -113,28 +116,32 @@ impl ServerState {
         self
     }
 
+    async fn account_notifications(
+        &self,
+    ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_control_plane::ServerAccountError>
+    {
+        let notifications = self
+            .account_notifications
+            .get_or_try_init(|| async {
+                let listener = self.control.identity.account_listener().await?;
+                Ok::<_, eitmad_control_plane::ServerAccountError>(DatabaseNotifications::start(
+                    listener,
+                ))
+            })
+            .await?;
+        Ok(notifications.wake.subscribe())
+    }
+
     async fn approval_notifications(
         &self,
     ) -> Result<tokio::sync::broadcast::Receiver<()>, eitmad_pricing::ApprovalError> {
-        let notifications=self.approval_notifications.get_or_try_init(|| async {
-            // One listener per host, counted in the sync pool, independent of client count.
-            let mut listener=self.sync.quotation_approvals().listener().await?;
-            let (wake,_)=tokio::sync::broadcast::channel(16);
-            let (stop,mut stopping)=tokio::sync::watch::channel(false);
-            let publish=wake.clone();
-            tokio::spawn(async move {
-                loop {
-                    tokio::select! {
-                        _=stopping.changed()=>break,
-                        received=listener.recv()=> {
-                            let _=publish.send(());
-                            if received.is_err() {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
-                        }
-                    }
-                }
-            });
-            Ok(ApprovalNotifications{wake,stop})
-        }).await?;
+        let notifications = self
+            .approval_notifications
+            .get_or_try_init(|| async {
+                let listener = self.sync.quotation_approvals().listener().await?;
+                Ok::<_, eitmad_pricing::ApprovalError>(DatabaseNotifications::start(listener))
+            })
+            .await?;
         Ok(notifications.wake.subscribe())
     }
 
@@ -176,11 +183,37 @@ impl ServerState {
     }
 }
 
-struct ApprovalNotifications {
+struct DatabaseNotifications {
     wake: tokio::sync::broadcast::Sender<()>,
     stop: tokio::sync::watch::Sender<bool>,
 }
-impl Drop for ApprovalNotifications {
+impl DatabaseNotifications {
+    // One listener per domain and host, independent of the connected client count.
+    fn start(mut listener: eitmad_postgres_support::postgres::PgListener) -> Self {
+        let (wake, _) = tokio::sync::broadcast::channel(16);
+        let (stop, mut stopping) = tokio::sync::watch::channel(false);
+        let publish = wake.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = stopping.changed() => break,
+                    received = listener.recv() => {
+                        let _ = publish.send(());
+                        if received.is_err() {
+                            tokio::select! {
+                                () = tokio::time::sleep(std::time::Duration::from_secs(1)) => (),
+                                _ = stopping.changed() => break,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        Self { wake, stop }
+    }
+}
+
+impl Drop for DatabaseNotifications {
     fn drop(&mut self) {
         let _ = self.stop.send(true);
     }
@@ -193,7 +226,11 @@ pub fn router(state: ServerState) -> Router {
         .route("/readyz", get(ready))
         .route("/v1/auth/activate", post(activate))
         .route("/v1/auth/login", post(login))
+        .route("/v1/auth/desktop-profile", post(desktop_profile))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/accounts/list", post(list_accounts))
+        .route("/v1/accounts/watch", post(watch_accounts))
+        .route("/v1/accounts/transition", post(change_account))
         .route(
             "/v1/catalog-images/upload",
             post(upload_catalog_image)
@@ -229,6 +266,20 @@ pub fn router(state: ServerState) -> Router {
             post(price_status).layer(axum::extract::DefaultBodyLimit::max(64 * 1024)),
         )
         .route("/v1/customer-branches", post(register_customer_branch))
+        .route("/v1/customers/read", post(customer_read))
+        .route("/v1/customers/conflicts", post(customer_conflicts))
+        .route(
+            "/v1/customers/reconcile-resolution",
+            post(customer_reconcile),
+        )
+        .route("/v1/customers/resolve", post(customer_resolve))
+        .route("/v1/quotation-drafts/recovery", post(draft_recovery))
+        .route("/v1/quotation-drafts/review", post(draft_review))
+        .route(
+            "/v1/quotation-drafts/reconcile-resolution",
+            post(draft_reconcile),
+        )
+        .route("/v1/quotation-drafts/resolve", post(draft_resolve))
         .route("/v1/update-assignment", get(update_assignment))
         .route("/v1/updates/check", post(check_update))
         .route("/v1/admin/update-manifests", post(publish_update_manifest))
@@ -294,9 +345,21 @@ pub async fn run(
             .await?;
     } else {
         let listener = tokio::net::TcpListener::bind(address).await?;
-        axum::serve(listener, application)
-            .with_graceful_shutdown(shutdown_signal(state))
-            .await?;
+        let (shutdown, stopped) = tokio::sync::oneshot::channel();
+        let server = axum::serve(listener, application)
+            .with_graceful_shutdown(async {
+                let _ = stopped.await;
+            })
+            .into_future();
+        tokio::pin!(server);
+        // A WebSocket can otherwise keep plaintext shutdown pending without a limit.
+        tokio::select! {
+            result = &mut server => result?,
+            () = shutdown_signal(state) => {
+                let _ = shutdown.send(());
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(30), server).await;
+            }
+        }
     }
     Ok(())
 }
@@ -315,7 +378,15 @@ fn new_correlation_id() -> CorrelationId {
 }
 
 async fn ready(State(state): State<ServerState>) -> StatusCode {
-    if state.ready.load(Ordering::Acquire) {
+    let database_ready = state.ready.load(Ordering::Acquire)
+        && tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            state.control.database_available(),
+        )
+        .await
+        .unwrap_or(false);
+    // Recheck after the database probe so shutdown cannot publish stale readiness.
+    if database_ready && state.ready.load(Ordering::Acquire) {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::SERVICE_UNAVAILABLE
@@ -333,6 +404,129 @@ async fn activate(
         .await
         .map(Json)
         .map_err(ApiError::authentication)
+}
+
+async fn list_accounts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::ListServerAccounts>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountPage>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.server-administration.v1",
+    )
+    .await?;
+    state
+        .control
+        .identity
+        .list_accounts(&actor, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+async fn desktop_profile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<RegisterBranchRequest>,
+) -> Result<Json<eitmad_contracts::server::DesktopEnrollmentProfile>, ApiError> {
+    let actor = authenticate_headers(&state, &headers).await?;
+    state
+        .control
+        .identity
+        .desktop_profile(&actor, &request)
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+async fn watch_accounts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::WatchServerAccounts>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountWatch>, ApiError> {
+    let mut changes = state.account_notifications().await.map_err(map_account)?;
+    let actor =
+        authenticate_negotiated(&state, &headers, "eitmad.capability.shared-accounts.v1").await?;
+    state
+        .control
+        .identity
+        .desktop_profile(&actor, &request.registration)
+        .await
+        .map_err(map_account)?;
+    if state
+        .control
+        .identity
+        .account_revision(actor.tenant_id)
+        .await
+        .map_err(map_account)?
+        == request.revision
+    {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(3), changes.recv()).await;
+    }
+    let (token, _) = connection_credentials(&headers)?;
+    revalidate_stream(&state, &token, &actor).await?;
+    let profile = state
+        .control
+        .identity
+        .desktop_profile(&actor, &request.registration)
+        .await
+        .map_err(map_account)?;
+    let revision = state
+        .control
+        .identity
+        .account_revision(actor.tenant_id)
+        .await
+        .map_err(map_account)?;
+    Ok(Json(
+        eitmad_contracts::server_accounts::ServerAccountWatch { profile, revision },
+    ))
+}
+
+async fn change_account(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(request): Json<eitmad_contracts::server_accounts::ChangeServerAccount>,
+) -> Result<Json<eitmad_contracts::server_accounts::ServerAccountResult>, ApiError> {
+    let capability = if matches!(
+        request.change,
+        eitmad_contracts::server_accounts::ServerAccountChange::CreateDesktop { .. }
+            | eitmad_contracts::server_accounts::ServerAccountChange::UpdateDesktop { .. }
+    ) {
+        "eitmad.capability.shared-accounts.v1"
+    } else {
+        "eitmad.capability.server-administration.v1"
+    };
+    let actor = authenticate_negotiated(&state, &headers, capability).await?;
+    state
+        .control
+        .identity
+        .change_account(&actor, &request, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_account)
+}
+
+fn map_account(error: eitmad_control_plane::ServerAccountError) -> ApiError {
+    use eitmad_control_plane::ServerAccountError;
+    match error {
+        ServerAccountError::Denied => ApiError::forbidden("eitmad.error.authorization-denied.v1"),
+        ServerAccountError::Invalid => ApiError::bad_request("eitmad.error.contract-invalid.v1"),
+        ServerAccountError::RevisionConflict => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-account-revision-conflict.v1",
+        ),
+        ServerAccountError::IdempotencyMismatch => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-idempotency-mismatch.v1",
+        ),
+        ServerAccountError::OwnerProtected => ApiError::new(
+            StatusCode::CONFLICT,
+            "eitmad.error.server-owner-protected.v1",
+        ),
+        ServerAccountError::Unavailable => ApiError::unavailable(),
+    }
 }
 
 async fn login(
@@ -1047,6 +1241,7 @@ fn live_ordered_schema(schema: &str) -> bool {
     matches!(
         schema,
         eitmad_orders::ORDER_SCHEMA
+            | eitmad_customer::CUSTOMER_SCHEMA_ID
             | eitmad_orders::WORK_ORDER_SCHEMA
             | eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
             | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
@@ -1274,6 +1469,7 @@ async fn handle_stream_message(
                 && matches!(
                     context.schema_id.as_str(),
                     eitmad_pricing::DISCOUNT_APPROVAL_SCHEMA
+                        | eitmad_customer::CUSTOMER_SCHEMA_ID
                         | eitmad_pricing::QUOTATION_LIFECYCLE_SCHEMA
                         | eitmad_orders::ORDER_SCHEMA
                         | eitmad_orders::WORK_ORDER_SCHEMA
@@ -1581,22 +1777,15 @@ async fn authenticate_negotiated(
         .and_then(|value| URL_SAFE_NO_PAD.decode(value).ok())
         .and_then(|value| serde_json::from_slice::<PeerHello>(&value).ok())
         .ok_or_else(|| ApiError::bad_request("eitmad.error.server-client-incompatible.v1"))?;
-    let minimum_minor = if required_capability.as_str() == "eitmad.capability.work-orders.v1" {
-        23
-    } else if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1"
-    ) {
-        22
-    } else if required_capability.as_str() == "eitmad.capability.quotation-approval.v1" {
-        20
-    } else if matches!(
-        required_capability.as_str(),
-        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1"
-    ) {
-        17
-    } else {
-        5
+    let minimum_minor = match required_capability.as_str() {
+        "eitmad.capability.quotation-draft-resolution.v1" => 28,
+        "eitmad.capability.customer.v1" => 27,
+        "eitmad.capability.shared-accounts.v1" => 25,
+        "eitmad.capability.work-orders.v1" => 23,
+        "eitmad.capability.orders.v1" | "eitmad.capability.quotation-lifecycle.v1" => 22,
+        "eitmad.capability.quotation-approval.v1" => 20,
+        "eitmad.capability.pricing.v1" | "eitmad.capability.catalog-revisions.v1" => 17,
+        _ => 5,
     };
     let mut boundary = state.server_hello.clone();
     boundary.required_capabilities = vec![required_capability];
@@ -1658,10 +1847,13 @@ async fn revalidate_stream(
 /// Advertises supported schemas and capabilities while requiring only shared transport foundations.
 fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
     let capabilities = [
+        "eitmad.capability.customer.v1",
+        "eitmad.capability.shared-accounts.v1",
         "eitmad.capability.orders.v1",
         "eitmad.capability.work-orders.v1",
         "eitmad.capability.quotation-lifecycle.v1",
         "eitmad.capability.quotation-approval.v1",
+        "eitmad.capability.quotation-draft-resolution.v1",
         "eitmad.capability.sync.v1",
         "eitmad.capability.catalog-image.v1",
         "eitmad.capability.pricing.v1",
@@ -1691,9 +1883,11 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                 !matches!(
                     c.as_str(),
                     "eitmad.capability.orders.v1"
+                        | "eitmad.capability.customer.v1"
                         | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"
                         | "eitmad.capability.quotation-approval.v1"
+                        | "eitmad.capability.quotation-draft-resolution.v1"
                         | "eitmad.capability.catalog-image.v1"
                         | "eitmad.capability.pricing.v1"
                         | "eitmad.capability.catalog-revisions.v1"
@@ -1910,6 +2104,79 @@ async fn order_transition(
         .map(Json)
         .map_err(map_order)
 }
+
+async fn customer_read(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ReadCustomers>,
+) -> Result<Json<eitmad_contracts::customer::CustomerPage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .read_customers(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| {
+            ApiError::new(
+                if error == eitmad_customer::CustomerError::Denied {
+                    StatusCode::FORBIDDEN
+                } else {
+                    StatusCode::SERVICE_UNAVAILABLE
+                },
+                if error == eitmad_customer::CustomerError::Denied {
+                    "eitmad.error.authorization-denied.v1"
+                } else {
+                    "eitmad.error.customer-unavailable.v1"
+                },
+            )
+        })
+}
+async fn customer_conflicts(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ReadCustomerConflicts>,
+) -> Result<Json<eitmad_contracts::customer::CustomerConflictPage>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .customer_conflicts(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+async fn customer_resolve(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::customer::ConfirmCustomerResolution>,
+) -> Result<Json<eitmad_contracts::sync::ChangeRecord>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .resolve_customer(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+fn map_customer_resolution(error: eitmad_customer::CustomerError) -> ApiError {
+    use eitmad_customer::CustomerError as E;
+    let (status, code) = match error {
+        E::Denied | E::UnsupportedScope => (
+            StatusCode::FORBIDDEN,
+            "eitmad.error.authorization-denied.v1",
+        ),
+        E::NotFound => (StatusCode::NOT_FOUND, "eitmad.error.customer-not-found.v1"),
+        E::RevisionConflict { .. } => (
+            StatusCode::CONFLICT,
+            "eitmad.error.customer-revision-conflict.v1",
+        ),
+        E::IdempotencyMismatch => (StatusCode::BAD_REQUEST, "eitmad.error.contract-invalid.v1"),
+        E::Unavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.customer-unavailable.v1",
+        ),
+    };
+    ApiError::new(status, code)
+}
 async fn order_read(
     State(state): State<ServerState>,
     headers: HeaderMap,
@@ -1950,6 +2217,134 @@ fn map_order(e: eitmad_orders::OrderError) -> ApiError {
         },
         eitmad_orders::error_code(e),
     )
+}
+
+async fn draft_review(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ReadQuotationDraftReview>,
+) -> Result<Json<eitmad_contracts::quotation_draft::QuotationDraftReview>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .quotation_draft_review(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+async fn draft_resolve(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution>,
+) -> Result<Json<ChangeRecord>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .resolve_quotation_draft(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+fn map_draft_resolution(error: &eitmad_pricing::QuotationDraftError) -> ApiError {
+    use eitmad_pricing::QuotationDraftError as E;
+    let (status, code) = match error {
+        E::Denied => (
+            StatusCode::FORBIDDEN,
+            "eitmad.error.authorization-denied.v1",
+        ),
+        E::Conflict { .. } | E::UnresolvedConflict => (
+            StatusCode::CONFLICT,
+            "eitmad.error.quotation-draft-conflict.v1",
+        ),
+        E::NotFound => (
+            StatusCode::NOT_FOUND,
+            "eitmad.error.quotation-draft-not-found.v1",
+        ),
+        E::Unavailable => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "eitmad.error.quotation-draft-unavailable.v1",
+        ),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            "eitmad.error.quotation-draft-invalid.v1",
+        ),
+    };
+    ApiError::new(status, code)
+}
+
+async fn draft_recovery(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<eitmad_contracts::quotation_draft::ReadQuotationDraftRecovery>,
+) -> Result<Json<Vec<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .quotation_draft_recovery(&actor, &input)
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
+}
+
+async fn customer_reconcile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<
+        eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+    >,
+) -> Result<Json<Option<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(&state, &headers, "eitmad.capability.customer.v1").await?;
+    state
+        .sync
+        .reconcile_customer_resolution(&actor, &input, new_correlation_id(), unix_millis_now())
+        .await
+        .map(Json)
+        .map_err(map_customer_resolution)
+}
+
+async fn draft_reconcile(
+    State(state): State<ServerState>,
+    headers: HeaderMap,
+    Json(input): Json<
+        eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::quotation_draft::ConfirmQuotationDraftResolution,
+        >,
+    >,
+) -> Result<Json<Option<ChangeRecord>>, ApiError> {
+    let actor = authenticate_negotiated(
+        &state,
+        &headers,
+        "eitmad.capability.quotation-draft-resolution.v1",
+    )
+    .await?;
+    state
+        .sync
+        .reconcile_quotation_draft_resolution(
+            &actor,
+            &input,
+            new_correlation_id(),
+            unix_millis_now(),
+        )
+        .await
+        .map(Json)
+        .map_err(|error| map_draft_resolution(&error))
 }
 
 #[cfg(test)]
@@ -2013,13 +2408,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn readyz_reports_unavailable_after_readiness_is_cleared() {
+    async fn liveness_does_not_imply_database_readiness() {
         use tower::ServiceExt as _;
         let state = test_state();
         let response = router(state.clone())
             .oneshot(
                 axum::http::Request::builder()
                     .uri("/readyz")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let response = router(state.clone())
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/livez")
                     .body(axum::body::Body::empty())
                     .unwrap(),
             )

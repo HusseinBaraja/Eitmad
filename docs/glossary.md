@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-10-01"
+last_verified: "2026-10-17"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -156,7 +156,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | صلاحية موروثة | Inherited permission | Access granted through an explicit, bounded parent relation from a protected object to an authorized ancestor. |
 | شرط الصلاحية | Authorization condition | An optional equality, `all`, or `any` predicate over canonical request attributes; a failed or absent required value denies. |
 | بوابة الصلاحية والتدقيق | Authorization and audit gate | The Rust boundary that evaluates policy, durably records denials, executes only read-only callbacks through its convenience path, and leaves state-changing audit atomicity to the owning domain transaction. |
-| مالك النطاق | Scope owner | A principal related as organization owner; owners administer relationships, and Rust preserves at least one persisted production owner. Explicit insecure development authentication may instead provide a non-persisted ephemeral owner. |
+| مالك النطاق | Scope owner | A principal with an explicit owner relationship at the named scope. Organization owners administer that scope; a tenant Owner administers shared server accounts. Owner does not imply Manager or Receptionist permissions. Rust preserves persisted production ownership, and the server account lifecycle rejects Owner deactivation. Explicit insecure development authentication can provide an ephemeral local owner. |
 | مدير الإعدادات | Configuration manager | A principal related to an organization with permission to patch, import, and export configuration but not administer relationships. |
 | إلغاء الصلاحية | Authorization revocation | A committed policy change that removes effective access and forces active subscriptions to reauthorize before later delivery. |
 | سجل التدقيق | Audit record | A durable result envelope containing actor, device/session, tenant/workspace, scope, operation, target, outcome, time, correlation, and only redacted error metadata. |
@@ -170,6 +170,8 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | صحة اتصال المزامنة | Sync connection health | **Provisional UI term.** Operational state that reports offline, connecting, healthy, or degraded transport plus retry evidence; it does not prove reconciliation committed. |
 | مرحّل المزامنة | Sync relay | **Provisional UI term.** A tenant-isolated WAN coordination route that preserves authentication and encryption when direct server connectivity is unavailable. It rejects unauthenticated or plaintext WAN sessions and cannot change sync meaning or product authorization. |
 | تعارض | Conflict | Concurrent or incompatible state that cannot be safely combined without a defined domain rule or decision. |
+| مراجعة تعارض العميل | Customer conflict review | A Manager compares preserved inputs and the current server contact, selects or corrects each final field, then confirms against the current server revision. Later pending edits require separate review. |
+| مراجعة تعارض المسودة | Quotation-draft conflict review | A Manager reviews both preserved draft inputs and the current server snapshot, then explicitly keeps the current snapshot or uses the saved input. Later held revisions require separate review. This decision does not approve or issue the quotation. |
 | سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
 | محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |

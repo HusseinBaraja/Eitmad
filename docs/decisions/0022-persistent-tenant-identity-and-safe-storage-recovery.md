@@ -21,7 +21,7 @@ keywords:
 > - Date: 2026-08-19
 > - Decision owners: Architecture, identity, storage, and security maintainers
 > - Supersedes: None
-> - Superseded by: None
+> - Superseded by: [ADR-0029](0029-require-live-server-authority-for-protected-access.md), offline protected-access allowance only; identity and storage decisions remain accepted
 
 ## Context
 

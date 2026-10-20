@@ -19,6 +19,8 @@ keywords:
 
 Deploy one immutable `eitmad-server` artifact per release. Keep staging and production in separate trust, data, credentials, update channels, and network boundaries. The combined binary composes control, sync, relay, update, and administration planes, but their privileges and future split points remain separate.
 
+For a single Windows LAN host, use the [installed service procedure](run-windows-host-services.md) for unattended startup, service identities, readiness, power requirements, and preserved uninstall data.
+
 ## Profiles
 
 | Profile | Purpose | Update channel | Data and trust | Availability |

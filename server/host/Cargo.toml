@@ -10,6 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-customer = { path = "../../crates/customer" }
+eitmad-postgres-support = { path = "../postgres-support" }
 eitmad-orders = { path = "../../crates/orders" }
 eitmad-pricing = { path = "../../crates/pricing" }
 eitmad-catalog-image = { path = "../../crates/catalog-image" }
@@ -35,9 +37,9 @@ tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt"] }
 thiserror = "=2.0.18"
 uuid = { version = "=1.23.4", features = ["serde", "v4"] }
+zeroize = "=1.8.1"
 
 [dev-dependencies]
-eitmad-postgres-support = { path = "../postgres-support" }
 tower = { version = "=0.5.3", features = ["util"] }
 
 [[bin]]

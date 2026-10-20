@@ -51,7 +51,7 @@ public sealed partial class SalesCatalogViewModel
         {
             savedDraft = result.Value;
             draftConflict = savedDraft.SyncState is SyncState.Conflicted or SyncState.Rejected;
-            if (draftConflict) QuotationNotice = QuotationDraftClient.SyncLabel(savedDraft);
+            if (draftConflict) QuotationNotice = QuotationDraftClient.SyncLabel(savedDraft) + " · اطلب من المدير مراجعة تعارض المسودة في عروض الأسعار.";
         }
         RaiseDraftState();
     }

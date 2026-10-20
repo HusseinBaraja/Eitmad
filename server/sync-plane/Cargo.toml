@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-customer = { path = "../../crates/customer" }
 eitmad-orders = { path = "../../crates/orders" }
 eitmad-pricing = { path = "../../crates/pricing" }
 eitmad-catalog-image = { path = "../../crates/catalog-image" }

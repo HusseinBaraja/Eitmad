@@ -439,6 +439,7 @@
                         </Border>
                     </Grid>
                     <controls:FeedbackNotice Message="{Binding SelectedQuotation.ApprovalDecisionLabel}" Visibility="{Binding SelectedQuotation.HasApprovalDecision, Converter={StaticResource BooleanToVisibility}}" Margin="0,0,0,12"/>
+                    <Button x:Name="DraftReviewButton" Content="مراجعة تعارض المسودة" Click="ReviewDraftClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,12" Visibility="{Binding CanReviewDraft, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="مراجعة تعارض مسودة عرض السعر"/>
                     <controls:FeedbackNotice Message="{Binding LifecycleNotice}" Margin="0,0,0,12"/>
                     <Button Content="إعادة محاولة العملية" Click="RetryLifecycleClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Margin="0,0,0,16" Visibility="{Binding CanRetryLifecycle, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="إعادة محاولة عملية عرض السعر السابقة"/>
                     <Border x:Name="AcceptanceSection" Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16" Visibility="{Binding SelectedQuotation.CanAccept, Converter={StaticResource BooleanToVisibility}}">

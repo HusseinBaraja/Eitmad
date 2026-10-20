@@ -151,6 +151,9 @@ fn registry() -> Vec<Migration> {
         .chain(crate::quotation_lifecycle::MIGRATIONS)
         .chain(crate::orders::MIGRATIONS)
         .chain(crate::work_orders::MIGRATIONS)
+        .chain(customer::RESOLUTION_MIGRATIONS)
+        .chain(crate::draft_resolution::MIGRATIONS)
+        .chain(crate::draft_resolution::RECOVERY_MIGRATIONS)
         .copied()
         .collect()
 }
@@ -462,6 +465,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pending_migration_creates_validated_recovery_artifact_first() {
+        use crate::{AuthorityStore, CorruptionCheck, DATABASE_FILE_NAME, RecoveryArtifactKind};
+        let directory = tempfile::TempDir::new().unwrap();
+        let path = directory.path().join(DATABASE_FILE_NAME);
+        let mut connection = Connection::open(&path).unwrap();
+        apply_registry(&mut connection, &registry()[..4]).unwrap();
+        drop(connection);
+        let store = AuthorityStore { path };
+        store.backup_before_pending_migration().unwrap();
+        store.backup_before_pending_migration().unwrap();
+        assert_eq!(
+            AuthorityStore::recovery_artifacts(directory.path())
+                .unwrap()
+                .len(),
+            1
+        );
+        drop(store);
+
+        let migrated = AuthorityStore::open(directory.path()).unwrap();
+        assert!(migrated.verify_integrity(CorruptionCheck::Full).is_ok());
+        let artifacts = AuthorityStore::recovery_artifacts(directory.path()).unwrap();
+        assert_eq!(artifacts.len(), 1);
+        assert_eq!(artifacts[0].kind, RecoveryArtifactKind::PreMigration);
+        AuthorityStore::validate_backup(&artifacts[0].path).unwrap();
+    }
+
+    #[test]
     fn checksum_preserves_the_persisted_byte_format() {
         let migration = Migration::new(
             1,
@@ -508,6 +538,51 @@ mod tests {
                 .is_err()
         );
         apply(&mut connection).unwrap();
+    }
+
+    #[test]
+    fn catalog_image_upgrade_preserves_content_uploads_and_retry_receipts() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_registry(&mut connection, &registry()[..19]).unwrap();
+        connection.execute("INSERT INTO catalog_images VALUES('organization','scope','image','Product','digest',?1)", [b"retained image".as_slice()]).unwrap();
+        connection
+            .execute(
+                "INSERT INTO catalog_image_uploads VALUES('organization','scope','image',?1,?2)",
+                params![
+                    b"original author".as_slice(),
+                    b"original reference".as_slice()
+                ],
+            )
+            .unwrap();
+        connection.execute("INSERT INTO idempotency_records VALUES('organization','scope','key','import',?1,?2)", params![b"request hash".as_slice(), b"exact receipt".as_slice()]).unwrap();
+        apply(&mut connection).unwrap();
+        let content: Vec<u8> = connection
+            .query_row("SELECT content FROM catalog_images", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(content, b"retained image");
+        let upload: (Vec<u8>, Vec<u8>, i64) = connection
+            .query_row(
+                "SELECT actor_json,reference_json,next_attempt_at FROM catalog_image_uploads",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            upload,
+            (
+                b"original author".to_vec(),
+                b"original reference".to_vec(),
+                0
+            )
+        );
+        let receipt: Vec<u8> = connection
+            .query_row(
+                "SELECT response_json FROM idempotency_records WHERE idempotency_key='key'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(receipt, b"exact receipt");
     }
 
     #[test]

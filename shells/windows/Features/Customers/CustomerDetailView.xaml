@@ -6,6 +6,9 @@
  xmlns:customers="clr-namespace:Eitmad.WindowsShell.Features.Customers"
  FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource CanvasBrush}">
  <UserControl.Resources>
+  <Style x:Key="CustomerEditAction" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+   <Style.Triggers><DataTrigger Binding="{Binding ReadOnly}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+  </Style>
   <Style x:Key="HistoryValue" TargetType="TextBlock" BasedOn="{StaticResource TableBody}">
    <Setter Property="FlowDirection" Value="LeftToRight"/>
   </Style>
@@ -41,17 +44,21 @@
          <controls:StatusBadge.Icon><Path Data="{StaticResource IconAlert}" Width="18" Height="18" Stretch="Uniform" Margin="0,0,8,0" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=controls:StatusBadge}}"/></controls:StatusBadge.Icon>
         </controls:StatusBadge>
        </StackPanel>
-       <Button x:Name="EditButton" Grid.Column="1" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="تعديل بيانات العميل" VerticalAlignment="Top" Margin="24,0,0,0"/>
+       <Button x:Name="EditButton" Grid.Column="1" Content="تعديل" Click="EditClick" IsEnabled="{Binding CanEdit}" Style="{StaticResource CustomerEditAction}" AutomationProperties.Name="تعديل بيانات العميل" VerticalAlignment="Top" Margin="24,0,0,0"/>
       </Grid>
       <controls:FeedbackNotice x:Name="ConflictNotice" Tone="Warning" Margin="0,0,0,18" Visibility="{Binding HasSyncConflict, Converter={StaticResource BooleanToVisibility}}"
-       Message="التعديل متوقف بسبب تعارض في المزامنة. حل التعارض غير متاح في هذا الإصدار."/>
+       Message="التعديل متوقف بسبب تعارض في المزامنة. يراجع المدير النسختين ويعتمد البيانات بعد تأكيد الخادم."/>
+      <Button x:Name="ResolveButton" Content="مراجعة التعارضات" Style="{StaticResource SecondaryButton}" Click="ResolveClick" HorizontalAlignment="Left" Margin="0,0,0,16" Visibility="Collapsed" AutomationProperties.Name="مراجعة تعارضات العميل والتعديلات المعلقة"/>
       <layout:AdaptiveFieldsPanel MinItemWidth="240">
+       <controls:FormField Label="الفرع"><TextBlock Text="{Binding BranchId}" FlowDirection="LeftToRight" Style="{StaticResource ContactValue}"/></controls:FormField>
        <controls:FormField Label="رقم الهاتف"><TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Style="{StaticResource ContactValue}"/></controls:FormField>
        <controls:FormField Label="العنوان"><TextBlock Text="{Binding Address}" Style="{StaticResource ContactValue}"/></controls:FormField>
       </layout:AdaptiveFieldsPanel>
       <controls:FormField Label="ملاحظات" Margin="0,18,0,0"><TextBlock Text="{Binding Notes}" Style="{StaticResource ContactValue}"/></controls:FormField>
      </StackPanel>
     </Border>
+    <TextBlock Text="{Binding HistoryNotice}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+    <Button x:Name="HistoryNextButton" Content="صفحة السجل التالية" Click="HistoryNextClick" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,0,0,12" Visibility="{Binding HasMoreHistory, Converter={StaticResource BooleanToVisibility}}" AutomationProperties.Name="الصفحة التالية من سجل العميل"/>
     <TextBlock Text="عروض الأسعار" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource InkBrush}" Margin="0,0,0,12"/>
     <controls:OperationsTable x:Name="QuotationsTable" ItemsSource="{Binding Quotations}" RowHeight="58" MaxHeight="250" AutomationProperties.Name="عروض أسعار العميل">
      <controls:OperationsTable.EmptyContent><controls:EmptyState Heading="لا توجد عروض أسعار لهذا العميل"/></controls:OperationsTable.EmptyContent>
@@ -77,5 +84,6 @@
    </StackPanel>
   </ScrollViewer>
   <customers:CustomerEditorView x:Name="Editor" Grid.RowSpan="2"/>
+  <customers:CustomerResolutionView x:Name="Resolution" Grid.RowSpan="2"/>
  </Grid>
 </UserControl>

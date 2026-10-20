@@ -202,44 +202,53 @@ impl ProductDispatcher {
         let Some(server) = self.approval_server.clone() else {
             return;
         };
-        let actor = context.authorization.clone();
-        let deadline = context.deadline;
         let drafts = self.drafts.clone();
-        let correlation = context.correlation_id;
-        let _ = diagnostic_blocking(
-            context.correlation_id,
-            Source::Approvals,
-            move || -> Result<(), ApprovalError> {
-                loop {
-                    let pending = drafts
-                        .sync_batch(&actor, 50)
-                        .map_err(|_| ApprovalError::Unavailable)?;
-                    if pending.is_empty() {
-                        return Ok(());
-                    }
-                    for change in pending {
-                        use base64::{Engine as _, engine::general_purpose::STANDARD};
-                        let payload = change.payload.as_ref().ok_or(ApprovalError::Invalid)?;
-                        let snapshot = serde_json::from_slice(
-                            &STANDARD
-                                .decode(&payload.base64)
-                                .map_err(|_| ApprovalError::Invalid)?,
-                        )
-                        .map_err(|_| ApprovalError::Invalid)?;
-                        let request = ConfirmDiscountApproval {
-                            scope: actor.scope.clone(),
-                            idempotency_key: change.idempotency_key,
-                            action: DiscountApprovalAction::Refresh(snapshot),
-                        };
-                        server.transition(&actor, &request, deadline)?;
-                        drafts
-                            .project_confirmed(&actor, &change, correlation)
-                            .map_err(|_| ApprovalError::Unavailable)?;
-                    }
-                }
-            },
-        )
+        let deadline = context.deadline;
+        let _ = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            drafts.recover_pending(server.as_ref(), deadline)
+        })
         .await;
+        let _ = self.drain_pending_publications();
+    }
+
+    /// Starts the cancellable startup worker only when quotation transfer is configured.
+    /// Idle or failed passes wait two seconds; each pass has its own bounded budget.
+    #[must_use]
+    pub fn start_quotation_draft_recovery(
+        self: Arc<Self>,
+        mut cancel: tokio::sync::watch::Receiver<bool>,
+    ) -> Option<tokio::task::JoinHandle<()>> {
+        self.approval_server.as_ref()?;
+        Some(tokio::spawn(async move {
+            while !*cancel.borrow() {
+                let dispatcher = self.clone();
+                let result =
+                    tokio::task::spawn_blocking(move || dispatcher.retry_quotation_drafts()).await;
+                if matches!(result, Ok(Ok(count)) if count > 0) {
+                    continue;
+                }
+                tokio::select! {
+                    () = tokio::time::sleep(std::time::Duration::from_secs(2)) => (),
+                    _ = cancel.changed() => break,
+                }
+            }
+        }))
+    }
+
+    /// Recovers saved drafts independently of desktop sessions and UI actions.
+    /// # Errors
+    /// Retains durable inputs on unavailable transport or storage.
+    pub fn retry_quotation_drafts(&self) -> Result<usize, ApprovalError> {
+        let Some(server) = &self.approval_server else {
+            return Ok(0);
+        };
+        let result = self.drafts.recover_pending(
+            server.as_ref(),
+            eitmad_contracts::transport::UnixMillis(now().0.saturating_add(10_000)),
+        );
+        self.drain_pending_publications()
+            .map_err(|_| ApprovalError::Unavailable)?;
+        result
     }
     pub(super) fn start_approval_watch(
         &self,
@@ -345,4 +354,57 @@ pub(super) fn approval_error(e: ApprovalError, context: &DispatchContext) -> Con
 }
 pub(super) fn empty_watch() -> Arc<Mutex<Option<ApprovalWatch>>> {
     Arc::new(Mutex::new(None))
+}
+
+impl ProductDispatcher {
+    pub(super) async fn draft_review(
+        &self,
+        context: &DispatchContext,
+        query: eitmad_contracts::quotation_draft::GetQuotationDraftReview,
+    ) -> Result<QueryResult, ContractError> {
+        self.require_approval(
+            context,
+            eitmad_authorization::QUOTATION_DRAFT_RESOLVE_PERMISSION,
+        )
+        .map_err(|e| *e)?;
+        let server = self.approval_server.clone().ok_or_else(|| {
+            draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context)
+        })?;
+        let drafts = self.drafts.clone();
+        let actor = context.authorization.clone();
+        let deadline = context.deadline;
+        let value = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            drafts.review(&actor, &query, server.as_ref(), deadline)
+        })
+        .await
+        .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?
+        .map_err(|e| draft_error(e, context))?;
+        Ok(QueryResult::QuotationDraftReview(Box::new(value)))
+    }
+    pub(super) async fn resolve_draft(
+        &self,
+        context: &DispatchContext,
+        mutation: MutationContext,
+        command: eitmad_contracts::quotation_draft::ResolveQuotationDraft,
+    ) -> Result<CommandResult, ContractError> {
+        self.require_approval(
+            context,
+            eitmad_authorization::QUOTATION_DRAFT_RESOLVE_PERMISSION,
+        )
+        .map_err(|e| *e)?;
+        let server = self.approval_server.clone().ok_or_else(|| {
+            draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context)
+        })?;
+        let drafts = self.drafts.clone();
+        let deadline = context.deadline;
+        let value = diagnostic_blocking(context.correlation_id, Source::Approvals, move || {
+            drafts.resolve(&mutation, &command, server.as_ref(), deadline)
+        })
+        .await
+        .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?
+        .map_err(|e| draft_error(e, context))?;
+        self.drain_pending_publications()
+            .map_err(|_| draft_error(eitmad_pricing::QuotationDraftError::Unavailable, context))?;
+        Ok(CommandResult::QuotationDraftResolved(value))
+    }
 }

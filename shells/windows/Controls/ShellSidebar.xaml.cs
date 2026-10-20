@@ -26,7 +26,7 @@ public partial class ShellSidebar : UserControl
     public void SelectHome() => Select(HomeNavButton);
     public void SelectDestination(string destination)
     {
-        var button = new[] { HomeNavButton, QuotationsNavButton, OrdersNavButton, MaterialsNavButton, PartsNavButton, FurnitureNavButton, PricingNavButton, ProductsNavButton, WorkOrdersNavButton, UsersNavButton }
+        var button = new[] { HomeNavButton, QuotationsNavButton, OrdersNavButton, CustomersNavButton, MaterialsNavButton, PartsNavButton, FurnitureNavButton, PricingNavButton, ProductsNavButton, WorkOrdersNavButton, UsersNavButton }
             .First(candidate => Equals(candidate.Tag, destination));
         Select(button);
     }

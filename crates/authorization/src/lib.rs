@@ -45,6 +45,7 @@ pub const AUTHORIZATION_MANAGE_PERMISSION: &str = "eitmad.permission.authorizati
 pub const PERMISSIONS_READ_PERMISSION: &str = "eitmad.permission.permissions.read.v1";
 pub const CUSTOMER_READ_PERMISSION: &str = "eitmad.permission.customer.read.v1";
 pub const CUSTOMER_WRITE_PERMISSION: &str = "eitmad.permission.customer.write.v1";
+pub const CUSTOMER_RESOLVE_PERMISSION: &str = "eitmad.permission.customer.resolve.v1";
 pub const FURNITURE_READ_PERMISSION: &str = "eitmad.permission.furniture.read.v1";
 pub const FURNITURE_WRITE_PERMISSION: &str = "eitmad.permission.furniture.write.v1";
 pub const PRODUCT_READ_PERMISSION: &str = "eitmad.permission.product.read.v1";
@@ -67,6 +68,7 @@ pub const DISCOUNT_REQUEST_PERMISSION: &str = "eitmad.permission.quotation.appro
 pub const DISCOUNT_DECIDE_PERMISSION: &str = "eitmad.permission.quotation.approval.decide.v1";
 pub const DISCOUNT_READ_PERMISSION: &str = "eitmad.permission.quotation.approval.read.v1";
 pub const QUOTATION_DRAFT_READ_PERMISSION: &str = "eitmad.permission.quotation.draft.read.v1";
+pub const QUOTATION_DRAFT_RESOLVE_PERMISSION: &str = "eitmad.permission.quotation.draft.resolve.v1";
 pub const QUOTATION_DRAFT_WRITE_PERMISSION: &str = "eitmad.permission.quotation.draft.write.v1";
 pub const DESKTOP_ACCOUNTS_MANAGE_PERMISSION: &str = "eitmad.permission.desktop-accounts.manage.v1";
 /// Allows manual backup/restore for an owner or manager relationship in organization scope.
@@ -118,6 +120,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     PERMISSIONS_READ_PERMISSION,
     CUSTOMER_READ_PERMISSION,
     CUSTOMER_WRITE_PERMISSION,
+    CUSTOMER_RESOLVE_PERMISSION,
     FURNITURE_READ_PERMISSION,
     FURNITURE_WRITE_PERMISSION,
     PRODUCT_READ_PERMISSION,
@@ -134,6 +137,7 @@ const POLICY_PERMISSIONS: &[&str] = &[
     CATALOG_DRAFT_WRITE_PERMISSION,
     QUOTATION_DRAFT_READ_PERMISSION,
     QUOTATION_DRAFT_WRITE_PERMISSION,
+    QUOTATION_DRAFT_RESOLVE_PERMISSION,
     DESKTOP_ACCOUNTS_MANAGE_PERMISSION,
     STORAGE_RECOVERY_PERMISSION,
 ];
@@ -232,19 +236,15 @@ impl AuthorizationService {
             .store
             .relationships_for_subject(&context.scope, &subject)
             .map_err(|_| AuthorizationError::Unavailable)?;
-        let owner = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == OWNER_RELATION);
-        let config_manager = owner
-            || relationships
+        let has_relation = |relation| {
+            relationships
                 .iter()
-                .any(|relationship| relationship.relation.as_str() == CONFIG_MANAGER_RELATION);
-        let manager = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == MANAGER_RELATION);
-        let receptionist = relationships
-            .iter()
-            .any(|relationship| relationship.relation.as_str() == RECEPTIONIST_RELATION);
+                .any(|r| r.relation.as_str() == relation)
+        };
+        let owner = has_relation(OWNER_RELATION);
+        let config_manager = owner || has_relation(CONFIG_MANAGER_RELATION);
+        let manager = has_relation(MANAGER_RELATION);
+        let receptionist = has_relation(RECEPTIONIST_RELATION);
         let member = config_manager
             || relationships.iter().any(|relationship| {
                 matches!(
@@ -283,7 +283,7 @@ impl AuthorizationService {
                     | MATERIAL_READ_PERMISSION
                     | MATERIAL_WRITE_PERMISSION
                     | MATERIAL_UNIT_MANAGE_PERMISSION => manager && organization_scope,
-                    CUSTOMER_READ_PERMISSION | CUSTOMER_WRITE_PERMISSION => {
+                    CUSTOMER_WRITE_PERMISSION | QUOTATION_DRAFT_READ_PERMISSION => {
                         (manager || receptionist) && branch_scope
                     }
                     DISCOUNT_REQUEST_PERMISSION
@@ -292,7 +292,9 @@ impl AuthorizationService {
                     | QUOTATION_CONVERT_PERMISSION
                     | DELIVERY_RECORD_PERMISSION
                     | QUOTATION_ISSUE_PERMISSION => receptionist && branch_scope,
-                    DISCOUNT_DECIDE_PERMISSION
+                    QUOTATION_DRAFT_RESOLVE_PERMISSION
+                    | CUSTOMER_RESOLVE_PERMISSION
+                    | DISCOUNT_DECIDE_PERMISSION
                     | QUOTATION_VALIDITY_PERMISSION
                     | ORDER_CANCEL_PERMISSION
                     | ORDER_FULFILLMENT_PERMISSION
@@ -301,13 +303,13 @@ impl AuthorizationService {
                     | QUOTATION_CANCEL_PERMISSION => {
                         manager && (branch_scope || organization_scope)
                     }
-                    ORDER_READ_PERMISSION
+                    CUSTOMER_READ_PERMISSION
+                    | ORDER_READ_PERMISSION
                     | DISCOUNT_READ_PERMISSION
                     | QUOTATION_READ_PERMISSION => {
                         (manager && (branch_scope || organization_scope))
                             || (receptionist && branch_scope)
                     }
-                    QUOTATION_DRAFT_READ_PERMISSION => (manager || receptionist) && branch_scope,
                     _ => false,
                 } {
                     PermissionDecision::Granted
@@ -316,12 +318,11 @@ impl AuthorizationService {
                 },
             })
             .collect();
-        let policy_version = self
-            .store
-            .policy_version(&context.scope)
-            .map_err(|_| AuthorizationError::Unavailable)?;
         Ok(EffectivePermissions {
-            policy_version,
+            policy_version: self
+                .store
+                .policy_version(&context.scope)
+                .map_err(|_| AuthorizationError::Unavailable)?,
             permissions,
         })
     }

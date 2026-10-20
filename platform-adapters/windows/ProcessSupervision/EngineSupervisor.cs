@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using Eitmad.Contracts;
@@ -103,7 +104,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolVersion = SessionProtocol(client),
                 RequestId = requestId,
                 CorrelationId = Guid.NewGuid(),
-                Authorization = query.Kind is Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.CustomerGetKind or Query.CustomerSearchKind or Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
+                Authorization = query.Kind is Query.CustomerConflictsKind or Query.CustomerGetKind or Query.CustomerSearchKind or Query.CustomerHistoryKind or Query.HomeReadKind or Query.OrderListKind or Query.OrderGetKind or Query.OrderCustomerDocumentKind or Query.OrderQuotationDocumentKind or Query.QuotationCustomerDocumentKind or Query.QuotationApprovalListKind or Query.QuotationListKind ? client.AuthorizationForApprovals : query.Kind is Query.QuotationEvaluateKind or Query.QuotationDraftGetKind or Query.QuotationDraftListKind
                     ? client.AuthorizationForCustomer : client.Authorization,
                 Deadline = DeadlineAfter(requestTimeout),
                 Query = ToPayloadDictionary(query),
@@ -121,6 +122,14 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         GetConnectedClient().GetSessionStateAsync(cancellationToken);
+
+    public async Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection,
+        CancellationToken cancellationToken = default)
+    {
+        var client = GetConnectedClient();
+        await ClearSessionSubscriptionsAsync().ConfigureAwait(false);
+        return await client.AuthenticateServerAsync(username, password, connection, cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
@@ -712,7 +721,9 @@ public sealed class EngineSupervisor : IAsyncDisposable
         var peer = new PeerHello
         {
             PeerKind = PeerKind.Shell,
-            ProductVersion = "0.0.0",
+            ProductVersion = typeof(EngineSupervisor).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+                .InformationalVersion.Split('+')[0],
             Protocols =
             [
                 new SupportedProtocol
@@ -737,6 +748,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilitySalesCatalogV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationEvaluationV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftV1,
+                ProtocolIds.Capabilities.EitmadCapabilityQuotationDraftResolutionV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationApprovalV1,
                 ProtocolIds.Capabilities.EitmadCapabilityQuotationLifecycleV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCustomerDocumentsV1,
@@ -746,6 +758,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityPricingV1,
                 ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
+                ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1,
             ],
             RequiredCapabilities =
             [
@@ -917,7 +930,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             },
             RequestId = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
-            Authorization = contract.Kind is Subscription.OrderChangedSubscribeKind or Subscription.QuotationApprovalChangedSubscribeKind or Subscription.QuotationChangedSubscribeKind ? client.AuthorizationForApprovals : contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.QuotationDraftChangedSubscribeKind
+            Authorization = contract.Kind is Subscription.CustomerChangedSubscribeKind or Subscription.OrderChangedSubscribeKind or Subscription.QuotationApprovalChangedSubscribeKind or Subscription.QuotationChangedSubscribeKind ? client.AuthorizationForApprovals : contract.Kind is Subscription.QuotationDraftChangedSubscribeKind
                 ? client.AuthorizationForCustomer : client.Authorization,
             Subscription = ToPayloadDictionary(contract),
             ResumeAfter = resumeAfter,

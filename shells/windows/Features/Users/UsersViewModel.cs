@@ -19,7 +19,7 @@ public sealed record UserPreview(
         account.AccountId,
         account.UserId,
         account.DisplayName,
-        account.Role == DesktopAccountRole.Manager ? "مدير" : "موظف الاستقبال",
+        account.Role switch { DesktopAccountRole.Manager => "مدير", DesktopAccountRole.Receptionist => "موظف الاستقبال", _ => "غير محدد" },
         account.Active,
         account.Username,
         account.Revision);
@@ -28,6 +28,8 @@ public sealed record UserPreview(
 public sealed class UsersViewModel : ObservableObject
 {
     private readonly List<UserPreview> users = [];
+    private int generation;
+    private Guid submissionKey = Guid.NewGuid();
     private IEngineShellBridge? engine;
     private string searchText = "", selectedRole = "كل الأدوار", selectedStatus = "كل الحالات";
     private bool isEditorOpen, isDeactivationOpen, isBusy;
@@ -77,10 +79,10 @@ public sealed class UsersViewModel : ObservableObject
     public bool ShowTable => !HasLoadFailure || users.Count > 0;
     public bool CanRetry => engine is not null && !IsBusy;
     public bool CanManageAccounts => CanRetry && !HasLoadFailure;
-    public string EditorUsername { get => editorUsername; set { if (Set(ref editorUsername, value)) EditorUsernameError = ""; } }
+    public string EditorUsername { get => editorUsername; set { if (Set(ref editorUsername, value)) { EditorUsernameError = ""; submissionKey = Guid.NewGuid(); } } }
     public bool IsDeactivationOpen { get => isDeactivationOpen; private set => Set(ref isDeactivationOpen, value); }
-    public string EditorName { get => editorName; set { if (Set(ref editorName, value)) EditorNameError = ""; } }
-    public string EditorRole { get => editorRole; set { if (Set(ref editorRole, value)) EditorRoleError = ""; } }
+    public string EditorName { get => editorName; set { if (Set(ref editorName, value)) { EditorNameError = ""; submissionKey = Guid.NewGuid(); } } }
+    public string EditorRole { get => editorRole; set { if (Set(ref editorRole, value)) { EditorRoleError = ""; submissionKey = Guid.NewGuid(); } } }
     public string EditorError { get => editorError; private set => Set(ref editorError, value); }
     public string EditorNameError { get => editorNameError; private set => Set(ref editorNameError, value); }
     public string EditorUsernameError { get => editorUsernameError; private set => Set(ref editorUsernameError, value); }
@@ -101,11 +103,13 @@ public sealed class UsersViewModel : ObservableObject
     {
         if (engine is null || IsBusy) return false;
         IsBusy = true;
+        var current = generation;
         try
         {
             var response = await engine.QueryAsync(
                 Query.ForDesktopAccountList(new ListDesktopAccounts()),
                 cancellationToken);
+            if (current != generation) return false;
             var page = response.Outcome.Status == CommandOutcomeStatus.Succeeded
                 ? response.Outcome.Payload.AsDesktopAccounts()
                 : null;
@@ -129,13 +133,22 @@ public sealed class UsersViewModel : ObservableObject
         }
         catch
         {
-            LoadError = "تعذر تحميل المستخدمين.";
+            if (current == generation) LoadError = "تعذر تحميل المستخدمين. تحقق من الاتصال بالخادم.";
             return false;
         }
         finally
         {
-            IsBusy = false;
+            if (current == generation) IsBusy = false;
         }
+    }
+
+    public void ClearSession()
+    {
+        ++generation; IsBusy = false;
+        users.Clear(); VisibleUsers.Clear();
+        CancelEditor(); CancelDeactivation();
+        EditorName = ""; EditorUsername = ""; DeactivationName = ""; DeactivationUsername = "";
+        SearchText = ""; LoadError = "";
     }
 
     private void Refresh()
@@ -153,6 +166,7 @@ public sealed class UsersViewModel : ObservableObject
     public void BeginEdit(UserPreview? user = null)
     {
         if (!CanManageAccounts || (user is not null && !users.Contains(user))) return;
+        submissionKey = Guid.NewGuid();
         editing = user;
         Raise(nameof(IsEditing));
         EditorUsername = user?.Username ?? "";
@@ -173,7 +187,7 @@ public sealed class UsersViewModel : ObservableObject
         Raise(nameof(IsEditing));
     }
 
-    public void ClearPasswordError() => EditorPasswordError = "";
+    public void ClearPasswordError() { EditorPasswordError = ""; submissionKey = Guid.NewGuid(); }
 
     private void ClearInputErrors()
     {
@@ -220,6 +234,7 @@ public sealed class UsersViewModel : ObservableObject
     public void BeginDeactivation(UserPreview user)
     {
         if (!CanManageAccounts || !users.Contains(user) || !user.IsActive) return;
+        submissionKey = Guid.NewGuid();
         deactivating = user;
         DeactivationName = user.Name;
         DeactivationUsername = user.Username;
@@ -249,9 +264,11 @@ public sealed class UsersViewModel : ObservableObject
     private async Task<bool> SubmitAsync(Command command, CancellationToken cancellationToken)
     {
         IsBusy = true;
+        var current = generation;
         try
         {
-            var response = await engine!.SubmitCommandAsync(command, Guid.NewGuid(), cancellationToken);
+            var response = await engine!.SubmitCommandAsync(command, submissionKey, cancellationToken);
+            if (current != generation) return false;
             if (response.Outcome.Status == CommandOutcomeStatus.Succeeded)
             {
                 EditorError = "";
@@ -262,20 +279,19 @@ public sealed class UsersViewModel : ObservableObject
         }
         catch
         {
-            EditorError = "تعذر حفظ التغيير. حاول مرة أخرى.";
+            if (current == generation) EditorError = "لم يصل تأكيد الحفظ. أعد المحاولة للتحقق من النتيجة.";
             return false;
         }
         finally
         {
-            IsBusy = false;
+            if (current == generation) IsBusy = false;
         }
     }
 
     private static string FailureMessage(string? code) => code switch
     {
-        ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountLastManagerV1 => "يجب أن يبقى مدير نشط واحد على الأقل.",
         ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountRevisionConflictV1 => "تغير المستخدم على جهاز آخر. راجع البيانات وحاول مرة أخرى.",
-        ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => "ليس لديك صلاحية لإدارة المستخدمين.",
+        ProtocolIds.ErrorCodes.EitmadErrorAuthorizationDeniedV1 => "ليس لديك صلاحية لإدارة المستخدمين. تتطلب الحسابات المشتركة صلاحية مالك المنشأة.",
         ProtocolIds.ErrorCodes.EitmadErrorDesktopAccountInvalidV1 => "تحقق من البيانات. قد يكون اسم المستخدم مستخدمًا بالفعل.",
         _ => "تعذر إكمال العملية. حاول مرة أخرى.",
     };

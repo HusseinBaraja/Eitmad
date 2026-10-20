@@ -87,6 +87,7 @@ public partial class ReceptionistHomeView : UserControl
         customerClient = client;
         customerClient.Changed += CustomerChanged;
         CustomerDetail.Attach(client);
+        CustomerDetail.HistoryNextRequested += CustomerHistoryNext;
     }
 
     public Task ActivateCustomersAsync(CancellationToken cancellationToken = default) =>
@@ -230,8 +231,11 @@ public partial class ReceptionistHomeView : UserControl
                 : Features.Customers.CustomerClient.ArabicMessage(result.Failure));
             return;
         }
-        var customer = Features.Customers.CustomerHistoryProjection.Create(result.Value!,
-            ReceptionQuotations.ViewModel.PreviewQuotations, PreviewOrders.ViewModel.PreviewOrders);
+        var history = await customerClient.HistoryAsync(result.Value!, cancellationToken: cancellationToken);
+        if (cancellationToken.IsCancellationRequested || session != editorSession) return;
+        var customer = history.Succeeded ? Features.Customers.CustomerHistoryProjection.FromPage(result.Value!, history.Value!, false)
+            : new Features.Customers.CustomerPreview(result.Value!, [], []);
+        if (!history.Succeeded) ShowNotice("سجل عروض الأسعار والطلبات غير متاح.");
         customerReturnDestination = returnDestination;
         customerReturnFocus = System.Windows.Input.Keyboard.FocusedElement;
         ReceptionOrders.Visibility = Visibility.Collapsed;
@@ -242,6 +246,16 @@ public partial class ReceptionistHomeView : UserControl
         CustomerDetail.Visibility = Visibility.Visible;
         ReceptionistTitleBar.Tag = "تفاصيل العميل";
         await Dispatcher.BeginInvoke(CustomerDetail.BackButton.Focus, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private async void CustomerHistoryNext(object? sender, EventArgs e)
+    {
+        if (customerClient is null || CustomerDetail.DataContext is not Features.Customers.CustomerPreview current) return;
+        var session = editorSession;
+        var result = await customerClient.HistoryAsync(current.Customer, current.HistoryPage);
+        if (session != editorSession || CustomerDetail.DataContext != current) return;
+        if (!result.Succeeded) { CustomerDetail.DataContext = null; ShowNotice(Features.Customers.CustomerClient.ArabicMessage(result.Failure)); return; }
+        CustomerDetail.DataContext = Features.Customers.CustomerHistoryProjection.FromPage(current.Customer, result.Value!, false);
     }
 
     private async Task<Features.Customers.CustomerResult<Eitmad.Contracts.Customer>> FindExactCustomerAsync(
@@ -261,7 +275,7 @@ public partial class ReceptionistHomeView : UserControl
     private void CustomerChanged(object? sender, Guid? customerId)
     {
         if (CustomerDetail.DataContext is not Features.Customers.CustomerPreview current
-            || customerId is not null && customerId != current.Id) return;
+            || customerId is not null && customerId != Guid.Empty && customerId != current.Id) return;
         _ = RefreshOpenCustomerAsync(current.Id);
     }
 

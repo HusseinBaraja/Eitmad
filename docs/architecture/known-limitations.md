@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-10-10"
+last_verified: "2026-10-19"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -33,7 +33,7 @@ The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products,
 
 ## Deployment and recovery
 
-- Build scripts produce unsigned validation bundles. Production signing, MSIX, notarization, native package installation, and signed promotion are not implemented.
+- [Windows package authoring and manual lifecycle tools](../operations/package-windows-desktop.md) produce versioned server ZIPs and self-contained desktop MSIX bundles. Azure Artifact Signing integration is supplied, but the verified publisher/profile, signing-node authorization, signed clean-host install/repair/removal/upgrade, and coordinated restore acceptance remain external prerequisites. Unsigned artifacts are validation-only. Notarization and signed automatic promotion remain unimplemented.
 - The combined server has no billing, MFA, email, package CDN, relay payload router, backup scheduler, or operator UI.
 - SQLite backup, restore, migration artifacts, and tenant export are Rust APIs and runbooks. There is no recovery UI, scheduled retention, or remote backup destination.
 - PostgreSQL backup, WAL retention, and restore depend on deployment infrastructure. Live role, RLS, migration, backup, and restore evidence is required before deployment.

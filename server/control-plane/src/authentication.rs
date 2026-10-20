@@ -86,6 +86,10 @@ pub enum AuthenticationError {
 }
 
 impl AuthenticationService {
+    pub(crate) async fn database_available(&self) -> bool {
+        sqlx::query("SELECT 1").execute(&self.pool).await.is_ok()
+    }
+
     #[must_use]
     pub fn new(pool: PgPool, token_key: TokenKey) -> Self {
         Self {
@@ -120,6 +124,16 @@ impl AuthenticationService {
         let mut transaction = tenant_transaction(&self.pool, tenant_id)
             .await
             .map_err(|_| AuthenticationError::Unavailable)?;
+        // Use the same tenant lifecycle lock as administration before locking invitation/account rows.
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,16016))")
+            .bind(tenant_id.value().to_string())
+            .execute(&mut *transaction)
+            .await
+            .map_err(|_| AuthenticationError::Unavailable)?;
+        let fingerprint = self.tokens.hash(&format!(
+            "activation-intent.v1:{}",
+            serde_json::to_string(request).map_err(|_| AuthenticationError::Unavailable)?
+        ))?;
         let invite = sqlx::query(
             "SELECT i.account_id, i.expires_at, i.consumed_at, a.user_id, a.status
              FROM control.invitations i
@@ -135,45 +149,29 @@ impl AuthenticationService {
         .await
         .map_err(|_| AuthenticationError::Unavailable)?
         .ok_or(AuthenticationError::Failed)?;
+        if invite.get::<Option<i64>, _>("consumed_at").is_some() {
+            let result = self
+                .activation_retry(&mut transaction, tenant_id, invite_id, &fingerprint, now)
+                .await?;
+            transaction
+                .commit()
+                .await
+                .map_err(|_| AuthenticationError::Unavailable)?;
+            return Ok(result);
+        }
         if invite.get::<i64, _>("expires_at") <= now.0
-            || invite.get::<Option<i64>, _>("consumed_at").is_some()
             || invite.get::<String, _>("status") != "pending_activation"
         {
             return Err(AuthenticationError::Failed);
         }
-        let password_hash = hash_password(&request.password)?;
-        let public_key = decode_device_key(&request.device_public_key)?;
         let account_id = AccountId::new(invite.get("account_id"));
         let user_id = UserId::new(invite.get("user_id"));
-        sqlx::query(
-            "UPDATE control.accounts
-             SET password_hash = $3, status = 'active', activated_at = $4
-             WHERE tenant_id = $1 AND account_id = $2",
-        )
-        .bind(tenant_id.value())
-        .bind(account_id.value())
-        .bind(password_hash)
-        .bind(now.0)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| AuthenticationError::Unavailable)?;
-        sqlx::query(
-            "UPDATE control.invitations SET consumed_at = $3
-             WHERE tenant_id = $1 AND invite_id = $2",
-        )
-        .bind(tenant_id.value())
-        .bind(invite_id)
-        .bind(now.0)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| AuthenticationError::Unavailable)?;
-        register_device(
+        activate_identity(
             &mut transaction,
+            request,
             tenant_id,
             account_id,
-            request.device_id,
-            &public_key,
-            &request.device_label,
+            invite_id,
             now,
         )
         .await?;
@@ -195,11 +193,70 @@ impl AuthenticationService {
             now,
         )
         .await?;
+        sqlx::query("INSERT INTO control.activation_results(tenant_id,invite_id,fingerprint,session_id,access_expires_at,refresh_expires_at,initial_refresh_hash) VALUES($1,$2,$3,$4,$5,$6,$7)")
+            .bind(tenant_id.value()).bind(invite_id).bind(fingerprint.as_slice()).bind(result.session.session_id.value())
+            .bind(result.tokens.access_expires_at.0).bind(result.tokens.refresh_expires_at.0)
+            .bind(self.tokens.hash(&result.tokens.refresh_token)?.as_slice())
+            .execute(&mut *transaction).await.map_err(|_|AuthenticationError::Unavailable)?;
         transaction
             .commit()
             .await
             .map_err(|_| AuthenticationError::Unavailable)?;
         Ok(result)
+    }
+
+    async fn activation_retry(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        tenant: TenantId,
+        invite: Uuid,
+        fingerprint: &[u8; 32],
+        now: UnixMillis,
+    ) -> Result<AuthenticationResult, AuthenticationError> {
+        // Match the original refresh token, not a later token in the same family.
+        let row = sqlx::query(
+            "SELECT r.fingerprint, r.access_expires_at, r.refresh_expires_at,
+                    s.session_id, s.account_id, s.user_id, s.device_id, s.issued_at, s.expires_at
+             FROM control.activation_results r
+             JOIN control.sessions s ON s.tenant_id=r.tenant_id AND s.session_id=r.session_id
+             JOIN control.accounts a ON a.tenant_id=s.tenant_id AND a.account_id=s.account_id
+             JOIN control.token_families f ON f.tenant_id=s.tenant_id AND f.session_id=s.session_id
+             JOIN control.refresh_tokens rt ON rt.tenant_id=f.tenant_id
+               AND rt.token_family_id=f.token_family_id AND rt.token_hash=r.initial_refresh_hash
+             JOIN control.account_devices ad ON ad.tenant_id=s.tenant_id
+               AND ad.account_id=s.account_id AND ad.device_id=s.device_id
+             JOIN control.devices d ON d.device_id=s.device_id
+             WHERE r.tenant_id=$1 AND r.invite_id=$2 AND a.status='active'
+               AND s.revoked_at IS NULL AND f.revoked_at IS NULL AND rt.consumed_at IS NULL
+               AND ad.revoked_at IS NULL AND d.revoked_at IS NULL
+               AND s.expires_at>$3 AND s.idle_expires_at>$3
+               AND r.access_expires_at>$3 AND r.refresh_expires_at>$3",
+        )
+        .bind(tenant.value())
+        .bind(invite)
+        .bind(now.0)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|_| AuthenticationError::Unavailable)?
+        .ok_or(AuthenticationError::Failed)?;
+        if row.get::<Vec<u8>, _>("fingerprint") != fingerprint {
+            return Err(AuthenticationError::Failed);
+        }
+        let session = AuthenticatedServerSession {
+            tenant_id: tenant,
+            session_id: SessionId::new(row.get("session_id")),
+            account_id: AccountId::new(row.get("account_id")),
+            user_id: UserId::new(row.get("user_id")),
+            device_id: DeviceId::new(row.get("device_id")),
+            issued_at: UnixMillis(row.get("issued_at")),
+            expires_at: UnixMillis(row.get("expires_at")),
+        };
+        let mut tokens =
+            self.tokens
+                .session_pair(session.session_id, session.issued_at, &self.policy)?;
+        tokens.access_expires_at = UnixMillis(row.get("access_expires_at"));
+        tokens.refresh_expires_at = UnixMillis(row.get("refresh_expires_at"));
+        Ok(AuthenticationResult { session, tokens })
     }
 
     /// Validates an access token and its device-bound proof.
@@ -618,7 +675,7 @@ impl AuthenticationService {
     ) -> Result<AuthenticationResult, AuthenticationError> {
         let session_id = SessionId::new(Uuid::new_v4());
         let token_family_id = TokenFamilyId::new(Uuid::new_v4());
-        let tokens = TokenCodec::generate_pair(now, &self.policy);
+        let tokens = self.tokens.session_pair(session_id, now, &self.policy)?;
         let access_hash = self.tokens.hash(&tokens.access_token)?;
         let refresh_hash = self.tokens.hash(&tokens.refresh_token)?;
         let session_expires_at = now.0 + self.policy.refresh_token_ttl_ms;
@@ -678,6 +735,61 @@ impl AuthenticationService {
     }
 }
 
+async fn activate_identity(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    request: &ActivateAccountRequest,
+    tenant_id: TenantId,
+    account_id: AccountId,
+    invite_id: Uuid,
+    now: UnixMillis,
+) -> Result<(), AuthenticationError> {
+    let password_hash = hash_password(&request.password)?;
+    let public_key = decode_device_key(&request.device_public_key)?;
+    sqlx::query(
+        "UPDATE control.accounts
+             SET password_hash = $3, status = 'active', activated_at = $4, revision=revision+1
+             WHERE tenant_id = $1 AND account_id = $2",
+    )
+    .bind(tenant_id.value())
+    .bind(account_id.value())
+    .bind(password_hash)
+    .bind(now.0)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| AuthenticationError::Unavailable)?;
+    sqlx::query(
+        "UPDATE control.tenants SET account_revision=account_revision+1 WHERE tenant_id=$1",
+    )
+    .bind(tenant_id.value())
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| AuthenticationError::Unavailable)?;
+    sqlx::query("SELECT pg_notify('eitmad_accounts_changed', '')")
+        .execute(&mut **transaction)
+        .await
+        .map_err(|_| AuthenticationError::Unavailable)?;
+    sqlx::query(
+        "UPDATE control.invitations SET consumed_at = $3
+             WHERE tenant_id = $1 AND invite_id = $2",
+    )
+    .bind(tenant_id.value())
+    .bind(invite_id)
+    .bind(now.0)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| AuthenticationError::Unavailable)?;
+    register_device(
+        transaction,
+        tenant_id,
+        account_id,
+        request.device_id,
+        &public_key,
+        &request.device_label,
+        now,
+    )
+    .await
+}
+
 async fn append_session_audit(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session: &AuthenticatedServerSession,
@@ -707,6 +819,23 @@ async fn append_session_audit(
 }
 
 impl TokenCodec {
+    pub(crate) fn derive(&self, context: &str) -> Result<String, AuthenticationError> {
+        Ok(URL_SAFE_NO_PAD.encode(self.hash(context)?))
+    }
+
+    fn session_pair(
+        &self,
+        session: SessionId,
+        now: UnixMillis,
+        policy: &SessionPolicy,
+    ) -> Result<IssuedTokens, AuthenticationError> {
+        Ok(IssuedTokens {
+            access_token: self.derive(&format!("session-access.v1:{}", session.value()))?,
+            refresh_token: self.derive(&format!("session-refresh.v1:{}", session.value()))?,
+            access_expires_at: UnixMillis(now.0 + policy.access_token_ttl_ms),
+            refresh_expires_at: UnixMillis(now.0 + policy.refresh_token_ttl_ms),
+        })
+    }
     pub(crate) fn hash(&self, token: &str) -> Result<[u8; 32], AuthenticationError> {
         let mut mac = Hmac::<Sha256>::new_from_slice(&self.key.0)
             .map_err(|_| AuthenticationError::InvalidConfiguration)?;

@@ -64,6 +64,20 @@ public partial class QuotationsView : UserControl
         DataContext = ViewModel;
     }
 
+    private async void ReviewDraftClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.CreateDraftReview() is not { } view) return;
+        var window = new Window { Title = "مراجعة تعارض مسودة عرض السعر", Content = view,
+            Owner = Window.GetWindow(this), Width = 900, Height = 720, MinWidth = 720, MinHeight = 560,
+            FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        editorWindows.Add(window);
+        view.CloseRequested += (_, _) => window.Close();
+        window.Loaded += async (_, _) => await view.LoadAsync();
+        try { window.ShowDialog(); }
+        finally { view.Detach(); editorWindows.Remove(window); }
+        await ViewModel.RefreshAfterDraftResolutionAsync();
+        BackToQuotationsButton.Focus();
+    }
     private async void NewQuotationClick(object sender, RoutedEventArgs e)
     {
         if (LiveEditorFactory is not null) { await OpenLiveEditorAsync(null); return; }

@@ -1,3 +1,5 @@
+mod accounts;
+pub use accounts::DirectAccountClient;
 use eitmad_observability_audit::operation_diagnostics::{
     DiagnosticPhase, DiagnosticResult, DiagnosticSpan,
 };
@@ -8,11 +10,13 @@ mod catalog_sync;
 mod credential_contention_tests;
 mod customer_sync;
 mod desktop_connection;
+mod desktop_enrollment;
 mod diagnostics;
 mod request_admission;
 pub use catalog_sync::DirectCatalogSyncClient;
 pub use customer_sync::DirectCustomerSyncClient;
 pub use desktop_connection::DesktopConnectionSettings;
+pub use desktop_enrollment::DesktopEnrollment;
 mod pricing;
 mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;
@@ -1072,6 +1076,9 @@ fn unavailable(phase: FailurePhase) -> TransportFailure {
         RetryAdvice::After { delay_ms: 250 },
     )
 }
+
+#[cfg(test)]
+mod lan_tls_tests;
 
 #[cfg(test)]
 mod tests {

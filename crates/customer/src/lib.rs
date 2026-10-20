@@ -1,3 +1,4 @@
+mod resolution;
 mod sync;
 pub use sync::{CustomerSyncCycle, CustomerSyncError};
 
@@ -48,6 +49,59 @@ pub enum CustomerError {
 pub struct CustomerService {
     store: AuthorityStore,
     authorization: AuthorizationService,
+    directory: Option<std::sync::Arc<dyn CustomerDirectory>>,
+}
+
+/// Authenticated organization reads. Implementations must enforce the server's current relationships.
+pub trait CustomerDirectory: Send + Sync + std::fmt::Debug {
+    /// Whether a remote branch is this installation's connected branch.
+    fn is_connected_branch(&self, _branch: eitmad_contracts::identity::ScopeId) -> bool {
+        false
+    }
+    /// # Errors
+    /// Requires current scoped Manager authority on the server.
+    fn conflicts(
+        &self,
+        _actor: &AuthorizationContext,
+        _query: &eitmad_contracts::customer::GetCustomerConflicts,
+    ) -> Result<eitmad_contracts::customer::CustomerConflictPage, CustomerError> {
+        Err(CustomerError::Unavailable)
+    }
+    /// # Errors
+    /// Requires current Manager authority and an exact receipt or permanent key closure.
+    fn reconcile_resolution(
+        &self,
+        _actor: &AuthorizationContext,
+        _input: &eitmad_contracts::sync::ReconcileResolution<
+            eitmad_contracts::customer::ConfirmCustomerResolution,
+        >,
+    ) -> Result<Option<eitmad_contracts::sync::ChangeRecord>, CustomerError> {
+        Err(CustomerError::Unavailable)
+    }
+    /// # Errors
+    /// Rejects stale or unauthorized decisions; exact retries return the original result.
+    fn resolve(
+        &self,
+        _actor: &AuthorizationContext,
+        _input: &eitmad_contracts::customer::ConfirmCustomerResolution,
+    ) -> Result<ChangeRecord, CustomerError> {
+        Err(CustomerError::Unavailable)
+    }
+    /// # Errors
+    /// Rejects unauthorized, unavailable, or malformed reads.
+    fn read(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::CustomerRead,
+    ) -> Result<CustomerPage, CustomerError>;
+    /// # Errors
+    /// Stops delivery on revocation or transport failure.
+    fn watch(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &std::sync::atomic::AtomicBool,
+        notify: &mut dyn FnMut(CustomerChangeNotice),
+    ) -> Result<(), CustomerError>;
 }
 
 impl CustomerService {
@@ -56,7 +110,29 @@ impl CustomerService {
         Self {
             store,
             authorization,
+            directory: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_directory(mut self, directory: std::sync::Arc<dyn CustomerDirectory>) -> Self {
+        self.directory = Some(directory);
+        self
+    }
+
+    /// # Errors
+    /// Rejects revoked organization authority or unavailable streaming transport.
+    pub fn watch_directory(
+        &self,
+        actor: &AuthorizationContext,
+        cancel: &std::sync::atomic::AtomicBool,
+        notify: &mut dyn FnMut(CustomerChangeNotice),
+    ) -> Result<(), CustomerError> {
+        self.authorize_read(actor)?;
+        self.directory
+            .as_ref()
+            .ok_or(CustomerError::Unavailable)?
+            .watch(actor, cancel, notify)
     }
 
     /// Creates one stable customer identity in the authorized branch scope.
@@ -155,6 +231,16 @@ impl CustomerService {
         query: &GetCustomer,
     ) -> Result<Customer, CustomerError> {
         self.authorize_read(context)?;
+        if context.scope.kind.as_str() == "organization" {
+            let page = self.read_directory(
+                context,
+                &eitmad_contracts::customer::CustomerRead::Get(query.clone()),
+            )?;
+            return page.items.into_iter().next().ok_or(CustomerError::NotFound);
+        }
+        if query.branch_id.is_some_and(|id| id != context.scope.id) {
+            return Err(CustomerError::Denied);
+        }
         self.store
             .get_customer(&context.scope, query.customer_id)
             .map_err(|_| CustomerError::Unavailable)?
@@ -172,6 +258,18 @@ impl CustomerService {
         query: &SearchCustomers,
     ) -> Result<CustomerPage, CustomerError> {
         self.authorize_read(context)?;
+        if context.scope.kind.as_str() == "organization" {
+            return self.read_directory(
+                context,
+                &eitmad_contracts::customer::CustomerRead::Search(query.clone()),
+            );
+        }
+        if query
+            .after
+            .is_some_and(|cursor| cursor.branch_id != context.scope.id)
+        {
+            return Err(CustomerError::Denied);
+        }
         let normalized_name = normalize_arabic_name(query.term.as_str());
         let normalized_phone = normalize_phone_search(query.term.as_str());
         self.store
@@ -179,7 +277,7 @@ impl CustomerService {
                 &context.scope,
                 &normalized_name,
                 normalized_phone.as_deref(),
-                query.after,
+                query.after.map(|cursor| cursor.customer_id),
                 query.limit(),
             )
             .map_err(|_| CustomerError::Unavailable)
@@ -287,6 +385,7 @@ impl CustomerService {
                 normalized_name: &normalized_name,
                 normalized_phone: &normalized_phone,
                 source_change_id: change.change_id,
+                resolution: change.merge.as_ref(),
                 audit: &audit,
                 publication: &publication,
             })
@@ -301,12 +400,13 @@ impl CustomerService {
     pub fn mark_sync_exception(
         &self,
         authorization: &AuthorizationContext,
-        customer_id: CustomerId,
+        change: &ChangeRecord,
         state: CustomerSyncState,
         correlation_id: CorrelationId,
         occurred_at: eitmad_contracts::transport::UnixMillis,
     ) -> Result<(), CustomerError> {
         self.authorize_read(authorization)?;
+        let customer_id = CustomerId::new(change.record_id.value());
         let context = MutationContext {
             authorization: authorization.clone(),
             correlation_id,
@@ -333,13 +433,7 @@ impl CustomerService {
             policy_changed: false,
         };
         self.store
-            .mark_customer_sync_exception(
-                &authorization.scope,
-                customer_id,
-                state,
-                &audit,
-                &publication,
-            )
+            .mark_customer_sync_exception(&authorization.scope, change, state, &audit, &publication)
             .map_err(|_| CustomerError::Unavailable)
     }
 
@@ -432,10 +526,26 @@ impl CustomerService {
     }
 
     fn authorize_read(&self, context: &AuthorizationContext) -> Result<(), CustomerError> {
-        validate_scope(&context.scope)?;
+        if !matches!(context.scope.kind.as_str(), "branch" | "organization") {
+            return Err(CustomerError::UnsupportedScope);
+        }
         self.authorization
             .authorize(context, CUSTOMER_READ_PERMISSION)
             .map_err(map_authorization_error)
+    }
+
+    fn read_directory(
+        &self,
+        actor: &AuthorizationContext,
+        query: &eitmad_contracts::customer::CustomerRead,
+    ) -> Result<CustomerPage, CustomerError> {
+        let page = self
+            .directory
+            .as_ref()
+            .ok_or(CustomerError::Unavailable)?
+            .read(actor, query)?;
+        self.authorize_read(actor)?;
+        Ok(page)
     }
 }
 
@@ -605,6 +715,7 @@ fn normalize_phone_search(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    mod resolution_recovery;
     mod sync_cycle;
 
     use eitmad_authorization::{MANAGER_RELATION, RECEPTIONIST_RELATION};
@@ -852,6 +963,7 @@ mod tests {
                 &authorization,
                 &GetCustomer {
                     customer_id: created.customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();
@@ -897,7 +1009,8 @@ mod tests {
                 .get(
                     &first_actor,
                     &GetCustomer {
-                        customer_id: created.customer.id
+                        customer_id: created.customer.id,
+                        branch_id: None
                     }
                 )
                 .unwrap()
@@ -909,7 +1022,8 @@ mod tests {
                 .get(
                     &second_actor,
                     &GetCustomer {
-                        customer_id: created.customer.id
+                        customer_id: created.customer.id,
+                        branch_id: None
                     }
                 )
                 .unwrap()
@@ -983,7 +1097,10 @@ mod tests {
         second
             .mark_sync_exception(
                 second_actor,
-                customer.id,
+                &second
+                    .sync_batch(&second_actor.scope, 10)
+                    .unwrap()
+                    .remove(0),
                 CustomerSyncState::Conflicted,
                 CorrelationId::new(Uuid::from_u128(904)),
                 UnixMillis(22),
@@ -997,6 +1114,7 @@ mod tests {
                 second_actor,
                 &GetCustomer {
                     customer_id: customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();
@@ -1024,7 +1142,7 @@ mod tests {
         service
             .mark_sync_exception(
                 &actor,
-                created.customer.id,
+                &service.sync_batch(&actor.scope, 10).unwrap().remove(0),
                 CustomerSyncState::Rejected,
                 CorrelationId::new(Uuid::from_u128(302)),
                 UnixMillis(32),
@@ -1038,6 +1156,7 @@ mod tests {
                 &actor,
                 &GetCustomer {
                     customer_id: created.customer.id,
+                    branch_id: None,
                 },
             )
             .unwrap();
@@ -1261,6 +1380,182 @@ mod tests {
                 expected_revision: Some(1),
                 actual_revision: Some(2),
             })
+        );
+    }
+
+    #[test]
+    fn resolution_projection_holds_descendants_atomically_and_ignores_late_rejection() {
+        let directory = TempDir::new().unwrap();
+        let (store, service, actor) = authorized_service(&directory, 9, 90, MANAGER_RELATION);
+        let customer = service
+            .create(
+                &mutation(actor.clone(), 900, 9),
+                &create_command("عميل تجريبي", "777123456"),
+            )
+            .unwrap()
+            .customer;
+        let initial = service.sync_batch(&actor.scope, 10).unwrap().remove(0);
+        service
+            .project_confirmed(&actor, &initial, CorrelationId::new(Uuid::new_v4()))
+            .unwrap();
+        let update = |revision, name: &str| UpdateCustomer {
+            customer_id: customer.id,
+            expected_revision: revision,
+            name: CustomerName::parse(name).unwrap(),
+            phone: customer.phone.clone(),
+            address: None,
+            notes: None,
+        };
+        service
+            .update(
+                &mutation(actor.clone(), 901, 10),
+                &update(1, "تعديل متعارض"),
+            )
+            .unwrap();
+        let source = service.sync_batch(&actor.scope, 10).unwrap().remove(0);
+        service
+            .update(
+                &mutation(actor.clone(), 902, 11),
+                &update(2, "تعديل لاحق محفوظ"),
+            )
+            .unwrap();
+        let descendant = service.sync_batch(&actor.scope, 10).unwrap().remove(1);
+        service
+            .mark_sync_exception(
+                &actor,
+                &source,
+                CustomerSyncState::Conflicted,
+                CorrelationId::new(Uuid::new_v4()),
+                UnixMillis(12),
+            )
+            .unwrap();
+        assert!(
+            service
+                .update(&mutation(actor.clone(), 903, 13), &update(3, "يجب رفضه"))
+                .is_err()
+        );
+        let resolved = resolved_customer_change(&source, &initial, &customer);
+        let sql = Connection::open(store.path()).unwrap();
+        sql.execute_batch("CREATE TRIGGER fail_resolution_audit BEFORE INSERT ON mutation_audit BEGIN SELECT RAISE(ABORT,'test'); END").unwrap();
+        assert_eq!(
+            service.project_confirmed(&actor, &resolved, CorrelationId::new(Uuid::new_v4())),
+            Err(CustomerError::Unavailable)
+        );
+        assert!(
+            store
+                .customer_pending_reviews(&actor.scope, customer.id)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .get_customer(&actor.scope, customer.id)
+                .unwrap()
+                .unwrap()
+                .sync_state,
+            CustomerSyncState::Conflicted
+        );
+        sql.execute_batch("DROP TRIGGER fail_resolution_audit")
+            .unwrap();
+        service
+            .project_confirmed(&actor, &resolved, CorrelationId::new(Uuid::new_v4()))
+            .unwrap();
+        let reopened = AuthorityStore::open(directory.path()).unwrap();
+        assert_eq!(
+            reopened
+                .customer_pending_reviews(&actor.scope, customer.id)
+                .unwrap(),
+            vec![descendant]
+        );
+        assert!(service.sync_batch(&actor.scope, 10).unwrap().is_empty());
+        let latest = service
+            .update(
+                &mutation(actor.clone(), 904, 15),
+                &update(3, "تعديل جديد بعد الحل"),
+            )
+            .unwrap()
+            .customer;
+        assert_late_rejection_ignored(&service, &actor, &source, &latest);
+    }
+
+    fn assert_late_rejection_ignored(
+        service: &CustomerService,
+        actor: &AuthorizationContext,
+        source: &ChangeRecord,
+        latest: &Customer,
+    ) {
+        service
+            .mark_sync_exception(
+                actor,
+                source,
+                CustomerSyncState::Rejected,
+                CorrelationId::new(Uuid::new_v4()),
+                UnixMillis(16),
+            )
+            .unwrap();
+        assert_eq!(
+            service
+                .store
+                .get_customer(&actor.scope, latest.id)
+                .unwrap()
+                .unwrap(),
+            *latest
+        );
+        assert_eq!(service.sync_batch(&actor.scope, 10).unwrap().len(), 1);
+    }
+
+    fn resolved_customer_change(
+        source: &ChangeRecord,
+        initial: &ChangeRecord,
+        customer: &Customer,
+    ) -> ChangeRecord {
+        let mut resolved = source.clone();
+        resolved.change_id = ChangeId::new(Uuid::new_v4());
+        resolved.base_revision = Some(2);
+        resolved.revision = 3;
+        let payload = CustomerSyncPayload {
+            customer_id: customer.id,
+            name: CustomerName::parse("قرار المدير").unwrap(),
+            phone: customer.phone.clone(),
+            address: None,
+            notes: None,
+            revision: 3,
+        };
+        resolved.payload.as_mut().unwrap().base64 =
+            STANDARD.encode(serde_json::to_vec(&payload).unwrap());
+        resolved.merge = Some(eitmad_contracts::sync::MergeMetadata {
+            strategy: eitmad_contracts::sync::MergeStrategy::DomainMerge,
+            common_ancestor_revision: Some(1),
+            source_changes: vec![source.change_id, initial.change_id],
+            merged_at: UnixMillis(14),
+        });
+        resolved
+    }
+
+    #[test]
+    fn only_manager_can_resolve_without_inheriting_receptionist_mutations() {
+        use eitmad_authorization::{CUSTOMER_RESOLVE_PERMISSION, QUOTATION_ISSUE_PERMISSION};
+        let directory = TempDir::new().unwrap();
+        let (_, manager, actor) = authorized_service(&directory, 9, 90, MANAGER_RELATION);
+        assert!(
+            manager
+                .authorization
+                .authorize(&actor, CUSTOMER_RESOLVE_PERMISSION)
+                .is_ok()
+        );
+        assert_eq!(
+            manager
+                .authorization
+                .authorize(&actor, QUOTATION_ISSUE_PERMISSION),
+            Err(AuthorizationError::Denied)
+        );
+        let directory = TempDir::new().unwrap();
+        let (_, reception, actor) = authorized_service(&directory, 10, 91, RECEPTIONIST_RELATION);
+        assert_eq!(
+            reception
+                .authorization
+                .authorize(&actor, CUSTOMER_RESOLVE_PERMISSION),
+            Err(AuthorizationError::Denied)
         );
     }
 

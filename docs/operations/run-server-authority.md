@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-18"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -18,6 +18,8 @@ keywords:
 # Run and recover the modular server authority
 
 Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
+
+For two Windows PCs on a private network, use [stable LAN setup](setup-lan-server.md). It retains a matching DNS/IP certificate, server settings, and CA across restart and leaf renewal, with explicit client trust and a narrowly scoped firewall rule.
 
 ## Before you start
 
@@ -33,8 +35,8 @@ Run the combined control, sync, relay, update, and administration server only wi
 
 | Environment variable | Required | Meaning |
 | --- | --- | --- |
-| `EITMAD_SERVER_DATABASE_URL` | Yes | PostgreSQL connection URL; secret |
-| `EITMAD_SERVER_TOKEN_KEY` | Yes | URL-safe base64 32-byte HMAC key; secret |
+| `EITMAD_SERVER_DATABASE_URL` or `EITMAD_SERVER_DATABASE_URL_FILE` | Yes | PostgreSQL connection URL or UTF-8 file containing it; secret; choose exactly one source |
+| `EITMAD_SERVER_TOKEN_KEY` or `EITMAD_SERVER_TOKEN_KEY_FILE` | Yes | URL-safe base64 32-byte HMAC key or UTF-8 file containing it; secret; choose exactly one source |
 | `EITMAD_SERVER_LISTEN` | No | Listener, default `127.0.0.1:8443` |
 | `EITMAD_SERVER_TLS_CERTIFICATE` | For TLS | PEM certificate path |
 | `EITMAD_SERVER_TLS_PRIVATE_KEY` | For TLS | PEM private-key path; secret path |
@@ -53,6 +55,8 @@ cargo run -q -p eitmad-server -- check-config
 
 Expected output is `server configuration is valid`. Configuration debug output redacts the database URL, token key, and private-key path.
 
+For unattended Windows hosting, use [installed services](run-windows-host-services.md). The service configuration contains protected secret-file references. Empty, unreadable, or ambiguous secret sources fail validation. A file may end in CR/LF; its contents are never logged.
+
 ## Migrate before bootstrap or serve
 
 Take a PostgreSQL backup, then run:
@@ -61,7 +65,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies control migration `1`, sync migration `2`, administration migration `3`, and canonical audit migration `4` before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, including control migration `16` for shared accounts, before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -77,6 +81,93 @@ A `bootstrap` invocation with a missing or extra argument prints usage and exits
 
 Do not repeat bootstrap after an uncertain result. First check the tenant and audit state through an approved administrative query or database operator under a documented incident procedure. A repeated tenant code is rejected.
 
+## Manage shared server accounts
+
+Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` and the normal TLS host. No provisioning example or direct SQL is required. The [identity guide](../developer/subsystems/identity-foundation.md#shared-server-account-lifecycle) defines authorization, revision, receipt, and secret-handling rules.
+
+1. Bootstrap and activate the initial Owner as described above, or sign in an existing Owner through `POST /v1/auth/login`.
+2. For each administrative request, send a current bearer token, a fresh signed device proof in `x-eitmad-device-proof`, and a base64url `PeerHello` in `x-eitmad-peer-hello`. Negotiate protocol 1.5 or newer and `eitmad.capability.server-administration.v1`. A UI role name is not authorization evidence.
+3. Register each needed branch with `POST /v1/customer-branches` using `RegisterBranchRequest`.
+4. Call `POST /v1/accounts/list` with `ListServerAccounts`, initially `after: null` and `limit: 100`. Continue from `nextAfter` until it is null. Use the returned account revision for changes.
+5. Call `POST /v1/accounts/transition` with `ChangeServerAccount`. Use a new UUID idempotency key for each new intent. An `invite` change supplies organization ID, username, and explicit role/branch assignments. The response contains an account receipt and an activation credential. Deliver the credential through a protected channel; do not print it in diagnostics.
+6. The invited user submits `ActivateAccountRequest` to `POST /v1/auth/activate` with that credential, a valid password, and their device registration. Possession of the invitation authenticates this step. The response supplies the user's device-bound session and tokens. Read the account list again before its next revisioned change.
+7. Use `assign` with account ID, current `expectedRevision`, organization ID, and the complete desired assignments for that organization. Both operational roles can be assigned explicitly; an empty list removes both. All affected account sessions close. A caller changing their own assignment must sign in again.
+8. Use `revokeSessions` to close all current sessions while retaining the account, or `deactivate` to disable a non-Owner account and remove its relationships. Both require account ID and current revision. Owner deactivation and transfer are unsupported.
+
+Success returns HTTP 200 after commit. Invalid input returns 400, denied scope or authority returns 403, and a stale revision, changed retry intent, or protected Owner returns 409. Invalid, revoked, or expired credentials return 401; unavailable authority returns 503. After a lost response, retry the identical request and key with a fresh device proof. Do not change the payload under the old key. After a conflict, read current state and submit a new intent with a new key. Exact retries preserve their original receipt, including terminal business errors. A revoked caller must first authenticate again.
+
+An identical activation retry returns the original token pair only while that result is usable and unrotated. Otherwise use password login. Neither retry path restores revoked sessions. Preserve the server token key: it protects token hashes, request fingerprints, and retry reconstruction. Desktop enrollment and online credential recovery use the supported flow below. All protected desktop access requires live server confirmation under the [offline authorization rule](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
+
+### Verify account administration
+
+Create a fresh disposable database with the helper below, then run in the same PowerShell session:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts server_accounts_work_through_authenticated_routes -- --ignored --exact
+```
+
+This scenario uses the real handlers and PostgreSQL RLS. It verifies role separation, tenant isolation, stale revisions, concurrent exact retries, activation recovery, branch and role replacement, audit rollback, deactivation, pagination, and token/session revocation. It does not verify native rendering or TLS; the separate direct desktop connection scenario covers TLS.
+
+### Use the native Users screen
+
+Sign in online with an account that has both a Manager surface assignment and tenant Owner authority. Open **المستخدمون**. Use **إضافة مستخدم** to create a shared account with a display name, username, password, and role. Use **تعديل** for display-name or role changes and **تعطيل** for confirmed deactivation. Rust sends the intent to the authenticated server and waits for its committed receipt. A role change closes that user's active sessions; sign in again for the current role. Owner deactivation remains unsupported.
+
+On a list-service failure with access still confirmed, account changes remain disabled and retained rows show **غير مؤكد**. **إعادة التحميل** restores current state. A failed live access check, including an outage, closes the session and clears protected views. Sign in again online after connectivity returns. Do not copy another device's data to restore access. See the [disconnected rule and detection bounds](../developer/subsystems/identity-foundation.md#disconnected-authorization-limit).
+
+### Verify connected desktop accounts
+
+Build the current Rust engine and Windows test project. Prepare a fresh disposable PostgreSQL database and TLS certificates using the [direct connection prerequisites](#run-the-direct-desktop-connection-test). Set `EITMAD_DESKTOP_ENROLLMENT_ENGINE` to the absolute engine executable path. Then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route shared_accounts_revoke_two_live_engines_and_preserve_offline_authorship -- --ignored
+```
+
+The scenario starts two isolated engines, uses real Windows IPC and controller clients, creates a shared account, edits its role through Users, and deactivates it. It saves pending work before interrupting the server, then checks idle-session closure, denied cached reads, writes, offline sign-in, and subscriptions during the outage. It changes access while disconnected, restores the connection, and verifies online recovery, retained records, and exact original authorship. It asserts no application restart after enrollment. Run `UsersPresentationTests`, `DesktopSessionControllerTests`, `UsersRenderedTests`, and `DesktopEnrollmentRenderedTests` for native presentation, session fencing, Arabic copy, and rendered controls. Rendered tests use synthetic data; record actual display size and scaling with captures.
+
+## Recover a forgotten Owner password on the server
+
+Run `eitmad-server recover-owner <tenant-code> <owner-username>` locally on the server with a PostgreSQL superuser connection supplied through `EITMAD_SERVER_DATABASE_URL` or its protected `_FILE` setting. The Rust command verifies the database role and loopback connection. Ordinary server application credentials are denied. Protect administrator credentials and use a local masked prompt to send the new password to the command through stdin. Never put a password in command arguments, shell history, logs, or chat.
+
+Supply the exact password as UTF-8 stdin, without an added newline. Use 12 to 256 characters and at most 1024 UTF-8 bytes. The command operates only on the specified active account with a tenant Owner relationship. It does not create accounts, replace identifiers, change assignments, or modify business records. Password replacement, existing session and token-family revocation, account revisions, change notification, and `eitmad.server.authentication.owner-password-recovered.v1` audit commit in one transaction. An audit or storage failure rolls back the change. This command does not run migrations or start a network listener.
+
+Success prints `Owner password recovered; existing sessions revoked`. Sign in online with the new password and check the desktop profile. Existing clients retain their runtime data and connection settings. If the command reports `eitmad.error.server-owner-recovery-failed.v1`, check the local administrator connection, exact tenant and account, active Owner status, password limits, and current audit schema. Correct the cause before retrying; no database reset is required.
+
+The focused `accounts` integration test `local_owner_password_recovery_preserves_scope_and_revokes_sessions` requires a fresh disposable database named `eitmad_owner_recovery_*`, an ordinary RLS application connection in `EITMAD_DIRECT_TEST_DATABASE_URL`, and a local superuser connection to that same database in `EITMAD_RECOVERY_TEST_ADMIN_URL`. It checks role and scope denials, invalid password rejection, audit rollback, preserved identities, old password rejection, new password login, and session/token revocation. Run only against disposable test data:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts local_owner_password_recovery_preserves_scope_and_revokes_sessions -- --ignored
+```
+
+## Enroll or recover a Windows desktop
+
+Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
+
+1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
+2. Enter the server account name and password. Sign-in and protected work require a server connection.
+3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
+4. Select **دخول**. Rust validates server trust, registers this installation's device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
+5. Close and reopen the application under the same Windows user and runtime directory. Leave the setup section closed and sign in. Rust uses the retained connection references and renews server access with password login.
+
+For expired or missing account credentials, use the same normal online sign-in. The installation key is separate from account tokens. The flow preserves local records, pending changes, and device identity. After a failed or interrupted attempt, correct the input and retry; the password box is cleared, while connection inputs remain available. An initial settings commit can require one supervised engine restart. Cancellation or process interruption does not require deleting or recreating the database.
+
+| Symptom | Safe action |
+| --- | --- |
+| Trust or connection rejection | Verify the endpoint, hostname, CA file, and server availability with the administrator. Do not bypass certificate validation. |
+| Account or scope rejection | Verify the tenant code, credentials, active account status, organization, branch, and explicit operational role. Existing installation scope is not replaced. |
+| Existing settings have no tenant code | Expand setup once and supply the original connection, trust, organization, and branch plus the tenant code. |
+| Server is unavailable | Protected access is unavailable. Keep the runtime data and retry online sign-in when the server returns. |
+| Both device key and account credentials are lost | Preserve the runtime and contact the operator. Automatic replacement of the registered signing identity is not supported. |
+
+A new PC must enroll independently. Never clone another PC's runtime directory or copy token material between PCs. The [desktop enrollment authority](../developer/subsystems/server-authority.md#retained-desktop-connection) defines persistence and failure boundaries. The workflow environment remains a synthetic provisioning harness; it is not required for desktop enrollment.
+
+### Verify desktop enrollment
+
+Build the current engine and Windows test project. Prepare a fresh disposable PostgreSQL database and TLS certificates as described under [direct desktop connection testing](#run-the-direct-desktop-connection-test). Set `EITMAD_DESKTOP_ENROLLMENT_ENGINE` to the absolute path of that engine executable to include the Windows controller and named-pipe path, then run:
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route desktop_enrollment_recovers_interruption_expiry_and_credential_loss -- --ignored
+```
+
 ## Start and verify
 
 Start the foreground server:
@@ -90,7 +181,7 @@ The process applies migrations before it starts listening. Keep migration privil
 Verify:
 
 1. `GET /livez` returns success when the process can serve requests.
-2. `GET /readyz` returns success after startup and migration checks. It does not prove that a product domain is registered.
+2. `GET /readyz` returns success after startup and migration checks while the application database answers `SELECT 1` within two seconds. It returns 503 during database loss or shutdown. It does not prove that a product domain is registered. `/livez` can still return 204 during a database outage. Startup waits up to 120 seconds for database connections; migration or configuration failures stop startup. Runtime pools reconnect to the same database after an interruption.
 3. Protocol `1.4`, `1.5`, and current-minor `1.6` synthetic clients can authenticate, send `eitmad.server.hello.v1`, negotiate every required server capability, verify the product's required schema list, and then close cleanly.
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.

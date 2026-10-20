@@ -6,8 +6,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod accounts;
 mod connection;
 mod customer_sync;
+mod desktop_enrollment;
 
 #[cfg(debug_assertions)]
 use argon2::{Argon2, PasswordHasher as _, password_hash::SaltString};
@@ -24,9 +26,9 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_engine_runtime::{
-    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, DesktopAuthenticator,
-    ManualRecovery, ProductDispatcher, RecoveryError, RuntimeBuilder, RuntimeDirectoryHealthCheck,
-    RuntimeFailure, ShutdownReason, default_runtime_directory,
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ManualRecovery,
+    ProductDispatcher, RecoveryError, RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure,
+    ShutdownReason, default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
 use eitmad_observability_audit::{ObservationContract, ObservationFieldContract, ObservationValue};
@@ -50,7 +52,7 @@ enum LocalIpcStartupError {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "eitmad-engine-cli", version, about)]
+#[command(name = "eitmad-engine-cli", version = option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -175,6 +177,7 @@ fn manual_recovery(
             credentials.password.expose_secret(),
             current_time(),
         )?;
+        desktop_enrollment::check_recovery_access(directory, &actor)?;
         if restore {
             recovery.restore(&actor, artifact, current_time())
         } else {
@@ -289,16 +292,23 @@ struct ConfiguredDispatcher {
     dispatcher: Arc<ProductDispatcher>,
     media_enabled: bool,
     customers: Option<Arc<eitmad_server_connection::DirectCustomerSyncClient>>,
+    accounts: Option<accounts::ConnectedAccounts>,
 }
 
 impl ConfiguredDispatcher {
     fn start_workers(&self, cancel: &watch::Receiver<bool>) -> Vec<tokio::task::JoinHandle<()>> {
         [
+            self.accounts
+                .as_ref()
+                .map(|accounts| accounts.start(cancel.clone())),
             self.media_enabled
                 .then(|| start_media_uploads(self.dispatcher.clone(), cancel.clone())),
             self.customers.as_ref().map(|client| {
                 customer_sync::start(client.clone(), self.dispatcher.clone(), cancel.clone())
             }),
+            self.dispatcher
+                .clone()
+                .start_quotation_draft_recovery(cancel.clone()),
         ]
         .into_iter()
         .flatten()
@@ -379,10 +389,15 @@ fn configured_dispatcher(
             eitmad_server_connection::DirectPriceClient::from_config(config, secrets, credential),
         ));
     }
+    let accounts = accounts::configure(store, directory, installation, event_broker)?;
+    if let Some(accounts) = &accounts {
+        dispatcher = dispatcher.with_account_authority(accounts.client.clone());
+    }
     dispatcher = configured_quotations(dispatcher, directory, installation)?;
     Ok(ConfiguredDispatcher {
         dispatcher: Arc::new(dispatcher),
         media_enabled,
+        accounts,
         customers: customer_sync::configure(store, directory, installation)?,
     })
 }
@@ -428,6 +443,7 @@ fn configured_quotations(
             ),
         );
         dispatcher = dispatcher
+            .with_customer_directory(quotations.clone())
             .with_orders(quotations.clone())
             .with_quotations(quotations.clone())
             .with_discount_approvals(quotations);
@@ -551,7 +567,7 @@ async fn run(
     let ipc_task = ipc_configuration.map(|configuration| {
         tokio::spawn(
             LocalIpcServer::new(configuration, dispatcher, ipc_shutdown_sender.clone())
-                .with_desktop_auth(DesktopAuthenticator::new(store.clone()))
+                .with_desktop_auth(desktop_enrollment::authenticator(&directory, &store))
                 .with_event_broker(event_broker)
                 .run(ipc_cancel_receiver),
         )
@@ -605,9 +621,37 @@ async fn prepare_local_ipc(
     let bootstrap_token = read_ipc_bootstrap_token()
         .await
         .map_err(|_| LocalIpcStartupError::Authentication)?;
-    let mut authorization = store
-        .local_authorization_context(current_time())
-        .map_err(|_| LocalIpcStartupError::Identity)?;
+    let mut authorization = if store
+        .has_local_installation()
+        .map_err(|_| LocalIpcStartupError::Identity)?
+    {
+        store
+            .existing_local_authorization_context()
+            .map_err(|_| LocalIpcStartupError::Identity)?
+    } else {
+        // The bootstrap-authenticated process can enroll, but has no stored user or product authority.
+        use eitmad_contracts::identity::{
+            DeviceId, ScopeId, ScopeKind, ScopeRef, SessionId, TenantId,
+        };
+        let device = DeviceId::new(uuid::Uuid::new_v4());
+        let tenant = TenantId::new(uuid::Uuid::new_v4());
+        eitmad_contracts::identity::AuthorizationContext {
+            session_id: SessionId::new(uuid::Uuid::new_v4()),
+            identity: AuthenticatedIdentity {
+                principal_id: PrincipalId::new(device.value()),
+                principal_kind: PrincipalKind::Device,
+                device_id: Some(device),
+                service_id: None,
+            },
+            tenant_id: tenant,
+            workspace_id: None,
+            scope: ScopeRef {
+                kind: ScopeKind::parse("organization")
+                    .map_err(|_| LocalIpcStartupError::Identity)?,
+                id: ScopeId::new(tenant.value()),
+            },
+        }
+    };
     let device_id = authorization
         .identity
         .device_id

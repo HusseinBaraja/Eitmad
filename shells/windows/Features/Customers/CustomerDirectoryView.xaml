@@ -1,0 +1,29 @@
+<UserControl x:Class="Eitmad.WindowsShell.Features.Customers.CustomerDirectoryView" x:Name="DirectoryRoot"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:customers="clr-namespace:Eitmad.WindowsShell.Features.Customers"
+ FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource CanvasBrush}">
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding HasDetail}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+   <controls:PageHeader Title="العملاء"><Button Content="العودة للرئيسية" Style="{StaticResource InlineActionButton}" Click="HomeClick" AutomationProperties.Name="العودة من العملاء للرئيسية"/></controls:PageHeader>
+  </Grid>
+  <controls:FeedbackNotice Grid.Row="1" Message="{Binding Notice}" Margin="20,8"/>
+  <Grid Grid.Row="2" Margin="20,8">
+   <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding HasDetail}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBox x:Name="SearchInput" Text="{Binding Term, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchKeyDown" AutomationProperties.Name="بحث العملاء بالاسم أو الهاتف" MinWidth="100"/>
+    <Button Grid.Column="1" Content="بحث" Style="{StaticResource PrimaryButton}" Click="SearchClick" Margin="8,0,0,0" AutomationProperties.Name="بحث العملاء في فروع المؤسسة"/>
+   </Grid>
+   <ListBox x:Name="Results" Grid.Row="1" ItemsSource="{Binding Rows}" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="نتائج العملاء في الفروع المصرح بها">
+    <ListBox.ItemTemplate><DataTemplate><Button Click="OpenClick" Style="{StaticResource InlineActionButton}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Name}"><StackPanel Margin="6">
+     <TextBlock Text="{Binding Name}" FontSize="17" TextWrapping="Wrap"/>
+     <TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Margin="0,6"/>
+     <TextBlock Text="الفرع" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding Scope.Id}" FlowDirection="LeftToRight" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+    </StackPanel></Button></DataTemplate></ListBox.ItemTemplate>
+   </ListBox>
+   <WrapPanel Grid.Row="2" Margin="0,12,0,0"><Button Content="الصفحة التالية" IsEnabled="{Binding HasNext}" Click="NextClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="الصفحة التالية من العملاء"/><Button Content="العودة للبداية" Click="SearchClick" Style="{StaticResource InlineActionButton}" Margin="12,0,0,0" AutomationProperties.Name="العودة لأول صفحة من العملاء"/></WrapPanel>
+  </Grid>
+  <customers:CustomerDetailView x:Name="Detail" Grid.Row="2" DataContext="{Binding Selected}" Visibility="{Binding DataContext.HasDetail, ElementName=DirectoryRoot, Converter={StaticResource BooleanToVisibility}}" BackRequested="DetailBack" HistoryNextRequested="DetailHistoryNext"/>
+ </Grid>
+</UserControl>

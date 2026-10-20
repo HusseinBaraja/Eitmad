@@ -36,6 +36,12 @@ pub struct QuotationDraftCommit<'a> {
     pub change: &'a ChangeRecord,
 }
 
+pub struct PendingQuotationDraft {
+    pub position: i64,
+    pub author: eitmad_contracts::identity::AuthorizationContext,
+    pub change: ChangeRecord,
+}
+
 fn get_on(
     connection: &rusqlite::Connection,
     scope: &ScopeRef,
@@ -115,6 +121,70 @@ impl PricingTransaction<'_> {
     }
 }
 impl AuthorityStore {
+    /// Recovers the earliest pending revision of each draft with its committed author.
+    /// The audit and outbox were written atomically. Never substitute the signed-in account.
+    /// # Errors
+    /// Fails closed on missing or malformed author evidence or unavailable storage.
+    pub fn pending_quotation_draft_submissions(
+        &self,
+        after: i64,
+    ) -> Result<Vec<PendingQuotationDraft>, StorageError> {
+        self.read_transaction(|tx| {
+            let mut q = tx.prepare(
+                "SELECT json_object(
+                   'sessionId', a.session_id, 'tenantId', a.tenant_id,
+                   'workspaceId', a.workspace_id,
+                   'identity', json_object('principalId', a.principal_id,
+                     'principalKind', json(a.principal_kind), 'deviceId', a.device_id,
+                     'serviceId', NULL),
+                     'scope', json_object('kind', a.scope_kind, 'id', a.scope_id)), o.change_json, o.rowid
+                 FROM quotation_draft_outbox o
+                 JOIN quotation_drafts d USING(scope_kind,scope_id,draft_id)
+                 LEFT JOIN mutation_audit a ON a.scope_kind=o.scope_kind AND a.scope_id=o.scope_id
+                   AND a.idempotency_key=json_extract(CAST(o.change_json AS TEXT),'$.idempotencyKey')
+                   AND a.operation IN ('eitmad.quotation-draft.create.v1',
+                     'eitmad.quotation-draft.update.v1', 'eitmad.quotation-draft.cancel.v1')
+                   AND a.outcome='\"succeeded\"'
+                 WHERE o.rowid>?1 AND json_extract(CAST(d.record_json AS TEXT),'$.syncState') IN ('pending','conflicted','rejected')
+                   AND NOT EXISTS (SELECT 1 FROM quotation_draft_outbox earlier
+                     WHERE earlier.scope_kind=o.scope_kind AND earlier.scope_id=o.scope_id
+                       AND earlier.draft_id=o.draft_id AND earlier.revision<o.revision)
+                 ORDER BY o.rowid LIMIT 50"
+            ).map_err(|_| StorageError)?;
+            q.query_map([after], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Vec<u8>>(1)?, r.get::<_, i64>(2)?)))
+                .map_err(|_| StorageError)?
+                .map(|r| {
+                    let (actor, change, position) = r.map_err(|_| StorageError)?;
+                    Ok(PendingQuotationDraft { position,
+                        author: serde_json::from_str(&actor).map_err(|_| StorageError)?,
+                        change: serde_json::from_slice(&change).map_err(|_| StorageError)? })
+                }).collect()
+        })
+    }
+
+    /// Checks delivery of the exact customer dependency without changing the saved draft.
+    /// Newer pending customer edits do not block an already delivered older revision.
+    /// # Errors
+    /// Rejects unavailable storage and invalid revision values.
+    pub fn quotation_draft_customer_delivered(
+        &self,
+        scope: &ScopeRef,
+        customer: &eitmad_contracts::quotation::QuotationCustomerIntent,
+    ) -> Result<bool, StorageError> {
+        let (kind, id) = scope_parts(scope);
+        self.read_transaction(|tx| tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM customers c
+             WHERE c.scope_kind=?1 AND c.scope_id=?2 AND c.customer_id=?3 AND c.revision>=?4
+               AND NOT EXISTS (SELECT 1 FROM customer_sync_outbox o
+                 WHERE o.scope_kind=c.scope_kind AND o.scope_id=c.scope_id AND o.customer_id=c.customer_id
+                   AND json_extract(CAST(o.change_json AS TEXT),'$.revision')<=?4)
+               AND NOT EXISTS (SELECT 1 FROM customer_sync_exceptions e
+                 WHERE e.scope_kind=c.scope_kind AND e.scope_id=c.scope_id AND e.customer_id=c.customer_id))",
+            params![kind, id, customer.id.value().to_string(), i64::try_from(customer.revision).map_err(|_| StorageError)?],
+            |r| r.get(0),
+        ).map_err(|_| StorageError))
+    }
+
     /// Reads a scoped draft without evaluating or repricing its historical lines.
     /// # Errors
     /// Rejects unavailable durable state.
@@ -178,6 +248,7 @@ impl AuthorityStore {
             let (kind,id)=scope_parts(&incoming.scope);
             let draft_id=incoming.snapshot.id.value().to_string();
             let removed=tx.execute("DELETE FROM quotation_draft_outbox WHERE change_id=?1 AND scope_kind=?2 AND scope_id=?3 AND draft_id=?4", params![change.change_id.value().to_string(),kind,id,draft_id]).map_err(|_| StorageError)?;
+            let resolved = crate::draft_resolution::hold_resolution_inputs(tx, change)?;
             let pending: Option<Vec<u8>>=tx.query_row("SELECT change_json FROM quotation_draft_outbox WHERE scope_kind=?1 AND scope_id=?2 AND draft_id=?3 ORDER BY revision LIMIT 1", params![kind,id,draft_id], |r| r.get(0)).optional().map_err(|_| StorageError)?;
             let current=get_on(tx,&incoming.scope,incoming.snapshot.id)?;
             let mut target=incoming.clone();
@@ -191,7 +262,9 @@ impl AuthorityStore {
                         conflict.remote=Some(change.clone());
                     } else if removed == 0 { return Ok(false); }
                     target=local;
-                } else if local.snapshot.revision > incoming.snapshot.revision || (removed == 0 && local == *incoming) { return Ok(false); }
+                } else if resolved && local.sync_state == QuotationDraftSyncState::Confirmed && local.snapshot.revision > incoming.snapshot.revision {
+                    target=local;
+                } else if !resolved && (local.snapshot.revision > incoming.snapshot.revision || (removed == 0 && local == *incoming)) { return Ok(false); }
             }
             put_on(tx,&target)?;
             insert_audit(tx,audit)?;

@@ -33,6 +33,12 @@ pub(crate) async fn append_event(
     .bind(now.0)
     .execute(&mut **transaction)
     .await?;
+    if schema_id.as_str() == eitmad_customer::CUSTOMER_SCHEMA_ID {
+        // Wake the existing ordered-stream listener only after this transaction commits.
+        sqlx::query("SELECT pg_notify('eitmad_quotation_approvals','changed')")
+            .execute(&mut **transaction)
+            .await?;
+    }
     Ok(())
 }
 
@@ -148,7 +154,9 @@ impl SyncCoordinator {
         let rows = sqlx::query(
             "SELECT cursor, event_id, event_json, occurred_at
              FROM sync.subscription_events
-             WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
+             WHERE tenant_id = $1 AND ((scope_kind = $2 AND scope_id = $3)
+               OR ($2='organization' AND $4='eitmad.schema.customer.v1' AND scope_kind='branch'
+                 AND scope_id IN (SELECT branch_id FROM control.branches WHERE tenant_id=$1 AND organization_id=$3)))
                AND schema_id = $4 AND cursor > $5
              ORDER BY cursor LIMIT $6",
         )
@@ -203,7 +211,9 @@ async fn resolve_cursor(
     };
     sqlx::query_scalar::<_, i64>(
         "SELECT cursor FROM sync.subscription_events
-         WHERE tenant_id = $1 AND scope_kind = $2 AND scope_id = $3
+         WHERE tenant_id = $1 AND ((scope_kind = $2 AND scope_id = $3)
+           OR ($2='organization' AND $4='eitmad.schema.customer.v1' AND scope_kind='branch'
+             AND scope_id IN (SELECT branch_id FROM control.branches WHERE tenant_id=$1 AND organization_id=$3)))
            AND schema_id = $4 AND event_id = $5",
     )
     .bind(session.tenant_id.value())

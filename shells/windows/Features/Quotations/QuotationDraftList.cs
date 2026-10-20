@@ -13,6 +13,11 @@ public sealed partial class QuotationsViewModel
     private string listState = "المسودات غير متاحة.";
     public string ListState { get => listState; private set { Set(ref listState, value); Raise(nameof(ListSubtitle)); } }
     internal Task LastDraftLoad { get; private set; } = Task.CompletedTask;
+    // Final documents can still expose an uncertain decision's original receipt.
+    public bool CanReviewDraft => !IsReceptionist && draftClient?.SupportsDraftResolution == true && SelectedQuotation?.Draft is not null;
+    internal QuotationDraftResolutionView? CreateDraftReview() => CanReviewDraft && SelectedQuotation is { Draft: { } draft }
+        ? new(draftClient!, draft.Snapshot.Id, SelectedQuotation.Lifecycle?.Scope.Id ?? draft.Scope.Id) : null;
+    internal Task RefreshAfterDraftResolutionAsync() => draftsActive ? LoadDraftsAsync() : Task.CompletedTask;
     public bool HasDocumentAuthority => draftClient is not null;
     public event EventHandler? DocumentsInvalidated;
     public async Task<CustomerDocument?> ReadDocumentAsync()
@@ -87,7 +92,7 @@ public sealed partial class QuotationsViewModel
                 if (approvals.Any(a => a.RequestId == decisionRequest && a.State != DiscountApprovalState.Pending)) decisionIntent = null;
                 foreach (var approval in approvals) {
                     var index = rows.FindIndex(row => row.Id == approval.Quotation.Id);
-                    var draft = index >= 0 && (IsReceptionist || approval.State != DiscountApprovalState.Pending) ? rows[index].Draft! : new QuotationDraft { Scope = approval.Scope, Snapshot = approval.Quotation, UpdatedAt = approval.RequestedAt, SyncState = SyncState.Confirmed };
+                    var draft = index >= 0 && (IsReceptionist || approval.State != DiscountApprovalState.Pending || rows[index].Draft!.SyncState is SyncState.Conflicted or SyncState.Rejected) ? rows[index].Draft! : new QuotationDraft { Scope = approval.Scope, Snapshot = approval.Quotation, UpdatedAt = approval.RequestedAt, SyncState = SyncState.Confirmed };
                     var row = Project(draft, approval);
                     if (index >= 0) rows[index] = row; else rows.Add(row);
                 }
@@ -103,7 +108,10 @@ public sealed partial class QuotationsViewModel
                         var index = rows.FindIndex(row => row.Id == record.Quotation.Id);
                         var draft = new QuotationDraft { Scope = record.Scope, Snapshot = record.Quotation, UpdatedAt = record.ChangedAt, SyncState = SyncState.Confirmed, PermittedActions = record.PermittedActions };
                         // Keep pending local draft edits visible until server confirmation.
-                        if (index >= 0 && (record.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval) && rows[index].Draft!.Snapshot.Revision > record.Quotation.Revision) continue;
+                        if (index >= 0 && (record.State is Eitmad.Contracts.QuotationState.Draft or Eitmad.Contracts.QuotationState.PendingApproval) && (rows[index].Draft!.SyncState is SyncState.Conflicted or SyncState.Rejected || rows[index].Draft!.Snapshot.Revision > record.Quotation.Revision)) {
+                            rows[index] = Project(rows[index].Draft!, rows[index].Approval, record);
+                            continue;
+                        }
                         var row = Project(draft, rows.FirstOrDefault(r => r.Id == record.Quotation.Id)?.Approval, record);
                         if (index >= 0) rows[index] = row; else rows.Add(row);
                     }

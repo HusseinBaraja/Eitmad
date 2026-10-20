@@ -16,6 +16,7 @@ public enum AuthenticatedSurface
 public enum SessionEndReason
 {
     Expired,
+    AccessChanged,
     ConnectionLost,
     RecoveryFailed,
 }
@@ -34,7 +35,7 @@ public interface IDesktopSessionController : IAsyncDisposable
     event EventHandler<SessionEndedEventArgs>? SessionEnded;
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
-    Task<AuthenticatedSurface> SignInAsync(string username, string password, CancellationToken cancellationToken = default);
+    Task<AuthenticatedSurface> SignInAsync(string username, string password, DesktopEnrollmentSettings? connection = null, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
 
@@ -62,40 +63,6 @@ public sealed class DesktopSessionController : IDesktopSessionController
         await engine.StartAsync(cancellationToken);
     }
 
-    public async Task<AuthenticatedSurface> SignInAsync(
-        string username,
-        string password,
-        CancellationToken cancellationToken = default)
-    {
-        await transition.WaitAsync(cancellationToken);
-        try
-        {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            if (recoveryFailure is not null) throw recoveryFailure;
-            DeactivateLocalState();
-            await AwaitEngineReadyAsync(cancellationToken);
-            var session = await engine.SignInAsync(username, password, cancellationToken);
-            try
-            {
-                var surface = ResolveSurface(session.AccountRole);
-                active = true;
-                ScheduleExpiry(session.ExpiresAt);
-                return surface;
-            }
-            catch
-            {
-                DeactivateLocalState();
-                try { await engine.SignOutAsync(CancellationToken.None); }
-                catch (EngineIpcException) { }
-                throw;
-            }
-        }
-        finally
-        {
-            transition.Release();
-        }
-    }
-
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         await transition.WaitAsync(cancellationToken);
@@ -108,6 +75,42 @@ public sealed class DesktopSessionController : IDesktopSessionController
         {
             transition.Release();
         }
+    }
+
+    public async Task<AuthenticatedSurface> SignInAsync(string username, string password,
+        DesktopEnrollmentSettings? connection = null, CancellationToken cancellationToken = default)
+    {
+        await transition.WaitAsync(cancellationToken);
+        try
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (recoveryFailure is not null) throw recoveryFailure;
+            DeactivateLocalState();
+            await AwaitEngineReadyAsync(cancellationToken);
+            if (await engine.AuthenticateServerAsync(username, password, connection, cancellationToken))
+            {
+                await StopAsync(cancellationToken);
+                await engine.StartAsync(cancellationToken);
+                await AwaitEngineReadyAsync(cancellationToken);
+            }
+            var session = await engine.SignInAsync(username, password, cancellationToken);
+            try
+            {
+                var surface = ResolveSurface(session.AccountRole);
+                active = true;
+                ScheduleExpiry(session.ExpiresAt);
+                await MonitorAccessAsync(cancellationToken);
+                return surface;
+            }
+            catch
+            {
+                DeactivateLocalState();
+                try { await engine.SignOutAsync(CancellationToken.None); }
+                catch (EngineIpcException) { }
+                throw;
+            }
+        }
+        finally { transition.Release(); }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -193,12 +196,34 @@ public sealed class DesktopSessionController : IDesktopSessionController
         _ = ExpireAsync(delay > TimeSpan.Zero ? delay : TimeSpan.Zero, expiryCancellation.Token);
     }
 
+    private async Task MonitorAccessAsync(CancellationToken cancellationToken)
+    {
+        if (!engine.SupportsCapability(ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1)) return;
+        var token = expiryCancellation?.Token ?? cancellationToken;
+        var subscription = await engine.SubscribeAsync(Subscription.ForPermissionsChangedSubscribe(new PermissionChanges()), cancellationToken);
+        _ = ObserveAccessAsync(subscription, token);
+    }
+
+    private async Task ObserveAccessAsync(IEngineSubscription subscription, CancellationToken cancellationToken)
+    {
+        await using (subscription)
+        {
+            try
+            {
+                await foreach (var update in subscription.ReadAllAsync(cancellationToken)) subscription.Acknowledge(update);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return; }
+            catch (Exception error) when (error is EngineIpcException or IOException or ObjectDisposedException) { }
+            if (!cancellationToken.IsCancellationRequested) await EndSessionAsync(SessionEndReason.AccessChanged, cancellationToken);
+        }
+    }
+
     private async Task ExpireAsync(TimeSpan delay, CancellationToken cancellationToken)
     {
         try
         {
             await Task.Delay(delay, cancellationToken);
-            await EndSessionAsync(SessionEndReason.Expired);
+            await EndSessionAsync(SessionEndReason.Expired, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -213,12 +238,12 @@ public sealed class DesktopSessionController : IDesktopSessionController
         }
     }
 
-    private async Task EndSessionAsync(SessionEndReason reason)
+    private async Task EndSessionAsync(SessionEndReason reason, CancellationToken sessionCancellation = default)
     {
         await transition.WaitAsync();
         try
         {
-            if (!active) return;
+            if (!active || sessionCancellation.IsCancellationRequested) return;
             DeactivateLocalState();
             using var budget = new CancellationTokenSource(SessionEndTimeout);
             var signOut = engine.SignOutAsync(budget.Token);

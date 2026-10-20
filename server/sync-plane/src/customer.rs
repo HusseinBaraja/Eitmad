@@ -47,35 +47,22 @@ impl DomainSyncHandler for CustomerSyncHandler {
         &self,
         session: &AuthenticatedServerSession,
         scope: &ScopeRef,
-        _intent: SyncIntent,
+        intent: SyncIntent,
     ) -> bool {
+        if scope.kind.as_str() == "organization" && intent == SyncIntent::Read {
+            let Ok(mut tx) = tenant_transaction(&self.pool, session.tenant_id).await else {
+                return false;
+            };
+            return matches!(sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM control.relationship_tuples WHERE tenant_id=$1 AND subject_principal_id=$2 AND subject_kind='user' AND relation='eitmad.relation.organization.manager.v1' AND object_kind='organization' AND object_id=$3)")
+                .bind(session.tenant_id.value()).bind(session.user_id.value()).bind(scope.id.value()).fetch_one(&mut *tx).await, Ok(true));
+        }
         if scope.kind.as_str() != "branch" {
             return false;
         }
         let Ok(mut transaction) = tenant_transaction(&self.pool, session.tenant_id).await else {
             return false;
         };
-        let result = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (
-                SELECT 1 FROM control.branches b
-                JOIN control.relationship_tuples r
-                  ON r.tenant_id = b.tenant_id
-                 AND r.subject_principal_id = $2 AND r.subject_kind = 'user'
-                WHERE b.tenant_id = $1 AND b.branch_id = $3
-                  AND ((r.relation = 'eitmad.relation.organization.manager.v1'
-                        AND r.object_kind = 'organization'
-                        AND r.object_id = b.organization_id)
-                    OR (r.relation = 'eitmad.relation.organization.receptionist.v1'
-                        AND r.object_kind = 'branch'
-                        AND r.object_id = b.branch_id))
-            )",
-        )
-        .bind(session.tenant_id.value())
-        .bind(session.user_id.value())
-        .bind(scope.id.value())
-        .fetch_one(&mut *transaction)
-        .await;
-        matches!(result, Ok(true))
+        branch_authorized(&mut transaction, session, scope, intent).await
     }
 
     fn validate_local(&self, draft: &LocalOperationDraft) -> Result<(), DomainValidationError> {
@@ -111,10 +98,40 @@ impl DomainSyncHandler for CustomerSyncHandler {
         &self,
         _conflict: &ConflictRecord,
     ) -> Result<Option<AuthoritativeChangeDraft>, DomainValidationError> {
-        // A later domain decision must inspect the common ancestor and changed
-        // fields. Until then, preserve both edits as an open conflict.
+        // Only the explicit Manager resolution operation can select final fields.
+        // Normal sync always preserves competing inputs for that review.
         Ok(None)
     }
+}
+
+pub(super) async fn branch_authorized(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    session: &AuthenticatedServerSession,
+    scope: &ScopeRef,
+    intent: SyncIntent,
+) -> bool {
+    let result = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+                SELECT 1 FROM control.branches b
+                JOIN control.relationship_tuples r
+                  ON r.tenant_id = b.tenant_id
+                 AND r.subject_principal_id = $2 AND r.subject_kind = 'user'
+                WHERE b.tenant_id = $1 AND b.branch_id = $3
+                  AND ((r.relation = 'eitmad.relation.organization.manager.v1'
+                        AND r.object_kind = 'organization'
+                        AND r.object_id = b.organization_id)
+                    OR ($4 AND r.relation = 'eitmad.relation.organization.receptionist.v1'
+                        AND r.object_kind = 'branch'
+                        AND r.object_id = b.branch_id))
+            )",
+    )
+    .bind(session.tenant_id.value())
+    .bind(session.user_id.value())
+    .bind(scope.id.value())
+    .bind(intent != SyncIntent::ResolveConflict)
+    .fetch_one(&mut **transaction)
+    .await;
+    matches!(result, Ok(true))
 }
 
 #[cfg(test)]
