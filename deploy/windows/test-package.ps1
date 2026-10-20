@@ -57,6 +57,15 @@ $runtime = [pscustomobject]@{version='14.44.35211.0'; architecture='x64'; deploy
 $runtimePath = Join-Path $desktop 'visual-cpp-runtime.json'
 $runtime | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $runtimePath -Encoding UTF8
 $runtimeFiles['visual-cpp-runtime.json'] = (Get-FileHash $runtimePath -Algorithm SHA256).Hash
+foreach ($name in 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll', 'PresentationFramework.dll') {
+    [IO.File]::WriteAllText((Join-Path $desktop $name), 'synthetic offline runtime')
+    $runtimeFiles[$name] = (Get-FileHash (Join-Path $desktop $name)).Hash
+}
+$configuration = Join-Path $desktop 'Eitmad.WindowsShell.runtimeconfig.json'
+[IO.File]::WriteAllText($configuration, '{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"8.0.0"},{"name":"Microsoft.WindowsDesktop.App","version":"8.0.0"}]}}')
+$manifest = Join-Path $desktop 'AppxManifest.xml'
+[IO.File]::WriteAllText($manifest, '<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"><Dependencies><TargetDeviceFamily Name="Windows.Desktop" /></Dependencies></Package>')
+foreach ($path in $configuration, $manifest) { $runtimeFiles[(Split-Path $path -Leaf)] = (Get-FileHash $path).Hash }
 $payloadPath = Join-Path $desktop 'release.json'
 [pscustomobject]@{files=$runtimeFiles} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $payloadPath -Encoding UTF8
 $payloadDigest = (Get-FileHash $payloadPath -Algorithm SHA256).Hash
@@ -67,6 +76,27 @@ function Pack-Desktop([string]$Name) {
 }
 $complete = Pack-Desktop 'complete'
 Assert-DesktopRuntime $complete $payloadDigest
+foreach ($scenario in 'dependency', 'server-tool', 'framework-dependent') {
+    if ($scenario -eq 'dependency') {
+        [IO.File]::WriteAllText($manifest, '<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"><Dependencies><PackageDependency Name="External.Runtime" /></Dependencies></Package>')
+    } elseif ($scenario -eq 'server-tool') {
+        [IO.File]::WriteAllText((Join-Path $desktop 'pg_dump.exe'), 'synthetic server tool')
+    } else {
+        [IO.File]::WriteAllText($configuration, '{"runtimeOptions":{"framework":{"name":"Microsoft.NETCore.App","version":"8.0.0"}}}')
+    }
+    $policyFiles = $runtimeFiles.Clone()
+    foreach ($path in $manifest, $configuration) { $policyFiles[(Split-Path $path -Leaf)] = (Get-FileHash $path).Hash }
+    if ($scenario -eq 'server-tool') { $policyFiles['pg_dump.exe'] = (Get-FileHash (Join-Path $desktop 'pg_dump.exe')).Hash }
+    [pscustomobject]@{files=$policyFiles} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $payloadPath -Encoding UTF8
+    $policyDigest = (Get-FileHash $payloadPath).Hash
+    $policyPackage = Pack-Desktop $scenario
+    $reason = switch ($scenario) { 'dependency' { 'external package dependencies' }; 'server-tool' { 'server components' }; default { 'self-contained' } }
+    Reject { Assert-DesktopRuntime $policyPackage $policyDigest } $reason
+    # Restore the same synthetic complete input for the next independent case.
+    [IO.File]::WriteAllText($manifest, '<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"><Dependencies><TargetDeviceFamily Name="Windows.Desktop" /></Dependencies></Package>')
+    Remove-Item -LiteralPath (Join-Path $desktop 'pg_dump.exe') -ErrorAction SilentlyContinue
+}
+[pscustomobject]@{files=$runtimeFiles} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $payloadPath -Encoding UTF8
 Reject { Assert-DesktopRuntime $complete ('0' * 64) } 'inventory differs'
 [IO.File]::WriteAllText((Join-Path $desktop 'msvcp140.dll'), 'changed runtime')
 $changed = Pack-Desktop 'changed'

@@ -132,8 +132,10 @@ def main():
                  "devicePublicKey": {"algorithm": "ed25519", "base64": base64.urlsafe_b64encode(public_key).decode().rstrip("=")},
                  "deviceProof": None}
         status, response = exchange("v1/auth/login", login)
-        assert status == 200, "Prepared owner could not sign in through validated HTTPS"
-        # Tokens in the login response stay in process memory and are not written to evidence.
+        # Fresh credentials do not approve an arbitrary device. Native setup must
+        # authorize its first desktop; other devices use independent pairing.
+        assert status == 401, "An unapproved device signed in with Owner credentials"
+        # Account-response bodies stay in memory and are not written to evidence.
         del response, login
     finally:
         if process and process.poll() is None:
@@ -145,9 +147,9 @@ def main():
     (root / "results.json").write_text(json.dumps({"passed": [
         "invalid credentials rejected before native changes", "new private PostgreSQL 17 cluster and SCRAM credentials",
         "Rust migrations and active Owner/Manager initialization", "stopped complete preparation and refused reinitialization",
-        "no secret in command output", "loopback-only PostgreSQL", "validated HTTPS ready 204 and owner login 200"],
+        "no secret in command output", "loopback-only PostgreSQL", "validated HTTPS ready 204 and unapproved Owner device refused"],
         "servicesInstalled": False, "firewallChanged": False, "physicalClientVerified": False}, indent=2) + "\n")
-    print("PASS: isolated fresh Windows workshop preparation, validated TLS readiness and owner sign-in")
+    print("PASS: isolated fresh Windows workshop preparation, validated TLS readiness and unapproved-device refusal")
 
 
 if __name__ == "__main__":

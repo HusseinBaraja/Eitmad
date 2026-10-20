@@ -93,6 +93,32 @@ function Assert-DesktopRuntime([string]$Package, [string]$ExpectedPayloadSha256)
             $digest = Digest (Read-Entry $name)
             if ($digest -ine $runtime.files.$name -or $digest -ine $inventory.files.$name) { throw 'Desktop runtime is incomplete or differs from its inventory.' }
         }
+        foreach ($name in 'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll', 'PresentationFramework.dll',
+            'Eitmad.WindowsShell.runtimeconfig.json', 'AppxManifest.xml') {
+            if ((Digest (Read-Entry $name)) -ine $inventory.files.$name) { throw 'Desktop offline runtime differs from its inventory.' }
+        }
+        $options = ([Text.Encoding]::UTF8.GetString((Read-Entry 'Eitmad.WindowsShell.runtimeconfig.json')) |
+            ConvertFrom-Json).runtimeOptions
+        if ($options.PSObject.Properties['framework'] -or $options.PSObject.Properties['frameworks'] -or
+            -not $options.PSObject.Properties['includedFrameworks'] -or
+            'Microsoft.NETCore.App' -notin $options.includedFrameworks.name -or
+            'Microsoft.WindowsDesktop.App' -notin $options.includedFrameworks.name) {
+            throw 'Desktop requires self-contained .NET and Windows Desktop runtimes.'
+        }
+        $manifest = [xml][Text.Encoding]::UTF8.GetString((Read-Entry 'AppxManifest.xml'))
+        $namespaces = New-Object Xml.XmlNamespaceManager($manifest.NameTable)
+        $namespaces.AddNamespace('m', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+        foreach ($dependency in $manifest.SelectNodes('/m:Package/m:Dependencies/*', $namespaces)) {
+            if ($dependency.LocalName -cne 'TargetDeviceFamily' -or
+                $dependency.NamespaceURI -cne $namespaces.LookupNamespace('m')) {
+                throw 'Offline desktop cannot require external package dependencies.'
+            }
+        }
+        foreach ($entry in $archive.Entries) {
+            if ($entry.Name -match '^(eitmad-server|Eitmad\.LanCertificate|postgres|initdb|psql|pg_[a-z_]+|createdb|createuser|dropdb|dropuser|pwsh|winsw[^.]*|WinSW\.NET461|host-service)\.exe$') {
+                throw 'Client cannot include server components.'
+            }
+        }
     } finally { $archive.Dispose() }
 }
 

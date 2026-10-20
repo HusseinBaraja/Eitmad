@@ -292,6 +292,32 @@ class OfflinePayloadTests(unittest.TestCase):
         with patch.object(artifacts, "verify_payload_signatures"), self.assertRaisesRegex(ValueError, "self-contained runtimes"):
             self.prepare()
 
+    def test_client_refuses_external_package_dependencies_and_server_tools(self) -> None:
+        inner = self.root / "msix"
+        desktop = self.source / "client/desktop"
+        manifest = inner / "AppxManifest.xml"
+        original = manifest.read_text()
+        # Rebuild valid inventories: these are policy failures, not hash failures.
+        for dependency in ("PackageDependency", "MainPackageDependency"):
+            with self.subTest(dependency=dependency):
+                manifest.write_text(original.replace("</Package>",
+                    f'<Dependencies><{dependency} Name="External.Runtime" Publisher="CN=Vendor"/></Dependencies></Package>'))
+                self.release(inner, "windows-desktop")
+                artifacts.deterministic_zip(inner, desktop / "desktop.msix")
+                self.release(desktop, "windows-desktop", payloadInventorySha256=artifacts.sha256(inner / "release.json"))
+                with self.assertRaisesRegex(ValueError, "external package dependencies"):
+                    artifacts.check_desktop_payload(desktop, self.version)
+        manifest.write_text(original)
+        for tool in ("pg_dump.exe", "pg_restore.exe", "pg_ctl.exe", "pg_resetwal.exe", "host-service.exe", "Eitmad.LanCertificate.exe"):
+            with self.subTest(tool=tool):
+                (inner / tool).write_bytes(pe())
+                self.release(inner, "windows-desktop")
+                artifacts.deterministic_zip(inner, desktop / "desktop.msix")
+                self.release(desktop, "windows-desktop", payloadInventorySha256=artifacts.sha256(inner / "release.json"))
+                with self.assertRaisesRegex(ValueError, "server components"):
+                    artifacts.check_desktop_payload(desktop, self.version)
+                (inner / tool).unlink()
+
     def test_untrusted_signature_cannot_publish_and_unsigned_exception_is_scoped(self) -> None:
         with patch.object(artifacts, "verify_payload_signatures", side_effect=ValueError("Untrusted payload signature")):
             with self.assertRaisesRegex(ValueError, "Untrusted"):

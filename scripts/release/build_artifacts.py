@@ -55,6 +55,10 @@ OFFLINE_COMPONENTS = {
 OFFLINE_OS_REQUIREMENTS = ["Supported patched x64 Windows build 19041+ on local NTFS",
     "Windows PowerShell 5.1", "Windows curl.exe (Schannel)", "MSIX permitted by Windows policy"]
 EXECUTABLE_SUFFIXES = {".exe", ".dll", ".ps1", ".psm1", ".msix"}
+SERVER_EXECUTABLES = {Path(relative).name.lower() for component in ("application", "postgresql", "winsw", "powershell")
+                      for relative in OFFLINE_COMPONENTS[component][1] if relative.endswith(".exe")} | {
+                          "host-service.exe", "pg_dump.exe", "pg_dumpall.exe", "pg_restore.exe", "createdb.exe",
+                          "createuser.exe", "dropdb.exe", "dropuser.exe"}
 
 
 def plain_path(path: Path) -> None:
@@ -287,10 +291,15 @@ def check_desktop_payload(stage: Path, version: str) -> dict:
         if sha256(unpacked / "release.json") != inventory.get("payloadInventorySha256"):
             raise ValueError("Desktop MSIX inventory differs from the authenticated outer package")
         inner = check_release_tree(unpacked, "windows-desktop", version, msix=True)
-        identity = ElementTree.parse(unpacked / "AppxManifest.xml").find("{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Identity")
+        manifest = ElementTree.parse(unpacked / "AppxManifest.xml")
+        namespace = "{http://schemas.microsoft.com/appx/manifest/foundation/windows10}"
+        identity = manifest.find(namespace + "Identity")
         if identity is None or identity.get("Name") != "Eitmad.Desktop" or identity.get("Version") != windows_version(version) or \
                 identity.get("ProcessorArchitecture") != "x64" or identity.get("Publisher") != inventory.get("publisher"):
             raise ValueError("Offline desktop must preserve the Eitmad MSIX identity and publisher")
+        dependencies = manifest.find(namespace + "Dependencies")
+        if dependencies is not None and any(item.tag != namespace + "TargetDeviceFamily" for item in dependencies):
+            raise ValueError("Offline desktop cannot require external package dependencies")
         required = CRT_FILES | {"coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll",
             "Eitmad.WindowsShell.exe", "eitmad-engine-cli.exe", "visual-cpp-runtime.json", "sbom.cdx.json"}
         if not required <= set(inner["files"]):
@@ -307,7 +316,7 @@ def check_desktop_payload(stage: Path, version: str) -> dict:
             path = unpacked / relative
             if path.suffix.lower() in {".exe", ".dll"} and pe_architecture(path) not in {"x64", "anycpu"}:
                 raise ValueError("Desktop contains a non-x64 runtime")
-            if path.name.lower() in {"eitmad-server.exe", "postgres.exe", "initdb.exe", "pwsh.exe", "winsw.net461.exe"}:
+            if path.name.lower() in SERVER_EXECUTABLES or re.fullmatch(r"pg_[a-z_]+\.exe", path.name.lower()):
                 raise ValueError("Client cannot include server components")
         return {"releaseInventorySha256": sha256(stage / "release.json"),
                 "msixInventorySha256": sha256(unpacked / "release.json"), "visualCppRuntime": runtime,
