@@ -175,8 +175,11 @@ jobs:
       - name: Verify Windows package and retained service lifecycle tools
         run: |
           powershell -NoProfile -File deploy/windows/test-package.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-host.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-release-lifecycle.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build repeatable unsigned Windows installation bundles
         run: python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
       - name: Build Windows server installation bundle
