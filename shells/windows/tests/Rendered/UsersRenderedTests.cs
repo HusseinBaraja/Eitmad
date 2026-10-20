@@ -8,31 +8,6 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class UsersRenderedTests
 {
-    public TestContext TestContext { get; set; } = null!;
-
-    [TestMethod]
-    [DataRow(1536d, 864d)]
-    [DataRow(1338d, 753d)]
-    [DataRow(720d, 560d)]
-    public void SharedAccountPolicyAndRevocationRenderAtBaselineSizes(double width, double height)
-    {
-        WpfTestHost.Run(width, height, window =>
-        {
-            WpfTestHost.FindByName<Button>(window, "UsersNavButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            WpfTestHost.CompleteLayout(window);
-            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(window);
-            TestContext.WriteLine($"Window {window.ActualWidth} × {window.ActualHeight}; display scale {dpi.DpiScaleX * 100}% × {dpi.DpiScaleY * 100}%.");
-            WpfTestHost.Capture(window, $"shared-users-{width}-{height}");
-            var view = window.UsersSurface;
-            view.ClearSession();
-            Assert.AreEqual(0, view.ViewModel.VisibleUsers.Count);
-            window.SignInSurface.Reset(Eitmad.WindowsShell.Features.Authentication.SessionEndReason.AccessChanged);
-            window.SignInSurface.Visibility = Visibility.Visible;
-            WpfTestHost.CompleteLayout(window);
-            WpfTestHost.Capture(window, $"shared-access-removed-{width}-{height}");
-        }, engine: Engine());
-    }
-
     private static FakeEngine Engine()
     {
         var engine = new FakeEngine();

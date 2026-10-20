@@ -182,7 +182,7 @@ def main():
             scenario = "real_server_authentication_tls_sync_and_reconnect"
             if args.verify_desktop_enrollment_engine:
                 reconnect_environment["EITMAD_DESKTOP_ENROLLMENT_ENGINE"] = str(args.verify_desktop_enrollment_engine.resolve())
-                scenario = "desktop_enrollment_recovers_interruption_expiry_and_credential_loss"
+                scenario = "desktop_enrollment::desktop_enrollment_recovers_interruption_expiry_and_credential_loss"
             run(["rustup", "run", "1.85.1", "cargo", "test", "--locked", "-p", "eitmad-server-connection",
                  "--test", "direct_route", scenario, "--", "--ignored", "--exact"],
                 reconnect_environment, timeout=300)

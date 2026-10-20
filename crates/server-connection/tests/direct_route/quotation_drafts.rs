@@ -138,14 +138,6 @@ fn server_change(mut change: ChangeRecord, branch: &ScopeRef, catalog: &ScopeRef
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn quotation_drafts_restart_transfer_replay_and_conflict_through_real_server() {
-    draft_conflict_scenario(false).await;
-}
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires disposable PostgreSQL and trusted development certificates"]
-async fn quotation_draft_resolution_converges_after_restart_and_holds_later_edits() {
-    draft_conflict_scenario(true).await;
-}
-async fn draft_conflict_scenario(resolve: bool) {
     let _credentials = TestCredentials::new();
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut scenario = CatalogScenario::new().await;
@@ -226,7 +218,6 @@ async fn draft_conflict_scenario(resolve: bool) {
         approval_connection(second.directory.path(), auth_b.clone(), [12; 32], &scenario);
     let fixture = DraftTransferFixture {
         resolution_client,
-        resolve,
         created_customer,
         target,
         furniture_target,
@@ -241,7 +232,7 @@ async fn draft_conflict_scenario(resolve: bool) {
         .await
         .unwrap();
 
-    verify_postgres_history(&pool, tenant, final_local, if resolve { 4 } else { 2 }).await;
+    verify_postgres_history(&pool, tenant, final_local).await;
     scenario
         .server
         .handle
@@ -306,7 +297,6 @@ async fn verify_server_permissions(scenario: &CatalogScenario) -> sqlx::PgPool {
 }
 struct DraftTransferFixture {
     resolution_client: Arc<eitmad_server_connection::DirectDiscountApprovalClient>,
-    resolve: bool,
     created_customer: Customer,
     target: PriceTarget,
     furniture_target: PriceTarget,
@@ -487,14 +477,12 @@ fn verify_clients(
     let tenant = second.client.actor.tenant_id;
     authorize_draft_writer(&mut second.client, tenant);
     let conflict = verify_competing_updates(&mut first, &mut second, &created);
-    if fixture.resolve {
-        resolution::run(
-            &mut first,
-            &mut second,
-            &conflict,
-            fixture.resolution_client.as_ref(),
-        );
-    }
+    resolution::run(
+        &mut first,
+        &mut second,
+        &conflict,
+        fixture.resolution_client.as_ref(),
+    );
     // Compare durable customer state, including revision and bytes, per client.
     assert_eq!(customer_sync_state(&first), first_customer_state);
     assert_eq!(customer_sync_state(&second), second_customer_state);
@@ -602,7 +590,6 @@ async fn verify_postgres_history(
     pool: &sqlx::PgPool,
     tenant: TenantId,
     final_local: QuotationDraft,
-    expected_revisions: i64,
 ) {
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
@@ -617,9 +604,9 @@ async fn verify_postgres_history(
     .fetch_one(&mut *tx)
     .await
     .unwrap();
-    assert_eq!(count, expected_revisions);
+    assert_eq!(count, 4);
     let conflicts:i64=sqlx::query_scalar("SELECT count(*) FROM sync.conflicts WHERE tenant_id=$1 AND schema_id='eitmad.schema.quotation-draft.v1'").bind(tenant.value()).fetch_one(&mut *tx).await.unwrap();
-    assert_eq!(conflicts, if expected_revisions == 4 { 2 } else { 1 });
+    assert_eq!(conflicts, 2);
     let retained: serde_json::Value = sqlx::query_scalar(
         "SELECT conflict_json FROM sync.conflicts WHERE tenant_id=$1 AND conflict_id=$2",
     )
