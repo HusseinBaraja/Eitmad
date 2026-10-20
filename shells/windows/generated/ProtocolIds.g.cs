@@ -9,11 +9,14 @@ public static class ProtocolIds
     public static class Version
     {
         public const long Major = 1;
-        public const long Minor = 28;
+        public const long Minor = 29;
     }
 
     public static class IpcMessages
     {
+        public const string EitmadIpcDiscoverServersV1 = "eitmad.ipc.discover-servers.v1";
+        public const string EitmadIpcCancelServerDiscoveryV1 = "eitmad.ipc.cancel-server-discovery.v1";
+        public const string EitmadIpcServerDiscoveryV1 = "eitmad.ipc.server-discovery.v1";
         public const string EitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1";
         public const string EitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1";
         public const string EitmadIpcDesktopSignInV1 = "eitmad.ipc.desktop-sign-in.v1";
@@ -190,6 +193,7 @@ public static class ProtocolIds
 
     public static class Capabilities
     {
+        public const string EitmadCapabilityServerDiscoveryV1 = "eitmad.capability.server-discovery.v1";
         public const string EitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1";
         public const string EitmadCapabilityHomeV1 = "eitmad.capability.home.v1";
         public const string EitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1";

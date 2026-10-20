@@ -155,6 +155,11 @@ pub struct IpcFailureResponse {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload")]
 pub enum IpcClientMessage {
+    #[serde(rename = "eitmad.ipc.discover-servers.v1")]
+    DiscoverServers(crate::discovery::DiscoverServers),
+    /// Uses the request and correlation IDs of the scan to cancel on this connection.
+    #[serde(rename = "eitmad.ipc.cancel-server-discovery.v1")]
+    CancelServerDiscovery(crate::discovery::DiscoverServers),
     #[serde(rename = "eitmad.ipc.handshake.v1")]
     Handshake(HandshakeRequest),
     #[serde(rename = "eitmad.ipc.desktop-sign-in.v1")]
@@ -178,6 +183,8 @@ pub enum IpcClientMessage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload")]
 pub enum IpcServerMessage {
+    #[serde(rename = "eitmad.ipc.server-discovery.v1")]
+    ServerDiscovery(crate::discovery::ServerDiscoveryResult),
     #[serde(rename = "eitmad.ipc.handshake-response.v1")]
     Handshake(HandshakeResponse),
     #[serde(rename = "eitmad.ipc.desktop-session-response.v1")]
@@ -229,7 +236,8 @@ impl IpcServerMessage {
             Self::Failure(response) => {
                 response.error = response.error.redacted_for_external_boundary();
             }
-            Self::Event(_)
+            Self::ServerDiscovery(_)
+            | Self::Event(_)
             | Self::Handshake(_)
             | Self::Unsubscribe(_)
             | Self::SubscriptionClosed(_)

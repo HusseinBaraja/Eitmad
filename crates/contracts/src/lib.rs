@@ -16,6 +16,7 @@ pub mod catalog_revision;
 pub mod commands;
 pub mod config;
 pub mod customer;
+pub mod discovery;
 pub mod errors;
 pub mod events;
 pub mod furniture;

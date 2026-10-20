@@ -7,6 +7,7 @@ pub use subscriptions::{
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 
 use crate::{DesktopAuthenticationError, DesktopAuthenticator};
+mod discovery;
 use async_trait::async_trait;
 use eitmad_contracts::{
     PROTOCOL_VERSION,
@@ -282,9 +283,15 @@ impl LocalIpcServer {
         let mut pending = tokio::task::JoinSet::new();
         let (event_sender, mut event_receiver) = mpsc::channel::<SubscriptionDelivery>(256);
         let mut subscriptions = HashMap::new();
+        let mut discovery = discovery::DesktopDiscovery::default();
         loop {
             tokio::select! {
                 biased;
+                response = discovery.finish(), if discovery.is_active() => {
+                    if let Some(response) = response {
+                        if !write_frame_or_close(&mut writer, &response).await? { return Ok(()); }
+                    }
+                }
                 completed = pending.join_next(), if !pending.is_empty() => {
                     if let Some(Ok(response)) = completed {
                         if !write_pending_response(&mut writer, response, self.desktop_auth.as_ref(), session.as_ref()).await? {
@@ -308,13 +315,7 @@ impl LocalIpcServer {
                         }
                     };
 
-                    let Some(message) = spawn_request(
-                        &mut pending,
-                        &self.dispatcher,
-                        self.desktop_auth.as_ref(),
-                        session.as_ref(),
-                        message,
-                    ) else {
+                    let Some(message) = self.prepare_request(&mut pending, session.as_ref(), &mut discovery, &mut writer, message).await? else {
                         continue;
                     };
 
@@ -391,12 +392,55 @@ impl LocalIpcServer {
         write_frame_or_close(writer, &response).await
     }
 
+    async fn prepare_request<W: AsyncWrite + Unpin>(
+        &self,
+        pending: &mut tokio::task::JoinSet<PendingResponse>,
+        session: Option<&Session>,
+        discovery: &mut discovery::DesktopDiscovery,
+        writer: &mut W,
+        message: IpcClientMessage,
+    ) -> io::Result<Option<IpcClientMessage>> {
+        match message {
+            IpcClientMessage::DiscoverServers(request) => {
+                if let Some(response) = discovery.start(request, session.is_some()) {
+                    if !write_frame_or_close(writer, &response).await? {
+                        return Err(io::ErrorKind::BrokenPipe.into());
+                    }
+                }
+                Ok(None)
+            }
+            IpcClientMessage::CancelServerDiscovery(request) => {
+                discovery.cancel(&request);
+                Ok(None)
+            }
+            message => Ok(spawn_request(
+                pending,
+                &self.dispatcher,
+                self.desktop_auth.as_ref(),
+                session,
+                message,
+            )),
+        }
+    }
+
     async fn handle_message(
         &self,
         message: IpcClientMessage,
         session: &mut Option<Session>,
     ) -> IpcServerMessage {
         match message {
+            IpcClientMessage::DiscoverServers(request)
+            | IpcClientMessage::CancelServerDiscovery(request) => {
+                IpcServerMessage::ServerDiscovery(
+                    eitmad_contracts::discovery::ServerDiscoveryResult {
+                        request_id: request.request_id,
+                        correlation_id: request.correlation_id,
+                        status:
+                            eitmad_contracts::discovery::DiscoveryStatus::AuthenticationRequired,
+                        servers: Vec::new(),
+                    },
+                )
+            }
             IpcClientMessage::Handshake(request) => {
                 if let (Some(previous), Some(auth)) = (
                     session
@@ -1419,6 +1463,7 @@ fn default_engine_hello() -> PeerHello {
             "eitmad.capability.desktop-user-session.v1",
             "eitmad.capability.local-ipc.v1",
             "eitmad.capability.local-ipc-subscriptions.v1",
+            "eitmad.capability.server-discovery.v1",
             "eitmad.capability.authorization-policy-events.v1",
             "eitmad.capability.authorization-scopes.v1",
             "eitmad.capability.config.v1",

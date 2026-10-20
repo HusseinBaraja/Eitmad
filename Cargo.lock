@@ -953,6 +953,7 @@ dependencies = [
  "eitmad-part",
  "eitmad-pricing",
  "eitmad-product",
+ "eitmad-server-discovery",
  "eitmad-storage",
  "fs2",
  "rusqlite",
@@ -1135,6 +1136,7 @@ dependencies = [
  "eitmad-pricing",
  "eitmad-relay-plane",
  "eitmad-server-audit",
+ "eitmad-server-discovery",
  "eitmad-sync-plane",
  "eitmad-update-plane",
  "eitmad-update-policy",
@@ -1208,6 +1210,18 @@ dependencies = [
  "url",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "eitmad-server-discovery"
+version = "0.0.0"
+dependencies = [
+ "eitmad-contracts",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

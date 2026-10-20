@@ -66,8 +66,12 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     }
     function Get-NetTCPConnection { param($State, $LocalPort, $ErrorAction) if ($script:conflict) { [pscustomobject]@{LocalPort = $LocalPort} } }
     $script:firewall = $null
+    $script:discoveryFirewall = $null
     $script:firewallChanges = New-Object 'Collections.Generic.List[string]'
-    function Get-NetFirewallRule { param($PolicyStore, $Name, $ErrorAction) return $script:firewall }
+    function Get-NetFirewallRule { param($PolicyStore, $Name, $ErrorAction)
+        if ($Name.EndsWith('-Discovery')) { return $script:discoveryFirewall }
+        return $script:firewall
+    }
     function Get-NetFirewallApplicationFilter {
         param([Parameter(ValueFromPipeline)]$InputObject)
         process { [pscustomobject]@{Program = $InputObject.Program} }
@@ -75,18 +79,26 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     function New-NetFirewallRule {
         param($PolicyStore, $Name, $Enabled, $Direction, $Action, $Profile, $Protocol, $LocalAddress,
             $LocalPort, $RemoteAddress, $Program, $EdgeTraversalPolicy, $DisplayName, $Group)
+        if ($Name.EndsWith('-Discovery')) { $script:discoveryFirewall = [pscustomobject]$PSBoundParameters; return }
         $script:firewallChanges.Add('create')
         $script:firewall = [pscustomobject]$PSBoundParameters
     }
     function Set-NetFirewallRule {
         param($PolicyStore, $Name, $Enabled, $Direction, $Action, $Profile, $Protocol, $LocalAddress,
             $LocalPort, $RemoteAddress, $Program, $EdgeTraversalPolicy)
+        if ($Name.EndsWith('-Discovery')) {
+            foreach ($key in $PSBoundParameters.Keys) { $script:discoveryFirewall.$key = $PSBoundParameters[$key] }
+            return
+        }
         $script:firewallChanges.Add('update')
         foreach ($key in $PSBoundParameters.Keys) { $script:firewall.$key = $PSBoundParameters[$key] }
     }
     function Remove-NetFirewallRule {
         param([Parameter(ValueFromPipeline)]$InputObject)
-        process { $script:firewallChanges.Add('remove'); $script:firewall = $null }
+        process {
+            if ($InputObject.Name.EndsWith('-Discovery')) { $script:discoveryFirewall = $null; return }
+            $script:firewallChanges.Add('remove'); $script:firewall = $null
+        }
     }
     function Test-Endpoint { param($Endpoint, $Route) $script:events.Add('probe:' + $Route); return $script:ready }
     function Invoke-Native {
@@ -173,19 +185,29 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     Assert ($script:firewallChanges.Count -eq 4 -and $script:firewallChanges[-1] -ceq 'update') 'Private LAN left a separate client rule.'
     Assert ($script:firewall.RemoteAddress -ceq 'LocalSubnet' -and $script:firewall.Profile -ceq 'Private' -and
         $script:firewall.Program -ceq (Join-Path $root 'app/eitmad-server.exe') -and
-        $script:firewall.LocalPort -eq 58443 -and $script:firewall.LocalAddress -ceq '192.168.50.10' -and
+        $script:firewall.LocalPort -eq 58443 -and $script:firewall.LocalAddress -ceq 'Any' -and
         $script:firewall.Protocol -ceq 'TCP' -and $script:firewall.Direction -ceq 'Inbound' -and
         $script:firewall.Enabled -ceq 'True' -and $script:firewall.Action -ceq 'Allow' -and
         $script:firewall.EdgeTraversalPolicy -ceq 'Block') 'Private LAN escaped the installed HTTPS scope.'
+    Assert ($script:discoveryFirewall.Profile -ceq 'Private' -and $script:discoveryFirewall.RemoteAddress -ceq 'LocalSubnet' -and
+        $script:discoveryFirewall.Program -ceq (Join-Path $root 'app/eitmad-server.exe') -and
+        $script:discoveryFirewall.Protocol -ceq 'UDP' -and $script:discoveryFirewall.LocalPort -eq 58444 -and
+        $script:discoveryFirewall.LocalAddress -ceq 'Any' -and $script:discoveryFirewall.Direction -ceq 'Inbound' -and
+        $script:discoveryFirewall.EdgeTraversalPolicy -ceq 'Block') 'Discovery escaped Private + LocalSubnet program/port scope.'
+    $script:discoveryFirewall.Group = 'Other installation'
+    Reject { Set-ClientFirewall $settings -PrivateLan } 'another installation'
+    $script:discoveryFirewall.Group = 'Eitmad host: ' + $root
     $script:firewall.Group = 'Another installation'
     Reject { Set-ClientFirewall $settings -PrivateLan } 'another installation'
     Assert ($script:firewallChanges.Count -eq 4) 'Private LAN changed a foreign rule.'
     $script:firewall.Group = 'Eitmad host: ' + $root
     Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -ClientAddress '192.168.50.24'
     Assert ($script:firewall.RemoteAddress -ceq '192.168.50.24') 'An exact client rule retained LocalSubnet access.'
+    Assert (-not $script:discoveryFirewall) 'Diagnostic client mode retained the discovery rule.'
     Invoke-EitmadHost Firewall -StateDirectory $root -Name EitmadTest -PrivateLan
     Invoke-EitmadHost Uninstall -StateDirectory $root -Name EitmadTest
     Assert (-not $script:firewall -and $script:firewallChanges[-1] -ceq 'remove') 'Uninstall retained the client allow rule.'
+    Assert (-not $script:discoveryFirewall) 'Uninstall retained the discovery allow rule.'
     Assert (Test-Path -LiteralPath (Join-Path $root 'retained-data')) 'Firewall configuration changed durable data.'
     Write-Host 'PASS: real argv quoting; mocked SCM startup, readiness, shutdown, port conflicts, ownership, bounded recovery, and preserved uninstall data.'
     Write-Host 'PASS: exact client firewall scope, replacement, prompt retry/cancel, preview, ownership, and removal on uninstall.'

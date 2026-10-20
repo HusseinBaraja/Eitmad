@@ -17,7 +17,7 @@ keywords:
 
 # Operate and release Eitmad
 
-Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 11 and separate process, user authentication, and Manager account administration under local protocol `1.8`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented. Windows scheduled backup tooling is supplied; off-device installation and replacement-machine credential recovery still require acceptance.
+Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 11 and separate process, user authentication, and Manager account administration under local protocol `1.8`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented. Windows scheduled backup tooling is supplied; off-device installation and replacement-machine credential recovery still require acceptance.
 
 ## Release and deployment tasks
 

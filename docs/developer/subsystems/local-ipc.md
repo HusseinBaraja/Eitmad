@@ -22,6 +22,8 @@ Typed local IPC carries Rust-owned commands, queries, subscriptions, and events 
 
 ## Ownership and boundary
 
+Protocol 1.29 also carries [untrusted server discovery](server-discovery.md) after bootstrap authentication, before account sign-in. One asynchronous scan per connection supports typed completion and cancellation; disconnect drops its task and sockets. This exception grants no product read or mutation authority.
+
 | Concern | Authority |
 | --- | --- |
 | Wire messages, errors, versions, capabilities, identity, and scope | `eitmad-contracts` |

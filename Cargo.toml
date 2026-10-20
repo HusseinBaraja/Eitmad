@@ -17,6 +17,7 @@ members = [
     "crates/observability-audit",
     "crates/secret-storage",
     "crates/server-connection",
+    "crates/server-discovery",
     "crates/storage",
     "crates/sync",
     "crates/update-policy",

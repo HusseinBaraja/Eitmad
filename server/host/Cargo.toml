@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-server-discovery = { path = "../../crates/server-discovery" }
 eitmad-customer = { path = "../../crates/customer" }
 eitmad-postgres-support = { path = "../postgres-support" }
 eitmad-orders = { path = "../../crates/orders" }

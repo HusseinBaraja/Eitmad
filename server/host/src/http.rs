@@ -325,6 +325,12 @@ pub async fn run(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let application = router(state.clone());
     let address = config.listen;
+    let _advertisement = crate::discovery::Advertisement::start(
+        &config.update_manifest_directory,
+        address,
+        config.tls_certificate.is_some(),
+    )
+    .await?;
     if let (Some(certificate), Some(private_key)) =
         (&config.tls_certificate, &config.tls_private_key)
     {

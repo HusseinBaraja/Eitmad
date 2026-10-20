@@ -4375,6 +4375,71 @@
         "approvalRequired"
       ]
     },
+    "DiscoverServers": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "DiscoveredServer": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "description": "A hint only. Pairing must authenticate the server identity and TLS name separately.",
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "identityConflict": {
+          "description": "More than one running installation claims this identity. Never select it automatically.",
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "serverId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverId",
+        "address",
+        "port",
+        "expiresAt",
+        "identityConflict"
+      ]
+    },
+    "DiscoveryStatus": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "cancelled",
+        "networkChanged",
+        "unavailable",
+        "busy",
+        "authenticationRequired",
+        "limitReached"
+      ]
+    },
     "DownloadCatalogImage": {
       "type": "object",
       "properties": {
@@ -6374,6 +6439,39 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "eitmad.ipc.discover-servers.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscoverServers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "description": "Uses the request and correlation IDs of the scan to cancel on this connection.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.cancel-server-discovery.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscoverServers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "eitmad.ipc.handshake.v1"
             },
             "payload": {
@@ -6535,6 +6633,22 @@
     },
     "IpcServerMessage": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.server-discovery.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerDiscoveryResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -13520,6 +13634,35 @@
       "required": [
         "apiVersion",
         "peer"
+      ]
+    },
+    "ServerDiscoveryResult": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "servers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiscoveredServer"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/DiscoveryStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId",
+        "status",
+        "servers"
       ]
     },
     "ServerFailure": {

@@ -4,10 +4,13 @@ import Foundation
 public enum ProtocolIds {
     public enum Version {
         public static let major = 1
-        public static let minor = 28
+        public static let minor = 29
     }
 
     public enum IpcMessages {
+        public static let eitmadIpcDiscoverServersV1 = "eitmad.ipc.discover-servers.v1"
+        public static let eitmadIpcCancelServerDiscoveryV1 = "eitmad.ipc.cancel-server-discovery.v1"
+        public static let eitmadIpcServerDiscoveryV1 = "eitmad.ipc.server-discovery.v1"
         public static let eitmadIpcDesktopSessionResponseV1 = "eitmad.ipc.desktop-session-response.v1"
         public static let eitmadIpcDesktopSessionStateV1 = "eitmad.ipc.desktop-session-state.v1"
         public static let eitmadIpcDesktopSignInV1 = "eitmad.ipc.desktop-sign-in.v1"
@@ -177,6 +180,7 @@ public enum ProtocolIds {
     }
 
     public enum Capabilities {
+        public static let eitmadCapabilityServerDiscoveryV1 = "eitmad.capability.server-discovery.v1"
         public static let eitmadCapabilitySharedAccountsV1 = "eitmad.capability.shared-accounts.v1"
         public static let eitmadCapabilityHomeV1 = "eitmad.capability.home.v1"
         public static let eitmadCapabilityWorkOrdersV1 = "eitmad.capability.work-orders.v1"

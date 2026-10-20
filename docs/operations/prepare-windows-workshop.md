@@ -23,7 +23,7 @@ keywords:
 
 `eitmad-server prepare-windows-workshop` prepares a **new** Windows state directory using reviewed offline tools. It creates a private CA and matching leaf certificate, an isolated PostgreSQL 17 cluster with SCRAM authentication, separate random administrator and application credentials, an application database, migrations, and the active Owner/Manager and branch. PostgreSQL binds only to `127.0.0.1`. The command stops this cluster before it returns public enrollment coordinates and writes `prepared-workshop.json`.
 
-The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. The native `EitmadSetup.exe` interface, automatic discovery, pairing, and automatic backup scheduling remain unimplemented. [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) defines the selected user experience.
+The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. Rust [automatic discovery](../developer/subsystems/server-discovery.md) returns untrusted candidates. The native `EitmadSetup.exe` interface, authenticated pairing, and automatic backup scheduling remain unimplemented. [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) defines the selected user experience.
 
 ## Before you start
 
@@ -136,6 +136,8 @@ Disable transcripts and keep the private JSON in memory. The Windows adapter cre
 UAC can use a different administrator account. That worker runs only `install-windows-server`: preparation, migrations, first-owner initialization, stopped-cluster import, service installation, Private-only `LocalSubnet` firewall configuration, and HTTPS `/readyz`. It never registers the desktop. The original non-elevated process waits for verified server completion, then registers the desktop under its own SID. Rust maps elevated completion to successful HTTPS verification; overall `complete/succeeded` is emitted only after desktop registration also succeeds. The existing service adapter validates the CA chain, certificate name and expiry, and HTTP 204 readiness without disabling TLS validation. PostgreSQL remains loopback-only. Unrelated firewall rules can still grant independent access; inspect them during deployment acceptance.
 
 ### Progress, interruption, and recovery
+
+New service installations listen on IPv4 wildcard and add executable-scoped Private + LocalSubnet rules for the configured HTTPS port and UDP 58444. PostgreSQL remains loopback-only. Rust [server discovery](../developer/subsystems/server-discovery.md) preserves an installation UUID and returns typed, untrusted candidates. It cannot install trust or enroll a device. Native onboarding and authenticated pairing remain separate work. Development tests do not update the installed service or effective firewall policy.
 
 Each progress line has `version`, increasing `sequence`, `stage`, and `status`. The contract defines the exact stage/status values. Rust writes each record with exclusive creation and flushes it before emitting it. Records contain no credentials, account input, private paths, or native error text. The original-user journal contains the combined flow; the separate server journal contains elevated stages. A failed stage emits `failed` and prevents later stages. A server that is ready can remain installed if desktop registration fails; do not initialize it again.
 

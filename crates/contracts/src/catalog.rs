@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub const CAPABILITIES: &[&str] = &[
+    "eitmad.capability.server-discovery.v1",
     "eitmad.capability.shared-accounts.v1",
     "eitmad.capability.home.v1",
     "eitmad.capability.work-orders.v1",
@@ -50,6 +51,9 @@ pub const CAPABILITIES: &[&str] = &[
 ];
 
 pub const IPC_MESSAGES: &[&str] = &[
+    "eitmad.ipc.discover-servers.v1",
+    "eitmad.ipc.cancel-server-discovery.v1",
+    "eitmad.ipc.server-discovery.v1",
     "eitmad.ipc.desktop-session-response.v1",
     "eitmad.ipc.desktop-session-state.v1",
     "eitmad.ipc.desktop-sign-in.v1",

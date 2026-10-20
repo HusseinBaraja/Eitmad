@@ -731,6 +731,10 @@ namespace Eitmad.Contracts
         public InstallWindowsServer InstallWindowsServer { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcCancelServerDiscovery")]
+        public DiscoverServers IpcClientMessageIpcCancelServerDiscovery { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcCommand")]
         public CommandEnvelope IpcClientMessageIpcCommand { get; set; }
 
@@ -745,6 +749,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcDesktopSignOut")]
         public DesktopSessionRequest IpcClientMessageIpcDesktopSignOut { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDiscoverServers")]
+        public DiscoverServers IpcClientMessageIpcDiscoverServers { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcHandshake")]
@@ -789,6 +797,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcQueryResponse")]
         public QueryResponseEnvelope IpcServerMessageIpcQueryResponse { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcServerMessage_IpcServerDiscovery")]
+        public ServerDiscoveryResult IpcServerMessageIpcServerDiscovery { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcShutdownResponse")]
@@ -3186,6 +3198,15 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
     }
 
+    public partial class DiscoverServers
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+    }
+
     public partial class CommandEnvelope
     {
         [JsonPropertyName("authorization")]
@@ -3683,6 +3704,45 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("retry")]
         public RetryDisposition Retry { get; set; }
+    }
+
+    public partial class ServerDiscoveryResult
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("servers")]
+        public DiscoveredServer[] Servers { get; set; }
+
+        [JsonPropertyName("status")]
+        public DiscoveryStatus Status { get; set; }
+    }
+
+    public partial class DiscoveredServer
+    {
+        /// <summary>
+        /// A hint only. Pairing must authenticate the server identity and TLS name separately.
+        /// </summary>
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long ExpiresAt { get; set; }
+
+        /// <summary>
+        /// More than one running installation claims this identity. Never select it automatically.
+        /// </summary>
+        [JsonPropertyName("identityConflict")]
+        public bool IdentityConflict { get; set; }
+
+        [JsonPropertyName("port")]
+        public long Port { get; set; }
+
+        [JsonPropertyName("serverId")]
+        public Guid ServerId { get; set; }
     }
 
     public partial class ShutdownResponse
@@ -5239,6 +5299,8 @@ namespace Eitmad.Contracts
 
     public enum HandshakeOutcomeStatus { Accepted, Rejected };
 
+    public enum DiscoveryStatus { AuthenticationRequired, Busy, Cancelled, Complete, LimitReached, NetworkChanged, Unavailable };
+
     /// <summary>
     /// Cached projections must be cleared and queried again after a policy change.
     /// </summary>
@@ -5338,6 +5400,7 @@ namespace Eitmad.Contracts
                 NegotiationRejectionKindConverter.Singleton,
                 RequiredByConverter.Singleton,
                 HandshakeOutcomeStatusConverter.Singleton,
+                DiscoveryStatusConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
                 ConflictStatusConverter.Singleton,
                 HomeAvailabilityConverter.Singleton,
@@ -7227,6 +7290,65 @@ namespace Eitmad.Contracts
         }
 
         public static readonly HandshakeOutcomeStatusConverter Singleton = new HandshakeOutcomeStatusConverter();
+    }
+
+    internal class DiscoveryStatusConverter : JsonConverter<DiscoveryStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DiscoveryStatus);
+
+        public override DiscoveryStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "authenticationRequired":
+                    return DiscoveryStatus.AuthenticationRequired;
+                case "busy":
+                    return DiscoveryStatus.Busy;
+                case "cancelled":
+                    return DiscoveryStatus.Cancelled;
+                case "complete":
+                    return DiscoveryStatus.Complete;
+                case "limitReached":
+                    return DiscoveryStatus.LimitReached;
+                case "networkChanged":
+                    return DiscoveryStatus.NetworkChanged;
+                case "unavailable":
+                    return DiscoveryStatus.Unavailable;
+            }
+            throw new Exception("Cannot unmarshal type DiscoveryStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DiscoveryStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DiscoveryStatus.AuthenticationRequired:
+                    JsonSerializer.Serialize(writer, "authenticationRequired", options);
+                    return;
+                case DiscoveryStatus.Busy:
+                    JsonSerializer.Serialize(writer, "busy", options);
+                    return;
+                case DiscoveryStatus.Cancelled:
+                    JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case DiscoveryStatus.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case DiscoveryStatus.LimitReached:
+                    JsonSerializer.Serialize(writer, "limitReached", options);
+                    return;
+                case DiscoveryStatus.NetworkChanged:
+                    JsonSerializer.Serialize(writer, "networkChanged", options);
+                    return;
+                case DiscoveryStatus.Unavailable:
+                    JsonSerializer.Serialize(writer, "unavailable", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DiscoveryStatus");
+        }
+
+        public static readonly DiscoveryStatusConverter Singleton = new DiscoveryStatusConverter();
     }
 
     internal class SubscriptionCloseReasonConverter : JsonConverter<SubscriptionCloseReason>
