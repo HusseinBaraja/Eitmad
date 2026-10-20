@@ -60,6 +60,14 @@ async fn execute() -> Result<(), MainError> {
     if command == ServerCommand::PrepareWindowsWorkshop {
         return windows_setup::prepare().await;
     }
+    if matches!(
+        command,
+        ServerCommand::InstallWindows
+            | ServerCommand::InstallWindowsServer
+            | ServerCommand::WindowsInstallStatus
+    ) {
+        return windows_setup::install(command).await;
+    }
     if let ServerCommand::RecoverOwner {
         tenant_code,
         owner_username,
@@ -306,6 +314,8 @@ fn print_help() {
     println!("eitmad-server recover-owner <tenant-code> <owner-username> (password on stdin)");
     println!("eitmad-server initialize-workshop (version-one setup JSON on stdin)");
     println!("eitmad-server prepare-windows-workshop (private local setup JSON on stdin)");
+    println!("eitmad-server install-windows (private Server or Client JSON on stdin)");
+    println!("eitmad-server windows-install-status (version-one progress directory JSON on stdin)");
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -135,7 +135,7 @@ On 2026-10-20, an unsigned desktop validation ZIP built successfully with Rust 1
 
 ## Install the server
 
-For a fresh workshop, [prepare a new Windows workshop](prepare-windows-workshop.md) to create a separate cluster, TLS material, runtime settings, and active first Owner. Then use its stopped cluster and prepared LAN root with this service installation flow. This backend is not yet the combined Server or Client installer selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md).
+For a fresh workshop, use the [Rust Server or Client installation backend](prepare-windows-workshop.md#install-server-or-client-through-rust). Server composes preparation, services, Private-network access, HTTPS readiness, and original-user desktop registration. The native setup UI selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) remains unimplemented. For separate operator preparation, create the stopped cluster and prepared LAN root there, then use this service installation flow.
 
 1. Extract the server ZIP into a new local staging directory. Compare ZIP and inventory digests with the authenticated release record. In elevated x64 PowerShell, set `$releaseDigest` and `$approvedPublisher` to its non-secret values, then run:
 

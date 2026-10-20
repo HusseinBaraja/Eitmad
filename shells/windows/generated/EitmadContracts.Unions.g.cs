@@ -705,6 +705,39 @@ public partial class Event
     };
 }
 
+public partial class InstallWindows
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    public const string ServerKind = "server";
+
+    public static InstallWindows ForServer(InstallWindowsServer payload) =>
+        new() { Kind = ServerKind, Payload = payload };
+
+    public InstallWindowsServer? AsServer() =>
+        Kind == ServerKind ? PayloadAs<InstallWindowsServer>() : null;
+
+    public const string ClientKind = "client";
+
+    public static InstallWindows ForClient(InstallWindowsClient payload) =>
+        new() { Kind = ClientKind, Payload = payload };
+
+    public InstallWindowsClient? AsClient() =>
+        Kind == ClientKind ? PayloadAs<InstallWindowsClient>() : null;
+
+    internal T? PayloadAs<T>() => Payload switch
+    {
+        T typed => typed,
+        JsonElement element => element.Deserialize<T>(Converter.Settings),
+        _ => default,
+    };
+}
+
 public partial class IpcClientMessage
 {
     [JsonPropertyName("kind")]

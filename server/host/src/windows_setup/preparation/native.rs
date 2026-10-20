@@ -8,7 +8,7 @@ use std::{
 };
 use zeroize::Zeroizing;
 
-pub(super) fn plain_path(path: &Path, required: bool) -> Result<(), MainError> {
+pub(in crate::windows_setup) fn plain_path(path: &Path, required: bool) -> Result<(), MainError> {
     let text = path.to_string_lossy();
     if !path.is_absolute() || text.starts_with(r"\\") || text.contains(['"', '%', '\r', '\n']) {
         return Err(MainError::Input);

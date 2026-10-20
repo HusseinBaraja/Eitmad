@@ -75,6 +75,15 @@
     "initialized_workshop": {
       "$ref": "#/definitions/InitializedWorkshop"
     },
+    "install_windows": {
+      "$ref": "#/definitions/InstallWindows"
+    },
+    "install_windows_client": {
+      "$ref": "#/definitions/InstallWindowsClient"
+    },
+    "install_windows_server": {
+      "$ref": "#/definitions/InstallWindowsServer"
+    },
     "ipc_client_message": {
       "$ref": "#/definitions/IpcClientMessage"
     },
@@ -150,6 +159,9 @@
     "read_quotations": {
       "$ref": "#/definitions/ReadQuotations"
     },
+    "read_windows_installation": {
+      "$ref": "#/definitions/ReadWindowsInstallation"
+    },
     "read_work_orders": {
       "$ref": "#/definitions/ReadWorkOrders"
     },
@@ -218,9 +230,21 @@
     },
     "watch_server_accounts": {
       "$ref": "#/definitions/WatchServerAccounts"
+    },
+    "windows_install_progress": {
+      "$ref": "#/definitions/WindowsInstallProgress"
+    },
+    "windows_installation_state": {
+      "$ref": "#/definitions/WindowsInstallationState"
     }
   },
   "required": [
+    "install_windows",
+    "install_windows_server",
+    "install_windows_client",
+    "windows_install_progress",
+    "read_windows_installation",
+    "windows_installation_state",
     "prepare_windows_workshop",
     "prepared_windows_workshop",
     "initialize_workshop",
@@ -6231,6 +6255,118 @@
         "ownerAccountId"
       ]
     },
+    "InstallWindows": {
+      "description": "Private local installer input. Never persist or log this request.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "server"
+            },
+            "payload": {
+              "$ref": "#/definitions/InstallWindowsServer"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "client"
+            },
+            "payload": {
+              "$ref": "#/definitions/InstallWindowsClient"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "InstallWindowsClient": {
+      "type": "object",
+      "properties": {
+        "desktop": {
+          "$ref": "#/definitions/WindowsInstallPackage"
+        },
+        "intendedUserSid": {
+          "description": "The initiating Windows user's SID, checked again immediately before registration.",
+          "type": "string"
+        },
+        "progressDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progressDirectory",
+        "intendedUserSid",
+        "desktop"
+      ]
+    },
+    "InstallWindowsServer": {
+      "type": "object",
+      "properties": {
+        "client": {
+          "$ref": "#/definitions/InstallWindowsClient"
+        },
+        "preparation": {
+          "$ref": "#/definitions/PrepareWindowsWorkshop"
+        },
+        "server": {
+          "$ref": "#/definitions/WindowsInstallPackage"
+        },
+        "serverProgressDirectory": {
+          "type": "string"
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "serviceStateDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "winswExecutable": {
+          "type": "string"
+        },
+        "winswSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "client",
+        "preparation",
+        "server",
+        "serviceStateDirectory",
+        "serviceName",
+        "serverProgressDirectory",
+        "winswExecutable",
+        "winswSha256"
+      ]
+    },
     "IpcClientMessage": {
       "oneOf": [
         {
@@ -11605,6 +11741,24 @@
         "query"
       ]
     },
+    "ReadWindowsInstallation": {
+      "type": "object",
+      "properties": {
+        "progressDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progressDirectory"
+      ]
+    },
     "ReadWorkOrders": {
       "type": "object",
       "properties": {
@@ -15469,6 +15623,101 @@
       "required": [
         "registration",
         "revision"
+      ]
+    },
+    "WindowsInstallPackage": {
+      "type": "object",
+      "properties": {
+        "directory": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "releaseSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "releaseSha256",
+        "publisher"
+      ]
+    },
+    "WindowsInstallProgress": {
+      "description": "Public, ordered progress. Contains no user input, credentials, paths, or OS error text.",
+      "type": "object",
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "stage": {
+          "$ref": "#/definitions/WindowsInstallStage"
+        },
+        "status": {
+          "$ref": "#/definitions/WindowsInstallStatus"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sequence",
+        "stage",
+        "status"
+      ]
+    },
+    "WindowsInstallStage": {
+      "type": "string",
+      "enum": [
+        "preflight",
+        "elevation",
+        "prepareWorkshop",
+        "applyMigrations",
+        "initializeOwner",
+        "stopPreparedDatabase",
+        "installServices",
+        "configureFirewall",
+        "verifyHttps",
+        "registerDesktop",
+        "complete"
+      ]
+    },
+    "WindowsInstallStatus": {
+      "type": "string",
+      "enum": [
+        "running",
+        "succeeded",
+        "failed"
+      ]
+    },
+    "WindowsInstallationState": {
+      "type": "object",
+      "properties": {
+        "interrupted": {
+          "type": "boolean"
+        },
+        "progress": {
+          "$ref": "#/definitions/WindowsInstallProgress"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progress",
+        "interrupted"
       ]
     },
     "WorkOrderFurniture": {

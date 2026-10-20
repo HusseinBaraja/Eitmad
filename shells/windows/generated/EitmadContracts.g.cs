@@ -28,6 +28,15 @@ namespace Eitmad.Contracts
         [JsonPropertyName("initialized_workshop")]
         public InitializedWorkshop InitializedWorkshop { get; set; }
 
+        [JsonPropertyName("install_windows")]
+        public Dictionary<string, object> InstallWindows { get; set; }
+
+        [JsonPropertyName("install_windows_client")]
+        public InstallWindowsClient InstallWindowsClient { get; set; }
+
+        [JsonPropertyName("install_windows_server")]
+        public InstallWindowsServer InstallWindowsServer { get; set; }
+
         [JsonPropertyName("ipc_client_message")]
         public Dictionary<string, object> IpcClientMessage { get; set; }
 
@@ -43,8 +52,17 @@ namespace Eitmad.Contracts
         [JsonPropertyName("prepared_windows_workshop")]
         public PreparedWindowsWorkshop PreparedWindowsWorkshop { get; set; }
 
+        [JsonPropertyName("read_windows_installation")]
+        public ReadWindowsInstallation ReadWindowsInstallation { get; set; }
+
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
+
+        [JsonPropertyName("windows_install_progress")]
+        public WindowsInstallProgress WindowsInstallProgress { get; set; }
+
+        [JsonPropertyName("windows_installation_state")]
+        public WindowsInstallationState WindowsInstallationState { get; set; }
     }
 
     public partial class InitializeWorkshop
@@ -84,6 +102,102 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("version")]
         public long Version { get; set; }
+    }
+
+    public partial class InstallWindowsClient
+    {
+        [JsonPropertyName("desktop")]
+        public WindowsInstallPackage Desktop { get; set; }
+
+        /// <summary>
+        /// The initiating Windows user's SID, checked again immediately before registration.
+        /// </summary>
+        [JsonPropertyName("intendedUserSid")]
+        public string IntendedUserSid { get; set; }
+
+        [JsonPropertyName("progressDirectory")]
+        public string ProgressDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public partial class WindowsInstallPackage
+    {
+        [JsonPropertyName("directory")]
+        public string Directory { get; set; }
+
+        [JsonPropertyName("publisher")]
+        public string Publisher { get; set; }
+
+        [JsonPropertyName("releaseSha256")]
+        public string ReleaseSha256 { get; set; }
+    }
+
+    public partial class InstallWindowsServer
+    {
+        [JsonPropertyName("client")]
+        public InstallWindowsClient Client { get; set; }
+
+        [JsonPropertyName("preparation")]
+        public PrepareWindowsWorkshop Preparation { get; set; }
+
+        [JsonPropertyName("server")]
+        public WindowsInstallPackage Server { get; set; }
+
+        [JsonPropertyName("serverProgressDirectory")]
+        public string ServerProgressDirectory { get; set; }
+
+        [JsonPropertyName("serviceName")]
+        public string ServiceName { get; set; }
+
+        [JsonPropertyName("serviceStateDirectory")]
+        public string ServiceStateDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("winswExecutable")]
+        public string WinswExecutable { get; set; }
+
+        [JsonPropertyName("winswSha256")]
+        public string WinswSha256 { get; set; }
+    }
+
+    /// <summary>
+    /// Local deployment input. Paths identify reviewed offline installation tools.
+    /// </summary>
+    public partial class PrepareWindowsWorkshop
+    {
+        [JsonPropertyName("certificateExecutable")]
+        public string CertificateExecutable { get; set; }
+
+        [JsonPropertyName("databasePort")]
+        public long DatabasePort { get; set; }
+
+        [JsonPropertyName("listenAddress")]
+        public string ListenAddress { get; set; }
+
+        [JsonPropertyName("platformScript")]
+        public string PlatformScript { get; set; }
+
+        [JsonPropertyName("postgresBin")]
+        public string PostgresBin { get; set; }
+
+        [JsonPropertyName("serverName")]
+        public string ServerName { get; set; }
+
+        [JsonPropertyName("serverPort")]
+        public long ServerPort { get; set; }
+
+        [JsonPropertyName("stateDirectory")]
+        public string StateDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshop")]
+        public InitializeWorkshop Workshop { get; set; }
     }
 
     public partial class LifecycleSnapshot
@@ -269,42 +383,6 @@ namespace Eitmad.Contracts
         public long Minor { get; set; }
     }
 
-    /// <summary>
-    /// Local deployment input. Paths identify reviewed offline installation tools.
-    /// </summary>
-    public partial class PrepareWindowsWorkshop
-    {
-        [JsonPropertyName("certificateExecutable")]
-        public string CertificateExecutable { get; set; }
-
-        [JsonPropertyName("databasePort")]
-        public long DatabasePort { get; set; }
-
-        [JsonPropertyName("listenAddress")]
-        public string ListenAddress { get; set; }
-
-        [JsonPropertyName("platformScript")]
-        public string PlatformScript { get; set; }
-
-        [JsonPropertyName("postgresBin")]
-        public string PostgresBin { get; set; }
-
-        [JsonPropertyName("serverName")]
-        public string ServerName { get; set; }
-
-        [JsonPropertyName("serverPort")]
-        public long ServerPort { get; set; }
-
-        [JsonPropertyName("stateDirectory")]
-        public string StateDirectory { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-
-        [JsonPropertyName("workshop")]
-        public InitializeWorkshop Workshop { get; set; }
-    }
-
     public partial class PreparedWindowsWorkshop
     {
         [JsonPropertyName("endpoint")]
@@ -315,6 +393,15 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("workshop")]
         public InitializedWorkshop Workshop { get; set; }
+    }
+
+    public partial class ReadWindowsInstallation
+    {
+        [JsonPropertyName("progressDirectory")]
+        public string ProgressDirectory { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
     }
 
     public partial class UnionPayloadKeepAlive
@@ -634,6 +721,14 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_QuotationDraftChangedEvent")]
         public QuotationDraftChangeNotice EventQuotationDraftChangedEvent { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("InstallWindows_Client")]
+        public InstallWindowsClient InstallWindowsClient { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("InstallWindows_Server")]
+        public InstallWindowsServer InstallWindowsServer { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcCommand")]
@@ -5029,6 +5124,36 @@ namespace Eitmad.Contracts
     {
     }
 
+    /// <summary>
+    /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
+    /// </summary>
+    public partial class WindowsInstallProgress
+    {
+        [JsonPropertyName("sequence")]
+        public long Sequence { get; set; }
+
+        [JsonPropertyName("stage")]
+        public WindowsInstallStage Stage { get; set; }
+
+        [JsonPropertyName("status")]
+        public WindowsInstallStatus Status { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public partial class WindowsInstallationState
+    {
+        [JsonPropertyName("interrupted")]
+        public bool Interrupted { get; set; }
+
+        [JsonPropertyName("progress")]
+        public WindowsInstallProgress Progress { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
 
     public enum QuotationField { ColorId, Customer, CustomerRevision, Dimensions, DiscountBasisPoints, HandleId, LineId, Lines, PriceRevision, Quantity, Target, Total };
@@ -5128,6 +5253,10 @@ namespace Eitmad.Contracts
 
     public enum HomeDestination { Catalog, Customer, Order, Quotation };
 
+    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureFirewall, Elevation, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
+
+    public enum WindowsInstallStatus { Failed, Running, Succeeded };
+
     public partial struct ErrorParameterValueValue
     {
         public long? Integer;
@@ -5213,6 +5342,8 @@ namespace Eitmad.Contracts
                 ConflictStatusConverter.Singleton,
                 HomeAvailabilityConverter.Singleton,
                 HomeDestinationConverter.Singleton,
+                WindowsInstallStageConverter.Singleton,
+                WindowsInstallStatusConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -7262,6 +7393,124 @@ namespace Eitmad.Contracts
         }
 
         public static readonly HomeDestinationConverter Singleton = new HomeDestinationConverter();
+    }
+
+    internal class WindowsInstallStageConverter : JsonConverter<WindowsInstallStage>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsInstallStage);
+
+        public override WindowsInstallStage Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "applyMigrations":
+                    return WindowsInstallStage.ApplyMigrations;
+                case "complete":
+                    return WindowsInstallStage.Complete;
+                case "configureFirewall":
+                    return WindowsInstallStage.ConfigureFirewall;
+                case "elevation":
+                    return WindowsInstallStage.Elevation;
+                case "initializeOwner":
+                    return WindowsInstallStage.InitializeOwner;
+                case "installServices":
+                    return WindowsInstallStage.InstallServices;
+                case "preflight":
+                    return WindowsInstallStage.Preflight;
+                case "prepareWorkshop":
+                    return WindowsInstallStage.PrepareWorkshop;
+                case "registerDesktop":
+                    return WindowsInstallStage.RegisterDesktop;
+                case "stopPreparedDatabase":
+                    return WindowsInstallStage.StopPreparedDatabase;
+                case "verifyHttps":
+                    return WindowsInstallStage.VerifyHttps;
+            }
+            throw new Exception("Cannot unmarshal type WindowsInstallStage");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsInstallStage value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsInstallStage.ApplyMigrations:
+                    JsonSerializer.Serialize(writer, "applyMigrations", options);
+                    return;
+                case WindowsInstallStage.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case WindowsInstallStage.ConfigureFirewall:
+                    JsonSerializer.Serialize(writer, "configureFirewall", options);
+                    return;
+                case WindowsInstallStage.Elevation:
+                    JsonSerializer.Serialize(writer, "elevation", options);
+                    return;
+                case WindowsInstallStage.InitializeOwner:
+                    JsonSerializer.Serialize(writer, "initializeOwner", options);
+                    return;
+                case WindowsInstallStage.InstallServices:
+                    JsonSerializer.Serialize(writer, "installServices", options);
+                    return;
+                case WindowsInstallStage.Preflight:
+                    JsonSerializer.Serialize(writer, "preflight", options);
+                    return;
+                case WindowsInstallStage.PrepareWorkshop:
+                    JsonSerializer.Serialize(writer, "prepareWorkshop", options);
+                    return;
+                case WindowsInstallStage.RegisterDesktop:
+                    JsonSerializer.Serialize(writer, "registerDesktop", options);
+                    return;
+                case WindowsInstallStage.StopPreparedDatabase:
+                    JsonSerializer.Serialize(writer, "stopPreparedDatabase", options);
+                    return;
+                case WindowsInstallStage.VerifyHttps:
+                    JsonSerializer.Serialize(writer, "verifyHttps", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsInstallStage");
+        }
+
+        public static readonly WindowsInstallStageConverter Singleton = new WindowsInstallStageConverter();
+    }
+
+    internal class WindowsInstallStatusConverter : JsonConverter<WindowsInstallStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsInstallStatus);
+
+        public override WindowsInstallStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "failed":
+                    return WindowsInstallStatus.Failed;
+                case "running":
+                    return WindowsInstallStatus.Running;
+                case "succeeded":
+                    return WindowsInstallStatus.Succeeded;
+            }
+            throw new Exception("Cannot unmarshal type WindowsInstallStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsInstallStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsInstallStatus.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case WindowsInstallStatus.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case WindowsInstallStatus.Succeeded:
+                    JsonSerializer.Serialize(writer, "succeeded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsInstallStatus");
+        }
+
+        public static readonly WindowsInstallStatusConverter Singleton = new WindowsInstallStatusConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

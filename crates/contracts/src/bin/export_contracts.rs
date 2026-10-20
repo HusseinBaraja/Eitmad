@@ -45,6 +45,12 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    install_windows: eitmad_contracts::setup::InstallWindows,
+    install_windows_server: eitmad_contracts::setup::InstallWindowsServer,
+    install_windows_client: eitmad_contracts::setup::InstallWindowsClient,
+    windows_install_progress: eitmad_contracts::setup::WindowsInstallProgress,
+    read_windows_installation: eitmad_contracts::setup::ReadWindowsInstallation,
+    windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
     prepare_windows_workshop: eitmad_contracts::setup::PrepareWindowsWorkshop,
     prepared_windows_workshop: eitmad_contracts::setup::PreparedWindowsWorkshop,
     initialize_workshop: eitmad_contracts::setup::InitializeWorkshop,
@@ -127,6 +133,12 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    install_windows: eitmad_contracts::setup::InstallWindows,
+    install_windows_server: eitmad_contracts::setup::InstallWindowsServer,
+    install_windows_client: eitmad_contracts::setup::InstallWindowsClient,
+    windows_install_progress: eitmad_contracts::setup::WindowsInstallProgress,
+    read_windows_installation: eitmad_contracts::setup::ReadWindowsInstallation,
+    windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
     prepare_windows_workshop: eitmad_contracts::setup::PrepareWindowsWorkshop,
     prepared_windows_workshop: eitmad_contracts::setup::PreparedWindowsWorkshop,
     initialize_workshop: eitmad_contracts::setup::InitializeWorkshop,

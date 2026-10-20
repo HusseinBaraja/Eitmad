@@ -12,7 +12,7 @@ use std::{
 use zeroize::Zeroizing;
 
 mod database;
-mod native;
+pub(super) mod native;
 
 pub(super) async fn prepare() -> Result<(), MainError> {
     let mut input = Zeroizing::new(Vec::new());
@@ -25,16 +25,35 @@ pub(super) async fn prepare() -> Result<(), MainError> {
     }
     let request: PrepareWindowsWorkshop =
         serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
-    validate(&request)?;
+    let prepared = run(&request, &mut |_| Ok(())).await?;
+    println!(
+        "{}",
+        serde_json::to_string(&prepared).map_err(|_| MainError::Setup)?
+    );
+    Ok(())
+}
+
+pub(super) async fn run(
+    request: &PrepareWindowsWorkshop,
+    stage: &mut dyn FnMut(eitmad_contracts::setup::WindowsInstallStage) -> Result<(), MainError>,
+) -> Result<PreparedWindowsWorkshop, MainError> {
+    validate(request)?;
+    stage(eitmad_contracts::setup::WindowsInstallStage::PrepareWorkshop)?;
     let secrets = Secrets::new();
     // Init may start PostgreSQL before a later native operation fails. Always attempt an owned stop.
-    let result = native::invoke(&request, "Initialize", Some(&secrets));
+    let result = native::invoke(request, "Initialize", Some(&secrets));
     let result = match result {
-        Ok(()) => initialize(&request, &secrets).await,
+        Ok(()) => initialize(request, &secrets, stage).await,
         Err(error) => Err(error),
     };
-    let stopped = native::invoke(&request, "Stop", None);
+    let stop_stage = if result.is_ok() {
+        stage(eitmad_contracts::setup::WindowsInstallStage::StopPreparedDatabase)
+    } else {
+        Ok(())
+    };
+    let stopped = native::invoke(request, "Stop", None);
     let prepared = result?;
+    stop_stage?;
     stopped?;
     // A stopped, complete preparation is the only state that can be imported by the service adapter.
     write_new(
@@ -43,22 +62,21 @@ pub(super) async fn prepare() -> Result<(), MainError> {
             .as_path(),
         &serde_json::to_vec(&prepared).map_err(|_| MainError::Setup)?,
     )?;
-    println!(
-        "{}",
-        serde_json::to_string(&prepared).map_err(|_| MainError::Setup)?
-    );
-    Ok(())
+    Ok(prepared)
 }
 
 async fn initialize(
     request: &PrepareWindowsWorkshop,
     secrets: &Secrets,
+    stage: &mut dyn FnMut(eitmad_contracts::setup::WindowsInstallStage) -> Result<(), MainError>,
 ) -> Result<PreparedWindowsWorkshop, MainError> {
     database::retain_secrets(request, secrets)?;
     let database_url = database::provision(request, secrets).await?;
+    stage(eitmad_contracts::setup::WindowsInstallStage::ApplyMigrations)?;
     let (database, sync, admin) = crate::migrated_databases(&database_url, 12).await?;
     let token = TokenKey::from_base64(&secrets.token).map_err(|_| MainError::Setup)?;
     let control = ControlPlane::new(database.pool(), token);
+    stage(eitmad_contracts::setup::WindowsInstallStage::InitializeOwner)?;
     let workshop = control
         .identity
         .initialize_workshop(
@@ -105,7 +123,7 @@ fn random_secret() -> Zeroizing<String> {
     Zeroizing::new(URL_SAFE_NO_PAD.encode(bytes.as_ref()))
 }
 
-fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
+pub(super) fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
     if request.version != 1
         || request.workshop.version != 1
         || request.server_port < 1024
@@ -159,7 +177,7 @@ fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
     Ok(())
 }
 
-fn write_new(path: &Path, content: &[u8]) -> Result<(), MainError> {
+pub(super) fn write_new(path: &Path, content: &[u8]) -> Result<(), MainError> {
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)

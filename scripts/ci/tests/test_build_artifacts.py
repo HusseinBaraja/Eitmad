@@ -51,7 +51,7 @@ class BuildArtifactsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             stage = Path(temporary)
             artifacts.copy_install_tools(stage, "windows-server")
-            for name in ("host.psm1", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1"):
+            for name in ("host.psm1", "installation.ps1", "installation.psm1", "installation-channel.cs", "backup.psm1", "backup-worker.ps1", "run-backup.ps1", "restore-backup.ps1"):
                 with self.subTest(name=name):
                     self.assertEqual(list(stage.rglob(name)), [stage / "deploy/windows" / name])
             self.assertTrue((stage / "run-services.ps1").is_file())

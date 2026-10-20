@@ -71,6 +71,9 @@ pub enum ServerCommand {
     CheckConfig,
     InitializeWorkshop,
     PrepareWindowsWorkshop,
+    InstallWindows,
+    InstallWindowsServer,
+    WindowsInstallStatus,
     RecoverOwner {
         tenant_code: String,
         owner_username: String,
@@ -230,6 +233,9 @@ impl ServerCommand {
             Some("prepare-windows-workshop") if arguments.len() == 2 => {
                 Self::PrepareWindowsWorkshop
             }
+            Some("install-windows") if arguments.len() == 2 => Self::InstallWindows,
+            Some("install-windows-server") if arguments.len() == 2 => Self::InstallWindowsServer,
+            Some("windows-install-status") if arguments.len() == 2 => Self::WindowsInstallStatus,
             Some("recover-owner") if arguments.len() == 4 => Self::RecoverOwner {
                 tenant_code: arguments[2].clone(),
                 owner_username: arguments[3].clone(),
@@ -241,7 +247,13 @@ impl ServerCommand {
                 owner_username: arguments[5].clone(),
             },
             Some(
-                "bootstrap" | "recover-owner" | "initialize-workshop" | "prepare-windows-workshop",
+                "bootstrap"
+                | "recover-owner"
+                | "initialize-workshop"
+                | "prepare-windows-workshop"
+                | "install-windows"
+                | "install-windows-server"
+                | "windows-install-status",
             ) => Self::Usage,
             _ => Self::Help,
         }

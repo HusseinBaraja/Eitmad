@@ -563,6 +563,40 @@ public enum Event: Codable, Sendable {
         }
     }
 }
+public enum InstallWindows: Codable, Sendable {
+    case server(InstallWindowsServer)
+    case client(InstallWindowsClient)
+
+    private enum Kind: String, Codable, Sendable {
+        case server = "server"
+        case client = "client"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .server: self = .server(try container.decode(InstallWindowsServer.self, forKey: .payload))
+        case .client: self = .client(try container.decode(InstallWindowsClient.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .server(let payload):
+            try container.encode(Kind.server, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        case .client(let payload):
+            try container.encode(Kind.client, forKey: .kind)
+            try container.encode(payload, forKey: .payload)
+        }
+    }
+}
 public enum IpcClientMessage: Codable, Sendable {
     case ipcHandshake(HandshakeRequest)
     case ipcDesktopSignIn(DesktopSignInRequest)
