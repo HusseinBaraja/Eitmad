@@ -165,7 +165,15 @@ impl Platform for WindowsPlatform {
         Ok(())
     }
     fn host(&mut self, request: &InstallWindowsServer, action: &str) -> Result<(), MainError> {
-        invoke(action, request, None, None).map(|_| ())
+        invoke(action, request, None, None)?;
+        if matches!(action, "Install" | "ResumeInstall") {
+            crate::windows_tls::configure_setup(
+                &request.service_state_directory,
+                &request.preparation.state_directory,
+                &request.preparation.certificate_executable,
+            )?;
+        }
+        Ok(())
     }
     fn desktop(&mut self, request: &InstallWindowsClient) -> Result<(), MainError> {
         invoke("Desktop", request, None, None).map(|_| ())

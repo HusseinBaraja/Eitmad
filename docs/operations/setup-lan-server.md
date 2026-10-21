@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "LAN launcher, TLS issuance, firewall scope, or desktop enrollment changes"
 keywords:
@@ -126,22 +126,65 @@ Rust copies initial public trust into that installation and retains `connection.
 
 ## Renew without changing trust
 
-Schedule renewal before the 90-day leaf expiry, for example every 60 days. Check server time and client time first. Under the state owner:
+Installed hosts use Rust-owned unattended renewal. Guided Windows server installation enables it during the service-install stage. For a manually imported host, enable it once from an elevated PowerShell process under the retained LAN state's owner:
+
+```powershell
+pwsh -File tools/lan-server.ps1 EnableRenewal -StateDirectory C:\ProgramData\EitmadLan -HostDirectory C:\ProgramData\EitmadHost
+```
+
+Use the current certificate tool and a current Rust server package. Configuration requires the installed Rust binary to match the configuring binary; upgrade through the normal host procedure first if they differ. The saved `server.json` executable must have its packaged `deploy/windows/tls-renewal.ps1`, `tls-renewal.psm1`, `host.psm1`, and `backup.psm1` beside it. A lone development executable has no installed platform mechanics. Build the certificate tool first when using repository tools. Enter the retained CA password at the hidden prompt. No password belongs in arguments, a transcript, environment variables, or a task definition.
+
+Configuration checks the installed endpoint and exact retained public CA, copies the encrypted CA key and identity into `EitmadHost/renewal/authority`, validates the unlock credential against that key, and protects the credential with machine-scope Windows DPAPI. The complete certificate tool and its app-local runtime are retained in `renewal/tool`. Administrators and SYSTEM alone can read or change `renewal`; neither service account can read the CA key or unlock credential. DPAPI machine scope requires these ACLs: it does not replace access control. Original operator state and its independent protected recovery password remain retained. Include both trees in encrypted backups. A copied DPAPI blob does not provide cross-machine recovery.
+
+Rust installs `<Name>-TlsRenewal` as a SYSTEM task. It invokes only the installed `app/eitmad-server.exe windows-tls tick <host-directory>`. It checks hourly, starts after missed runs, and ignores overlapping task instances. The Rust host-wide lock also excludes renewal from service administration, upgrades, and backup write barriers. Task execution has a 15-minute limit. A lock conflict changes no pair; the next hourly run retries.
+
+Rust decides from the observed certificate expiry on every run. At 30 days or less remaining, it issues a new 90-day leaf for the retained identity through the existing certificate implementation. An expired leaf can also recover if the same CA can still issue and the host is running. A deliberately stopped host stays stopped. No task creates a replacement CA. Rust flags CA expiry within 180 days and refuses issuance when fewer than 91 days remain. Arrange an explicit trust transition before that cutoff. An ordinary leaf renewal never requires client files or enrollment changes.
+
+Before activation, Rust saves the previous and candidate pairs in a durable recovery transaction. The new files remain immutable under `private/tls/<bundle>/`. One atomic replacement of `app/host-service.xml` changes both certificate and key references. The adapter gracefully stops and starts only the owned Rust service; PostgreSQL remains running. Success requires a fresh HTTPS connection with the retained CA, correct hostname, valid expiry, the exact new leaf fingerprint, and `/readyz` HTTP 204. Rust records success only after that proof.
+
+A failed issue or unavailable unlock credential leaves the active pair unchanged. Failed activation, restart, or readiness triggers restoration of the previous references and another verified restart, provided that pair remains valid. Old bundles are retained. After interruption, Rust resumes the recorded transaction before issuing another certificate. An unsuccessful rollback retains the transaction and reports failure; it never activates an expired fallback. Do not edit pointers, replace trust, delete the transaction, or repeatedly restart services as a repair.
+
+### Inspect status and recover a failed run
+
+Run elevated, using the installed host path:
+
+```powershell
+& C:\ProgramData\EitmadHost\app\eitmad-server.exe windows-tls status C:\ProgramData\EitmadHost
+```
+
+The output contains public expiry times as Unix seconds, `lastAttempt`, `lastSuccess`, `outcome`, `urgent`, `caTransitionApproaching`, `scheduleHealthy`, and any pending recovery transaction. No keys or credentials are printed. Check that attempts remain current; status does not prove client routing. `renewal/state.json` is Rust-owned state. `renewal/audit.jsonl` records sanitized installation-scoped events; a crash can leave a repeated event before the state replacement. A failed task returns a nonzero exit code with `eitmad.error.server-tls-renewal-failed.v1`.
+
+| Signal | Operator action |
+| --- | --- |
+| `notDue` | No restart was needed. Check expiry warnings and the schedule. |
+| `renewed` | Exact-leaf HTTPS readiness passed. Clients retain the same CA. |
+| `credentialUnavailable` | Restore access to the protected credential. After a machine change, re-run `EnableRenewal` with the original CA and recovery password to create a new local DPAPI blob. Never create a new CA as a repair. |
+| `renewalFailed` | Inspect protected directory access, available disk space, key matching, service ownership, ports, and readiness. The active pair is unchanged or the previous pair passed rollback readiness. Correct the cause, then retry. |
+| `rollbackFailed` | Preserve `renewal/state.json` and all bundles. Check owned service state, clock, trust, expiry, and database readiness. The pending transaction remains for the next retry. An expired previous leaf cannot serve as rollback. |
+| `hostStopped` | Renewal did not start a deliberately stopped host. Use the normal host Start operation when operation is intended, then retry. |
+| `clockInvalid` | Correct server time before retry. A backward clock relative to the last attempt or a future-dated leaf blocks changes. |
+| `caTransitionRequired` or `caTransitionApproaching=true` | Schedule the explicit operator-reviewed CA transition. This task never changes client trust. |
+| `urgent=true` | Seven days or less remain on the previous leaf, or it is expired. Resolve the failure before client connectivity is lost. |
+| `scheduleHealthy=false` or stale `lastAttempt` | Inspect Task Scheduler, sleep/power state, disabled tasks, task history, and protected mechanics. Re-run configuration to repair an owned schedule. A foreign task is refused. |
+
+After correction, run one immediate check; there is no force-renew or TLS validation bypass:
+
+```powershell
+& C:\ProgramData\EitmadHost\app\eitmad-server.exe windows-tls tick C:\ProgramData\EitmadHost
+```
+
+An interrupted transaction can restart the previously running host to complete activation or rollback. Resolve a pending release through its existing Repair procedure first. Configuration refuses to replace credentials while a renewal transaction is pending. Uninstall removes only the matching renewal task and retains all files. A manual reinstall must re-enable the schedule; guided installation repairs it during resume.
+
+### Foreground diagnostic installations
+
+Unattended renewal targets installed Windows hosts. For a foreground diagnostic deployment, retain the existing manual procedure under its state owner:
 
 ```powershell
 dotnet tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.dll renew C:\ProgramData\EitmadLan
 pwsh -File tools/lan-server.ps1 Check -StateDirectory C:\ProgramData\EitmadLan
 ```
 
-Enter the retained CA password. Renewal generates a new leaf key, signs a certificate for the retained name with the same CA, writes a new immutable pair, then atomically updates `active-tls.json`. A wrong password or failed write preserves the previous active pointer. Concurrent certificate operations are refused. Existing TLS sessions use the old certificate until the host restarts.
-
-Stop the server, start it with the same saved settings, and repeat secure readiness and both-PC sign-in checks. Compare the public CA fingerprint before and after; it must remain identical. Clients keep their existing CA and settings. There is no validation bypass, trust-download step, or private-key transfer.
-
-Old bundles remain for recovery. For rollback after a failed restart, stop the host and restore a backed-up `active-tls.json` that points to an existing, unexpired pair from this same CA. Run `Check` before startup. Never roll back to an expired or compromised key. Do not delete retained state or customer data.
-
-The current tool includes the leaf Subject Key Identifier and the issuer Authority Key Identifier required by [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.1). Earlier tool output omitted the issuer identifier and can fail strict clients with `Missing Authority Key Identifier`. Under the state owner, use the corrected tool's normal renewal procedure with the retained CA password, then restart and verify the server. This retains CA trust; it does not require copying keys or weakening client validation. No existing machine certificate is changed by rebuilding the tool.
-
-When fewer than 91 days remain on the CA, renewal refuses to issue another 90-day leaf. Plan an explicit operator-reviewed CA transition before that point. CA replacement after expiry or compromise is a separate trust change; this tool and desktop recovery do not silently replace existing trust. This private CA has no revocation service. A compromised CA or server key requires an incident response, not a validation exception or ordinary restart.
+Enter the retained CA password, stop and start the foreground server, then validate HTTPS and reconnect both clients. This changes the diagnostic `active-tls.json`; it does not update an installed host. Installed renewal uses the atomic wrapper references described above. Keep the CA fingerprint unchanged. Neither path weakens chain or name validation. The tool includes Subject Key Identifier and Authority Key Identifier for strict clients. Earlier leaves without an issuer identifier require a normal renewal using the retained CA. CA expiry, compromise, or key loss requires an explicit incident or trust-transition procedure.
 
 ## Verify the configuration and two-PC outcome
 
@@ -156,9 +199,28 @@ $env:CARGO_INCREMENTAL = '0'
 rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --lib lan_tls_tests -- --ignored
 ```
 
-Use the repository's required compiler on PATH for Cargo subprocesses. The certificate tests verify matching pairs, retained CA, wrong-password rollback, refused reinitialization, and rejected broad key permissions. The launcher checks use the real Rust `check-config` command, mocked firewall/listener commands, and firewall `-WhatIf`; they do not modify machine firewall policy. The Rust test performs TLS handshakes with the operational DNS and IP certificates, rejects wrong names and unrelated CAs, and accepts renewed leaves through retained trust. It uses in-memory transport and does not prove LAN routing or two-PC operation.
+Use the repository's required compiler on PATH for Cargo subprocesses. The certificate tests verify matching pairs, retained CA, wrong-password rollback, refused reinitialization, rejected broad key permissions, DPAPI credential failure, staged activation, exact-leaf HTTPS readiness, failure reconnect, and retained-trust reconnect. The launcher checks use the real Rust `check-config` command, mocked firewall/listener commands, and firewall `-WhatIf`; they do not modify machine firewall policy. The Rust test performs TLS handshakes with the operational DNS and IP certificates, rejects wrong names and unrelated CAs, and accepts renewed leaves through retained trust. It uses in-memory transport and does not prove LAN routing or two-PC operation.
 
-On 2026-10-18, these automated checks passed with .NET 8 and Rust 1.85.1. Focused Rust Clippy, retained desktop-settings tests, and the documentation audit also passed. The launcher was exercised under host PowerShell `7.7.0-preview.5`; PowerShell 7.4 was not separately exercised. No live two-PC, reboot, or real firewall-policy acceptance result has been recorded.
+On 2026-10-18, the original automated checks passed with .NET 8 and Rust 1.85.1. Focused Rust Clippy, retained desktop-settings tests, and the documentation audit also passed. The launcher was exercised under host PowerShell `7.7.0-preview.5`; PowerShell 7.4 was not separately exercised. No live two-PC, reboot, or real firewall-policy acceptance result has been recorded.
+
+The unattended renewal checks also use isolated state:
+
+```powershell
+powershell -NoProfile -File deploy/windows/test-tls-renewal.ps1
+```
+
+For a protected-directory and credential-repair check, use a new elevated Windows process:
+
+```powershell
+powershell -NoProfile -File deploy/windows/test-tls-renewal.ps1 -ProtectedConfiguration
+```
+
+```powershell
+rustup run 1.85.1 cargo test --locked -p eitmad-server --lib tls_renewal
+rustup run 1.85.1 cargo test --locked -p eitmad-server --bin eitmad-server windows_tls
+```
+
+On 2026-10-21, the four certificate tests, seven Rust policy tests, durable-state/lock test, Windows adapter checks, existing host adapter checks, and Rust retained-trust TLS test passed. The HTTPS tests used isolated loopback certificates and real Windows Schannel; service and task mutation tests used synthetic observations. The optional protected-directory installation check could not run with the available Windows token: setting Administrators as owner was denied. Needs verification with an elevated Windows token. No real task was registered, installed host certificate changed, or live two-PC renewal/reboot acceptance performed. The full certificate tests require Windows Schannel access; a restricted process token can prevent the TLS handshake before any application validation.
 
 Complete this live acceptance check with two independent Windows PCs and synthetic accounts and records. Record the actual endpoint, date, and pass/fail result without passwords, tokens, keys, or customer data:
 
@@ -170,7 +232,7 @@ Complete this live acceptance check with two independent Windows PCs and synthet
 | Wrong trust | Use an unrelated CA in an independent disposable test runtime or `curl --cacert`; TLS fails, and no settings are committed |
 | Client restart | Exit and reopen both apps under the same users and runtime directories; normal sign-in succeeds with setup closed |
 | Server restart/reboot | Use the installed host service acceptance procedure, retaining PostgreSQL, keys, and settings; both clients reconnect and accepted work remains |
-| Leaf renewal | Renew, restart the host, and sign in on both PCs without distributing another CA or changing connection settings; CA fingerprint unchanged |
+| Leaf renewal | On an isolated installed host with a due certificate, run the Rust task, require `renewed` and exact-leaf HTTPS readiness, then sign in on both PCs without new CA files or settings; CA fingerprint unchanged. Interrupt activation once and verify recorded recovery and retained-trust reconnect |
 | Database isolation | `Test-NetConnection <server-address> -Port <database-port>` fails from both PCs; HTTPS remains reachable |
 | Firewall limits | The recorded rule is Private-only with the selected addresses, executable, and HTTPS port; unselected clients cannot use this rule |
 

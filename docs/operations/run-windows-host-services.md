@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "Windows service installation, service identities, readiness, recovery, or host power requirements change"
 keywords:
@@ -26,7 +26,7 @@ The implementation is in `deploy/windows/host.psm1`. Rust owns application valid
 
 For a new workshop without a prepared database, use the [fresh Windows preparation backend](prepare-windows-workshop.md). It creates a separate stopped cluster, TLS material, runtime settings, and active first Owner. This service adapter then imports that prepared state through the procedure below.
 
-- Use a supported Windows host with NTFS, Windows PowerShell 5.1 or later, `curl.exe`, and .NET Framework 4.8 for WinSW. Run each service command in an elevated PowerShell window. Runtime services need neither PowerShell nor the repository after installation.
+- Use a supported Windows host with NTFS, Windows PowerShell 5.1 or later, `curl.exe`, and .NET Framework 4.8 for WinSW. Run each service command in an elevated PowerShell window. The runtime services need no repository. Unattended renewal uses Windows PowerShell 5.1 and the retained certificate tool/runtime.
 - Complete [LAN TLS setup](setup-lan-server.md), including stable DNS/address, the saved `server.json`, certificate pair, and verified public CA. Preserve the original token key and client trust. Supply the saved LAN directory as `-LanDirectory`.
 - Supply trusted PostgreSQL 17 binaries as `-PostgresBin` and a dedicated, provisioned PostgreSQL 17 primary cluster as `-ClusterDirectory`. Use a SCRAM application role with `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, and `NOCREATEROLE`. The current runtime still applies migrations during startup; follow [migration and backup requirements](deploy-server-environments.md#deploy-and-migrate).
 - Obtain `WinSW.NET461.exe` from the [official WinSW 2.12.0 release](https://github.com/winsw/winsw/releases/tag/v2.12.0). Use the host's patched .NET Framework 4.8. Verify provenance and retain its reviewed SHA-256 through an authenticated release channel. Pass that value as `-WinSwSha256`. The installer checks the digest and product version. It downloads no executable and does not execute a mismatched wrapper. Do not use a hash supplied by an unrelated download mirror.
@@ -34,7 +34,7 @@ For a new workshop without a prepared database, use the [fresh Windows preparati
 - Keep all source directories separate from the destination. Use a new local destination outside the repository and build cache, with administrator-owned ancestors that do not permit ordinary users to replace child directories. The default ProgramData location is intended for this. Review PostgreSQL configuration for absolute include, archive, recovery, extension, or external-file paths before relocation. The installer overrides the data, HBA, ident, listen-address, and port settings for the installed cluster; it does not rewrite arbitrary external paths. Remove broad HBA rules through normal database administration before cutover.
 - Reserve enough free space for a full copy of the cluster, PostgreSQL binaries, manifests, and backup growth. Installation retains source data. After cutover, keep the source server stopped so it cannot accept divergent writes.
 
-The installer copies `bin`, `lib`, and `share` from the PostgreSQL distribution, the saved Rust executable, the stopped cluster, manifests, and the current leaf certificate/key and public CA. It does not copy the CA signing key. Original LAN certificate state stays under its operator account for renewal.
+The installer copies `bin`, `lib`, and `share` from the PostgreSQL distribution, the saved Rust executable, the stopped cluster, manifests, and the current leaf certificate/key and public CA. The basic service import does not copy the CA signing key. Guided installation then configures [Rust-owned unattended renewal](setup-lan-server.md#renew-without-changing-trust), with a protected retained authority outside both service accounts. A manually imported host must enable that procedure separately. Original LAN state remains retained.
 
 ## Install and operate
 
@@ -68,7 +68,7 @@ Stop waits for Rust before stopping PostgreSQL. WinSW sends Ctrl+C; Rust clears 
 .\run-services.ps1 Uninstall
 ```
 
-Uninstall stops the services in the same order, removes their SCM registrations, and removes the client firewall rule created by the `Firewall` action below. Other firewall rules remain unchanged. It preserves **all** installed files: the database, secrets, certificates, manifests, binaries, logs, and `host.json`. It contains no database drop, reset, or recursive-delete path. After SCM releases deleted service handles, `Install` with the same destination and name reinstalls the retained host without recopying source data. Run `Firewall` again to restore client access. Do not supply a different cluster as a recovery shortcut.
+Uninstall stops the services in the same order, removes their SCM registrations, and removes the client firewall rule created by the `Firewall` action below. Other firewall rules remain unchanged. It preserves **all** installed files: the database, secrets, certificates, manifests, binaries, logs, and `host.json`. It contains no database drop, reset, or recursive-delete path. After SCM releases deleted service handles, `Install` with the same destination and name reinstalls the retained host without recopying source data. It also removes the matching unattended TLS task when configured. Run `Firewall` again to restore client access and re-enable renewal after a manual reinstall. Do not supply a different cluster as a recovery shortcut.
 
 ## Connect the second PC yourself
 
@@ -112,7 +112,8 @@ From the second PC, test the host address and saved HTTPS port with `Test-NetCon
 | `app/`, `postgres/` | Service identities have read/execute access only; operators replace artifacts while stopped |
 | `manifests/`, `logs/server/` | Server write access; stdout/stderr roll at 10 MiB with four retained files per stream |
 | `logs/postgres/` | PostgreSQL identity write access for its separate wrapper logs, with the same rotation limits |
-| Source LAN directory and backups | Operator-owned; retained separately; CA signing key stays outside service access |
+| `renewal/` | Administrators and SYSTEM only; encrypted retained CA key, machine-DPAPI unlock credential, certificate tool/runtime, Rust state and sanitized audit; no service-account access |
+| Source LAN directory and backups | Operator-owned; retained separately for recovery; CA signing key stays outside service access |
 
 Use BitLocker and encrypted, access-controlled backups for protection at rest. Administrators and SYSTEM can read service secrets. Never copy private keys, URLs, tokens, cluster data, or logs to client PCs or screenshots. No service password, application secret, or CA password is placed in SCM arguments or WinSW XML. Rust reads the two secret files through `EITMAD_SERVER_DATABASE_URL_FILE` and `EITMAD_SERVER_TOKEN_KEY_FILE`; configuring both a value and its file is an error. Do not set ambient machine-wide `EITMAD_SERVER_*` secrets. Product changes still pass through Rust authorization and audit; service lifecycle changes are host administration, not product-state mutations.
 
@@ -127,7 +128,7 @@ The installer grants no administrator group membership or interactive logon. [Wi
 - For port conflicts, inspect `Get-NetTCPConnection` and its owning process. The launcher never selects a new port or stops another process. Fix the conflict or review an intentional endpoint change. At boot, a bind failure exits and consumes the same finite recovery budget.
 - On partial installation, preserve the directory, inspect both exact service registrations and identities, and run Uninstall before retrying Install with retained state. Ownership checks refuse a different executable, identity, or cluster path. An incomplete copy without `host.json` is not a complete installation; recover from preserved source into a new destination after inspecting the failed copy.
 - Use the [controlled manual upgrade](package-windows-desktop.md#controlled-manual-upgrade) for an inventoried Windows package. It gates backups, immutable migration history, stopped services, atomic replacement, explicit Rust migrations, and TLS readiness. Interrupted releases remain demand-start with a recovery marker. A legacy installation without `app/release.json` needs an explicitly verified baseline before using that command. Reuse the same secrets and cluster; never copy development output over a running service.
-- Renew the leaf in the original [LAN certificate directory](setup-lan-server.md#renew-without-changing-trust). While services are stopped, back up the installed pair and copy the newly active matching certificate and key to `private/server-cert.pem` and `private/server-key.pem`. Preserve the installed ACLs, verify both files inherit the server-only ACL, then Start and test both clients. Never copy the CA signing key into the service directory. A changed source `active-tls.json` alone does not update the installed copy.
+- Use [Rust-owned unattended leaf renewal](setup-lan-server.md#renew-without-changing-trust). It stages immutable pairs, atomically changes both wrapper references, restarts only Rust, and requires exact-leaf validated HTTPS readiness. Check renewal status for current attempts, credential failures, rollback, and CA expiry warnings. A changed source `active-tls.json` alone does not update the installed host. Keep the retained CA outside both service accounts.
 
 The installer registers each wrapper's Windows Application Event Log source before restricted-account startup. Uninstall retains these historical event-source registrations. PostgreSQL fatal diagnostics go to its private rotating stderr log, with the logging collector and statement logging disabled by command-line overrides. Server logs use stable error codes. Collect only sanitized service states and error identifiers for support. Install and accept [scheduled LAN backup and recovery](backup-lan-installation.md) separately. Log retention, TLS expiry monitoring, disk monitoring, and UPS maintenance remain explicit operator responsibilities.
 

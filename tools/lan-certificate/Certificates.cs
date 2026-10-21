@@ -34,7 +34,7 @@ public static class Certificates
         File.WriteAllText(Path.Combine(directory, "ca-key.encrypted.pem"), key.ExportEncryptedPkcs8PrivateKeyPem(
             password, new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 210_000)));
         File.WriteAllText(Path.Combine(directory, "identity.json"), JsonSerializer.Serialize(new Identity(1, serverName)));
-        Issue(directory, serverName, ca, now);
+        Activate(directory, Issue(directory, serverName, ca, now));
     }
 
     public static void Renew(string directory, string password)
@@ -51,7 +51,7 @@ public static class Certificates
         key.ImportFromEncryptedPem(File.ReadAllText(Path.Combine(directory, "ca-key.encrypted.pem")), password);
         using var certificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(directory, "trusted-ca.pem")));
         using var ca = certificate.CopyWithPrivateKey(key);
-        Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow);
+        Activate(directory, Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow));
     }
 
     public static string Fingerprint(string directory)
@@ -60,7 +60,23 @@ public static class Certificates
         return ca.GetCertHashString(HashAlgorithmName.SHA256);
     }
 
-    private static void Issue(string directory, string serverName, X509Certificate2 ca, DateTimeOffset now)
+    // Staging is separate from activation so Rust can journal and verify a host transaction.
+    public static ActiveTls Stage(string directory, string password)
+    {
+        RenewalMaterial.RequireControl(directory);
+        using var owner = Lock(directory);
+        var identity = JsonSerializer.Deserialize<Identity>(File.ReadAllText(Path.Combine(directory, "identity.json")))
+            ?? throw new IOException("Missing identity.");
+        if (identity.Version != 1) throw new IOException("Unknown version.");
+        ValidateName(identity.ServerName);
+        using var key = ECDsa.Create();
+        key.ImportFromEncryptedPem(File.ReadAllText(Path.Combine(directory, "ca-key.encrypted.pem")), password);
+        using var certificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(directory, "trusted-ca.pem")));
+        using var ca = certificate.CopyWithPrivateKey(key);
+        return Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow, true);
+    }
+
+    private static ActiveTls Issue(string directory, string serverName, X509Certificate2 ca, DateTimeOffset now, bool controlled = false)
     {
         // A new immutable pair is written before the single active pointer changes.
         // Failed renewal cannot leave the running server with a mismatched cert/key pair.
@@ -68,7 +84,8 @@ public static class Certificates
             throw new InvalidOperationException("CA renewal requires an explicit trust transition.");
         var bundle = Guid.NewGuid().ToString("N");
         var target = Path.Combine(directory, "tls", bundle);
-        CreatePrivateDirectory(target);
+        if (controlled) RenewalMaterial.CreateDirectory(target);
+        else CreatePrivateDirectory(target);
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var request = new CertificateRequest("CN=Eitmad LAN server", key, HashAlgorithmName.SHA256);
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
@@ -89,12 +106,23 @@ public static class Certificates
         else names.AddDnsName(serverName);
         request.CertificateExtensions.Add(names.Build());
         using var leaf = request.Create(ca, now.AddMinutes(-5), now.AddDays(90), RandomNumberGenerator.GetBytes(16));
-        File.WriteAllText(Path.Combine(target, "server-cert.pem"), leaf.ExportCertificatePem());
-        File.WriteAllText(Path.Combine(target, "server-key.pem"), key.ExportPkcs8PrivateKeyPem());
-        var active = new ActiveTls(1, $"tls/{bundle}/server-cert.pem", $"tls/{bundle}/server-key.pem");
+        WriteDurable(Path.Combine(target, "server-cert.pem"), System.Text.Encoding.UTF8.GetBytes(leaf.ExportCertificatePem()));
+        WriteDurable(Path.Combine(target, "server-key.pem"), System.Text.Encoding.UTF8.GetBytes(key.ExportPkcs8PrivateKeyPem()));
+        return new ActiveTls(1, $"tls/{bundle}/server-cert.pem", $"tls/{bundle}/server-key.pem");
+    }
+
+    private static void Activate(string directory, ActiveTls active)
+    {
         var pending = Path.Combine(directory, "active-tls.pending.json");
         File.WriteAllText(pending, JsonSerializer.Serialize(active));
         File.Move(pending, Path.Combine(directory, "active-tls.json"), true);
+    }
+
+    internal static void WriteDurable(string path, byte[] bytes)
+    {
+        using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        file.Write(bytes);
+        file.Flush(true);
     }
 
     public static void RequirePrivateDirectory(string directory)

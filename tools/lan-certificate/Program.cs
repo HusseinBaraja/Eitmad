@@ -1,5 +1,10 @@
 using Eitmad.LanCertificate;
 
+Console.InputEncoding = new System.Text.UTF8Encoding(false, true);
+Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+
+if (args is ["mechanic", _, _]) return await RenewalMaterial.Execute(args[1], args[2]);
+
 if (args is not ["initialize", _, _] and not ["renew", _])
 {
     Console.Error.WriteLine("usage: Eitmad.LanCertificate initialize <new-directory> <DNS-name-or-IPv4> | renew <directory>");

@@ -691,6 +691,15 @@ function Invoke-EitmadHost {
             Stop-Host $settings
             Write-Host 'Services stopped in dependency order. Data is retained.'
         } elseif ($Action -eq 'Uninstall') {
+            if (Test-Path -LiteralPath (Join-Path $root 'renewal')) {
+                $task = Get-ScheduledTask -TaskName ($settings.name + '-TlsRenewal') -ErrorAction SilentlyContinue
+                if ($task) {
+                    if (@($task.Actions).Count -ne 1 -or $task.Actions.Execute -cne (Join-Path $root 'app/eitmad-server.exe') -or
+                        $task.Actions.Arguments -cne ('windows-tls tick "' + $root + '"') -or
+                        $task.Principal.UserId -notin 'SYSTEM','S-1-5-18') { throw 'The renewal task belongs to another configuration.' }
+                    Unregister-ScheduledTask -TaskName ($settings.name + '-TlsRenewal') -Confirm:$false
+                }
+            }
             $clientRule = Get-ClientFirewallRule $settings
             $discoveryRule = Get-DiscoveryFirewallRule $settings
             Stop-Host $settings

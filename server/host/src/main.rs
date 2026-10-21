@@ -20,6 +20,8 @@ use zeroize::Zeroizing;
 #[cfg(windows)]
 mod windows_backup;
 mod windows_setup;
+#[cfg(windows)]
+mod windows_tls;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -51,7 +53,7 @@ async fn main() -> ExitCode {
 async fn execute() -> Result<(), MainError> {
     let arguments = std::env::args().collect::<Vec<_>>();
     #[cfg(windows)]
-    if let Some(result) = windows_backup::dispatch(&arguments) {
+    if let Some(result) = dispatch_windows(&arguments) {
         return result;
     }
     #[cfg(not(windows))]
@@ -147,6 +149,11 @@ async fn execute() -> Result<(), MainError> {
         return Ok(());
     }
     serve(config, control, sync_database, admin_database).await
+}
+
+#[cfg(windows)]
+fn dispatch_windows(arguments: &[String]) -> Option<Result<(), MainError>> {
+    windows_tls::dispatch(arguments).or_else(|| windows_backup::dispatch(arguments))
 }
 
 async fn serve(
@@ -327,6 +334,7 @@ fn compose_server_state(
 }
 
 fn print_help() {
+    println!("eitmad-server windows-tls <configure|tick|status> <installed-host-directory>");
     println!(
         "eitmad-server windows-backup <configure|configuration|schedule|run|tick|status> <private-state-directory>"
     );
@@ -383,6 +391,8 @@ enum MainError {
     Setup,
     #[cfg(windows)]
     Backup,
+    #[cfg(windows)]
+    Tls,
 }
 
 impl MainError {
@@ -398,6 +408,8 @@ impl MainError {
             Self::Setup => "eitmad.error.windows-workshop-setup-failed.v1",
             #[cfg(windows)]
             Self::Backup => "eitmad.error.server-backup-failed.v1",
+            #[cfg(windows)]
+            Self::Tls => "eitmad.error.server-tls-renewal-failed.v1",
         }
     }
 }
