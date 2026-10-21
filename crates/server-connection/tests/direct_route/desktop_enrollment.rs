@@ -2,6 +2,8 @@ use super::*;
 use eitmad_contracts::ipc::{DesktopEnrollmentSettings, DesktopSignInRequest};
 use eitmad_server_connection::{DesktopConnectionSettings, DesktopEnrollment};
 
+#[path = "first_desktop.rs"]
+mod first_desktop;
 #[path = "idle_customer_sync.rs"]
 mod idle_customer_sync;
 #[path = "pairing_recovery.rs"]

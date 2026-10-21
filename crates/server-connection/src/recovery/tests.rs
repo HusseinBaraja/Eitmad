@@ -11,7 +11,7 @@ use eitmad_contracts::{
         AccountId, AuthenticatedIdentity, AuthorizationContext, OrganizationId, PrincipalId,
         PrincipalKind, ScopeId, ScopeKind, SessionId, TenantId, UserId,
     },
-    pairing::{PairingBinding, PairingOffer},
+    pairing::{PairingBinding, PairingOffer, PairingReceipt},
     server::{DevicePublicKey, TenantCode},
 };
 use eitmad_secret_storage::FallbackEncryptionKey;
@@ -30,6 +30,82 @@ struct Installation {
     receipt: PairingReceipt,
 }
 impl Installation {
+    fn first() -> Self {
+        let installation = Self::new();
+        let directory = installation.directory.path();
+        std::fs::remove_file(directory.join("desktop-pairing.json")).unwrap();
+        let store = eitmad_storage::AuthorityStore::open(directory).unwrap();
+        let secrets =
+            SecretStore::open(directory, Some(FallbackEncryptionKey::new([49; 32]))).unwrap();
+        let device = installation.receipt.binding.device_id;
+        let id = SecretId::new(
+            eitmad_contracts::secrets::SecretKind::parse("desktop-device-key").unwrap(),
+            eitmad_contracts::config::SecretReferenceId::new(device.value()),
+        );
+        secrets
+            .set(&id, SecretMaterial::new(vec![49; 32]).unwrap())
+            .unwrap();
+        let enrollment = crate::DesktopEnrollment::new(directory.into(), store, secrets.clone());
+        let offer = &installation.receipt.binding.offer;
+        let request = enrollment
+            .first_desktop_request(
+                offer.tenant_code.clone(),
+                "owner".into(),
+                "synthetic-password".into(),
+            )
+            .unwrap();
+        let handoff = eitmad_contracts::setup::SetupDesktopHandoff {
+            version: 1,
+            server_id: offer.identity.server_id,
+            public_ca_pem: offer.identity.public_ca_pem.clone(),
+            prepared: eitmad_contracts::setup::PreparedWindowsWorkshop {
+                version: 1,
+                endpoint: offer.identity.endpoint.clone(),
+                workshop: eitmad_contracts::setup::InitializedWorkshop {
+                    version: 1,
+                    tenant_id: offer.tenant_id,
+                    tenant_code: offer.tenant_code.clone(),
+                    organization_id: offer.organization_id,
+                    branch_id: offer.branch_id,
+                    owner_account_id: AccountId::new(Uuid::new_v4()),
+                },
+            },
+        };
+        enrollment.retain_first_desktop(&handoff, &request).unwrap();
+        // Interrupted setup can reuse the exact handoff, but cannot replace authenticated identity.
+        enrollment.retain_first_desktop(&handoff, &request).unwrap();
+        let before = std::fs::read(directory.join("desktop-first-server.json")).unwrap();
+        for change in ["identity", "ca", "scope", "key"] {
+            let mut changed = handoff.clone();
+            let mut login = request.clone();
+            match change {
+                "identity" => {
+                    changed.server_id =
+                        eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4());
+                }
+                "ca" => changed.public_ca_pem.push(' '),
+                "scope" => changed.prepared.workshop.branch_id = ScopeId::new(Uuid::new_v4()),
+                _ => login.device_public_key.base64 = URL_SAFE_NO_PAD.encode([0; 32]),
+            }
+            assert!(enrollment.retain_first_desktop(&changed, &login).is_err());
+            assert_eq!(
+                std::fs::read(directory.join("desktop-first-server.json")).unwrap(),
+                before
+            );
+        }
+        secrets.delete(&id).unwrap();
+        installation
+    }
+
+    fn metadata_path(&self) -> std::path::PathBuf {
+        let first = self.directory.path().join("desktop-first-server.json");
+        if first.exists() {
+            first
+        } else {
+            self.directory.path().join("desktop-pairing.json")
+        }
+    }
+
     fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();
         let ca = std::fs::read_to_string(
@@ -225,42 +301,40 @@ fn recover(
 #[test]
 #[ignore = "requires generated disposable direct-route TLS certificates"]
 fn restart_and_address_changes_retain_identity_name_trust_scope_and_device() {
-    let installation = Installation::new();
-    let before = std::fs::read(installation.directory.path().join("desktop-pairing.json")).unwrap();
-    let mut config = installation.config();
-    for (index, ip) in ["127.0.0.1", "127.0.0.2", "127.0.0.1"]
-        .into_iter()
-        .enumerate()
-    {
-        if index == 2 {
-            config = installation.config();
-        } // App restart has no address cache.
-        let peer = Peer::start(
-            ip,
-            installation.receipt.binding.offer.identity.clone(),
-            1,
-            200,
-        );
-        drop(recover(&config, vec![installation.candidate(peer.address)]).unwrap());
-        assert_eq!(
-            config
-                .recovery
-                .as_ref()
-                .unwrap()
-                .route
-                .lock()
-                .unwrap()
-                .address
-                .map(|(_, address)| address),
-            Some(peer.address)
-        );
-        peer.work.join().unwrap();
+    for installation in [Installation::new(), Installation::first()] {
+        let before = std::fs::read(installation.metadata_path()).unwrap();
+        let mut config = installation.config();
+        for (index, ip) in ["127.0.0.1", "127.0.0.2", "127.0.0.1"]
+            .into_iter()
+            .enumerate()
+        {
+            if index == 2 {
+                config = installation.config();
+            } // App restart has no address cache.
+            let peer = Peer::start(
+                ip,
+                installation.receipt.binding.offer.identity.clone(),
+                1,
+                200,
+            );
+            drop(recover(&config, vec![installation.candidate(peer.address)]).unwrap());
+            assert_eq!(
+                config
+                    .recovery
+                    .as_ref()
+                    .unwrap()
+                    .route
+                    .lock()
+                    .unwrap()
+                    .address
+                    .map(|(_, address)| address),
+                Some(peer.address)
+            );
+            peer.work.join().unwrap();
+        }
+        assert_eq!(before, std::fs::read(installation.metadata_path()).unwrap());
+        assert_eq!(config.endpoint.as_str(), "https://localhost:1/");
     }
-    assert_eq!(
-        before,
-        std::fs::read(installation.directory.path().join("desktop-pairing.json")).unwrap()
-    );
-    assert_eq!(config.endpoint.as_str(), "https://localhost:1/");
 }
 
 #[derive(Debug)]
@@ -276,74 +350,77 @@ impl rustls::time_provider::TimeProvider for ExpiredTime {
 #[test]
 #[ignore = "requires generated disposable direct-route TLS certificates"]
 fn rediscovered_sockets_validate_tls_name_chain_and_expiry() {
-    let installation = Installation::new();
-    for change in ["name", "chain", "expiry"] {
-        let mut config = installation.config();
-        match change {
-            "name" => config.endpoint.set_host(Some("127.0.0.2")).unwrap(),
-            "chain" => {
-                let wrong =
-                    std::fs::read(std::env::var("EITMAD_DIRECT_TEST_WRONG_CERTIFICATE").unwrap())
-                        .unwrap();
-                config.tls = DirectServerConfig::from_ca_pem(
-                    config.endpoint.as_str(),
-                    config.scope.clone(),
-                    config.schema_id.clone(),
-                    1,
-                    &wrong,
-                )
-                .unwrap()
-                .tls;
+    for installation in [Installation::new(), Installation::first()] {
+        for change in ["name", "chain", "expiry"] {
+            let mut config = installation.config();
+            match change {
+                "name" => config.endpoint.set_host(Some("127.0.0.2")).unwrap(),
+                "chain" => {
+                    let wrong = std::fs::read(
+                        std::env::var("EITMAD_DIRECT_TEST_WRONG_CERTIFICATE").unwrap(),
+                    )
+                    .unwrap();
+                    config.tls = DirectServerConfig::from_ca_pem(
+                        config.endpoint.as_str(),
+                        config.scope.clone(),
+                        config.schema_id.clone(),
+                        1,
+                        &wrong,
+                    )
+                    .unwrap()
+                    .tls;
+                }
+                _ => Arc::make_mut(&mut config.tls).time_provider = Arc::new(ExpiredTime),
             }
-            _ => Arc::make_mut(&mut config.tls).time_provider = Arc::new(ExpiredTime),
+            let peer = Peer::start(
+                "127.0.0.1",
+                installation.receipt.binding.offer.identity.clone(),
+                1,
+                200,
+            );
+            assert_eq!(
+                recover(&config, vec![installation.candidate(peer.address)])
+                    .err()
+                    .unwrap()
+                    .kind,
+                TransportFailureKind::EncryptionRequired
+            );
+            peer.work.join().unwrap();
+            assert!(peer.requests.lock().unwrap().is_empty());
         }
-        let peer = Peer::start(
-            "127.0.0.1",
-            installation.receipt.binding.offer.identity.clone(),
-            1,
-            200,
-        );
-        assert_eq!(
-            recover(&config, vec![installation.candidate(peer.address)])
-                .err()
-                .unwrap()
-                .kind,
-            TransportFailureKind::EncryptionRequired
-        );
-        peer.work.join().unwrap();
-        assert!(peer.requests.lock().unwrap().is_empty());
     }
 }
 
 #[test]
 #[ignore = "requires generated disposable direct-route TLS certificates"]
 fn spoofed_identity_and_replacement_ca_are_refused_before_credentials() {
-    let installation = Installation::new();
-    for change in ["identity", "ca", "endpoint"] {
-        let config = installation.config();
-        let mut identity = installation.receipt.binding.offer.identity.clone();
-        match change {
-            "identity" => {
-                identity.server_id =
-                    eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4());
+    for installation in [Installation::new(), Installation::first()] {
+        for change in ["identity", "ca", "endpoint"] {
+            let config = installation.config();
+            let mut identity = installation.receipt.binding.offer.identity.clone();
+            match change {
+                "identity" => {
+                    identity.server_id =
+                        eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4());
+                }
+                "ca" => identity.public_ca_pem.push(' '),
+                _ => identity.endpoint = "https://other.test/".into(),
             }
-            "ca" => identity.public_ca_pem.push(' '),
-            _ => identity.endpoint = "https://other.test/".into(),
+            let peer = Peer::start("127.0.0.1", identity, 1, 200);
+            assert_eq!(
+                recover(&config, vec![installation.candidate(peer.address)])
+                    .err()
+                    .unwrap()
+                    .kind,
+                TransportFailureKind::EncryptionRequired
+            );
+            assert_eq!(
+                *config.recovery().unwrap().subscribe().borrow(),
+                RecoveryState::TrustFailure
+            );
+            peer.work.join().unwrap();
+            assert_eq!(peer.requests.lock().unwrap().len(), 1);
         }
-        let peer = Peer::start("127.0.0.1", identity, 1, 200);
-        assert_eq!(
-            recover(&config, vec![installation.candidate(peer.address)])
-                .err()
-                .unwrap()
-                .kind,
-            TransportFailureKind::EncryptionRequired
-        );
-        assert_eq!(
-            *config.recovery().unwrap().subscribe().borrow(),
-            RecoveryState::TrustFailure
-        );
-        peer.work.join().unwrap();
-        assert_eq!(peer.requests.lock().unwrap().len(), 1);
     }
 }
 
@@ -515,90 +592,91 @@ fn cancellation_closes_an_active_identity_socket() {
 #[test]
 #[ignore = "requires generated disposable direct-route TLS certificates"]
 fn session_switching_uses_only_the_current_account_and_revocation_requires_sign_in() {
-    let installation = Installation::new();
-    let config = installation.config();
-    let control = config.recovery().unwrap();
-    let peer = Peer::start(
-        "127.0.0.1",
-        installation.receipt.binding.offer.identity.clone(),
-        3,
-        403,
-    );
-    drop(recover(&config, vec![installation.candidate(peer.address)]).unwrap());
-    let store = SecretStore::open(
-        installation.directory.path(),
-        Some(FallbackEncryptionKey::new([49; 32])),
-    )
-    .unwrap();
-    let route = SecretId::new(
-        eitmad_contracts::secrets::SecretKind::parse("recovery-test").unwrap(),
-        eitmad_contracts::config::SecretReferenceId::new(Uuid::new_v4()),
-    );
-    let client = AuthenticatedHttpClient::from_config(
-        config,
-        store.clone(),
-        route.clone(),
-        "eitmad.capability.shared-accounts.v1",
-        25,
-    );
-    let mut ids = Vec::new();
-    for (token, user) in [
-        ("synthetic-user-a", UserId::new(Uuid::new_v4())),
-        ("synthetic-user-b", UserId::new(Uuid::new_v4())),
-    ] {
-        let actor = AuthorizationContext {
-            session_id: SessionId::new(Uuid::new_v4()),
-            tenant_id: installation.receipt.binding.offer.tenant_id,
-            workspace_id: None,
-            scope: ScopeRef {
-                kind: ScopeKind::parse("organization").unwrap(),
-                id: ScopeId::new(installation.receipt.binding.offer.tenant_id.value()),
-            },
-            identity: AuthenticatedIdentity {
-                principal_id: PrincipalId::new(user.value()),
-                principal_kind: PrincipalKind::User,
-                device_id: Some(installation.receipt.binding.device_id),
-                service_id: None,
-            },
-        };
-        let id = account_credential_id(&route, actor.identity.principal_id);
-        let credential = StoredCredential {
-            user_id: user,
-            tenant_id: actor.tenant_id,
-            account_id: AccountId::new(Uuid::new_v4()),
-            device_id: installation.receipt.binding.device_id,
-            access_token: token.into(),
-            refresh_token: "synthetic-refresh".into(),
-            access_expires_at: UnixMillis(unix_millis_now().0 + 120_000),
-            refresh_expires_at: UnixMillis(unix_millis_now().0 + 240_000),
-            signing_seed: [49; 32],
-        };
-        store
-            .set(
-                &id,
-                SecretMaterial::new(serde_json::to_vec(&credential).unwrap()).unwrap(),
-            )
-            .unwrap();
-        ids.push(id);
-        let result = client.request::<serde_json::Value>(
-            &actor,
-            "/v1/accounts/watch",
-            &(),
-            Instant::now() + Duration::from_secs(3),
+    for installation in [Installation::new(), Installation::first()] {
+        let config = installation.config();
+        let control = config.recovery().unwrap();
+        let peer = Peer::start(
+            "127.0.0.1",
+            installation.receipt.binding.offer.identity.clone(),
+            3,
+            403,
         );
-        assert!(matches!(result, Err(HttpError::Denied)));
-        assert_eq!(*control.subscribe().borrow(), RecoveryState::SignInRequired);
-    }
-    peer.work.join().unwrap();
-    let requests = peer.requests.lock().unwrap();
-    let authenticated: Vec<_> = requests
-        .iter()
-        .filter(|request| request.contains("Bearer "))
-        .collect();
-    assert_eq!(authenticated.len(), 2);
-    assert!(authenticated[0].contains("Bearer synthetic-user-a\r\n"));
-    assert!(authenticated[1].contains("Bearer synthetic-user-b\r\n"));
-    for id in ids {
-        store.delete(&id).unwrap();
+        drop(recover(&config, vec![installation.candidate(peer.address)]).unwrap());
+        let store = SecretStore::open(
+            installation.directory.path(),
+            Some(FallbackEncryptionKey::new([49; 32])),
+        )
+        .unwrap();
+        let route = SecretId::new(
+            eitmad_contracts::secrets::SecretKind::parse("recovery-test").unwrap(),
+            eitmad_contracts::config::SecretReferenceId::new(Uuid::new_v4()),
+        );
+        let client = AuthenticatedHttpClient::from_config(
+            config,
+            store.clone(),
+            route.clone(),
+            "eitmad.capability.shared-accounts.v1",
+            25,
+        );
+        let mut ids = Vec::new();
+        for (token, user) in [
+            ("synthetic-user-a", UserId::new(Uuid::new_v4())),
+            ("synthetic-user-b", UserId::new(Uuid::new_v4())),
+        ] {
+            let actor = AuthorizationContext {
+                session_id: SessionId::new(Uuid::new_v4()),
+                tenant_id: installation.receipt.binding.offer.tenant_id,
+                workspace_id: None,
+                scope: ScopeRef {
+                    kind: ScopeKind::parse("organization").unwrap(),
+                    id: ScopeId::new(installation.receipt.binding.offer.tenant_id.value()),
+                },
+                identity: AuthenticatedIdentity {
+                    principal_id: PrincipalId::new(user.value()),
+                    principal_kind: PrincipalKind::User,
+                    device_id: Some(installation.receipt.binding.device_id),
+                    service_id: None,
+                },
+            };
+            let id = account_credential_id(&route, actor.identity.principal_id);
+            let credential = StoredCredential {
+                user_id: user,
+                tenant_id: actor.tenant_id,
+                account_id: AccountId::new(Uuid::new_v4()),
+                device_id: installation.receipt.binding.device_id,
+                access_token: token.into(),
+                refresh_token: "synthetic-refresh".into(),
+                access_expires_at: UnixMillis(unix_millis_now().0 + 120_000),
+                refresh_expires_at: UnixMillis(unix_millis_now().0 + 240_000),
+                signing_seed: [49; 32],
+            };
+            store
+                .set(
+                    &id,
+                    SecretMaterial::new(serde_json::to_vec(&credential).unwrap()).unwrap(),
+                )
+                .unwrap();
+            ids.push(id);
+            let result = client.request::<serde_json::Value>(
+                &actor,
+                "/v1/accounts/watch",
+                &(),
+                Instant::now() + Duration::from_secs(3),
+            );
+            assert!(matches!(result, Err(HttpError::Denied)));
+            assert_eq!(*control.subscribe().borrow(), RecoveryState::SignInRequired);
+        }
+        peer.work.join().unwrap();
+        let requests = peer.requests.lock().unwrap();
+        let authenticated: Vec<_> = requests
+            .iter()
+            .filter(|request| request.contains("Bearer "))
+            .collect();
+        assert_eq!(authenticated.len(), 2);
+        assert!(authenticated[0].contains("Bearer synthetic-user-a\r\n"));
+        assert!(authenticated[1].contains("Bearer synthetic-user-b\r\n"));
+        for id in ids {
+            store.delete(&id).unwrap();
+        }
     }
 }

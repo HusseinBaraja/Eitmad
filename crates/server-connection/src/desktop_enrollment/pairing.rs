@@ -305,15 +305,8 @@ impl DesktopEnrollment {
     /// # Errors
     /// Rejects damaged saved public pairing state.
     pub fn paired_connection(&self) -> Result<Option<DesktopEnrollmentSettings>, TransportFailure> {
-        match read_pairing_file(&self.directory.join("desktop-pairing.json")) {
-            Ok(bytes) => {
-                let receipt =
-                    serde_json::from_slice(&bytes).map_err(|_| authentication_failure())?;
-                Ok(Some(self.pairing_settings(&receipt)))
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(_) => Err(authentication_failure()),
-        }
+        Ok(super::retained::RetainedEnrollment::load(&self.directory)?
+            .map(|saved| saved.settings(&self.directory)))
     }
 
     pub(super) fn check_paired_inputs(

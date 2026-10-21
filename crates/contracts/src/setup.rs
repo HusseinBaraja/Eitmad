@@ -122,6 +122,7 @@ pub struct SetupDesktopHandoff {
     pub version: u32,
     pub prepared: PreparedWindowsWorkshop,
     pub public_ca_pem: String,
+    pub server_id: crate::discovery::ServerInstallationId,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]

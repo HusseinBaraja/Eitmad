@@ -7,7 +7,7 @@ use super::{
 use eitmad_contracts::identity::DeviceId;
 use eitmad_contracts::{
     discovery::{DiscoverServers, DiscoveredServer, DiscoveryStatus},
-    pairing::{PairingIdentity, PairingReceipt},
+    pairing::PairingIdentity,
     transport::{CorrelationId, RequestId},
 };
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -156,23 +156,15 @@ impl RetainedServer {
         let directory = path.parent().ok_or_else(encryption_failure)?;
         // A retained paired installation must fail closed if its receipt or trust is lost.
         DesktopConnectionSettings::load(directory)?;
-        let receipt = match desktop_enrollment::pairing::read_pairing_file(
-            &directory.join("desktop-pairing.json"),
-        ) {
-            Ok(bytes) => serde_json::from_slice::<PairingReceipt>(&bytes)
-                .map_err(|_| encryption_failure())?,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(encryption_failure()),
+        let Some(saved) = desktop_enrollment::retained::RetainedEnrollment::load(directory)? else {
+            return Ok(None);
         };
-        let offer = &receipt.binding.offer;
-        if offer.version != 1
-            || offer.identity.server_id.value().is_nil()
-            || offer.identity.endpoint != config.endpoint.as_str()
-            || offer.identity.public_ca_pem.as_bytes() != pem
+        if saved.identity.endpoint != config.endpoint.as_str()
+            || saved.identity.public_ca_pem.as_bytes() != pem
             || !((config.scope.kind.as_str() == "organization"
-                && (config.scope.id.value() == offer.organization_id.value()
-                    || config.scope.id.value() == offer.tenant_id.value()))
-                || (config.scope.kind.as_str() == "branch" && config.scope.id == offer.branch_id))
+                && (config.scope.id.value() == saved.organization.value()
+                    || config.scope.id.value() == saved.tenant_id.value()))
+                || (config.scope.kind.as_str() == "branch" && config.scope.id == saved.branch))
         {
             return Err(encryption_failure());
         }
@@ -181,11 +173,11 @@ impl RetainedServer {
                 .map_err(|_| encryption_failure())?,
         )
         .map_err(|_| encryption_failure())?;
-        if receipt.binding.device_id != device || device.value().is_nil() {
+        if saved.device != device || device.value().is_nil() {
             return Err(encryption_failure());
         }
         Ok(Some(Arc::new(Self {
-            identity: offer.identity.clone(),
+            identity: saved.identity,
             control: ConnectionRecovery::new(),
             gate: RequestGate::new(DiagnosticPhase::Connect, FailurePhase::Connect),
             route: Mutex::new(Route::default()),

@@ -277,39 +277,49 @@ pub(super) async fn approve_first_desktop(
         version: 1,
         prepared,
         public_ca_pem,
+        server_id: {
+            // Read the running service's identity. Never create a replacement during enrollment.
+            let path = root.join("manifests/server-identity");
+            let mut bytes = String::new();
+            std::fs::File::open(path)
+                .map_err(|_| MainError::Setup)?
+                .take(37)
+                .read_to_string(&mut bytes)
+                .map_err(|_| MainError::Setup)?;
+            let id = uuid::Uuid::parse_str(&bytes).map_err(|_| MainError::Setup)?;
+            if bytes.len() != 36 || id.is_nil() {
+                return Err(MainError::Setup);
+            }
+            eitmad_contracts::discovery::ServerInstallationId::new(id)
+        },
     })
 }
 
 pub(super) fn enroll_desktop(
     request: &InstallWindowsServer,
-    handoff: SetupDesktopHandoff,
+    handoff: &SetupDesktopHandoff,
 ) -> Result<(), MainError> {
-    if handoff.version != 1
-        || handoff.prepared.version != 1
-        || handoff.public_ca_pem.len() > 16384
-        || handoff.public_ca_pem.contains("PRIVATE KEY")
-    {
-        return Err(MainError::Setup);
-    }
-    let ca = Path::new(&request.client.progress_directory).join("first-desktop-ca.pem");
-    installation::recovery::retain_exact(&ca, handoff.public_ca_pem.as_bytes())?;
+    installation::recovery::retain_exact(
+        &Path::new(&request.client.progress_directory).join("first-desktop-handoff.json"),
+        &serde_json::to_vec(handoff).map_err(|_| MainError::Setup)?,
+    )?;
+    let desktop = enrollment()?;
+    let connection = desktop
+        .retain_first_desktop(
+            handoff,
+            request.first_desktop.as_ref().ok_or(MainError::Input)?,
+        )
+        .map_err(|_| MainError::Setup)?;
     let owner = &request.preparation.workshop;
-    let coordinates = handoff.prepared.workshop;
     let mut sign_in = DesktopSignInRequest {
         request_id: RequestId::new(uuid::Uuid::new_v4()),
         correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
         username: owner.owner_username.clone(),
         password: owner.owner_password.expose_secret().into(),
         server_login: true,
-        connection: Some(eitmad_contracts::ipc::DesktopEnrollmentSettings {
-            endpoint: handoff.prepared.endpoint,
-            trusted_certificate: ca.to_string_lossy().into_owned(),
-            tenant_code: coordinates.tenant_code,
-            organization: coordinates.organization_id,
-            branch: coordinates.branch_id,
-        }),
+        connection: Some(connection),
     };
-    let result = enrollment()?.sign_in(&sign_in);
+    let result = desktop.sign_in(&sign_in);
     zeroize::Zeroize::zeroize(&mut sign_in.password);
     result.map(|_| ()).map_err(|_| MainError::Setup)
 }

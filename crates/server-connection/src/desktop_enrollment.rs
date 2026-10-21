@@ -32,6 +32,7 @@ use std::{
 use uuid::Uuid;
 use zeroize::{Zeroize as _, Zeroizing};
 pub(super) mod pairing;
+pub(crate) mod retained;
 
 pub struct DesktopEnrollment {
     directory: PathBuf,
@@ -334,7 +335,16 @@ impl DesktopEnrollment {
                 .map_err(|_| authentication_failure())?;
             seed
         };
-        Ok(SigningKey::from_bytes(&seed))
+        let key = SigningKey::from_bytes(&seed);
+        if let Some(saved) = retained::RetainedEnrollment::load(&self.directory)? {
+            if saved.device != device
+                || saved.public_key.algorithm != "ed25519"
+                || saved.public_key.base64 != URL_SAFE_NO_PAD.encode(key.verifying_key().as_bytes())
+            {
+                return Err(authentication_failure());
+            }
+        }
+        Ok(key)
     }
 
     // Retained installations already have this key inside their account credentials.
@@ -397,6 +407,11 @@ impl DesktopEnrollment {
             || profile.branch != inputs.branch
         {
             return Err(authentication_failure());
+        }
+        if let Some(saved) = retained::RetainedEnrollment::load(&self.directory)? {
+            if saved.tenant_id != auth.session.tenant_id || saved.device != auth.session.device_id {
+                return Err(authentication_failure());
+            }
         }
         if self
             .store

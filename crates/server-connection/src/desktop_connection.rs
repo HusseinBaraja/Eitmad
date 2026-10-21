@@ -56,21 +56,15 @@ impl DesktopConnectionSettings {
             settings.trusted_certificate = directory.join(settings.trusted_certificate);
         }
         if let Some(id) = settings.server_id {
-            let receipt: eitmad_contracts::pairing::PairingReceipt = serde_json::from_slice(
-                &super::desktop_enrollment::pairing::read_pairing_file(
-                    &directory.join("desktop-pairing.json"),
-                )
-                .map_err(|_| super::encryption_failure())?,
-            )
-            .map_err(|_| super::encryption_failure())?;
-            let offer = receipt.binding.offer;
-            if id != offer.identity.server_id
-                || settings.endpoint != offer.identity.endpoint
-                || settings.organization != offer.organization_id
-                || settings.branch != offer.branch_id
-                || settings.tenant_code.as_ref() != Some(&offer.tenant_code)
+            let saved = super::desktop_enrollment::retained::RetainedEnrollment::load(directory)?
+                .ok_or_else(super::encryption_failure)?;
+            if id != saved.identity.server_id
+                || settings.endpoint != saved.identity.endpoint
+                || settings.organization != saved.organization
+                || settings.branch != saved.branch
+                || settings.tenant_code.as_ref() != Some(&saved.tenant_code)
                 || super::desktop_enrollment::read_trust(&settings.trusted_certificate)?
-                    != offer.identity.public_ca_pem.as_bytes()
+                    != saved.identity.public_ca_pem.as_bytes()
             {
                 return Err(super::encryption_failure());
             }
