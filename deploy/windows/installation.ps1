@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('ClientPreflight', 'ServerPreflight', 'Elevate', 'Worker', 'Desktop', 'Install', 'ResumeInstall', 'Firewall', 'Start')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('ClientPreflight', 'ServerPreflight', 'Elevate', 'Worker', 'Desktop', 'Install', 'ResumeInstall', 'Firewall', 'Start', 'BackupElevate', 'BackupWorker')][string]$Action,
     [Parameter(Mandatory)][string]$Backend,
     [string]$PipeName,
     [int]$BrokerId
@@ -13,18 +13,18 @@ $env:PSModulePath = Join-Path $PSHOME 'Modules'
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 Import-Module (Join-Path $PSScriptRoot 'installation.psm1') -Force
 try {
-    if ($Action -eq 'Worker') {
-        $code = Invoke-EitmadInstallationWorker -Backend $Backend -PipeName $PipeName -BrokerId $BrokerId
+    if ($Action -in 'Worker', 'BackupWorker') {
+        $code = Invoke-EitmadInstallationWorker -Backend $Backend -PipeName $PipeName -BrokerId $BrokerId -Backup:($Action -eq 'BackupWorker')
         exit $code
     }
-    if ($Action -eq 'Elevate') {
+    if ($Action -in 'Elevate', 'BackupElevate') {
         Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
     }
-    $privateInput = if ($Action -eq 'Elevate') { [EitmadInstallationChannel]::ReadPrivateInput([Console]::In) }
+    $privateInput = if ($Action -in 'Elevate', 'BackupElevate') { [EitmadInstallationChannel]::ReadPrivateInput([Console]::In) }
         else { [Console]::In.ReadToEnd() }
     if ([Text.Encoding]::UTF8.GetByteCount($privateInput) -gt 65536) { throw 'Invalid private input.' }
-    if ($Action -eq 'Elevate') {
-        $code = Invoke-EitmadInstallationElevation -Backend $Backend -PrivateInput $privateInput
+    if ($Action -in 'Elevate', 'BackupElevate') {
+        $code = Invoke-EitmadInstallationElevation -Backend $Backend -PrivateInput $privateInput -Backup:($Action -eq 'BackupElevate')
         exit $code
     }
     $request = $privateInput | ConvertFrom-Json

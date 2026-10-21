@@ -199,10 +199,12 @@ function Test-InstallationProofRequest([string]$Line) {
 }
 
 function Invoke-EitmadInstallationWorker {
-    param([string]$Backend, [string]$PipeName, [int]$BrokerId)
+    param([string]$Backend, [string]$PipeName, [int]$BrokerId, [switch]$Backup)
     & $script:HostAdapter { Assert-Administrator }
     Initialize-InstallationChannel
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
+    $stage = $null
+    $managementComplete = $false
     try {
         # The initiating process retains the source. Never execute elevated payloads
         # from a user-writable extraction directory, including DLL search paths.
@@ -237,15 +239,29 @@ function Invoke-EitmadInstallationWorker {
         @{root=$stage; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
-        # Retain this protected release tree for backup scheduling and failure recovery.
-        return [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend,
+        # Installation retains its backend for scheduling. Management uses that retained backend.
+        $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, $(if ($Backup) { 'windows-backup-management-worker' } else { 'install-windows-server' }),
             [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
+        $managementComplete = $Backup -and $code -eq 0
+        return $code
     }
-    finally { $pipe.Dispose() }
+    finally {
+        $pipe.Dispose()
+        if ($managementComplete -and $stage) {
+            # RunWorker has exited; this temporary management payload owns no task or data.
+            $full = [IO.Path]::GetFullPath($stage)
+            $parent = [IO.Path]::GetFullPath($env:ProgramData).TrimEnd('\')
+            if ((Split-Path $full -Parent) -ine $parent -or (Split-Path $full -Leaf) -notmatch '^EitmadSetupPayload-[a-f0-9]{32}$') {
+                throw 'Unsafe temporary payload path.'
+            }
+            & $script:HostAdapter { param($p) Assert-PlainTree $p } $full
+            Remove-Item -LiteralPath $full -Recurse -Force
+        }
+    }
 }
 
 function Invoke-EitmadInstallationElevation {
-    param([string]$Backend, [string]$PrivateInput)
+    param([string]$Backend, [string]$PrivateInput, [switch]$Backup)
     Initialize-InstallationChannel
     $name = 'eitmad-install-' + [Guid]::NewGuid().ToString('N')
     $pipe = [EitmadInstallationChannel]::Create($name)
@@ -254,7 +270,7 @@ function Invoke-EitmadInstallationElevation {
         # All argv values are public. Reuse the adapter's Windows quoting policy.
         $script = Join-Path $PSScriptRoot 'installation.ps1'
         foreach ($path in $script, $Backend) { & $script:HostAdapter { param($value) [void](Get-SafePath $value) } $path }
-        $arguments = @('-NoProfile', '-NonInteractive', '-File', $script, '-Action', 'Worker', '-Backend', $Backend,
+        $arguments = @('-NoProfile', '-NonInteractive', '-File', $script, '-Action', $(if ($Backup) { 'BackupWorker' } else { 'Worker' }), '-Backend', $Backend,
             '-PipeName', $name, '-BrokerId', [string]$PID) | ForEach-Object {
                 '"' + [regex]::Replace([regex]::Replace($_, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
             }
@@ -268,7 +284,7 @@ function Invoke-EitmadInstallationElevation {
             if (-not $event) { break }
             [Console]::Out.WriteLine($event)
             [Console]::Out.Flush()
-            if (Test-InstallationProofRequest $event) {
+            if (-not $Backup -and (Test-InstallationProofRequest $event)) {
                 $proof = [EitmadInstallationChannel]::ReadPrivateInput([Console]::In)
                 try { [EitmadInstallationChannel]::Send($pipe, $proof) }
                 finally { $proof = $null }

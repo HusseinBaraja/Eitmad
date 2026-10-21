@@ -1,4 +1,6 @@
 //! Privileged CLI orchestration. Product policy stays in `eitmad_server::backup`.
+mod management;
+
 use crate::MainError;
 use eitmad_contracts::backup::{
     ServerBackupConfiguration as Configuration, ServerBackupOutcome as Outcome,
@@ -16,9 +18,25 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+pub(super) fn dispatch(arguments: &[String]) -> Option<Result<(), MainError>> {
+    match arguments.get(1).map(String::as_str)? {
+        "windows-backup-management" if arguments.len() == 2 => {
+            Some(management::elevate_management())
+        }
+        "windows-backup-management-worker" if arguments.len() == 2 => Some(management::manage()),
+        "windows-backup" if arguments.len() == 4 => Some(execute(&arguments[2], &arguments[3])),
+        "windows-backup" | "windows-backup-management" | "windows-backup-management-worker" => {
+            Some(Err(MainError::Input))
+        }
+        _ => None,
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Saved {
+    #[serde(default)]
+    backend: Option<PathBuf>,
     configuration: Configuration,
     status: Status,
     generation: Option<String>,
@@ -229,7 +247,7 @@ fn save(state: &Path, saved: &Saved, event: &str) -> Result<(), MainError> {
     let result = native(
         "Publish",
         state,
-        &json!({"temporary":next.file_name().ok_or(MainError::Backup)?, "event":event, "at":now()?, "status":saved.status}),
+        &json!({"temporary":next.file_name().and_then(|name| name.to_str()).ok_or(MainError::Backup)?, "event":event, "at":now()?, "status":saved.status}),
     )?;
     if result.outcome != Outcome::Succeeded {
         return Err(MainError::Backup);
@@ -356,6 +374,7 @@ fn configure(state: &Path) -> Result<(), MainError> {
         return Err(MainError::Backup);
     }
     let mut saved = Saved {
+        backend: Some(std::env::current_exe().map_err(|_| MainError::Backup)?),
         status: backup::initial(&configuration, now()?),
         configuration,
         generation: None,
@@ -367,6 +386,7 @@ fn configure(state: &Path) -> Result<(), MainError> {
                 .take(65_537),
         )
         .map_err(|_| MainError::Backup)?;
+        saved.backend = previous.backend.or(saved.backend);
         let old = &previous.configuration;
         if old.deployment_id != saved.configuration.deployment_id
             || old.host_root != saved.configuration.host_root

@@ -49,6 +49,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("lifecycle_snapshot")]
         public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
+        [JsonPropertyName("manage_server_backup")]
+        public ManageServerBackup ManageServerBackup { get; set; }
+
         [JsonPropertyName("prepare_windows_workshop")]
         public PrepareWindowsWorkshop PrepareWindowsWorkshop { get; set; }
 
@@ -60,6 +63,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("server_backup_configuration")]
         public ServerBackupConfiguration ServerBackupConfiguration { get; set; }
+
+        [JsonPropertyName("server_backup_management")]
+        public ServerBackupManagement ServerBackupManagement { get; set; }
 
         [JsonPropertyName("server_backup_status")]
         public ServerBackupStatus ServerBackupStatus { get; set; }
@@ -488,6 +494,21 @@ namespace Eitmad.Contracts
         public long Minor { get; set; }
     }
 
+    /// <summary>
+    /// Local Windows administration only. No application account can authorize this request.
+    /// </summary>
+    public partial class ManageServerBackup
+    {
+        [JsonPropertyName("action")]
+        public ServerBackupAction Action { get; set; }
+
+        [JsonPropertyName("destinations")]
+        public SetupBackupDestinations Destinations { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
     public partial class PreparedWindowsWorkshop
     {
         [JsonPropertyName("endpoint")]
@@ -540,6 +561,30 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("serviceName")]
         public string ServiceName { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    /// <summary>
+    /// Sanitized management projection; source paths and private configuration stay in Rust.
+    /// </summary>
+    public partial class ServerBackupManagement
+    {
+        [JsonPropertyName("actionOutcome")]
+        public ServerBackupOutcome ActionOutcome { get; set; }
+
+        [JsonPropertyName("destinations")]
+        public SetupBackupDestinations Destinations { get; set; }
+
+        [JsonPropertyName("intervalHours")]
+        public long IntervalHours { get; set; }
+
+        [JsonPropertyName("retentionCount")]
+        public long RetentionCount { get; set; }
+
+        [JsonPropertyName("status")]
+        public ServerBackupStatus Status { get; set; }
 
         [JsonPropertyName("version")]
         public long Version { get; set; }
@@ -5527,6 +5572,8 @@ namespace Eitmad.Contracts
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
 
+    public enum ServerBackupAction { Capture, Inspect, RepairSchedule, SaveDestinations };
+
     public enum ServerBackupOutcome { CaptureFailed, DestinationUnavailable, InsufficientSpace, Interrupted, NeverRun, RetentionFailed, Running, ScheduleFailed, Succeeded };
 
     public enum PrincipalKind { Device, Service, User };
@@ -5674,6 +5721,7 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
+                ServerBackupActionConverter.Singleton,
                 ServerBackupOutcomeConverter.Singleton,
                 CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
@@ -6286,6 +6334,50 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
+    }
+
+    internal class ServerBackupActionConverter : JsonConverter<ServerBackupAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerBackupAction);
+
+        public override ServerBackupAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "capture":
+                    return ServerBackupAction.Capture;
+                case "inspect":
+                    return ServerBackupAction.Inspect;
+                case "repairSchedule":
+                    return ServerBackupAction.RepairSchedule;
+                case "saveDestinations":
+                    return ServerBackupAction.SaveDestinations;
+            }
+            throw new Exception("Cannot unmarshal type ServerBackupAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerBackupAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerBackupAction.Capture:
+                    JsonSerializer.Serialize(writer, "capture", options);
+                    return;
+                case ServerBackupAction.Inspect:
+                    JsonSerializer.Serialize(writer, "inspect", options);
+                    return;
+                case ServerBackupAction.RepairSchedule:
+                    JsonSerializer.Serialize(writer, "repairSchedule", options);
+                    return;
+                case ServerBackupAction.SaveDestinations:
+                    JsonSerializer.Serialize(writer, "saveDestinations", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerBackupAction");
+        }
+
+        public static readonly ServerBackupActionConverter Singleton = new ServerBackupActionConverter();
     }
 
     internal class ServerBackupOutcomeConverter : JsonConverter<ServerBackupOutcome>

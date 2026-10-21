@@ -102,6 +102,9 @@
     "list_server_accounts": {
       "$ref": "#/definitions/ListServerAccounts"
     },
+    "manage_server_backup": {
+      "$ref": "#/definitions/ManageServerBackup"
+    },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
     },
@@ -216,6 +219,9 @@
     "server_backup_configuration": {
       "$ref": "#/definitions/ServerBackupConfiguration"
     },
+    "server_backup_management": {
+      "$ref": "#/definitions/ServerBackupManagement"
+    },
     "server_backup_status": {
       "$ref": "#/definitions/ServerBackupStatus"
     },
@@ -273,6 +279,8 @@
     "windows_setup_bundle",
     "server_backup_configuration",
     "server_backup_status",
+    "manage_server_backup",
+    "server_backup_management",
     "open_pairing",
     "opened_pairing",
     "start_pairing",
@@ -7868,6 +7876,35 @@
         "devicePublicKey"
       ]
     },
+    "ManageServerBackup": {
+      "description": "Local Windows administration only. No application account can authorize this request.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/ServerBackupAction"
+        },
+        "destinations": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "action"
+      ]
+    },
     "Material": {
       "type": "object",
       "properties": {
@@ -14135,6 +14172,15 @@
         "revision"
       ]
     },
+    "ServerBackupAction": {
+      "type": "string",
+      "enum": [
+        "inspect",
+        "capture",
+        "saveDestinations",
+        "repairSchedule"
+      ]
+    },
     "ServerBackupConfiguration": {
       "type": "object",
       "properties": {
@@ -14192,6 +14238,45 @@
         "serviceName",
         "recoveryDirectory",
         "localDestination"
+      ]
+    },
+    "ServerBackupManagement": {
+      "description": "Sanitized management projection; source paths and private configuration stay in Rust.",
+      "type": "object",
+      "properties": {
+        "actionOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "destinations": {
+          "$ref": "#/definitions/SetupBackupDestinations"
+        },
+        "intervalHours": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "retentionCount": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "status": {
+          "$ref": "#/definitions/ServerBackupStatus"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "destinations",
+        "intervalHours",
+        "retentionCount",
+        "status",
+        "actionOutcome"
       ]
     },
     "ServerBackupOutcome": {

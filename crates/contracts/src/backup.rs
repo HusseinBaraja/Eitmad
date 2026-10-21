@@ -61,3 +61,33 @@ pub struct ServerBackupStatus {
     pub disk_loss_protected: bool,
     pub schedule_outcome: ServerBackupOutcome,
 }
+
+/// Local Windows administration only. No application account can authorize this request.
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ManageServerBackup {
+    pub version: u32,
+    pub action: ServerBackupAction,
+    pub destinations: Option<crate::setup::SetupBackupDestinations>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ServerBackupAction {
+    Inspect,
+    Capture,
+    SaveDestinations,
+    RepairSchedule,
+}
+
+/// Sanitized management projection; source paths and private configuration stay in Rust.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ServerBackupManagement {
+    pub version: u32,
+    pub destinations: crate::setup::SetupBackupDestinations,
+    pub interval_hours: u32,
+    pub retention_count: usize,
+    pub status: ServerBackupStatus,
+    pub action_outcome: ServerBackupOutcome,
+}

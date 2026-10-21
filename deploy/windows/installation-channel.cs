@@ -121,10 +121,10 @@ public static class EitmadInstallationChannel
         finally { Array.Clear(input, 0, input.Length); }
     }
 
-    public static int RunWorker(Stream pipe, string backend, Func<string, bool> requiresInput)
+    public static int RunWorker(Stream pipe, string backend, string command, Func<string, bool> requiresInput)
     {
         var request = Receive(pipe, 65536);
-        var start = new ProcessStartInfo(backend, "install-windows-server") {
+        var start = new ProcessStartInfo(backend, command) {
             UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8
@@ -133,6 +133,7 @@ public static class EitmadInstallationChannel
         {
             var errors = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
             WritePrivateInput(process, request);
+            if (command == "windows-backup-management-worker") process.StandardInput.Close();
             request = null;
             try
             {
@@ -165,7 +166,7 @@ public static class EitmadInstallationChannel
                 // The Rust worker owns its cluster cleanup and retained progress.
                 throw;
             }
-            finally { process.StandardInput.Close(); }
+            finally { if (command != "windows-backup-management-worker") process.StandardInput.Close(); }
         }
     }
 }

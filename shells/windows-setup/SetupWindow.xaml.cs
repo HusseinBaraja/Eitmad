@@ -8,14 +8,15 @@ namespace Eitmad.WindowsSetup;
 public partial class SetupWindow : Window
 {
     private readonly IWindowsSetupBridge backend;
+    private readonly IWindowsBackupBridge? backups;
     private readonly ObservableCollection<string> stages = [];
     private bool busy;
     private bool fresh;
     private WindowsSetupRecovery recovery = WindowsSetupRecovery.InspectManually;
     private WindowsInstallProgress? last;
-    public SetupWindow(IWindowsSetupBridge backend)
+    public SetupWindow(IWindowsSetupBridge backend, IWindowsBackupBridge? backups = null)
     {
-        this.backend = backend; InitializeComponent(); StageList.ItemsSource = stages;
+        this.backend = backend; this.backups = backups; InitializeComponent(); StageList.ItemsSource = stages;
         Loaded += async (_, _) => await InspectAsync();
         Closing += (_, e) => { if (busy) { e.Cancel = true; SetupNotice.Text = "الإعداد يعمل. انتظر انتهاء المرحلة قبل إغلاق النافذة. إذا انقطع التيار، افتح الإعداد وافحص الحالة المحفوظة."; } else { OwnerPassword.Clear(); RecoveryPassword.Clear(); } };
     }
@@ -30,6 +31,7 @@ public partial class SetupWindow : Window
     {
         InstallButton.IsEnabled = !busy && fresh && (ServerChoice.IsChecked == true || ClientChoice.IsChecked == true);
         InstallButton.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
+        ManageBackupButton.IsEnabled = !busy && backups is not null;
         InspectButton.IsEnabled = !busy; InputPanel.IsEnabled = !busy;
         RetryButton.IsEnabled = !busy && recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword;
         RecoveryPanel.IsEnabled = !busy;
@@ -128,6 +130,8 @@ public partial class SetupWindow : Window
             busy = false; BusyProgress.Visibility = Visibility.Collapsed; UpdateActions();
         }
     }
+    private void ManageBackupClick(object sender, RoutedEventArgs e)
+    { if (backups is not null && !busy) new BackupWindow(backups) { Owner = this }.ShowDialog(); }
     private void Complete()
     {
         StepTitle.Text = "اكتمل التثبيت";

@@ -16,10 +16,12 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let installWindowsServer: InstallWindowsServer
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
+    public let manageServerBackup: ManageServerBackup
     public let prepareWindowsWorkshop: PrepareWindowsWorkshop
     public let preparedWindowsWorkshop: PreparedWindowsWorkshop
     public let readWindowsInstallation: ReadWindowsInstallation
     public let serverBackupConfiguration: ServerBackupConfiguration
+    public let serverBackupManagement: ServerBackupManagement
     public let serverBackupStatus: ServerBackupStatus
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
     public let windowsInstallProgress: WindowsInstallProgress
@@ -36,10 +38,12 @@ public struct EitmadContractSchema: Codable, Sendable {
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
+        case manageServerBackup = "manage_server_backup"
         case prepareWindowsWorkshop = "prepare_windows_workshop"
         case preparedWindowsWorkshop = "prepared_windows_workshop"
         case readWindowsInstallation = "read_windows_installation"
         case serverBackupConfiguration = "server_backup_configuration"
+        case serverBackupManagement = "server_backup_management"
         case serverBackupStatus = "server_backup_status"
         case unionPayloadKeepAlive
         case windowsInstallProgress = "windows_install_progress"
@@ -47,7 +51,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         case windowsSetupBundle = "windows_setup_bundle"
     }
 
-    public init(guidedWindowsSetup: GuidedWindowsSetup, initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, installWindows: [String: JSONAny], installWindowsClient: InstallWindowsClient, installWindowsServer: InstallWindowsServer, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, readWindowsInstallation: ReadWindowsInstallation, serverBackupConfiguration: ServerBackupConfiguration, serverBackupStatus: ServerBackupStatus, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallProgress: WindowsInstallProgress, windowsInstallationState: WindowsInstallationState, windowsSetupBundle: WindowsSetupBundle) {
+    public init(guidedWindowsSetup: GuidedWindowsSetup, initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, installWindows: [String: JSONAny], installWindowsClient: InstallWindowsClient, installWindowsServer: InstallWindowsServer, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, readWindowsInstallation: ReadWindowsInstallation, serverBackupConfiguration: ServerBackupConfiguration, serverBackupManagement: ServerBackupManagement, serverBackupStatus: ServerBackupStatus, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallProgress: WindowsInstallProgress, windowsInstallationState: WindowsInstallationState, windowsSetupBundle: WindowsSetupBundle) {
         self.guidedWindowsSetup = guidedWindowsSetup
         self.initializeWorkshop = initializeWorkshop
         self.initializedWorkshop = initializedWorkshop
@@ -57,10 +61,12 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
+        self.manageServerBackup = manageServerBackup
         self.prepareWindowsWorkshop = prepareWindowsWorkshop
         self.preparedWindowsWorkshop = preparedWindowsWorkshop
         self.readWindowsInstallation = readWindowsInstallation
         self.serverBackupConfiguration = serverBackupConfiguration
+        self.serverBackupManagement = serverBackupManagement
         self.serverBackupStatus = serverBackupStatus
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
         self.windowsInstallProgress = windowsInstallProgress
@@ -584,6 +590,27 @@ public enum LifecycleState: String, Codable, Sendable {
     case stopping = "stopping"
 }
 
+/// Local Windows administration only. No application account can authorize this request.
+// MARK: - ManageServerBackup
+public struct ManageServerBackup: Codable, Sendable {
+    public let action: ServerBackupAction
+    public let destinations: SetupBackupDestinations?
+    public let version: Int
+
+    public init(action: ServerBackupAction, destinations: SetupBackupDestinations?, version: Int) {
+        self.action = action
+        self.destinations = destinations
+        self.version = version
+    }
+}
+
+public enum ServerBackupAction: String, Codable, Sendable {
+    case capture = "capture"
+    case inspect = "inspect"
+    case repairSchedule = "repairSchedule"
+    case saveDestinations = "saveDestinations"
+}
+
 // MARK: - PreparedWindowsWorkshop
 public struct PreparedWindowsWorkshop: Codable, Sendable {
     public let endpoint: String
@@ -638,6 +665,37 @@ public struct ServerBackupConfiguration: Codable, Sendable {
     }
 }
 
+/// Sanitized management projection; source paths and private configuration stay in Rust.
+// MARK: - ServerBackupManagement
+public struct ServerBackupManagement: Codable, Sendable {
+    public let actionOutcome: ServerBackupOutcome
+    public let destinations: SetupBackupDestinations
+    public let intervalHours, retentionCount: Int
+    public let status: ServerBackupStatus
+    public let version: Int
+
+    public init(actionOutcome: ServerBackupOutcome, destinations: SetupBackupDestinations, intervalHours: Int, retentionCount: Int, status: ServerBackupStatus, version: Int) {
+        self.actionOutcome = actionOutcome
+        self.destinations = destinations
+        self.intervalHours = intervalHours
+        self.retentionCount = retentionCount
+        self.status = status
+        self.version = version
+    }
+}
+
+public enum ServerBackupOutcome: String, Codable, Sendable {
+    case captureFailed = "captureFailed"
+    case destinationUnavailable = "destinationUnavailable"
+    case insufficientSpace = "insufficientSpace"
+    case interrupted = "interrupted"
+    case neverRun = "neverRun"
+    case retentionFailed = "retentionFailed"
+    case running = "running"
+    case scheduleFailed = "scheduleFailed"
+    case succeeded = "succeeded"
+}
+
 /// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
 // MARK: - ServerBackupStatus
 public struct ServerBackupStatus: Codable, Sendable {
@@ -672,18 +730,6 @@ public struct ServerBackupStatus: Codable, Sendable {
         self.scheduleOutcome = scheduleOutcome
         self.version = version
     }
-}
-
-public enum ServerBackupOutcome: String, Codable, Sendable {
-    case captureFailed = "captureFailed"
-    case destinationUnavailable = "destinationUnavailable"
-    case insufficientSpace = "insufficientSpace"
-    case interrupted = "interrupted"
-    case neverRun = "neverRun"
-    case retentionFailed = "retentionFailed"
-    case running = "running"
-    case scheduleFailed = "scheduleFailed"
-    case succeeded = "succeeded"
 }
 
 // MARK: - UnionPayloadKeepAlive

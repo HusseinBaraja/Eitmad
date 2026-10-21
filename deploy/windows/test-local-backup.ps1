@@ -16,6 +16,10 @@ $root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Reject { Invoke-LocalBackupAction 'Initialize' (Join-Path $Root 'unauthorized') '' @{} }
         Assert (-not (Test-Path -LiteralPath (Join-Path $Root 'unauthorized'))) 'Unauthorized call wrote state.'
+        foreach ($action in 'Guard', 'ManagementBackend', 'Capture', 'Schedule', 'Validate') {
+            # An Owner-shaped request must never substitute for the Windows token.
+            Reject { Invoke-LocalBackupAction $action $Root '' @{owner=$true; backend='synthetic'} }
+        }
     }
     # Synthetic observations only. No tasks, volumes, services, or live directories are changed.
     function Get-BackupDisk { param($Path) [pscustomobject]@{ disk = 1; free = 100 } }

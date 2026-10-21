@@ -151,7 +151,7 @@ try {
             Import-Module (Join-Path (Split-Path $ChannelSource) 'installation.psm1') -Force
             $code = & (Get-Module installation) {
                 param($Pipe, $Backend)
-                [EitmadInstallationChannel]::RunWorker($Pipe, $Backend,
+                [EitmadInstallationChannel]::RunWorker($Pipe, $Backend, 'install-windows-server',
                     [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
             } $pipe $Backend
             if ($code -ne 0) { throw 'Synthetic worker failed.' }

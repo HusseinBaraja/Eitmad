@@ -50,11 +50,12 @@ async fn main() -> ExitCode {
 
 async fn execute() -> Result<(), MainError> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    #[cfg(windows)]
+    if let Some(result) = windows_backup::dispatch(&arguments) {
+        return result;
+    }
+    #[cfg(not(windows))]
     if arguments.get(1).is_some_and(|arg| arg == "windows-backup") {
-        #[cfg(windows)]
-        if arguments.len() == 4 {
-            return windows_backup::execute(&arguments[2], &arguments[3]);
-        }
         return Err(MainError::Input);
     }
     if arguments.len() == 2 && arguments[1] == "--version" {

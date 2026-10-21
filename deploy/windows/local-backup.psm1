@@ -386,6 +386,16 @@ function Invoke-LocalBackupAction([string]$Action, [string]$StateDirectory, [str
     if ($Action -eq 'Initialize') { New-LocalBackupDirectory $state }
     Assert-LocalBackupControl $state
     if ($Action -in 'Initialize', 'Guard') { return @() }
+    if ($Action -eq 'ManagementBackend') {
+        Assert-LocalBackupControl $Request.backend
+        $root = Split-Path (Split-Path (Split-Path $Request.backend -Parent) -Parent) -Parent
+        Assert-LocalBackupControl $root
+        $verifier = Join-Path $PSScriptRoot 'verify-offline.ps1'
+        @{root=$root; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
+            & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -File $verifier *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'CaptureFailed' }
+        return @()
+    }
     if ($Action -eq 'Publish') {
         if ($Request.temporary -notmatch '^[a-f0-9-]{36}\.tmp$' -or $Request.event -notmatch '^[a-zA-Z]{1,32}$') { throw 'CaptureFailed' }
         $temporary = Join-Path $state $Request.temporary

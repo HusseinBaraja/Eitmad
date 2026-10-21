@@ -71,6 +71,7 @@
    <Button x:Name="InstallButton" Content="بدء التثبيت" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="InstallClick" AutomationProperties.Name="بدء تثبيت الاعتماد"/>
    <Button x:Name="RetryButton" Content="فحص واستكمال الإعداد" Style="{StaticResource PrimaryButton}" Visibility="Collapsed" Click="RetryClick" AutomationProperties.Name="فحص التثبيت واستكمال الإعداد المحفوظ"/>
    <Button x:Name="InspectButton" Content="فحص حالة الإعداد" Style="{StaticResource SecondaryButton}" Click="InspectClick" Margin="10,0,0,0" AutomationProperties.Name="فحص حالة الإعداد المحفوظة"/>
+   <Button x:Name="ManageBackupButton" Content="إدارة النسخ الاحتياطي" Style="{StaticResource SecondaryButton}" Click="ManageBackupClick" Margin="10,0,0,0" AutomationProperties.Name="إدارة النسخ الاحتياطي لخادم هذا الجهاز بموافقة مسؤول Windows"/>
    <Button x:Name="OpenDesktopButton" Content="فتح الاعتماد" Style="{StaticResource PrimaryButton}" Click="OpenDesktopClick" Visibility="Collapsed" Margin="10,0,0,0" AutomationProperties.Name="فتح تطبيق الاعتماد وتسجيل الدخول"/>
   </WrapPanel>
  </Grid>
