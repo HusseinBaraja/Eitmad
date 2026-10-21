@@ -20,8 +20,21 @@ pub(super) mod native;
 mod tests;
 
 pub(super) async fn execute(command: ServerCommand) -> Result<(), MainError> {
+    let mut source = std::io::stdin().lock();
+    if command == ServerCommand::InstallWindowsServer {
+        // Read one bounded JSON value without waiting for EOF. The authenticated
+        // elevation channel supplies a second value only after HTTPS is ready.
+        let mut request: InstallWindowsServer = read_private(&mut source)?;
+        let root = super::payload::bundle_root().ok();
+        let _payload = root.as_deref().map(super::payload::verify).transpose()?;
+        if let Some(root) = root {
+            super::payload::bind_server(&mut request, &root)?;
+        }
+        validate_server(&request)?;
+        return install_server(&request, &mut native::WindowsPlatform, &mut source).await;
+    }
     let mut input = Zeroizing::new(Vec::new());
-    std::io::stdin()
+    source
         .take(65537)
         .read_to_end(&mut input)
         .map_err(|_| MainError::Input)?;
@@ -36,31 +49,24 @@ pub(super) async fn execute(command: ServerCommand) -> Result<(), MainError> {
         }
         return publish(&read_state(Path::new(&request.progress_directory))?);
     }
-    let mut platform = native::WindowsPlatform;
-    if command == ServerCommand::InstallWindowsServer {
-        let mut request: InstallWindowsServer =
-            serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
-        // Standalone operator packages retain their existing manual path. Offline setup
-        // workers have a fixed bundle layout and must authenticate the complete tree.
-        let root = super::payload::bundle_root().ok();
-        let _payload = root.as_deref().map(super::payload::verify).transpose()?;
-        if let Some(root) = root {
-            super::payload::bind_server(&mut request, &root)?;
+    let request: InstallWindows = serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
+    match &request {
+        InstallWindows::Client(client) => validate_client(client)?,
+        InstallWindows::Server(server) => {
+            validate_client(&server.client)?;
+            validate_server(server)?;
         }
-        validate_server(&request)?;
-        install_server(&request, &mut platform).await
-    } else {
-        let request: InstallWindows =
-            serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
-        match &request {
-            InstallWindows::Client(client) => validate_client(client)?,
-            InstallWindows::Server(server) => {
-                validate_client(&server.client)?;
-                validate_server(server)?;
-            }
-        }
-        install(&request, &mut platform).await
     }
+    install(&request, &mut native::WindowsPlatform).await
+}
+
+fn read_private<T: serde::de::DeserializeOwned>(
+    source: &mut impl std::io::Read,
+) -> Result<T, MainError> {
+    T::deserialize(&mut serde_json::Deserializer::from_reader(
+        source.take(65536),
+    ))
+    .map_err(|_| MainError::Input)
 }
 
 fn publish(value: &impl serde::Serialize) -> Result<(), MainError> {
@@ -319,6 +325,7 @@ pub(super) async fn install(
 async fn install_server(
     request: &InstallWindowsServer,
     platform: &mut impl Platform,
+    proof_input: &mut impl std::io::Read,
 ) -> Result<(), MainError> {
     // Validate elevation and protected ancestors before creating any server-owned state.
     if let Err(error) = platform.server_preflight(request) {
@@ -345,7 +352,8 @@ async fn install_server(
         }
         if request.first_desktop.is_some() {
             progress.begin(Stage::EnrollDesktop)?;
-            handoff = Some(super::guided::approve_first_desktop(request).await?);
+            let proof = read_private(proof_input)?;
+            handoff = Some(super::guided::approve_first_desktop(request, proof).await?);
         }
         if request.backup.is_some() {
             progress.begin(Stage::ConfigureBackups)?;

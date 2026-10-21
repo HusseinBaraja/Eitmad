@@ -17,7 +17,11 @@ try {
         $code = Invoke-EitmadInstallationWorker -Backend $Backend -PipeName $PipeName -BrokerId $BrokerId
         exit $code
     }
-    $privateInput = [Console]::In.ReadToEnd()
+    if ($Action -eq 'Elevate') {
+        Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
+    }
+    $privateInput = if ($Action -eq 'Elevate') { [EitmadInstallationChannel]::ReadPrivateInput([Console]::In) }
+        else { [Console]::In.ReadToEnd() }
     if ([Text.Encoding]::UTF8.GetByteCount($privateInput) -gt 65536) { throw 'Invalid private input.' }
     if ($Action -eq 'Elevate') {
         $code = Invoke-EitmadInstallationElevation -Backend $Backend -PrivateInput $privateInput

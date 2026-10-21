@@ -95,7 +95,33 @@ public static class EitmadInstallationChannel
         finally { Array.Clear(bytes, 0, bytes.Length); }
     }
 
-    public static int RunWorker(Stream pipe, string backend)
+    public static string ReadPrivateInput(TextReader input)
+    {
+        var line = new StringBuilder();
+        while (true)
+        {
+            int character = input.Read();
+            if (character < 0) throw new EndOfStreamException();
+            if (character == '\n') break;
+            if (line.Length >= 65536) throw new IOException("Private input exceeds its bound.");
+            line.Append((char)character);
+        }
+        var value = line.ToString();
+        if (Encoding.UTF8.GetByteCount(value) > 65536) throw new IOException("Private input exceeds its bound.");
+        return value;
+    }
+
+    private static void WritePrivateInput(Process process, string value)
+    {
+        var input = Encoding.UTF8.GetBytes(value + "\n");
+        try {
+            process.StandardInput.BaseStream.Write(input, 0, input.Length);
+            process.StandardInput.BaseStream.Flush();
+        }
+        finally { Array.Clear(input, 0, input.Length); }
+    }
+
+    public static int RunWorker(Stream pipe, string backend, Func<string, bool> requiresInput)
     {
         var request = Receive(pipe, 65536);
         var start = new ProcessStartInfo(backend, "install-windows-server") {
@@ -106,9 +132,7 @@ public static class EitmadInstallationChannel
         using (var process = Process.Start(start))
         {
             var errors = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
-            var input = Encoding.UTF8.GetBytes(request);
-            try { process.StandardInput.BaseStream.Write(input, 0, input.Length); }
-            finally { Array.Clear(input, 0, input.Length); process.StandardInput.Close(); }
+            WritePrivateInput(process, request);
             request = null;
             try
             {
@@ -125,7 +149,9 @@ public static class EitmadInstallationChannel
                         line.Append(character[0]);
                     }
                     if (line.Length == 0) break;
-                    Send(pipe, line.ToString());
+                    var value = line.ToString();
+                    Send(pipe, value);
+                    if (requiresInput(value)) WritePrivateInput(process, Receive(pipe, 65536));
                 }
                 if (!process.WaitForExit(10000)) throw new IOException("Worker did not exit.");
                 Await(errors);
@@ -139,6 +165,7 @@ public static class EitmadInstallationChannel
                 // The Rust worker owns its cluster cleanup and retained progress.
                 throw;
             }
+            finally { process.StandardInput.Close(); }
         }
     }
 }

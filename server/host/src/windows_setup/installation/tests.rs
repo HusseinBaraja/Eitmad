@@ -3,6 +3,7 @@ use eitmad_contracts::{
     accounts::AccountPassword,
     setup::{InitializeWorkshop, PrepareWindowsWorkshop},
 };
+mod enrollment;
 
 struct TestRoot(PathBuf);
 impl TestRoot {
@@ -118,6 +119,7 @@ fn elevated_bundle_rebinds_only_authenticated_tools_and_release_pins() {
 struct FakePlatform {
     calls: Vec<Stage>,
     failure: Option<Stage>,
+    ready: std::rc::Rc<std::cell::Cell<bool>>,
 }
 impl FakePlatform {
     fn call(&mut self, stage: Stage) -> Result<(), MainError> {
@@ -168,7 +170,11 @@ impl Platform for FakePlatform {
             "Firewall" => Stage::ConfigureFirewall,
             "Start" => Stage::VerifyHttps,
             _ => panic!("Unexpected host action"),
-        })
+        })?;
+        if action == "Start" {
+            self.ready.set(true);
+        }
+        Ok(())
     }
     fn desktop(&mut self, _: &InstallWindowsClient) -> Result<(), MainError> {
         self.call(Stage::RegisterDesktop)
@@ -199,7 +205,9 @@ async fn server_completes_all_host_stages_without_registering_desktop_as_adminis
     let root = TestRoot::new();
     let request = root.request();
     let mut platform = FakePlatform::default();
-    install_server(&request, &mut platform).await.unwrap();
+    install_server(&request, &mut platform, &mut std::io::empty())
+        .await
+        .unwrap();
     assert_eq!(
         platform.calls,
         [
@@ -243,7 +251,11 @@ async fn each_host_failure_retains_the_exact_stage_and_blocks_reinitialization()
             failure: Some(stage),
             ..Default::default()
         };
-        assert!(install_server(&request, &mut platform).await.is_err());
+        assert!(
+            install_server(&request, &mut platform, &mut std::io::empty())
+                .await
+                .is_err()
+        );
         assert_eq!(platform.calls.last(), Some(&stage));
         let state = read_state(Path::new(&request.server_progress_directory)).unwrap();
         assert_eq!(
@@ -252,7 +264,11 @@ async fn each_host_failure_retains_the_exact_stage_and_blocks_reinitialization()
         );
         assert!(!state.interrupted);
         let count = platform.calls.len();
-        assert!(install_server(&request, &mut platform).await.is_err());
+        assert!(
+            install_server(&request, &mut platform, &mut std::io::empty())
+                .await
+                .is_err()
+        );
         assert_eq!(platform.calls.len(), count + 1); // read-only preflight, no native stage repeated
         assert_eq!(
             read_state(Path::new(&request.server_progress_directory))

@@ -3,6 +3,7 @@ use super::{installation, preparation::native::plain_path};
 use crate::MainError;
 use eitmad_contracts::{
     ipc::DesktopSignInRequest,
+    server::{DeviceProof, LoginRequest},
     setup::{
         GuidedSetupAction, GuidedWindowsSetup, InstallWindows, InstallWindowsClient,
         InstallWindowsServer, PrepareWindowsWorkshop, PreparedWindowsWorkshop, SetupDesktopHandoff,
@@ -164,23 +165,49 @@ fn compose(request: GuidedWindowsSetup, progress: PathBuf) -> Result<InstallWind
         // Reject existing user data before opening or migrating an authority store.
         require_empty_desktop(&local_root()?.join("Eitmad/engine"))?;
         let owner = &server.preparation.workshop;
-        server.first_desktop = Some(
-            enrollment()?
-                .first_desktop_request(
-                    eitmad_contracts::server::TenantCode::parse("setup-pending")
-                        .map_err(|_| MainError::Input)?,
-                    owner.owner_username.clone(),
-                    owner.owner_password.expose_secret().into(),
-                )
-                .map_err(|_| MainError::Setup)?,
-        );
+        let mut first_desktop = enrollment()?
+            .first_desktop_request(
+                eitmad_contracts::server::TenantCode::parse("setup-pending")
+                    .map_err(|_| MainError::Input)?,
+                owner.owner_username.clone(),
+                owner.owner_password.expose_secret().into(),
+            )
+            .map_err(|_| MainError::Setup)?;
+        // Retain the user's device identity, not a proof that can expire during installation.
+        first_desktop.device_proof = None;
+        server.first_desktop = Some(first_desktop);
         InstallWindows::Server(Box::new(server))
     };
     Ok(install)
 }
 
+pub(super) fn fresh_first_desktop_proof(
+    original: &LoginRequest,
+    desktop: &DesktopEnrollment,
+) -> Result<DeviceProof, MainError> {
+    let mut fresh = desktop
+        .first_desktop_request(
+            original.tenant_code.clone(),
+            original.username.clone(),
+            original.password.clone(),
+        )
+        .map_err(|_| MainError::Setup)?;
+    zeroize::Zeroize::zeroize(&mut fresh.password);
+    if fresh.device_id != original.device_id
+        || fresh.device_public_key != original.device_public_key
+    {
+        return Err(MainError::Setup);
+    }
+    fresh.device_proof.ok_or(MainError::Setup)
+}
+
+pub(super) fn refresh_first_desktop(original: &LoginRequest) -> Result<DeviceProof, MainError> {
+    fresh_first_desktop_proof(original, &enrollment()?)
+}
+
 pub(super) async fn approve_first_desktop(
     request: &InstallWindowsServer,
+    proof: DeviceProof,
 ) -> Result<SetupDesktopHandoff, MainError> {
     let root = Path::new(&request.service_state_directory);
     let database_url = Zeroizing::new(
@@ -199,6 +226,7 @@ pub(super) async fn approve_first_desktop(
     .map_err(|_| MainError::Setup)?;
     let mut login = request.first_desktop.clone().ok_or(MainError::Input)?;
     login.tenant_code = prepared.workshop.tenant_code.clone();
+    login.device_proof = Some(proof);
     let result = eitmad_control_plane::PairingService::new(database.pool())
         .enroll_first_desktop(
             &login,

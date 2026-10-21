@@ -16,6 +16,9 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-install-adapter-' + [G
         try { & $Operation } catch { $caught = $true }
         Assert $caught 'Expected safe refusal.'
     }
+    Assert (Test-InstallationProofRequest '{"version":1,"sequence":9,"stage":"enrollDesktop","status":"running"}') 'Fresh-proof input was not requested.'
+    Assert (-not (Test-InstallationProofRequest '{"version":1,"sequence":8,"stage":"verifyHttps","status":"running"}')) 'Host progress requested private input.'
+    Assert (-not (Test-InstallationProofRequest '{"version":1,"sequence":10,"stage":"enrollDesktop","status":"failed"}')) 'Failed enrollment requested a proof.'
     $script:identity = [pscustomobject]@{Sid = 'S-1-5-21-111-222-333-1001'; Elevated = $false}
     function Get-InstallationIdentity { return $script:identity }
     $script:installed = $false
@@ -105,14 +108,38 @@ Write-Host 'Synthetic private native output.'
 
 # Exercise real local pipes and peer PID checks, without UAC or installation.
 Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
+$backend = Join-Path $evidence 'synthetic-worker.exe'
+Add-Type -OutputAssembly $backend -OutputType ConsoleApplication -TypeDefinition @'
+using System;
+public static class SyntheticInstallationWorker {
+    public static int Main() {
+        if (Console.ReadLine() != "synthetic-installation") return 1;
+        Console.WriteLine("{\"version\":1,\"sequence\":1,\"stage\":\"verifyHttps\",\"status\":\"running\"}");
+        Console.WriteLine("{\"version\":1,\"sequence\":2,\"stage\":\"enrollDesktop\",\"status\":\"running\"}");
+        Console.Out.Flush();
+        if (Console.ReadLine() != "synthetic-fresh-proof") return 2;
+        Console.WriteLine("{\"version\":1,\"sequence\":3,\"stage\":\"complete\",\"status\":\"succeeded\"}");
+        return 0;
+    }
+}
+'@
 $clientScript = @'
-param($ChannelSource, $PipeName, [int]$BrokerId, $Mode)
+param($ChannelSource, $PipeName, [int]$BrokerId, $Mode, $Backend)
 $ErrorActionPreference = 'Stop'
 Add-Type -Path $ChannelSource
 try {
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
     try {
-        if ($Mode -eq 'oversize') { $bytes = [BitConverter]::GetBytes(65537); $pipe.Write($bytes,0,4); $pipe.Flush() }
+        if ($Mode -eq 'refresh') {
+            Import-Module (Join-Path (Split-Path $ChannelSource) 'installation.psm1') -Force
+            $code = & (Get-Module installation) {
+                param($Pipe, $Backend)
+                [EitmadInstallationChannel]::RunWorker($Pipe, $Backend,
+                    [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
+            } $pipe $Backend
+            if ($code -ne 0) { throw 'Synthetic worker failed.' }
+        }
+        elseif ($Mode -eq 'oversize') { $bytes = [BitConverter]::GetBytes(65537); $pipe.Write($bytes,0,4); $pipe.Flush() }
         else { [EitmadInstallationChannel]::Send($pipe, [EitmadInstallationChannel]::Receive($pipe,65536)) }
     } finally { $pipe.Dispose() }
     if ($Mode -eq 'wrong-server') { exit 1 }
@@ -121,14 +148,14 @@ try {
 '@
 $childFile = Join-Path $evidence 'pipe-client.ps1'
 [IO.File]::WriteAllText($childFile, $clientScript)
-foreach ($mode in 'echo', 'wrong-client', 'wrong-server', 'oversize') {
+foreach ($mode in 'echo', 'wrong-client', 'wrong-server', 'oversize', 'refresh') {
     $name = 'eitmad-install-test-' + [Guid]::NewGuid().ToString('N')
     $pipe = [EitmadInstallationChannel]::Create($name)
     $child = $null
     try {
         $broker = if ($mode -eq 'wrong-server') { $PID + 1 } else { $PID }
         $arguments = @('-NoProfile', '-NonInteractive', '-File', $childFile, '-ChannelSource', (Join-Path $PSScriptRoot 'installation-channel.cs'),
-            '-PipeName', $name, '-BrokerId', [string]$broker, '-Mode', $mode) | ForEach-Object { '"' + $_ + '"' }
+            '-PipeName', $name, '-BrokerId', [string]$broker, '-Mode', $mode, '-Backend', $backend) | ForEach-Object { '"' + $_ + '"' }
         $child = Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
             -ArgumentList ($arguments -join ' ') -WindowStyle Hidden -PassThru
         if ($mode -eq 'wrong-client') {
@@ -143,6 +170,18 @@ foreach ($mode in 'echo', 'wrong-client', 'wrong-server', 'oversize') {
                 [EitmadInstallationChannel]::Send($pipe, $private)
                 if ([EitmadInstallationChannel]::Receive($pipe, 65536) -cne $private) { throw 'Private UTF-8 pipe input changed.' }
                 $private = $null
+            } elseif ($mode -eq 'refresh') {
+                [EitmadInstallationChannel]::Send($pipe, 'synthetic-installation')
+                $ready = [EitmadInstallationChannel]::Receive($pipe, 32768) | ConvertFrom-Json
+                if ($ready.stage -cne 'verifyHttps') { throw 'Host readiness was skipped.' }
+                $request = [EitmadInstallationChannel]::Receive($pipe, 32768)
+                $requiresInput = & $adapter { param($line) Test-InstallationProofRequest $line } $request
+                if (-not $requiresInput) { throw 'Fresh-proof request was lost.' }
+                [EitmadInstallationChannel]::Send($pipe, 'synthetic-fresh-proof')
+                $complete = [EitmadInstallationChannel]::Receive($pipe, 32768) | ConvertFrom-Json
+                if ($complete.stage -cne 'complete' -or $complete.status -cne 'succeeded') { throw 'Worker did not receive fresh proof.' }
+                if ([EitmadInstallationChannel]::Receive($pipe, 16) -cne '' -or
+                    [EitmadInstallationChannel]::Receive($pipe, 16) -cne 'success') { throw 'Worker completion was lost.' }
             } elseif ($mode -eq 'oversize') {
                 $rejected = $false
                 try { [void][EitmadInstallationChannel]::Receive($pipe, 65536) } catch { $rejected = $true }
@@ -153,4 +192,4 @@ foreach ($mode in 'echo', 'wrong-client', 'wrong-server', 'oversize') {
         if ($mode -ne 'wrong-client' -and $child.ExitCode -ne 0) { throw 'Synthetic pipe client failed.' }
     } finally { $pipe.Dispose(); if ($child) { $child.Dispose() } }
 }
-Write-Host 'PASS: Client and Server adapter paths, wrong-user/elevation/existing-state refusals, private UTF-8 channel, peer PID checks, and frame bound. No installation, service, or firewall change.'
+Write-Host 'PASS: Client and Server adapter paths, wrong-user/elevation/existing-state refusals, private UTF-8 channel, peer PID checks, frame bound, and fresh-proof exchange. No installation, service, or firewall change.'

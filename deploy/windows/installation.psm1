@@ -123,6 +123,13 @@ function Initialize-InstallationChannel {
     }
 }
 
+function Test-InstallationProofRequest([string]$Line) {
+    $event = $Line | ConvertFrom-Json
+    # Route private input only; Rust validates the ordered progress and proof.
+    return ($event.version -eq 1 -and $event.PSObject.Properties['stage'] -and
+        $event.stage -ceq 'enrollDesktop' -and $event.status -ceq 'running')
+}
+
 function Invoke-EitmadInstallationWorker {
     param([string]$Backend, [string]$PipeName, [int]$BrokerId)
     & $script:HostAdapter { Assert-Administrator }
@@ -163,7 +170,8 @@ function Invoke-EitmadInstallationWorker {
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
         # Retain this protected release tree for backup scheduling and failure recovery.
-        return [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend)
+        return [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend,
+            [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
     }
     finally { $pipe.Dispose() }
 }
@@ -192,6 +200,11 @@ function Invoke-EitmadInstallationElevation {
             if (-not $event) { break }
             [Console]::Out.WriteLine($event)
             [Console]::Out.Flush()
+            if (Test-InstallationProofRequest $event) {
+                $proof = [EitmadInstallationChannel]::ReadPrivateInput([Console]::In)
+                try { [EitmadInstallationChannel]::Send($pipe, $proof) }
+                finally { $proof = $null }
+            }
         }
         $result = [EitmadInstallationChannel]::Receive($pipe, 16)
         if (-not $child.WaitForExit(10000) -or $result -cne 'success' -or $child.ExitCode -ne 0) { return 1 }
