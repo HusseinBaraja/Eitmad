@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "tutorial"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-09-19"
+last_verified: "2026-10-21"
 review_triggers:
   - "workspace layout, local app startup, contributor checks, or ownership rules change"
 keywords:
@@ -41,13 +41,15 @@ The durable manager raw-material boundary is documented in [Maintain raw materia
 
 ## 1. Run the local Windows app
 
+To install a workshop or employee PC without a source checkout, use [guided Windows installation](../operations/install-windows.md). The steps here are for source development.
+
 Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the Rust engine and start the Windows shell with one command:
 
 ```powershell
 .\run.ps1
 ```
 
-The **لوحة التحكم** window opens, and the shell supervises the Rust engine. Use **إنهاء الاعتماد** in the system tray menu to stop both processes.
+The shell opens sign-in and supervises the Rust engine. The launcher does not provision a server or create accounts. Pair a new device with a running workshop through [Owner-code pairing](../operations/install-windows.md#3-install-and-pair-each-employee-pc), or provision synthetic data with the isolated workflow environment linked below. Use **إنهاء الاعتماد** in the system tray menu to stop both processes.
 
 For an existing connected installation, pass `-RuntimeDirectory <installation-directory>` to this same launcher. It preserves accounts and saved work. Rust loads the installation's connection references; the server must be running. See [connected workflow test setup](../operations/run-workflow-test-environment.md) for provisioning and test limits. Use `-SkipBuild` only for unchanged source and dependencies.
 

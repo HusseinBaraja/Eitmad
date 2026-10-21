@@ -20,11 +20,13 @@ keywords:
 
 `run-services.ps1` manages installed Windows services. WinSW 2.12.0 hosts the PostgreSQL postmaster and the separate Rust console process, with a separate wrapper and identity for each component. Windows starts both services without WPF, a terminal, or an interactive login. The Manager window and its supervised local engine do not own these services.
 
-The implementation is in `deploy/windows/host.psm1`. Rust owns application validation, authentication, authorization, audit, migrations, and readiness. Use the [versioned Windows installation package](package-windows-desktop.md) to deploy without a checkout or compiler. Its `install-server.ps1` adds verified binary inventory, repair, and controlled manual upgrade. The installer copies existing provisioned state; it does not bootstrap accounts, seed records, or reset a database. The [workflow environment](run-workflow-test-environment.md) remains a separate development tool.
+For a new workshop, use [guided Windows installation](install-windows.md). It installs these services, creates the Owner, enrolls the first desktop, and configures Private LAN access, backups, and renewal. After successful guided setup, use this page for service status, power requirements, and recovery; do not repeat the manual import below.
+
+The implementation is in `deploy/windows/host.psm1`. Rust owns application validation, authentication, authorization, audit, migrations, and readiness. The [versioned package tools](package-windows-desktop.md) add verified binary inventory, repair, and controlled manual upgrade without a checkout or compiler. The low-level service adapter copies existing provisioned state; it does not bootstrap accounts, seed records, or reset a database. The [workflow environment](run-workflow-test-environment.md) remains a separate development tool.
 
 ## Prerequisites and safe cutover
 
-For a new workshop without a prepared database, use the [fresh Windows preparation backend](prepare-windows-workshop.md). It creates a separate stopped cluster, TLS material, runtime settings, and active first Owner. This service adapter then imports that prepared state through the procedure below.
+The prerequisites below apply to **manual service import**. For separate operator preparation, the [preparation backend](prepare-windows-workshop.md) can create the stopped cluster, TLS material, runtime settings, and active first Owner. Guided setup supplies these inputs itself.
 
 - Use a supported Windows host with NTFS, Windows PowerShell 5.1 or later, `curl.exe`, and .NET Framework 4.8 for WinSW. Run each service command in an elevated PowerShell window. The runtime services need no repository. Unattended renewal uses Windows PowerShell 5.1 and the retained certificate tool/runtime.
 - Complete [LAN TLS setup](setup-lan-server.md), including stable DNS/address, the saved `server.json`, certificate pair, and verified public CA. Preserve the original token key and client trust. Supply the saved LAN directory as `-LanDirectory`.

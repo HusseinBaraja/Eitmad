@@ -1,6 +1,6 @@
 ---
-title: "Install and maintain Windows server and desktop packages"
-description: "Build versioned Windows server and MSIX client packages, enroll desktops, and preserve work through repair, removal, and manual upgrade."
+title: "Build and maintain Windows installation packages"
+description: "Build and sign offline Windows bundles, use advanced package installation, and preserve work through repair, removal, and manual upgrade."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -17,11 +17,13 @@ keywords:
   - "install-client.ps1"
 ---
 
-# Install and maintain Windows server and desktop packages
+# Build and maintain Windows installation packages
+
+For a new workshop or employee PC, follow [Install Eitmad on the server and employee PCs](install-windows.md). This page is for release builders and operators who need package verification, manual service import, repair, removal, or upgrade. The manual procedures below are alternatives to guided setup; do not run them after a successful guided installation.
 
 Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, self-contained .NET runtime, and app-local Microsoft C++ runtime. The server ZIP contains Rust, service installation tools, backup tools under `deploy/windows`, and the self-contained LAN certificate tool. Each service and backup module has one copy under `deploy/windows`; run its `restore-backup.ps1` to verify a recovery generation. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
 
-Both Windows ZIPs include the canonical `docs/` tree with its repository paths unchanged. After extraction, open `docs/operations/package-windows-desktop.md` for installation. Keep the tree together so linked procedures, reference pages, and heading anchors remain available without a repository checkout. `release.json` inventories these documentation files. External links still require network access. Build and developer-test procedures still require the source checkout and their stated tools.
+Both Windows ZIPs include the canonical `docs/` tree with its repository paths unchanged. For the combined offline bundle, use [the installation guide](install-windows.md). For separate component ZIPs, use the manual procedures on this page. Keep the tree together so linked procedures, reference pages, and heading anchors remain available without a repository checkout. `release.json` inventories these documentation files. External links still require network access. Build and developer-test procedures still require the source checkout and their stated tools.
 
 **Release status:** unsigned artifacts are for engineering validation. They are not production-ready. The production client installer refuses unsigned MSIX. A separate [self-signed test path](#test-msix-with-a-local-certificate) is available for controlled test PCs. Production requires the approved publisher, hardware-backed signing service, trusted certificate chain, approved RFC 3161 timestamp service, and clean-machine acceptance. These external prerequisites remain explicit gates. Even signed builds retain `productionEligible: false` until [release acceptance](validate-release-candidate.md) passes.
 
@@ -146,15 +148,15 @@ Synthetic archive tests substitute signature approval and catalog signing only. 
 | --- | --- |
 | Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; encrypted disk and protected backups |
 | Desktop | MSIX permitted by local policy; approved publisher chain trusted through enterprise/public distribution; install as each intended ordinary Windows user; no administrator rights, global C++ runtime installation, Rust compiler, or .NET SDK required |
-| Server | Target hosts are Windows Server 2022/2025 or Windows 11; elevation for services; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+; patched .NET Framework 4.8 for WinSW; `curl.exe`; PowerShell 7.4+ for LAN settings; trusted PostgreSQL 17 binaries and dedicated provisioned primary cluster; reviewed WinSW 2.12.0 and its authenticated SHA-256. Guided setup also registers the desktop MSIX; Server-edition AppX prerequisites and the complete guided path still need clean-edition acceptance |
+| Server | Target hosts are Windows Server 2022/2025 or Windows 11; elevation for services; `curl.exe`; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+ and patched .NET Framework 4.8 for WinSW. Guided setup supplies reviewed PostgreSQL 17 and WinSW 2.12.0, installs missing C++/Framework prerequisites offline, and provisions the cluster. Manual import requires those prerequisites, a provisioned stopped cluster, reviewed tool digests, and PowerShell 7.4+ for manual LAN settings. Guided setup also registers the desktop MSIX; Server-edition AppX prerequisites and the complete guided path still need clean-edition acceptance |
 
-Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) for the server. The desktop installer verifies the app-local C++ runtime inside the authenticated MSIX before registration; it does not require the machine-wide runtime registry entry. Microsoft [supports local deployment](https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp?view=msvc-170), but Windows Update does not service those copies. Rebuild and distribute the package for C++ and .NET runtime security fixes. The tools do not download prerequisites, disable security policy, import a root CA, or open broad firewall access. The host must stay awake and use stable private IPv4/DNS; review [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
+Use [Microsoft's supported Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) for the server. The desktop installer verifies the app-local C++ runtime inside the authenticated MSIX before registration; it does not require the machine-wide runtime registry entry. Microsoft [supports local deployment](https://learn.microsoft.com/en-us/cpp/windows/deployment-in-visual-cpp?view=msvc-170), but Windows Update does not service those copies. Rebuild and distribute the package for C++ and .NET runtime security fixes. The tools do not download prerequisites, disable security policy, or import a root CA. Guided setup derives the server endpoint from the Windows computer name and a private IPv4 address; keep the name resolvable on the LAN. Reserve a stable address for the manual fixed-endpoint path. The host must stay awake; review [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
 
 On 2026-10-20, an unsigned desktop validation ZIP built successfully with Rust 1.85.1 and self-contained .NET 8. Its outer inventory, inner MSIX inventory, ten app-local CRT files, and SBOM version `14.44.35211.0` were verified without package registration. Focused tests rejected changed and missing DLLs and verified that the per-user platform check does not query the global C++ runtime registry. A clean offline PC without a global C++ runtime remains **Needs verification**. This result does not prove production signatures or complete guided onboarding.
 
 ## Install the server
 
-For a fresh workshop, use the [Rust Server or Client installation backend](prepare-windows-workshop.md#install-server-or-client-through-rust). Server composes preparation, services, Private-network access, HTTPS readiness, and original-user desktop registration. The native Arabic setup selected in [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) now calls that backend and adds first-desktop enrollment and backup destination controls. See [native setup and interruption handling](prepare-windows-workshop.md#use-native-arabic-setup). For separate operator preparation, create the stopped cluster and prepared LAN root there, then use this service installation flow.
+For a fresh workshop, use [guided Server setup](install-windows.md#1-install-the-server-pc). The following procedure is an **advanced manual import** from a separate server ZIP. It does not run the guided first-desktop, backup, or renewal flow. Use it only when an operator owns those separate tasks. The [preparation backend](prepare-windows-workshop.md) can create the stopped cluster and prepared LAN root instead of manual database and identity provisioning; do not bootstrap that prepared workshop again.
 
 1. Extract the server ZIP into a new local staging directory. Compare ZIP and inventory digests with the authenticated release record. In elevated x64 PowerShell, set `$releaseDigest` and `$approvedPublisher` to its non-secret values, then run:
 
@@ -178,7 +180,7 @@ For a fresh workshop, use the [Rust Server or Client installation backend](prepa
    ```
 
 6. Run `install-server.ps1 Start`, then `Status`. Both services must be Running, with `Live` and `Ready` true. Configuration, migration, or TLS failures stop acceptance. The import retains its source; keep that source stopped after cutover to prevent divergent writes.
-7. Run `install-server.ps1 Firewall` and enter the exact client IPv4 address. The rule covers that client, the saved HTTPS endpoint, and Private networks only. It replaces the previous single-client rule. Follow [client firewall scope](run-windows-host-services.md#connect-the-second-pc-yourself); PostgreSQL stays loopback-only.
+7. For workshop DHCP clients, run `install-server.ps1 Firewall -PrivateLan`. This scopes HTTPS and discovery to `LocalSubnet` on Private networks. The alternative `Firewall` action without `-PrivateLan` prompts for one client address and replaces the previous single-client rule. Use [the service firewall procedure](run-windows-host-services.md#connect-the-second-pc-yourself) for the chosen scope; PostgreSQL stays loopback-only. Guided setup already applies Private LAN rules.
 
 Protected storage is `%ProgramData%\EitmadHost`: read-only binaries in `app`/`postgres`, server-only settings/TLS in `private`, and PostgreSQL storage in `data`. Separate password-free virtual service accounts run Rust and PostgreSQL. Administrators and SYSTEM retain control. Keep CA operator state outside the service tree. Links, foreign service registrations, active clusters, and unsafe ancestors are rejected. See [service identities and storage](run-windows-host-services.md#identity-secrets-and-storage).
 
@@ -204,7 +206,7 @@ On each client:
 
 1. Extract the complete bundle. Right-click `Trust-TestCertificate.cmd` and select **Run as administrator**. This verifies both hashes and the code-signing-only leaf certificate, imports only that public certificate into `LocalMachine\TrustedPeople`, then verifies the MSIX signature. If that signature check fails, a newly imported certificate is removed. It never imports a root CA, enables Developer Mode, or changes machine execution policy. Trust applies to all Windows users on that test PC; use it only for this controlled test.
 2. Close the Administrator window. Double-click `Install-TestApp.cmd` as the intended normal Windows user. It checks the pinned trusted signature and prerequisites, uses normal `Add-AppxPackage`, and confirms the separate test identity. No unsigned-install switch is used. Each command sets execution policy only for its own PowerShell process.
-3. Open **الاعتماد - اختبار** from Start. Follow [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop) with the client's own runtime and account. The HTTPS server CA is separate from this code-signing certificate; keep using the verified server trust PEM.
+3. Open **الاعتماد - اختبار** from Start. Follow [discovery and Owner-code pairing](install-windows.md#3-install-and-pair-each-employee-pc) with this test client's own runtime, then sign in with its intended account. The HTTPS server CA is separate from this code-signing certificate; authenticated pairing establishes server trust.
 4. Close and reopen the test app and sign in again. Verify retained connection settings and connected work on the actual client. Signature verification on the build laptop alone does not prove client installation or application behavior.
 
 Verify the signature and meaningful rejection cases on a Windows host where the test certificate is already trusted:
@@ -219,13 +221,13 @@ To remove only the test app as its Windows user, close it and run `Get-AppxPacka
 
 ## Install and enroll desktops
 
-From the extracted desktop package, as the intended ordinary Windows user:
+For normal Client setup, follow [install and pair each employee PC](install-windows.md#3-install-and-pair-each-employee-pc). Use the command below only for separate desktop-package registration. From the extracted desktop package, as the intended ordinary Windows user:
 
 ```powershell
 .\install-client.ps1 Install -ExpectedReleaseSha256 $releaseDigest -Publisher $approvedPublisher
 ```
 
-Open **الاعتماد** from Start. Expand **ربط هذا الجهاز بالمنشأة** on sign-in. Enter the stable HTTPS URL, verified public `trusted-ca.pem`, tenant code, organization/branch IDs, and the user's active account. Follow [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). Compare the public CA fingerprint through an authenticated channel. Never copy private server files or another device's runtime. Close/reopen and sign in normally without inherited server environment variables.
+Open **الاعتماد** from Start and follow [discovery and Owner-code pairing](install-windows.md#3-install-and-pair-each-employee-pc), then sign in with the user's active account. Manual connection entry under **ربط هذا الجهاز بالمنشأة** is for an already approved device or supported invitation flow; it cannot approve an unknown device. Use [desktop recovery](run-server-authority.md#enroll-or-recover-a-windows-desktop) when needed. Never copy private server files or another device's runtime. Close/reopen and sign in normally without inherited server environment variables.
 
 Rust retains records, pending work, receipts, connection, and device identity in `%LOCALAPPDATA%\Eitmad\engine`, with owner-private ACLs and Windows protected credentials. MSIX declares `unvirtualizedResources` and disables AppData file virtualization so package removal preserves this directory. This uses [Microsoft's persistent AppData mechanism](https://learn.microsoft.com/en-us/windows/msix/desktop/flexible-virtualization); verify it on supported Windows baselines before release.
 

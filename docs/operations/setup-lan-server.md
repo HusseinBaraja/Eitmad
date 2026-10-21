@@ -19,6 +19,8 @@ keywords:
 
 Use `tools/lan-certificate` and `tools/lan-server.ps1` for a retained Windows LAN installation. This path does not call `workflow-environment.ps1`, generate test accounts, refresh client trust, or reset data. Rust remains the authority for server configuration validation, authentication, authorization, audit, and product data. Manual server-address entry is sufficient; discovery is not required.
 
+For a new workshop, use [guided Windows installation](install-windows.md). It creates TLS material, services, Private LAN rules, and unattended renewal. Do not run the manual initialization or foreground launcher below against that installation. This page covers a separately provisioned fixed endpoint and the [renewal procedure](#renew-without-changing-trust) used by installed hosts. Manual connection settings alone do not approve a new client device; use Owner-code pairing.
+
 ## Before setup
 
 - Use Windows, PowerShell 7.4 or later, .NET 8, and a built `eitmad-server.exe`. Build the server with Rust 1.85.1 as described in [server operation](run-server-authority.md). Keep the executable in a location that ordinary clients cannot modify.
@@ -81,7 +83,7 @@ For an intentional port, executable, or secret change, stop the server, back up 
 
 ## Allow only selected clients on the private interface
 
-This section configures the foreground diagnostic launcher. For an installed host with DHCP clients, use the [Private LAN host rule](run-windows-host-services.md#connect-the-second-pc-yourself): it allows only `LocalSubnet` on Private networks for the installed HTTPS executable and port. The guided-setup design selects that scope. It does not grant access on Public networks or open PostgreSQL. Do not create both foreground and installed rules for the same host.
+This section configures the foreground diagnostic launcher. For an installed host with DHCP clients, use the [Private LAN host rule](run-windows-host-services.md#connect-the-second-pc-yourself): it allows only `LocalSubnet` on Private networks for the installed HTTPS executable and port. Guided setup already applies that scope and the discovery rule. It does not grant access on Public networks or open PostgreSQL. Do not create both foreground and installed rules for the same host.
 
 Run an elevated PowerShell process as the **same account** that owns the state. Select exact client addresses, preferably with DHCP reservations:
 

@@ -19,7 +19,7 @@ keywords:
 
 Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
 
-For two Windows PCs on a private network, use [stable LAN setup](setup-lan-server.md). It retains a matching DNS/IP certificate, server settings, and CA across restart and leaf renewal, with explicit client trust and a narrowly scoped firewall rule.
+For a new Windows workshop, follow [guided server and client installation](install-windows.md). It provisions PostgreSQL, TLS, the first Owner, services, backups, and the first desktop. The commands on this page are for advanced manual deployment, account administration, and recovery; they are not extra installation steps after guided setup. Use [manual stable LAN setup](setup-lan-server.md) only when you need to provision a fixed endpoint separately.
 
 ## Before you start
 
@@ -69,7 +69,7 @@ Expected output is `server migrations are current`. This command reads only `EIT
 
 ## Bootstrap the first owner
 
-For an empty Windows host, [fresh Windows preparation](prepare-windows-workshop.md) can also create a new private PostgreSQL cluster and runtime settings before this initialization. It is an installer backend, not yet the combined setup window.
+For an empty Windows host, [guided setup](install-windows.md#1-install-the-server-pc) creates the PostgreSQL cluster, runtime settings, and active Owner/Manager. The separate [preparation backend](prepare-windows-workshop.md) creates the same initial workshop state without installing the services or desktop. Neither path needs another bootstrap or activation step. Use the commands below only for a separately provisioned empty database.
 
 For a new workshop installation, use `eitmad-server initialize-workshop`. This local deployment command accepts version-one JSON on standard input, creates an active Owner with the Manager role and a first branch, and returns only public enrollment coordinates. It creates no activation invitation. Rust commits the tenant, organization, account, password verifier, branch, relationships, publication event, and mandatory audit together. It does not install PostgreSQL, configure Windows services, enroll a desktop, or provide the combined installer UI.
 
@@ -189,9 +189,13 @@ The focused `first_desktop_retains_recovery_through_restart_and_revocation` dire
 
 For a discovered client, an authenticated Owner opens a code with `POST /v1/pairing/open`. The Rust client calls `DesktopEnrollment::pair`, then uses its returned connection settings for account sign-in. A code expires after three minutes or five starts and approves only one device. The exact pending completion can recover a lost receipt after expiry. Retry it first. Use **ترك الطلب واستخدام رمز جديد** (`DiscardPendingPairing`) only for explicit abandonment, then request a fresh Owner code. Abandonment removes only the pending exchange; it does not revoke server approval, replace committed trust, or change the device key. If approval already committed and its receipt was abandoned, another exchange is denied for that device. Preserve the runtime directory and all keys instead of replacing the identity.
 
-Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
+### Manual connection entry for an approved device
 
-1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
+For a new employee PC, use [discovery and Owner-code pairing](install-windows.md#3-install-and-pair-each-employee-pc). The steps below are a diagnostic or recovery path for an already approved device, or the supported high-entropy invitation flow. Entering connection settings cannot approve a new device.
+
+Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role; guided setup creates the first Owner with Manager duties. The TLS server and PostgreSQL must be running.
+
+1. Open the installed **الاعتماد** app from Start under its original Windows user. For a source checkout, use `run.ps1` with the approved device's runtime directory supplied through `-RuntimeDirectory`. Keep that device's original runtime and key.
 2. Enter the server account name and password. Sign-in and protected work require a server connection.
 3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
 4. Select **دخول**. Rust validates server trust, verifies this installation's approved device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.

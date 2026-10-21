@@ -1,6 +1,6 @@
 ---
-title: "Install or prepare a Windows workshop"
-description: "Run Rust-owned Server or per-user Client installation, inspect retained progress, or prepare a fresh workshop separately."
+title: "Use the Windows setup backend and recover installation stages"
+description: "Understand the Rust setup backend, inspect and recover retained stages, or prepare a fresh workshop separately."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -17,7 +17,9 @@ keywords:
   - "interrupted installation"
 ---
 
-# Install or prepare a Windows workshop
+# Use the Windows setup backend and recover installation stages
+
+For normal installation, follow [Install Eitmad on the server and employee PCs](install-windows.md). This page is the advanced reference for setup internals, private CLI requests, stage recovery, and standalone preparation. Do not repeat preparation or account initialization after guided setup.
 
 `eitmad-server install-windows` accepts a typed Server or Client request on private standard input and emits version-one JSON progress lines. Server installation prepares a new workshop, applies migrations, creates the active Owner/Manager and first branch, installs the existing services, configures Private-network `LocalSubnet` HTTPS access, verifies HTTPS readiness, then registers the desktop for the initiating Windows user. Client installation registers only the desktop package for that user, without elevation or server installation.
 
@@ -75,7 +77,7 @@ The command is not a sandbox for untrusted scripts or binaries. Malicious same-a
 
 ## Install Server or Client through Rust
 
-Run from the intended user's **non-elevated** process. Use the authenticated extracted bundle and the existing [Windows package prerequisites](package-windows-desktop.md). The command currently runs from `server/application/eitmad-server.exe` for either role; Client executes this backend but installs no server payload. For the guided interface, use `setup/EitmadSetup.exe` from the complete reviewed offline bundle. Keep the extracted bundle available to the administrator selected in UAC. Use the reviewed PostgreSQL and WinSW inputs from that bundle. This command does not install missing system runtimes.
+Run from the intended user's **non-elevated** process. Use the authenticated extracted bundle and the existing [Windows package prerequisites](package-windows-desktop.md#target-prerequisites). The command runs from `server/application/eitmad-server.exe` for either role; Client executes this backend but installs no server payload. For the guided interface, use `setup/EitmadSetup.exe` from the complete reviewed offline bundle. Keep the extracted bundle available to the administrator selected in UAC. Server preflight installs missing C++/Framework prerequisites when executing from that complete bundle. A standalone server package requires externally prepared prerequisites. Client never runs those installers.
 
 The authority is `server/host/src/windows_setup/installation.rs`; native mechanics are in packaged `deploy/windows/installation.ps1`, `installation.psm1`, and `installation-channel.cs`. Rust contracts in `crates/contracts/src/setup.rs` generate native bindings. The local request is bounded to 64 KiB and rejects unknown fields and unsupported versions. It is a private local deployment interface, not a remotely callable application command. The initiating user selects the installation; Windows authorizes elevated OS changes. Application Owner/Manager relationships and audit still use the existing [atomic first-owner authority](run-server-authority.md#bootstrap-the-first-owner).
 
