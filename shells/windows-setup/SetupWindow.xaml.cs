@@ -11,12 +11,13 @@ public partial class SetupWindow : Window
     private readonly ObservableCollection<string> stages = [];
     private bool busy;
     private bool fresh;
+    private WindowsSetupRecovery recovery = WindowsSetupRecovery.InspectManually;
     private WindowsInstallProgress? last;
     public SetupWindow(IWindowsSetupBridge backend)
     {
         this.backend = backend; InitializeComponent(); StageList.ItemsSource = stages;
         Loaded += async (_, _) => await InspectAsync();
-        Closing += (_, e) => { if (busy) { e.Cancel = true; SetupNotice.Text = "الإعداد يعمل. انتظر انتهاء المرحلة قبل إغلاق النافذة. إذا انقطع التيار، افتح الإعداد وافحص الحالة المحفوظة."; } else OwnerPassword.Clear(); };
+        Closing += (_, e) => { if (busy) { e.Cancel = true; SetupNotice.Text = "الإعداد يعمل. انتظر انتهاء المرحلة قبل إغلاق النافذة. إذا انقطع التيار، افتح الإعداد وافحص الحالة المحفوظة."; } else { OwnerPassword.Clear(); RecoveryPassword.Clear(); } };
     }
     private void RoleChanged(object sender, RoutedEventArgs e)
     {
@@ -28,13 +29,18 @@ public partial class SetupWindow : Window
     private void UpdateActions()
     {
         InstallButton.IsEnabled = !busy && fresh && (ServerChoice.IsChecked == true || ClientChoice.IsChecked == true);
+        InstallButton.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
         InspectButton.IsEnabled = !busy; InputPanel.IsEnabled = !busy;
+        RetryButton.IsEnabled = !busy && recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword;
+        RecoveryPanel.IsEnabled = !busy;
     }
     private async void InspectClick(object sender, RoutedEventArgs e) => await InspectAsync();
     public async Task InspectAsync()
     {
         if (busy) return;
-        busy = true; fresh = false; UpdateActions();
+        busy = true; fresh = false; recovery = WindowsSetupRecovery.InspectManually; UpdateActions();
+        RecoveryPassword.Clear(); RecoveryPanel.Visibility = Visibility.Collapsed; RetryButton.Visibility = Visibility.Collapsed;
+        OpenDesktopButton.Visibility = Visibility.Collapsed;
         try
         {
             var state = await backend.InspectAsync();
@@ -45,14 +51,24 @@ public partial class SetupWindow : Window
             }
             else
             {
+                recovery = state.Recovery;
                 last = state.Progress; InputPanel.Visibility = Visibility.Collapsed; ProgressPanel.Visibility = Visibility.Visible;
                 stages.Clear(); stages.Add(StageText(last.Stage) + " · " + StatusText(last.Status));
                 BusyProgress.Visibility = Visibility.Collapsed;
-                if (last.Stage == WindowsInstallStage.Complete && last.Status == WindowsInstallStatus.Succeeded && !state.Interrupted) Complete();
+                if (state.Recovery == WindowsSetupRecovery.Complete) Complete();
                 else SetupNotice.Text = state.Interrupted
                     ? "انقطع الإعداد عند: " + StageText(last.Stage) + ". حُفظت الملفات والبيانات. لا تبدأ تثبيتًا جديدًا ولا تحذف المجلدات. افحص حالة خدمات الاعتماد واستكمل الإصلاح وفق دليل استرداد التثبيت."
                     : last.Status == WindowsInstallStatus.Failed ? FailureText(last.Stage)
                     : "الإعداد ما زال يعمل في عملية أخرى. انتظر ثم افحص الحالة. لا تبدأ تثبيتًا آخر.";
+                if (recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword)
+                {
+                    RecoveryPanel.Visibility = Visibility.Visible; RetryButton.Visibility = Visibility.Visible;
+                    RecoveryPasswordField.Visibility = recovery == WindowsSetupRecovery.OwnerPassword ? Visibility.Visible : Visibility.Collapsed;
+                    StepTitle.Text = "استكمال الإعداد";
+                    SetupNotice.Text = FailureText(last.Stage) + " استخدم فحص واستكمال الإعداد من مستخدم Windows الذي بدأ التثبيت وبالحزمة نفسها. إذا تعذر إثبات الحالة، سيتوقف الإعداد دون إعادة إنشاء الورشة.";
+                }
+                else if (recovery == WindowsSetupRecovery.InspectManually)
+                    SetupNotice.Text = "تعذر إثبات حالة التثبيت المحفوظة. احتفظ بكل المجلدات. افحص سجل الإعداد والخدمات وفق دليل استرداد التثبيت؛ لا تغيّر المسارات ولا تنشئ ورشة أخرى.";
             }
         }
         catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
@@ -60,6 +76,33 @@ public partial class SetupWindow : Window
         finally { busy = false; UpdateActions(); }
     }
     private async void InstallClick(object sender, RoutedEventArgs e) => await InstallAsync();
+    private async void RetryClick(object sender, RoutedEventArgs e) => await RetryAsync();
+    public async Task RetryAsync()
+    {
+        if (!RetryButton.IsEnabled) return;
+        busy = true; UpdateActions(); stages.Clear();
+        BusyProgress.Visibility = Visibility.Visible;
+        SetupNotice.Text = "جارٍ فحص التثبيت المحفوظ قبل استكماله…";
+        var password = recovery == WindowsSetupRecovery.OwnerPassword ? RecoveryPassword.Password : null;
+        RecoveryPassword.Clear();
+        try
+        {
+            await backend.RetryAsync(password, new Progress<WindowsInstallProgress>(p => {
+                last = p; stages.Add(StageText(p.Stage) + " · " + StatusText(p.Status));
+            }));
+            recovery = WindowsSetupRecovery.Complete; RecoveryPanel.Visibility = Visibility.Collapsed;
+            RetryButton.Visibility = Visibility.Collapsed; Complete();
+        }
+        catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+        {
+            SetupNotice.Text = FailureText(last?.Stage ?? WindowsInstallStage.Preflight) + " تعذر تأكيد الاستكمال. افحص الحالة المحفوظة. إذا كانت ملفات التجهيز أو الخدمة غير مكتملة، احتفظ بها واتبع دليل الاسترداد.";
+            if (last?.Status == WindowsInstallStatus.Blocked) {
+                recovery = WindowsSetupRecovery.InspectManually; RecoveryPanel.Visibility = Visibility.Collapsed; RetryButton.Visibility = Visibility.Collapsed;
+                SetupNotice.Text = "توقف الاستكمال لأن حالة التثبيت غير مؤكدة. احتفظ بقاعدة البيانات والشهادات وسجل الإعداد. اطلب فحص ملفات التجهيز والخدمات وحساب المالك وفق دليل الاسترداد قبل أي إصلاح.";
+            }
+        }
+        finally { password = null; busy = false; BusyProgress.Visibility = Visibility.Collapsed; UpdateActions(); }
+    }
     public async Task InstallAsync()
     {
         if (!InstallButton.IsEnabled) return;

@@ -209,6 +209,20 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-service-check-' + [Gui
     Assert (-not $script:firewall -and $script:firewallChanges[-1] -ceq 'remove') 'Uninstall retained the client allow rule.'
     Assert (-not $script:discoveryFirewall) 'Uninstall retained the discovery allow rule.'
     Assert (Test-Path -LiteralPath (Join-Path $root 'retained-data')) 'Firewall configuration changed durable data.'
+    # Resume only creates missing owned services. It never imports or replaces a cluster.
+    function Test-RustConfiguration { param($Root) }
+    function Ensure-EventSource { param($Name) }
+    function Protect-Directory { param($Path, $Readers) }
+    $script:services['EitmadTestPostgres'] = [pscustomobject]@{Kind='Postgres'; Status='Stopped'}
+    $script:events.Clear()
+    Install-Host $settings -ResumeExisting
+    $created = @($script:events | Where-Object { $_ -like 'create|*' })
+    Assert ($created.Count -eq 1 -and $created[0] -like 'create|EitmadTestServer|*') 'Resume recreated a completed service.'
+    Assert ([IO.File]::ReadAllText((Join-Path $root 'retained-data')) -ceq 'synthetic durable sentinel') 'Resume replaced retained data.'
+    $script:foreign = $true
+    $script:events.Clear()
+    Reject { Install-Host $settings -ResumeExisting } 'another executable or identity'
+    Assert ($script:events.Count -eq 0) 'Resume changed a foreign service.'
     Write-Host 'PASS: real argv quoting; mocked SCM startup, readiness, shutdown, port conflicts, ownership, bounded recovery, and preserved uninstall data.'
     Write-Host 'PASS: exact client firewall scope, replacement, prompt retry/cancel, preview, ownership, and removal on uninstall.'
     Write-Host 'PASS: Private-only LocalSubnet HTTPS scope, preview, conflicting option rejection, ownership, and replacement.'

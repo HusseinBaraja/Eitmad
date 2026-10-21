@@ -25,6 +25,9 @@ pub(super) async fn prepare() -> Result<(), MainError> {
     }
     let request: PrepareWindowsWorkshop =
         serde_json::from_slice(&input).map_err(|_| MainError::Input)?;
+    // The standalone preparation command remains fresh-only. Reuse belongs to
+    // the installer, which binds the protected preparation to its retained attempt.
+    validate(&request)?;
     let prepared = run(&request, &mut |_| Ok(())).await?;
     println!(
         "{}",
@@ -37,6 +40,28 @@ pub(super) async fn run(
     request: &PrepareWindowsWorkshop,
     stage: &mut dyn FnMut(eitmad_contracts::setup::WindowsInstallStage) -> Result<(), MainError>,
 ) -> Result<PreparedWindowsWorkshop, MainError> {
+    if Path::new(&request.state_directory).exists() {
+        validate_inputs(request)?;
+        // Only a complete, stopped preparation has a safe import boundary. Never guess
+        // whether an interrupted Owner transaction or cluster copy committed.
+        stage(eitmad_contracts::setup::WindowsInstallStage::StopPreparedDatabase)?;
+        let path = Path::new(&request.state_directory).join("prepared-workshop.json");
+        native::plain_path(&path, true)?;
+        let prepared: PreparedWindowsWorkshop = serde_json::from_reader(
+            fs::File::open(&path)
+                .map_err(|_| MainError::Setup)?
+                .take(16385),
+        )
+        .map_err(|_| MainError::Setup)?;
+        if prepared.version != 1
+            || prepared.endpoint
+                != format!("https://{}:{}/", request.server_name, request.server_port)
+        {
+            return Err(MainError::Setup);
+        }
+        native::invoke(request, "Inspect", None)?;
+        return Ok(prepared);
+    }
     validate(request)?;
     stage(eitmad_contracts::setup::WindowsInstallStage::PrepareWorkshop)?;
     let secrets = Secrets::new();
@@ -124,6 +149,17 @@ fn random_secret() -> Zeroizing<String> {
 }
 
 pub(super) fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
+    validate_inputs(request)?;
+    if Path::new(&request.state_directory)
+        .try_exists()
+        .map_err(|_| MainError::Setup)?
+    {
+        return Err(MainError::Setup);
+    }
+    Ok(())
+}
+
+pub(super) fn validate_inputs(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
     if request.version != 1
         || request.workshop.version != 1
         || request.server_port < 1024
@@ -165,9 +201,6 @@ pub(super) fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError
     }
     let root = Path::new(&request.state_directory);
     native::plain_path(root, false)?;
-    if root.try_exists().map_err(|_| MainError::Setup)? {
-        return Err(MainError::Setup);
-    }
     if !root.parent().is_some_and(Path::is_dir) {
         return Err(MainError::Input);
     }

@@ -37,6 +37,28 @@ pub(super) fn configure_setup(
     state: &Path,
     configuration: &Configuration,
 ) -> Result<(), MainError> {
+    let mut configuration = configuration.clone();
+    if state
+        .join("state.json")
+        .try_exists()
+        .map_err(|_| MainError::Backup)?
+    {
+        let guard = native("Guard", state, &json!({}))?;
+        if guard.outcome != Outcome::Succeeded {
+            return Err(MainError::Backup);
+        }
+        let saved: Saved = serde_json::from_reader(
+            File::open(state.join("state.json"))
+                .map_err(|_| MainError::Backup)?
+                .take(65_537),
+        )
+        .map_err(|_| MainError::Backup)?;
+        if saved.generation.is_none() && saved.status.local_outcome == Outcome::Succeeded {
+            return Err(MainError::Backup);
+        }
+        configuration = retained_setup_configuration(configuration, &saved.configuration)?;
+    }
+    let configuration = &configuration;
     backup::validate(configuration).map_err(|_| MainError::Input)?;
     let observation = native(
         "SetupDestination",
@@ -47,7 +69,21 @@ pub(super) fn configure_setup(
         return Err(MainError::Backup);
     }
     let executable = std::env::current_exe().map_err(|_| MainError::Backup)?;
-    for action in ["configure", "schedule", "run"] {
+    let mut capture_action = "run";
+    for step in ["status", "configure", "schedule", "capture"] {
+        let action = if step == "capture" {
+            capture_action
+        } else {
+            step
+        };
+        if action == "status"
+            && !state
+                .join("state.json")
+                .try_exists()
+                .map_err(|_| MainError::Backup)?
+        {
+            continue;
+        }
         let mut child = Command::new(&executable)
             .args(["windows-backup", action])
             .arg(state)
@@ -69,8 +105,19 @@ pub(super) fn configure_setup(
         }
         let status: Status =
             serde_json::from_slice(&output.stdout).map_err(|_| MainError::Backup)?;
+        if action == "status" {
+            capture_action = setup_capture_action(&status);
+        }
+        if action == "status"
+            && status.schedule_outcome == Outcome::Succeeded
+            && status.local_outcome == Outcome::Succeeded
+            && (configuration.external_destination.is_none()
+                || status.external_outcome == Outcome::Succeeded)
+        {
+            return Ok(());
+        }
         if action == "schedule" && status.schedule_outcome != Outcome::Succeeded
-            || action == "run"
+            || matches!(action, "run" | "tick")
                 && (status.local_outcome != Outcome::Succeeded
                     || configuration.external_destination.is_some()
                         && status.external_outcome != Outcome::Succeeded)
@@ -79,6 +126,29 @@ pub(super) fn configure_setup(
         }
     }
     Ok(())
+}
+
+fn setup_capture_action(status: &Status) -> &'static str {
+    if status.local_outcome == Outcome::Succeeded && status.last_local_success_at.is_some() {
+        // Tick retries the external copy using the retained cut and captures a
+        // new local generation only when it is due. Run would always recapture.
+        "tick"
+    } else {
+        "run"
+    }
+}
+
+fn retained_setup_configuration(
+    mut requested: Configuration,
+    saved: &Configuration,
+) -> Result<Configuration, MainError> {
+    requested.deployment_id = saved.deployment_id;
+    if serde_json::to_value(&requested).map_err(|_| MainError::Backup)?
+        != serde_json::to_value(saved).map_err(|_| MainError::Backup)?
+    {
+        return Err(MainError::Backup);
+    }
+    Ok(requested)
 }
 
 fn now() -> Result<u64, MainError> {
@@ -427,4 +497,50 @@ fn status(state: &Path, saved: &mut Saved) -> Result<(), MainError> {
         }
     }
     publish(&saved.status)
+}
+
+#[cfg(test)]
+mod setup_tests {
+    use super::*;
+
+    #[test]
+    fn backup_retry_retains_deployment_and_rejects_changed_installation_or_destinations() {
+        let saved = Configuration {
+            version: 1,
+            deployment_id: uuid::Uuid::new_v4(),
+            host_root: "C:\\SyntheticHost".into(),
+            service_name: "Synthetic".into(),
+            recovery_directory: "C:\\SyntheticRecovery".into(),
+            local_destination: "D:\\SyntheticBackups".into(),
+            external_destination: None,
+            interval_hours: 24,
+            retention_count: 7,
+            reserve_bytes: 1_073_741_824,
+        };
+        let mut request = saved.clone();
+        let mut status = backup::initial(&saved, 100);
+        assert_eq!(setup_capture_action(&status), "run");
+        status.local_outcome = Outcome::Succeeded;
+        status.last_local_success_at = Some(100);
+        status.external_outcome = Outcome::DestinationUnavailable;
+        assert_eq!(setup_capture_action(&status), "tick");
+        status.local_outcome = Outcome::CaptureFailed;
+        assert_eq!(setup_capture_action(&status), "run");
+        request.deployment_id = uuid::Uuid::new_v4();
+        assert_eq!(
+            retained_setup_configuration(request.clone(), &saved)
+                .unwrap()
+                .deployment_id,
+            saved.deployment_id
+        );
+        for change in 0..3 {
+            let mut changed = request.clone();
+            match change {
+                0 => changed.host_root.push('2'),
+                1 => changed.service_name.push('2'),
+                _ => changed.local_destination.push('2'),
+            }
+            assert!(retained_setup_configuration(changed, &saved).is_err());
+        }
+    }
 }

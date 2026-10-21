@@ -174,6 +174,13 @@ async fn delayed_server_installation_refreshes_proof_and_enrolls_the_same_device
         Err(PairingError::Denied)
     );
     request.first_desktop = Some(original.clone());
+    drop(
+        Progress::open(
+            &request.server_progress_directory,
+            &InstallWindows::Server(Box::new(request.clone())),
+        )
+        .unwrap(),
+    );
     let mut platform = FakePlatform::default();
     let mut input = ProofAfterReady {
         desktop: &desktop,
@@ -201,6 +208,37 @@ async fn delayed_server_installation_refreshes_proof_and_enrolls_the_same_device
         .unwrap()
         .session;
     assert_eq!(session.device_id, original.device_id);
+    // A lost reply can repeat the same approved key after fresh authentication.
+    control
+        .pairing
+        .enroll_first_desktop(&login, correlation(), unix_millis_now())
+        .await
+        .unwrap();
+    let mut wrong_password = login.clone();
+    wrong_password.password = "Wrong-password-123!".into();
+    assert_eq!(
+        control
+            .pairing
+            .enroll_first_desktop(&wrong_password, correlation(), unix_millis_now())
+            .await,
+        Err(PairingError::Denied)
+    );
+    let other_root = TestRoot::new();
+    let (other, _) = self::desktop(&other_root);
+    let other = other
+        .first_desktop_request(
+            login.tenant_code.clone(),
+            login.username.clone(),
+            login.password.clone(),
+        )
+        .unwrap();
+    assert_eq!(
+        control
+            .pairing
+            .enroll_first_desktop(&other, correlation(), unix_millis_now())
+            .await,
+        Err(PairingError::Denied)
+    );
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("SELECT set_config('eitmad.tenant_id',$1,true)")
         .bind(prepared.workshop.tenant_id.value().to_string())
@@ -209,7 +247,53 @@ async fn delayed_server_installation_refreshes_proof_and_enrolls_the_same_device
         .unwrap();
     let outcomes: Vec<String> = sqlx::query_scalar("SELECT outcome FROM audit.server_records WHERE operation='eitmad.server.pairing.first-desktop.v1' ORDER BY occurred_at")
         .fetch_all(&mut *tx).await.unwrap();
-    assert_eq!(outcomes, ["denied", "succeeded"]);
+    assert_eq!(outcomes.iter().filter(|s| *s == "succeeded").count(), 2);
+    assert_eq!(outcomes.iter().filter(|s| *s == "denied").count(), 3);
+}
+
+#[test]
+fn recovery_retains_device_binding_without_password_or_replayable_proof() {
+    let root = TestRoot::new();
+    let (desktop, _) = desktop(&root);
+    let mut server = root.request();
+    let login = desktop
+        .first_desktop_request(
+            eitmad_contracts::server::TenantCode::parse("synthetic").unwrap(),
+            "synthetic-owner".into(),
+            "Synthetic-password-123!".into(),
+        )
+        .unwrap();
+    let signature = login
+        .device_proof
+        .as_ref()
+        .unwrap()
+        .signature_base64
+        .clone();
+    server.first_desktop = Some(login.clone());
+    let request = InstallWindows::Server(Box::new(server));
+    let progress_path = root.path("client-progress");
+    drop(Progress::open(&progress_path, &request).unwrap());
+    let path = Path::new(&progress_path).join("recovery-input.json");
+    let bytes = fs::read_to_string(&path).unwrap();
+    assert!(!bytes.contains("Synthetic-password-123!"));
+    assert!(!bytes.contains(&signature));
+    let retained = recovery::load(Path::new(&progress_path)).unwrap();
+    let InstallWindows::Server(retained) = retained else {
+        unreachable!()
+    };
+    let retained_login = retained.first_desktop.unwrap();
+    assert_eq!(retained_login.device_id, login.device_id);
+    assert_eq!(retained_login.device_public_key, login.device_public_key);
+    assert!(retained_login.device_proof.is_none());
+    let mut changed = request.clone();
+    let InstallWindows::Server(server) = &mut changed else {
+        unreachable!()
+    };
+    server.first_desktop.as_mut().unwrap().device_id =
+        eitmad_contracts::identity::DeviceId::new(Uuid::new_v4());
+    assert!(Progress::open(&progress_path, &changed).is_err());
+    fs::write(path, serde_json::to_vec(&request).unwrap()).unwrap();
+    assert!(recovery::load(Path::new(&progress_path)).is_err());
 }
 
 #[test]

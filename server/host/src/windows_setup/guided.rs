@@ -79,8 +79,40 @@ pub(super) async fn execute() -> Result<(), MainError> {
         );
         return Ok(());
     }
-    let install = compose(request, progress)?;
+    let install = if matches!(request.action, GuidedSetupAction::Retry) {
+        retry(request, &progress)?
+    } else {
+        if progress.try_exists().map_err(|_| MainError::Setup)? {
+            return Err(MainError::Setup);
+        }
+        compose(request, progress)?
+    };
     installation::install(&install, &mut installation::native::WindowsPlatform).await
+}
+
+fn retry(request: GuidedWindowsSetup, progress: &Path) -> Result<InstallWindows, MainError> {
+    let mut retained = installation::recovery::load(progress)?;
+    let client = match &mut retained {
+        InstallWindows::Client(client) => client,
+        InstallWindows::Server(server) => {
+            let password = request.owner_password.ok_or(MainError::Input)?;
+            server.preparation.workshop.owner_password = password.clone();
+            if let Some(login) = &mut server.first_desktop {
+                login.password = password.expose_secret().into();
+            }
+            installation::validate_server(server)?;
+            // Rebind only to the same authenticated release, never to newly entered settings.
+            super::payload::bind_server(server, Path::new(&request.bundle_directory))?;
+            &mut server.client
+        }
+    };
+    if client.intended_user_sid != request.intended_user_sid
+        || Path::new(&client.progress_directory) != progress
+    {
+        return Err(MainError::Setup);
+    }
+    installation::validate_client(client)?;
+    Ok(retained)
 }
 
 fn compose(request: GuidedWindowsSetup, progress: PathBuf) -> Result<InstallWindows, MainError> {
@@ -260,7 +292,7 @@ pub(super) fn enroll_desktop(
         return Err(MainError::Setup);
     }
     let ca = Path::new(&request.client.progress_directory).join("first-desktop-ca.pem");
-    super::preparation::write_new(&ca, handoff.public_ca_pem.as_bytes())?;
+    installation::recovery::retain_exact(&ca, handoff.public_ca_pem.as_bytes())?;
     let owner = &request.preparation.workshop;
     let coordinates = handoff.prepared.workshop;
     let mut sign_in = DesktopSignInRequest {

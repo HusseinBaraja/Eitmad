@@ -24,6 +24,9 @@ public sealed class OnboardingRenderedTests
         public int Calls { get; private set; }
         public Task<WindowsInstallationState?> InspectAsync() => Task.FromResult(State);
         public Task OpenDesktopAsync() => Task.CompletedTask;
+        public string? RetryPassword { get; private set; }
+        public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress)
+        { Calls++; RetryPassword = ownerPassword; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic retry failure")); }
         public Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress)
         { Calls++; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic failure")); }
     }
@@ -63,13 +66,65 @@ public sealed class OnboardingRenderedTests
                 foreach (var control in WpfTestHost.Descendants<Control>(window)) Eitmad.WindowsShell.Controls.ControlOptions.SetHighContrast(control, true);
                 WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "onboarding-backups-system-colors-720");
             }
-            backend.State = new WindowsInstallationState { Version = 1, Interrupted = true,
+            backend.State = new WindowsInstallationState { Version = 1, Interrupted = true, Recovery = WindowsSetupRecovery.OwnerPassword,
                 Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.EnrollDesktop, Status = WindowsInstallStatus.Running } };
             _ = ((SetupWindow)window).InspectAsync(); WpfTestHost.CompleteLayout(window);
             Assert.IsFalse(WpfTestHost.FindByName<Button>(window, "InstallButton").IsEnabled);
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
             Assert.AreEqual(0, backend.Calls);
+            var retry = WpfTestHost.FindByName<Button>(window, "RetryButton");
+            Assert.IsTrue(retry.IsEnabled); Assert.IsTrue(retry.Focus());
+            Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(retry)));
+            var password = WpfTestHost.FindByName<PasswordBox>(window, "RecoveryPassword");
+            password.BringIntoView(); WpfTestHost.CompleteLayout(window); Assert.IsTrue(password.Focus());
+            Assert.IsTrue(password.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
             WpfTestHost.Capture(window, $"onboarding-interrupted-{width}");
+        });
+    }
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Recovery_screen_exposes_only_the_verified_action(int width, int height)
+    {
+        var backend = new SetupBackend { State = new WindowsInstallationState { Version = 1, Interrupted = true,
+            Recovery = WindowsSetupRecovery.OwnerPassword,
+            Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.EnrollDesktop, Status = WindowsInstallStatus.Failed } } };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend) { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            var retry = WpfTestHost.FindByName<Button>(window, "RetryButton");
+            Assert.IsTrue(retry.Focus());
+            var password = WpfTestHost.FindByName<PasswordBox>(window, "RecoveryPassword");
+            Assert.IsTrue(password.Focus()); Assert.IsTrue(password.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            WpfTestHost.Capture(window, $"setup-recovery-owner-{width}");
+            foreach (var action in new[] { WindowsSetupRecovery.Retry, WindowsSetupRecovery.Wait, WindowsSetupRecovery.InspectManually }) {
+                backend.State.Recovery = action;
+                _ = ((SetupWindow)window).InspectAsync(); WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(action == WindowsSetupRecovery.Retry, retry.IsEnabled);
+                WpfTestHost.Capture(window, $"setup-recovery-{action}-{width}");
+            }
+        });
+    }
+    [TestMethod]
+    public void Recovery_uses_backend_action_clears_password_and_requires_confirmed_success()
+    {
+        var backend = new SetupBackend { State = new WindowsInstallationState { Version = 1, Recovery = WindowsSetupRecovery.OwnerPassword,
+            Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.ConfigureBackups, Status = WindowsInstallStatus.Failed } } };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend), window => {
+            var password = WpfTestHost.FindByName<PasswordBox>(window, "RecoveryPassword"); password.Password = "Synthetic-password-123!";
+            _ = ((SetupWindow)window).RetryAsync(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(1, backend.Calls); Assert.AreEqual("", password.Password);
+            Assert.AreEqual("Synthetic-password-123!", backend.RetryPassword);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
+            foreach (var action in new[] { WindowsSetupRecovery.Wait, WindowsSetupRecovery.InspectManually }) {
+                backend.State.Recovery = action; _ = ((SetupWindow)window).InspectAsync(); WpfTestHost.CompleteLayout(window);
+                Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "RetryButton").Visibility);
+                _ = ((SetupWindow)window).RetryAsync(); Assert.AreEqual(1, backend.Calls);
+            }
+            backend.State.Recovery = WindowsSetupRecovery.Retry; _ = ((SetupWindow)window).InspectAsync(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "RecoveryPasswordField").Visibility);
+            backend.Install = _ => Task.CompletedTask;
+            _ = ((SetupWindow)window).RetryAsync(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(2, backend.Calls); Assert.IsNull(backend.RetryPassword);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
         });
     }
     [TestMethod]

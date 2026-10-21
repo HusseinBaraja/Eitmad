@@ -47,6 +47,23 @@ Write-Host 'Synthetic native output must not enter the progress stream.'
     $calls = @(Get-Content -LiteralPath $trace | ForEach-Object { $_ | ConvertFrom-Json })
     Assert (($calls.action -join ',') -ceq 'Verify,Verify,Install') 'Desktop path or refusal order changed.'
     Assert (@($calls | Where-Object { $_.digest -cne ('a' * 64) -or $_.publisher -cne 'CN=Synthetic' }).Count -eq 0) 'Package identity was lost.'
+    $script:registration = [pscustomobject]@{Name='Eitmad.Desktop'; Publisher='CN=Synthetic'; Version=[version]'1.0.0.0'; Status='Ok'; InstallLocation=$Root}
+    [IO.File]::WriteAllText((Join-Path $Root 'release.json'), 'synthetic installed inventory')
+    $script:desktopRelease = [pscustomobject]@{publisher='CN=Synthetic'; windowsVersion='1.0.0.0'; payloadInventorySha256=(Get-FileHash -LiteralPath (Join-Path $Root 'release.json')).Hash}
+    function Get-InstallPackage { param($Package, $Target) return $script:desktopRelease }
+    function Get-AppxPackage { param($Name) if ($script:installed) { return $script:registration } }
+    $script:installed = $true
+    Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client
+    $calls = @(Get-Content -LiteralPath $trace | ForEach-Object { $_ | ConvertFrom-Json })
+    Assert (@($calls | Where-Object action -eq 'Install').Count -eq 1) 'A healthy retained registration was installed again.'
+    $script:registration.Publisher = 'CN=Other'
+    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
+    $script:registration.Publisher = 'CN=Synthetic'
+    $script:registration.Version = [version]'2.0.0.0'
+    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
+    $script:registration.Version = [version]'1.0.0.0'
+    [IO.File]::WriteAllText((Join-Path $Root 'release.json'), 'changed inventory')
+    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
 
     # Host actions use the existing service adapter. All OS effects are synthetic.
     & $script:HostAdapter { function script:Assert-Administrator {} }

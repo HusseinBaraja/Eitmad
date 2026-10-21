@@ -150,9 +150,18 @@ impl Platform for FakePlatform {
     }
     async fn prepare(
         &mut self,
-        _: &InstallWindowsServer,
+        request: &InstallWindowsServer,
         progress: &mut Progress,
     ) -> Result<(), MainError> {
+        let root = Path::new(&request.preparation.state_directory);
+        if root.exists() {
+            return if root.join("prepared-workshop.json").exists() {
+                Ok(())
+            } else {
+                Err(MainError::Setup)
+            };
+        }
+        fs::create_dir(root).unwrap();
         for stage in [
             Stage::PrepareWorkshop,
             Stage::ApplyMigrations,
@@ -162,11 +171,15 @@ impl Platform for FakePlatform {
             progress.begin(stage)?;
             self.call(stage)?;
         }
+        fs::write(root.join("prepared-workshop.json"), b"synthetic completion").unwrap();
         Ok(())
     }
-    fn host(&mut self, _: &InstallWindowsServer, action: &str) -> Result<(), MainError> {
+    fn host(&mut self, request: &InstallWindowsServer, action: &str) -> Result<(), MainError> {
+        if action == "Install" {
+            fs::create_dir(&request.service_state_directory).unwrap();
+        }
         self.call(match action {
-            "Install" => Stage::InstallServices,
+            "Install" | "ResumeInstall" => Stage::InstallServices,
             "Firewall" => Stage::ConfigureFirewall,
             "Start" => Stage::VerifyHttps,
             _ => panic!("Unexpected host action"),
@@ -235,7 +248,7 @@ async fn server_completes_all_host_stages_without_registering_desktop_as_adminis
 }
 
 #[tokio::test]
-async fn each_host_failure_retains_the_exact_stage_and_blocks_reinitialization() {
+async fn each_host_failure_retains_the_stage_and_never_reinitializes_the_owner() {
     for stage in [
         Stage::PrepareWorkshop,
         Stage::ApplyMigrations,
@@ -264,18 +277,50 @@ async fn each_host_failure_retains_the_exact_stage_and_blocks_reinitialization()
         );
         assert!(!state.interrupted);
         let count = platform.calls.len();
+        let previous = fs::read(
+            Path::new(&request.server_progress_directory)
+                .join(format!("{:08}.json", state.progress.sequence)),
+        )
+        .unwrap();
         assert!(
             install_server(&request, &mut platform, &mut std::io::empty())
                 .await
                 .is_err()
         );
-        assert_eq!(platform.calls.len(), count + 1); // read-only preflight, no native stage repeated
+        assert!(platform.calls.len() > count);
+        assert!(!platform.calls[count..].contains(&Stage::InitializeOwner));
         assert_eq!(
-            read_state(Path::new(&request.server_progress_directory))
-                .unwrap()
-                .progress,
-            state.progress
+            fs::read(
+                Path::new(&request.server_progress_directory)
+                    .join(format!("{:08}.json", state.progress.sequence))
+            )
+            .unwrap(),
+            previous
         );
+        if matches!(
+            stage,
+            Stage::InstallServices | Stage::ConfigureFirewall | Stage::VerifyHttps
+        ) {
+            platform.failure = None;
+            install_server(&request, &mut platform, &mut std::io::empty())
+                .await
+                .unwrap();
+            assert_eq!(
+                platform
+                    .calls
+                    .iter()
+                    .filter(|s| **s == Stage::InitializeOwner)
+                    .count(),
+                1
+            );
+            assert_eq!(
+                read_state(Path::new(&request.server_progress_directory))
+                    .unwrap()
+                    .progress
+                    .stage,
+                Stage::Complete
+            );
+        }
     }
 }
 
@@ -305,6 +350,69 @@ async fn denied_elevation_or_desktop_failure_never_reports_success() {
             assert!(!platform.calls.contains(&Stage::RegisterDesktop));
         }
     }
+}
+
+#[tokio::test]
+async fn cancelled_uac_and_registration_failure_resume_with_original_inputs() {
+    for failed in [Stage::Elevation, Stage::RegisterDesktop] {
+        let root = TestRoot::new();
+        let request = InstallWindows::Server(Box::new(root.request()));
+        let mut platform = FakePlatform {
+            failure: Some(failed),
+            ..Default::default()
+        };
+        assert!(install(&request, &mut platform).await.is_err());
+        let saved = recovery::load(&root.0.join("client-progress")).unwrap();
+        let json = serde_json::to_string(&saved).unwrap();
+        assert!(!json.contains("Synthetic-password-123!"));
+        assert_eq!(
+            recovery::binding(&saved).unwrap(),
+            recovery::binding(&request).unwrap()
+        );
+        platform.failure = None;
+        install(&request, &mut platform).await.unwrap();
+        assert_eq!(
+            read_state(&root.0.join("client-progress"))
+                .unwrap()
+                .progress
+                .stage,
+            Stage::Complete
+        );
+    }
+}
+
+#[test]
+fn retry_binds_user_release_and_device_and_preserves_torn_records() {
+    let root = TestRoot::new();
+    let request = InstallWindows::Server(Box::new(root.request()));
+    let path = root.path("client-progress");
+    let mut progress = Progress::open(&path, &request).unwrap();
+    progress.begin(Stage::Elevation).unwrap();
+    assert!(Progress::open(&path, &request).is_err());
+    drop(progress);
+    let torn = Path::new(&path).join("00000002.json");
+    fs::write(&torn, b"{").unwrap();
+    for change in [0, 1] {
+        let mut changed = request.clone();
+        let InstallWindows::Server(server) = &mut changed else {
+            unreachable!()
+        };
+        if change == 0 {
+            server.client.intended_user_sid.push('1');
+        } else {
+            server.server.release_sha256 = "c".repeat(64);
+        }
+        assert!(Progress::open(&path, &changed).is_err());
+    }
+    let mut resumed = Progress::open(&path, &request).unwrap();
+    resumed.begin(Stage::Preflight).unwrap();
+    assert_eq!(fs::read(torn).unwrap(), b"{");
+    assert!(Path::new(&path).join("00000003.json").exists());
+    let ca = Path::new(&path).join("ca.pem");
+    recovery::retain_exact(&ca, b"original public CA").unwrap();
+    recovery::retain_exact(&ca, b"original public CA").unwrap();
+    assert!(recovery::retain_exact(&ca, b"replacement CA").is_err());
+    assert_eq!(fs::read(ca).unwrap(), b"original public CA");
 }
 
 #[test]
@@ -350,8 +458,8 @@ fn private_requests_reject_unknown_fields_and_debug_redacts_credentials() {
     ));
 }
 
-#[test]
-fn installation_validation_refuses_versions_existing_state_and_aliased_paths() {
+#[tokio::test]
+async fn installation_validation_refuses_versions_uncertain_state_and_aliased_paths() {
     let root = TestRoot::new();
     let mut request = root.request();
     fs::create_dir(&request.server.directory).unwrap();
@@ -380,7 +488,16 @@ fn installation_validation_refuses_versions_existing_state_and_aliased_paths() {
     fs::create_dir(&request.preparation.state_directory).unwrap();
     let sentinel = Path::new(&request.preparation.state_directory).join("retained");
     fs::write(&sentinel, b"durable workshop sentinel").unwrap();
-    assert!(validate_server(&request).is_err());
+    validate_server(&request).unwrap();
+    assert!(
+        install_server(
+            &request,
+            &mut FakePlatform::default(),
+            &mut std::io::empty()
+        )
+        .await
+        .is_err()
+    );
     assert_eq!(fs::read(&sentinel).unwrap(), b"durable workshop sentinel");
     assert!(!Path::new(&request.service_state_directory).exists());
     assert!(!Path::new(&request.client.progress_directory).exists());

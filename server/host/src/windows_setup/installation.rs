@@ -16,6 +16,7 @@ use std::{
 use zeroize::Zeroizing;
 
 pub(super) mod native;
+pub(super) mod recovery;
 #[cfg(test)]
 mod tests;
 
@@ -122,7 +123,8 @@ pub(super) fn validate_client(request: &InstallWindowsClient) -> Result<(), Main
     {
         return Err(MainError::Input);
     }
-    fresh_path(&request.progress_directory)?;
+    installation_path(&request.progress_directory)?;
+    plain_path(Path::new(&request.progress_directory), false)?;
     validate_package(&request.desktop)
 }
 
@@ -141,12 +143,17 @@ pub(super) fn validate_server(request: &InstallWindowsServer) -> Result<(), Main
     {
         return Err(MainError::Input);
     }
-    preparation::validate(&request.preparation)?;
+    preparation::validate_inputs(&request.preparation)?;
     installation_path(&request.preparation.state_directory)?;
     validate_package(&request.server)?;
     plain_path(Path::new(&request.winsw_executable), true)?;
-    fresh_path(&request.service_state_directory)?;
-    fresh_path(&request.server_progress_directory)?;
+    for path in [
+        &request.service_state_directory,
+        &request.server_progress_directory,
+    ] {
+        installation_path(path)?;
+        plain_path(Path::new(path), false)?;
+    }
     let paths = [
         &request.client.progress_directory,
         &request.server_progress_directory,
@@ -183,7 +190,9 @@ pub(super) struct Progress {
     root: PathBuf,
     _lock: File,
     sequence: u32,
+    wire_sequence: u32,
     stage: Stage,
+    blocked: bool,
 }
 
 impl Progress {
@@ -200,13 +209,17 @@ impl Progress {
             root: root.into(),
             _lock: lock,
             sequence: 0,
+            wire_sequence: 0,
             stage: Stage::Preflight,
+            blocked: false,
         })
     }
 
     fn record(&mut self, stage: Stage, status: Status) -> Result<(), MainError> {
         self.sequence += 1;
+        self.wire_sequence += 1;
         self.stage = stage;
+        self.blocked = status == Status::Blocked;
         let event = WindowsInstallProgress {
             version: 1,
             sequence: self.sequence,
@@ -216,7 +229,10 @@ impl Progress {
         let file = self.root.join(format!("{:08}.json", self.sequence));
         let bytes = serde_json::to_vec(&event).map_err(|_| MainError::Setup)?;
         super::preparation::write_new(&file, &bytes)?;
-        publish(&event)
+        publish(&WindowsInstallProgress {
+            sequence: self.wire_sequence,
+            ..event
+        })
     }
 
     fn begin(&mut self, stage: Stage) -> Result<(), MainError> {
@@ -227,7 +243,14 @@ impl Progress {
         match result {
             Ok(()) => self.record(Stage::Complete, Status::Succeeded),
             Err(error) => {
-                let _ = self.record(self.stage, Status::Failed);
+                let _ = self.record(
+                    self.stage,
+                    if self.blocked {
+                        Status::Blocked
+                    } else {
+                        Status::Failed
+                    },
+                );
                 Err(error)
             }
         }
@@ -246,35 +269,50 @@ pub(super) fn read_state(root: &Path) -> Result<WindowsInstallationState, MainEr
         Err(error) if error.raw_os_error() == Some(32) => true,
         Err(_) => return Err(MainError::Setup),
     };
-    let mut files = fs::read_dir(root)
-        .map_err(|_| MainError::Setup)?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
-        .collect::<Vec<_>>();
-    files.sort();
-    // A torn final write is not completion. Fall back to the last durable stage.
-    let progress = files
-        .iter()
-        .rev()
-        .find_map(|path| {
-            plain_path(path, true).ok()?;
-            let bytes = fs::read(path).ok()?;
-            if bytes.len() > 1024 {
-                return None;
-            }
-            serde_json::from_slice::<WindowsInstallProgress>(&bytes)
-                .ok()
-                .filter(|p| p.version == 1)
-        })
-        .ok_or(MainError::Setup)?;
+    let progress = read_last(root)?.unwrap_or(WindowsInstallProgress {
+        version: 1,
+        sequence: 0,
+        stage: Stage::Preflight,
+        status: Status::Running,
+    });
     let completed = progress.stage == Stage::Complete && progress.status == Status::Succeeded;
-    let interrupted = !active && !completed && progress.status != Status::Failed;
+    let interrupted =
+        !active && !completed && !matches!(progress.status, Status::Failed | Status::Blocked);
     Ok(WindowsInstallationState {
         version: 1,
         progress,
         interrupted,
+        recovery: recovery::action(root, active, completed),
     })
+}
+
+fn read_last(root: &Path) -> Result<Option<WindowsInstallProgress>, MainError> {
+    let mut files = fs::read_dir(root)
+        .map_err(|_| MainError::Setup)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                n.len() == 13
+                    && path
+                        .extension()
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+                    && n.as_bytes()[..8].iter().all(u8::is_ascii_digit)
+            })
+        })
+        .collect::<Vec<_>>();
+    files.sort();
+    // A torn final write is not completion. Fall back to the last durable stage.
+    Ok(files.iter().rev().find_map(|path| {
+        plain_path(path, true).ok()?;
+        let bytes = fs::read(path).ok()?;
+        if bytes.len() > 1024 {
+            return None;
+        }
+        serde_json::from_slice::<WindowsInstallProgress>(&bytes)
+            .ok()
+            .filter(|p| p.version == 1)
+    }))
 }
 
 pub(super) trait Platform {
@@ -302,7 +340,7 @@ pub(super) async fn install(
         InstallWindows::Client(client) => client,
         InstallWindows::Server(server) => &server.client,
     };
-    let mut progress = Progress::create(&client.progress_directory)?;
+    let mut progress = Progress::open(&client.progress_directory, request)?;
     let result = async {
         progress.begin(Stage::Preflight)?;
         platform.client_preflight(client)?;
@@ -327,23 +365,70 @@ async fn install_server(
     platform: &mut impl Platform,
     proof_input: &mut impl std::io::Read,
 ) -> Result<(), MainError> {
+    if Path::new(&request.preparation.state_directory)
+        .try_exists()
+        .map_err(|_| MainError::Setup)?
+        || Path::new(&request.service_state_directory)
+            .try_exists()
+            .map_err(|_| MainError::Setup)?
+    {
+        let bound =
+            recovery::load(Path::new(&request.server_progress_directory)).and_then(|retained| {
+                Ok(recovery::binding(&retained)?
+                    == recovery::binding(&InstallWindows::Server(Box::new(request.clone())))?)
+            });
+        if !matches!(bound, Ok(true)) {
+            publish(&WindowsInstallProgress {
+                version: 1,
+                sequence: 1,
+                stage: Stage::Preflight,
+                status: Status::Blocked,
+            })?;
+            return Err(MainError::Setup);
+        }
+    }
     // Validate elevation and protected ancestors before creating any server-owned state.
     if let Err(error) = platform.server_preflight(request) {
         let _ = publish(&WindowsInstallProgress {
             version: 1,
             sequence: 1,
             stage: Stage::Preflight,
-            status: Status::Failed,
+            status: if Path::new(&request.service_state_directory).exists() {
+                Status::Blocked
+            } else {
+                Status::Failed
+            },
         });
         return Err(error);
     }
-    let mut progress = Progress::create(&request.server_progress_directory)?;
+    let mut progress = Progress::open(
+        &request.server_progress_directory,
+        &InstallWindows::Server(Box::new(request.clone())),
+    )?;
     let mut handoff = None;
     let result = async {
         progress.begin(Stage::Preflight)?;
-        platform.prepare(request, &mut progress).await?;
+        // Preflight has inspected the retained host and its source binding. Once
+        // imported, the service database is authoritative; never import the stale copy again.
+        let imported = Path::new(&request.service_state_directory)
+            .try_exists()
+            .map_err(|_| MainError::Setup)?;
+        if !imported {
+            let retained = Path::new(&request.preparation.state_directory)
+                .try_exists()
+                .map_err(|_| MainError::Setup)?;
+            if let Err(error) = platform.prepare(request, &mut progress).await {
+                if retained {
+                    progress.record(Stage::PrepareWorkshop, Status::Blocked)?;
+                }
+                return Err(error);
+            }
+        }
         for (stage, action) in [
-            (Stage::InstallServices, "Install"),
+            (
+                Stage::InstallServices,
+                if imported { "ResumeInstall" } else { "Install" },
+            ),
             (Stage::ConfigureFirewall, "Firewall"),
             (Stage::VerifyHttps, "Start"),
         ] {

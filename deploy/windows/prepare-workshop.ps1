@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Initialize', 'Stop')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Initialize', 'Stop', 'Inspect')][string]$Action,
     [Parameter(Mandatory)][string]$StateDirectory,
     [Parameter(Mandatory)][string]$PostgresBin,
     [Parameter(Mandatory)][string]$CertificateExecutable,
@@ -45,6 +45,16 @@ $hostAdapter = Get-Module host
 $root = & $hostAdapter { param($path) Get-SafePath $path } $StateDirectory
 $bin = & $hostAdapter { param($path) Get-SafePath $path } $PostgresBin
 $cluster = Join-Path $root 'cluster'
+if ($Action -eq 'Inspect') {
+    & $hostAdapter { param($path) Assert-PlainTree $path; Assert-ProtectedParents $path } $root
+    foreach ($relative in 'prepared-workshop.json', 'server.json', 'active-tls.json', 'trusted-ca.pem',
+        'certificate-password', 'postgres-admin-password', 'application-password', 'token-key', 'cluster/PG_VERSION') {
+        if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) { throw 'Preparation is incomplete. Preserve all files for recovery.' }
+    }
+    if ((Get-Content -LiteralPath (Join-Path $cluster 'PG_VERSION') -Raw).Trim() -ne '17' -or
+        (Test-Path -LiteralPath (Join-Path $cluster 'postmaster.pid'))) { throw 'Preparation requires a complete stopped PostgreSQL 17 cluster.' }
+    return
+}
 if ($Action -eq 'Stop') {
     if (Test-Path -LiteralPath (Join-Path $cluster 'postmaster.pid')) {
         & $hostAdapter { param($path) Assert-PlainTree $path } $root

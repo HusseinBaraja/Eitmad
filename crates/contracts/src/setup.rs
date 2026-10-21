@@ -128,6 +128,7 @@ pub struct SetupDesktopHandoff {
 #[serde(rename_all = "camelCase")]
 pub enum GuidedSetupAction {
     Inspect,
+    Retry,
     Client,
     Server,
 }
@@ -141,6 +142,8 @@ pub struct GuidedWindowsSetup {
     pub intended_user_sid: String,
     pub workshop: Option<InitializeWorkshop>,
     pub backup: Option<SetupBackupDestinations>,
+    /// Retry credentials are transient and are never written to the recovery journal.
+    pub owner_password: Option<AccountPassword>,
 }
 
 /// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
@@ -178,6 +181,8 @@ pub enum WindowsInstallStatus {
     Running,
     Succeeded,
     Failed,
+    /// State cannot be proved safe. Preserve it for an operator inspection.
+    Blocked,
 }
 
 /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
@@ -203,4 +208,16 @@ pub struct WindowsInstallationState {
     pub version: u32,
     pub progress: WindowsInstallProgress,
     pub interrupted: bool,
+    pub recovery: WindowsSetupRecovery,
+}
+
+/// Rust decides which action is available; the native shell supplies localized copy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowsSetupRecovery {
+    Retry,
+    OwnerPassword,
+    Wait,
+    InspectManually,
+    Complete,
 }

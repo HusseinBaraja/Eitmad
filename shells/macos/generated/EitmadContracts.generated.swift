@@ -74,14 +74,17 @@ public struct GuidedWindowsSetup: Codable, Sendable {
     public let action: GuidedSetupAction
     public let backup: SetupBackupDestinations?
     public let bundleDirectory, intendedUserSid: String
+    /// Retry credentials are transient and are never written to the recovery journal.
+    public let ownerPassword: String?
     public let version: Int
     public let workshop: InitializeWorkshop?
 
-    public init(action: GuidedSetupAction, backup: SetupBackupDestinations?, bundleDirectory: String, intendedUserSid: String, version: Int, workshop: InitializeWorkshop?) {
+    public init(action: GuidedSetupAction, backup: SetupBackupDestinations?, bundleDirectory: String, intendedUserSid: String, ownerPassword: String?, version: Int, workshop: InitializeWorkshop?) {
         self.action = action
         self.backup = backup
         self.bundleDirectory = bundleDirectory
         self.intendedUserSid = intendedUserSid
+        self.ownerPassword = ownerPassword
         self.version = version
         self.workshop = workshop
     }
@@ -90,6 +93,7 @@ public struct GuidedWindowsSetup: Codable, Sendable {
 public enum GuidedSetupAction: String, Codable, Sendable {
     case client = "client"
     case inspect = "inspect"
+    case retry = "retry"
     case server = "server"
 }
 
@@ -5837,7 +5841,9 @@ public enum WindowsInstallStage: String, Codable, Sendable {
     case verifyHTTPS = "verifyHttps"
 }
 
+/// State cannot be proved safe. Preserve it for an operator inspection.
 public enum WindowsInstallStatus: String, Codable, Sendable {
+    case blocked = "blocked"
     case failed = "failed"
     case running = "running"
     case succeeded = "succeeded"
@@ -5847,13 +5853,24 @@ public enum WindowsInstallStatus: String, Codable, Sendable {
 public struct WindowsInstallationState: Codable, Sendable {
     public let interrupted: Bool
     public let progress: WindowsInstallProgress
+    public let recovery: WindowsSetupRecovery
     public let version: Int
 
-    public init(interrupted: Bool, progress: WindowsInstallProgress, version: Int) {
+    public init(interrupted: Bool, progress: WindowsInstallProgress, recovery: WindowsSetupRecovery, version: Int) {
         self.interrupted = interrupted
         self.progress = progress
+        self.recovery = recovery
         self.version = version
     }
+}
+
+/// Rust decides which action is available; the native shell supplies localized copy.
+public enum WindowsSetupRecovery: String, Codable, Sendable {
+    case complete = "complete"
+    case inspectManually = "inspectManually"
+    case ownerPassword = "ownerPassword"
+    case retry = "retry"
+    case wait = "wait"
 }
 
 /// Release metadata, emitted by offline bundle assembly. It contains no machine settings.

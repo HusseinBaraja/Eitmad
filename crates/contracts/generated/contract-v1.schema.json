@@ -6105,6 +6105,7 @@
       "type": "string",
       "enum": [
         "inspect",
+        "retry",
         "client",
         "server"
       ]
@@ -6130,6 +6131,17 @@
         },
         "intendedUserSid": {
           "type": "string"
+        },
+        "ownerPassword": {
+          "description": "Retry credentials are transient and are never written to the recovery journal.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AccountPassword"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "version": {
           "type": "integer",
@@ -16566,11 +16578,20 @@
       ]
     },
     "WindowsInstallStatus": {
-      "type": "string",
-      "enum": [
-        "running",
-        "succeeded",
-        "failed"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "running",
+            "succeeded",
+            "failed"
+          ]
+        },
+        {
+          "description": "State cannot be proved safe. Preserve it for an operator inspection.",
+          "type": "string",
+          "const": "blocked"
+        }
       ]
     },
     "WindowsInstallationState": {
@@ -16582,6 +16603,9 @@
         "progress": {
           "$ref": "#/definitions/WindowsInstallProgress"
         },
+        "recovery": {
+          "$ref": "#/definitions/WindowsSetupRecovery"
+        },
         "version": {
           "type": "integer",
           "format": "uint32",
@@ -16592,7 +16616,8 @@
       "required": [
         "version",
         "progress",
-        "interrupted"
+        "interrupted",
+        "recovery"
       ]
     },
     "WindowsSetupBundle": {
@@ -16624,6 +16649,17 @@
         "desktopReleaseSha256",
         "serverReleaseSha256",
         "winswSha256"
+      ]
+    },
+    "WindowsSetupRecovery": {
+      "description": "Rust decides which action is available; the native shell supplies localized copy.",
+      "type": "string",
+      "enum": [
+        "retry",
+        "ownerPassword",
+        "wait",
+        "inspectManually",
+        "complete"
       ]
     },
     "WorkOrderFurniture": {

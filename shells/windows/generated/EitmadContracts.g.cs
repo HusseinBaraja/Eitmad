@@ -91,6 +91,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("intendedUserSid")]
         public string IntendedUserSid { get; set; }
 
+        /// <summary>
+        /// Retry credentials are transient and are never written to the recovery journal.
+        /// </summary>
+        [JsonPropertyName("ownerPassword")]
+        public string OwnerPassword { get; set; }
+
         [JsonPropertyName("version")]
         public long Version { get; set; }
 
@@ -5456,6 +5462,9 @@ namespace Eitmad.Contracts
         [JsonPropertyName("progress")]
         public WindowsInstallProgress Progress { get; set; }
 
+        [JsonPropertyName("recovery")]
+        public WindowsSetupRecovery Recovery { get; set; }
+
         [JsonPropertyName("version")]
         public long Version { get; set; }
     }
@@ -5481,7 +5490,7 @@ namespace Eitmad.Contracts
         public string WinswSha256 { get; set; }
     }
 
-    public enum GuidedSetupAction { Client, Inspect, Server };
+    public enum GuidedSetupAction { Client, Inspect, Retry, Server };
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
 
@@ -5590,7 +5599,15 @@ namespace Eitmad.Contracts
 
     public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureBackups, ConfigureFirewall, Elevation, EnrollDesktop, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
 
-    public enum WindowsInstallStatus { Failed, Running, Succeeded };
+    /// <summary>
+    /// State cannot be proved safe. Preserve it for an operator inspection.
+    /// </summary>
+    public enum WindowsInstallStatus { Blocked, Failed, Running, Succeeded };
+
+    /// <summary>
+    /// Rust decides which action is available; the native shell supplies localized copy.
+    /// </summary>
+    public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Wait };
 
     public partial struct ErrorParameterValueValue
     {
@@ -5683,6 +5700,7 @@ namespace Eitmad.Contracts
                 HomeDestinationConverter.Singleton,
                 WindowsInstallStageConverter.Singleton,
                 WindowsInstallStatusConverter.Singleton,
+                WindowsSetupRecoveryConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -5703,6 +5721,8 @@ namespace Eitmad.Contracts
                     return GuidedSetupAction.Client;
                 case "inspect":
                     return GuidedSetupAction.Inspect;
+                case "retry":
+                    return GuidedSetupAction.Retry;
                 case "server":
                     return GuidedSetupAction.Server;
             }
@@ -5718,6 +5738,9 @@ namespace Eitmad.Contracts
                     return;
                 case GuidedSetupAction.Inspect:
                     JsonSerializer.Serialize(writer, "inspect", options);
+                    return;
+                case GuidedSetupAction.Retry:
+                    JsonSerializer.Serialize(writer, "retry", options);
                     return;
                 case GuidedSetupAction.Server:
                     JsonSerializer.Serialize(writer, "server", options);
@@ -8038,6 +8061,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "blocked":
+                    return WindowsInstallStatus.Blocked;
                 case "failed":
                     return WindowsInstallStatus.Failed;
                 case "running":
@@ -8052,6 +8077,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case WindowsInstallStatus.Blocked:
+                    JsonSerializer.Serialize(writer, "blocked", options);
+                    return;
                 case WindowsInstallStatus.Failed:
                     JsonSerializer.Serialize(writer, "failed", options);
                     return;
@@ -8066,6 +8094,55 @@ namespace Eitmad.Contracts
         }
 
         public static readonly WindowsInstallStatusConverter Singleton = new WindowsInstallStatusConverter();
+    }
+
+    internal class WindowsSetupRecoveryConverter : JsonConverter<WindowsSetupRecovery>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsSetupRecovery);
+
+        public override WindowsSetupRecovery Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "complete":
+                    return WindowsSetupRecovery.Complete;
+                case "inspectManually":
+                    return WindowsSetupRecovery.InspectManually;
+                case "ownerPassword":
+                    return WindowsSetupRecovery.OwnerPassword;
+                case "retry":
+                    return WindowsSetupRecovery.Retry;
+                case "wait":
+                    return WindowsSetupRecovery.Wait;
+            }
+            throw new Exception("Cannot unmarshal type WindowsSetupRecovery");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsSetupRecovery value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsSetupRecovery.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case WindowsSetupRecovery.InspectManually:
+                    JsonSerializer.Serialize(writer, "inspectManually", options);
+                    return;
+                case WindowsSetupRecovery.OwnerPassword:
+                    JsonSerializer.Serialize(writer, "ownerPassword", options);
+                    return;
+                case WindowsSetupRecovery.Retry:
+                    JsonSerializer.Serialize(writer, "retry", options);
+                    return;
+                case WindowsSetupRecovery.Wait:
+                    JsonSerializer.Serialize(writer, "wait", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsSetupRecovery");
+        }
+
+        public static readonly WindowsSetupRecoveryConverter Singleton = new WindowsSetupRecoveryConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

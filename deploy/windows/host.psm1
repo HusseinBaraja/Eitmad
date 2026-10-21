@@ -384,15 +384,23 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
     return $settings
 }
 
-function Install-Host($Settings) {
+function Install-Host($Settings, [switch]$ResumeExisting) {
     $root = $Settings.root; $serverId = $Settings.name + 'Server'; $databaseId = $Settings.name + 'Postgres'
     Test-RustConfiguration $root
     foreach ($kind in 'Postgres', 'Server') {
-        if (Get-Service -Name ($Settings.name + $kind) -ErrorAction SilentlyContinue) { throw 'A host service is already installed. Use Start or Uninstall first.' }
+        $service = Get-OwnedService $Settings $kind
+        if ($service) {
+            Close-Service $service
+            if (-not $ResumeExisting) { throw 'A host service is already installed. Use Start or Uninstall first.' }
+        }
     }
     # Demand-start avoids booting a partly configured service.
     foreach ($kind in 'Postgres', 'Server') {
         $id = $Settings.name + $kind
+        if ($ResumeExisting) {
+            $service = Get-OwnedService $Settings $kind
+            if ($service) { Close-Service $service; continue }
+        }
         Ensure-EventSource $id
         $directory = if ($kind -eq 'Postgres') { 'postgres' } else { 'app' }
         $arguments = @('create', $id, 'binPath=', ('"' + (Join-Path $root "$directory/host-service.exe") + '"'),

@@ -11,6 +11,7 @@ public interface IWindowsSetupBridge
 {
     Task<WindowsInstallationState?> InspectAsync();
     Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress);
+    Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress);
     Task OpenDesktopAsync();
 }
 
@@ -25,10 +26,10 @@ public sealed class WindowsSetupBridge : IWindowsSetupBridge
         this.bundleDirectory = Path.GetFullPath(bundleDirectory);
         backend = Path.Combine(this.bundleDirectory, "server", "application", "eitmad-server.exe");
     }
-    private GuidedWindowsSetup Request(GuidedSetupAction action, InitializeWorkshop? workshop = null, SetupBackupDestinations? backup = null) =>
+    private GuidedWindowsSetup Request(GuidedSetupAction action, InitializeWorkshop? workshop = null, SetupBackupDestinations? backup = null, string? ownerPassword = null) =>
         new() { Version = 1, Action = action, BundleDirectory = bundleDirectory,
             IntendedUserSid = WindowsIdentity.GetCurrent().User?.Value ?? throw new InvalidOperationException("Windows identity unavailable."),
-            Workshop = workshop!, Backup = backup! };
+            Workshop = workshop!, Backup = backup!, OwnerPassword = ownerPassword! };
     private Process Start() => Process.Start(new ProcessStartInfo(backend) {
         ArgumentList = { "guided-windows-setup" }, UseShellExecute = false, CreateNoWindow = true,
         RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
@@ -46,14 +47,19 @@ public sealed class WindowsSetupBridge : IWindowsSetupBridge
         if (child.ExitCode != 0 || output is null) throw new IOException("Installation state unavailable.");
         return JsonSerializer.Deserialize<WindowsInstallationState>(output, Converter.Settings);
     }
-    public async Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress)
+    public Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress) =>
+        RunAsync(action, workshop, backup, null, progress);
+    public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress) =>
+        RunAsync(GuidedSetupAction.Retry, null, null, ownerPassword, progress);
+    private async Task RunAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, string? ownerPassword, IProgress<WindowsInstallProgress> progress)
     {
         using var payload = await Task.Run(() => OfflinePayloadLease.AcquireAsync(bundleDirectory, Path.Combine(bundleDirectory, "setup", "EitmadSetup.exe")));
         using var child = Start();
         var errors = child.StandardError.BaseStream.CopyToAsync(Stream.Null);
-        var request = Request(action, workshop, backup);
+        var request = Request(action, workshop, backup, ownerPassword);
+        ownerPassword = null;
         try { await JsonSerializer.SerializeAsync(child.StandardInput.BaseStream, request, Converter.Settings); }
-        finally { if (workshop is not null) workshop.OwnerPassword = ""; request.Workshop = null!; child.StandardInput.Close(); }
+        finally { if (workshop is not null) workshop.OwnerPassword = ""; request.Workshop = null!; request.OwnerPassword = null!; child.StandardInput.Close(); }
         long sequence = 0;
         WindowsInstallProgress? last = null;
         while (await ReadBoundedLineAsync(child.StandardOutput) is { } line)

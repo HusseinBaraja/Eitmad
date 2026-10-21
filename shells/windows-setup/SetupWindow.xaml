@@ -57,11 +57,19 @@
       <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,12"><TextBlock Text="{Binding}" FontSize="15"/></Border>
      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
     </StackPanel>
+    <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed" Margin="0,18,0,0">
+     <TextBlock Text="استكمال الإعداد المحفوظ" Style="{StaticResource SectionTitle}"/>
+     <TextBlock Text="سيُفحص التثبيت قبل المتابعة. تبقى الورشة وهوية الجهاز والبيانات المحفوظة كما هي." Margin="0,8,0,12"/>
+     <controls:FormField x:Name="RecoveryPasswordField" Label="كلمة مرور المالك الحالية" IsRequired="True" Visibility="Collapsed">
+      <PasswordBox x:Name="RecoveryPassword" Padding="12,8" MaxLength="256" AutomationProperties.Name="كلمة مرور المالك لاستكمال الإعداد"/>
+     </controls:FormField>
+    </StackPanel>
     <TextBlock x:Name="SetupNotice" Text="جارٍ فحص وجود إعداد سابق…" FontSize="14" Margin="0,18,0,0" AutomationProperties.LiveSetting="Assertive"/>
    </StackPanel>
   </ScrollViewer>
   <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,12,0,0">
    <Button x:Name="InstallButton" Content="بدء التثبيت" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="InstallClick" AutomationProperties.Name="بدء تثبيت الاعتماد"/>
+   <Button x:Name="RetryButton" Content="فحص واستكمال الإعداد" Style="{StaticResource PrimaryButton}" Visibility="Collapsed" Click="RetryClick" AutomationProperties.Name="فحص التثبيت واستكمال الإعداد المحفوظ"/>
    <Button x:Name="InspectButton" Content="فحص حالة الإعداد" Style="{StaticResource SecondaryButton}" Click="InspectClick" Margin="10,0,0,0" AutomationProperties.Name="فحص حالة الإعداد المحفوظة"/>
    <Button x:Name="OpenDesktopButton" Content="فتح الاعتماد" Style="{StaticResource PrimaryButton}" Click="OpenDesktopClick" Visibility="Collapsed" Margin="10,0,0,0" AutomationProperties.Name="فتح تطبيق الاعتماد وتسجيل الدخول"/>
   </WrapPanel>

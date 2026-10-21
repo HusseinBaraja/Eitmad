@@ -65,9 +65,6 @@ async fn enroll(
 ) -> Result<(), PairingError> {
     let claimed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM control.first_desktop_claims WHERE tenant_id=$1) OR EXISTS(SELECT 1 FROM control.account_devices WHERE tenant_id=$1)")
         .bind(tenant.value()).fetch_one(&mut **tx).await?;
-    if claimed {
-        return Err(PairingError::Denied);
-    }
     let username = canonical_username(&request.username).map_err(|_| PairingError::Denied)?;
     let row = sqlx::query("SELECT a.account_id,a.password_hash FROM control.accounts a JOIN control.relationship_tuples r ON r.tenant_id=a.tenant_id AND r.subject_principal_id=a.user_id WHERE a.tenant_id=$1 AND a.canonical_username=$2 AND a.status='active' AND (a.locked_until IS NULL OR a.locked_until<=$3) AND r.relation='eitmad.relation.organization.owner.v1' AND r.object_kind='tenant' AND r.object_id=$1 FOR UPDATE OF a FOR SHARE OF r")
         .bind(tenant.value()).bind(username).bind(now.0).fetch_optional(&mut **tx).await?.ok_or(PairingError::Denied)?;
@@ -86,6 +83,20 @@ async fn enroll(
     }
     let organization = OrganizationId::new(scopes[0].get("organization_id"));
     let branch = ScopeId::new(scopes[0].get("branch_id"));
+    if claimed {
+        // The private setup channel can retry after commit but before its reply.
+        // Reauthenticate and require the exact active account, key, and scope;
+        // a different or revoked device must never acquire the first claim.
+        let same: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM control.first_desktop_claims c JOIN control.paired_devices p ON p.tenant_id=c.tenant_id JOIN control.devices d ON d.device_id=p.device_id JOIN control.account_devices a ON a.tenant_id=p.tenant_id AND a.device_id=p.device_id WHERE c.tenant_id=$1 AND p.device_id=$2 AND a.account_id=$3 AND d.public_key=$4 AND p.organization_id=$5 AND p.branch_id=$6 AND p.revoked_at IS NULL AND d.revoked_at IS NULL)")
+            .bind(tenant.value()).bind(request.device_id.value()).bind(row.get::<Uuid, _>("account_id"))
+            .bind(&key).bind(organization.value()).bind(branch.value())
+            .fetch_one(&mut **tx).await?;
+        return if same {
+            Ok(())
+        } else {
+            Err(PairingError::Denied)
+        };
+    }
     register_device(
         tx,
         tenant,
