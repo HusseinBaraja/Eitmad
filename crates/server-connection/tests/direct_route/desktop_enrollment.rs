@@ -4,6 +4,8 @@ use eitmad_server_connection::{DesktopConnectionSettings, DesktopEnrollment};
 
 #[path = "idle_customer_sync.rs"]
 mod idle_customer_sync;
+#[path = "pairing_recovery.rs"]
+mod pairing_recovery;
 
 const PASSWORD: &str = "synthetic-test-password-123";
 
@@ -117,6 +119,12 @@ impl Drop for Installation {
             SecretReferenceId::new(device.value()),
         );
         self.secrets.delete(&id).unwrap();
+        self.secrets
+            .delete(&SecretId::new(
+                SecretKind::parse("desktop-pairing-pending").unwrap(),
+                SecretReferenceId::new(device.value()),
+            ))
+            .unwrap();
         if let Ok(Some(settings)) = DesktopConnectionSettings::load(self.directory.path()) {
             let installer = self.store.existing_local_authorization_context().unwrap();
             for account in self

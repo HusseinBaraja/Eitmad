@@ -3881,6 +3881,7 @@ public struct DesktopOnboardingRequest: Codable, Sendable {
     }
 }
 
+/// Explicitly abandon only the pending exchange; retain identity, trust, and data.
 // MARK: - DesktopOnboardingAction
 public struct DesktopOnboardingAction: Codable, Sendable {
     public let kind: DesktopOnboardingActionKind
@@ -3893,6 +3894,7 @@ public struct DesktopOnboardingAction: Codable, Sendable {
 }
 
 public enum DesktopOnboardingActionKind: String, Codable, Sendable {
+    case discardPendingPairing = "discardPendingPairing"
     case openPairing = "openPairing"
     case pair = "pair"
     case state = "state"
@@ -4144,11 +4146,14 @@ public struct DesktopOnboardingState: Codable, Sendable {
     public let code: String?
     public let expiresAt: Int?
     public let paired: Bool
+    /// The saved completion must be retried against this server until explicitly discarded.
+    public let pendingPairingServer: String?
 
-    public init(code: String?, expiresAt: Int?, paired: Bool) {
+    public init(code: String?, expiresAt: Int?, paired: Bool, pendingPairingServer: String?) {
         self.code = code
         self.expiresAt = expiresAt
         self.paired = paired
+        self.pendingPairingServer = pendingPairingServer
     }
 }
 

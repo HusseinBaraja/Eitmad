@@ -4014,6 +4014,20 @@
           ]
         },
         {
+          "description": "Explicitly abandon only the pending exchange; retain identity, trust, and data.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "discardPendingPairing"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "kind": {
@@ -4106,6 +4120,14 @@
         },
         "paired": {
           "type": "boolean"
+        },
+        "pendingPairingServer": {
+          "description": "The saved completion must be retried against this server until explicitly discarded.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "additionalProperties": false,

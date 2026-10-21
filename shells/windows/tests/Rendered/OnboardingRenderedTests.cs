@@ -148,7 +148,9 @@ public sealed class OnboardingRenderedTests
     {
         var engine = new FakeEngine { DiscoveryHandler = () => Task.FromResult(new ServerDiscoveryResult {
             Status = DiscoveryStatus.Complete, Servers = [new DiscoveredServer { ServerId = Guid.NewGuid(), Address = "192.168.40.20", Port = 58443, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeMilliseconds() }] }),
-            OnboardingHandler = _ => Task.FromException<DesktopOnboardingState>(new IOException("Synthetic rejection")) };
+            OnboardingHandler = action => action.Kind == DesktopOnboardingActionKind.State
+                ? Task.FromResult(new DesktopOnboardingState { Paired = false })
+                : Task.FromException<DesktopOnboardingState>(new IOException("Synthetic rejection")) };
         WpfTestHost.RunWindow(() => new Window { Width = width, Height = height, MinWidth = 720, MinHeight = 560,
             FlowDirection = FlowDirection.RightToLeft, Language = System.Windows.Markup.XmlLanguage.GetLanguage("ar-YE"),
             Content = new ScrollViewer { Content = new ServerSelectionView { Engine = engine, Margin = new Thickness(28), MaxWidth = 760 }, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } }, window => {

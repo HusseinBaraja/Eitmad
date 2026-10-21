@@ -91,9 +91,16 @@ impl DesktopServerAuthentication for DesktopOnlineAuthentication {
                     .is_some(),
             code: None,
             expires_at: None,
+            pending_pairing_server: None,
         };
         match action {
-            Action::State => (),
+            Action::State => {
+                if !state.paired {
+                    state.pending_pairing_server = enrollment
+                        .pending_pairing_server()
+                        .map_err(|_| DesktopAuthenticationError::Failed)?;
+                }
+            }
             Action::Pair { candidate, code } => {
                 if actor.is_some() || state.paired {
                     return Err(DesktopAuthenticationError::Failed);
@@ -102,6 +109,16 @@ impl DesktopServerAuthentication for DesktopOnlineAuthentication {
                     .pair(candidate, code)
                     .map_err(|_| DesktopAuthenticationError::Failed)?;
                 state.paired = true;
+                state.pending_pairing_server = None;
+            }
+            Action::DiscardPendingPairing => {
+                if actor.is_some() || state.paired {
+                    return Err(DesktopAuthenticationError::Failed);
+                }
+                enrollment
+                    .discard_pending_pairing()
+                    .map_err(|_| DesktopAuthenticationError::Failed)?;
+                state.pending_pairing_server = None;
             }
             Action::OpenPairing => {
                 let actor = actor.ok_or(DesktopAuthenticationError::Failed)?;

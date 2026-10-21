@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-20"
+last_verified: "2026-10-21"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -181,11 +181,11 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts local_own
 
 ## Enroll or recover a Windows desktop
 
-Approve a new device through [Rust pairing](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) before ordinary sign-in. The onboarding UI is a separate task. Existing registered devices and high-entropy invitation activation remain supported. Manual connection entry alone cannot approve an unknown device.
+Approve a new device through [Rust pairing](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) before ordinary sign-in. The [native pairing and recovery controls](prepare-windows-workshop.md#use-native-arabic-setup) use the same Rust authority. Existing registered devices and high-entropy invitation activation remain supported. Manual connection entry alone cannot approve an unknown device.
 
 For the first server desktop, use `DesktopEnrollment::first_desktop_request` to create the client key and signed public request locally. Pass that secret-bearing `LoginRequest` JSON to `eitmad-server enroll-first-desktop` through private stdin on the server, with its protected local database connection. Keep the client private key in its secret store. Then sign in using the installation's trusted public CA and endpoint. This local command succeeds only once, requires the active Owner password, and fails closed on audit failure. Do not expose it over HTTP or place its input in command arguments, logs, or chat.
 
-For a discovered client, an authenticated Owner opens a code with `POST /v1/pairing/open`. The Rust client calls `DesktopEnrollment::pair`, then uses its returned connection settings for account sign-in. A code expires after three minutes or five starts and approves only one device. The exact pending completion can recover a lost receipt; use `discard_pending_pairing` only when abandoning the exchange. Preserve the runtime directory and all keys.
+For a discovered client, an authenticated Owner opens a code with `POST /v1/pairing/open`. The Rust client calls `DesktopEnrollment::pair`, then uses its returned connection settings for account sign-in. A code expires after three minutes or five starts and approves only one device. The exact pending completion can recover a lost receipt after expiry. Retry it first. Use **ترك الطلب واستخدام رمز جديد** (`DiscardPendingPairing`) only for explicit abandonment, then request a fresh Owner code. Abandonment removes only the pending exchange; it does not revoke server approval, replace committed trust, or change the device key. If approval already committed and its receipt was abandoned, another exchange is denied for that device. Preserve the runtime directory and all keys instead of replacing the identity.
 
 Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
 

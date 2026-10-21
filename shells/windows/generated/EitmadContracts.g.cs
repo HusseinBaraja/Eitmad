@@ -3473,6 +3473,9 @@ namespace Eitmad.Contracts
         public Guid RequestId { get; set; }
     }
 
+    /// <summary>
+    /// Explicitly abandon only the pending exchange; retain identity, trust, and data.
+    /// </summary>
     public partial class DesktopOnboardingAction
     {
         [JsonPropertyName("kind")]
@@ -3776,6 +3779,12 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("paired")]
         public bool Paired { get; set; }
+
+        /// <summary>
+        /// The saved completion must be retried against this server until explicitly discarded.
+        /// </summary>
+        [JsonPropertyName("pendingPairingServer")]
+        public Guid? PendingPairingServer { get; set; }
     }
 
     public partial class DesktopSessionResponse
@@ -5565,7 +5574,7 @@ namespace Eitmad.Contracts
 
     public enum PermissionDecision { Denied, Granted };
 
-    public enum DesktopOnboardingActionKind { OpenPairing, Pair, State };
+    public enum DesktopOnboardingActionKind { DiscardPendingPairing, OpenPairing, Pair, State };
 
     public enum PeerKind { DiagnosticClient, Engine, Server, Shell };
 
@@ -7440,6 +7449,8 @@ namespace Eitmad.Contracts
             var value = reader.GetString();
             switch (value)
             {
+                case "discardPendingPairing":
+                    return DesktopOnboardingActionKind.DiscardPendingPairing;
                 case "openPairing":
                     return DesktopOnboardingActionKind.OpenPairing;
                 case "pair":
@@ -7454,6 +7465,9 @@ namespace Eitmad.Contracts
         {
             switch (value)
             {
+                case DesktopOnboardingActionKind.DiscardPendingPairing:
+                    JsonSerializer.Serialize(writer, "discardPendingPairing", options);
+                    return;
                 case DesktopOnboardingActionKind.OpenPairing:
                     JsonSerializer.Serialize(writer, "openPairing", options);
                     return;

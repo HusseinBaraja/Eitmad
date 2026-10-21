@@ -250,7 +250,14 @@ impl DesktopEnrollment {
                 serde_json::from_slice::<DeviceId>(&bytes).map_err(|_| authentication_failure())?
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                if retained.is_some() || self.paired_connection()?.is_some() {
+                if retained.is_some()
+                    || self.paired_connection()?.is_some()
+                    || self
+                        .directory
+                        .join("desktop-pairing-pending.json")
+                        .try_exists()
+                        .map_err(|_| authentication_failure())?
+                {
                     return Err(authentication_failure());
                 }
                 let device = existing.unwrap_or_else(|| DeviceId::new(Uuid::new_v4()));
@@ -303,6 +310,11 @@ impl DesktopEnrollment {
             } else {
                 if DesktopConnectionSettings::load(&self.directory)?.is_some()
                     || self.paired_connection()?.is_some()
+                    || self
+                        .directory
+                        .join("desktop-pairing-pending.json")
+                        .try_exists()
+                        .map_err(|_| authentication_failure())?
                     || self
                         .store
                         .has_local_installation()

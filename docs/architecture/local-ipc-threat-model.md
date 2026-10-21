@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "security and Rust engine maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-21"
 review_triggers:
   - "local peer authentication, pipe discovery, identity, authorization, transport, or production packaging changes"
 keywords:
@@ -27,6 +27,7 @@ Protected assets are domain data, scope boundaries, session identity, command in
 | Threat | Current control | Residual risk |
 | --- | --- | --- |
 | Connect to a guessed pipe | Unique endpoint plus 256-bit token sent only through inherited standard input | Same-account malware or a privileged debugger can inspect parent memory or handles |
+| Replace an uncertain pairing through recovery | The onboarding capability requires the process handshake. Rust permits explicit pending-exchange abandonment only before account sign-in and before a committed local connection exists. Cleanup retains the device key, data, and trust; missing pending identity/key material fails closed. Retry reuses the signed completion | Explicit abandonment can lose receipt recovery for an already committed server approval. It does not revoke approval or permit a replacement identity; see [pairing recovery](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) |
 | Assert another tenant or role | The handshake returns a device principal without the installation owner relation. Protocol 1.7 sign-in resolves a provisioned account in Rust and returns its distinct user principal. Protocol 1.8 account operations authorize the Manager relationship in Rust | Control-plane account import remains a trusted Rust operation |
 | Replay a request on another connection | Exact engine-returned user context is bound to the signed-in connection and checked against the durable session before dispatch | The process-lifetime bootstrap token permits approved same-generation reconnect, but cannot grant user authority |
 | Protocol downgrade or drift | Mandatory `PeerHello`, generated bindings, a protocol 1.7 gate on desktop sessions, and a protocol 1.8 gate on account administration | Old shell versions need an update before account administration |

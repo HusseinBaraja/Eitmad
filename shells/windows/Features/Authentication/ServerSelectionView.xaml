@@ -3,7 +3,7 @@
  xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" FlowDirection="RightToLeft" Language="ar-YE">
  <StackPanel>
   <TextBlock Text="ربط الجهاز بالورشة" Style="{StaticResource SectionTitle}"/>
-  <TextBlock Text="افتح المستخدمون ثم ربط جهاز من حساب مالك المنشأة على جهاز متصل. أدخل الرمز هنا، ثم سجل الدخول بحسابك الشخصي." Margin="0,8,0,12"/>
+  <TextBlock Text="افتح المستخدمون ثم ربط جهاز من حساب مالك المنشأة على جهاز متصل. أدخل الرمز هنا، ثم سجل الدخول بحسابك الشخصي." TextWrapping="Wrap" Margin="0,8,0,12"/>
   <Button x:Name="DiscoverButton" Content="البحث عن الخوادم" Style="{StaticResource SecondaryButton}" Click="DiscoverClick" HorizontalAlignment="Right" AutomationProperties.Name="البحث عن خوادم الورشة"/>
   <ListBox x:Name="ServersList" Margin="0,12,0,12" MinHeight="76" MaxHeight="180" HorizontalContentAlignment="Stretch"
     AutomationProperties.Name="الخوادم المتاحة" SelectionChanged="SelectionChanged">
@@ -13,10 +13,14 @@
     <TextBlock Text="{Binding Detail}" FontSize="12"/>
    </StackPanel></DataTemplate></ListBox.ItemTemplate>
   </ListBox>
-  <controls:FormField Label="رمز الربط من مالك المنشأة">
+  <controls:FormField x:Name="CodeField" Label="رمز الربط من مالك المنشأة">
    <PasswordBox x:Name="PairingCode" MaxLength="8" FlowDirection="LeftToRight" FontSize="20" Padding="12,8" KeyDown="CodeKeyDown" AutomationProperties.Name="رمز ربط الجهاز"/>
   </controls:FormField>
   <Button x:Name="PairButton" Content="ربط هذا الجهاز" IsEnabled="False" Style="{StaticResource PrimaryButton}" Click="PairClick" Margin="0,12,0,0" AutomationProperties.Name="ربط الجهاز بالخادم المحدد"/>
-  <TextBlock x:Name="ConnectionNotice" Text="اختر البحث لعرض الخوادم على شبكة خاصة. لا يمنح الربط صلاحيات حساب." Margin="0,12,0,12" AutomationProperties.LiveSetting="Polite"/>
+  <TextBlock x:Name="ConnectionNotice" Text="اختر البحث لعرض الخوادم على شبكة خاصة. لا يمنح الربط صلاحيات حساب." TextWrapping="Wrap" Margin="0,12,0,12" AutomationProperties.LiveSetting="Polite"/>
+  <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed">
+   <TextBlock Text="إذا انقطع الاتصال، أعد المحاولة أولًا. إذا انتهت صلاحية الرمز أو أردت ترك الطلب، استخدم رمزًا جديدًا. تبقى هوية الجهاز وبياناته وأي موافقة سابقة من الخادم محفوظة." TextWrapping="Wrap" Margin="0,0,0,8"/>
+   <Button x:Name="DiscardButton" Content="ترك الطلب واستخدام رمز جديد" Style="{StaticResource SecondaryButton}" Click="DiscardClick" HorizontalAlignment="Right" AutomationProperties.Name="ترك طلب الربط المحفوظ واستخدام رمز جديد"/>
+  </StackPanel>
  </StackPanel>
 </UserControl>

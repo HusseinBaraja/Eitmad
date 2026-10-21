@@ -19,6 +19,8 @@ pub enum DesktopOnboardingAction {
         candidate: DiscoveredServer,
         code: String,
     },
+    /// Explicitly abandon only the pending exchange; retain identity, trust, and data.
+    DiscardPendingPairing,
     OpenPairing,
 }
 impl std::fmt::Debug for DesktopOnboardingAction {
@@ -26,6 +28,7 @@ impl std::fmt::Debug for DesktopOnboardingAction {
         f.write_str(match self {
             Self::State => "State",
             Self::Pair { .. } => "Pair([redacted])",
+            Self::DiscardPendingPairing => "DiscardPendingPairing",
             Self::OpenPairing => "OpenPairing",
         })
     }
@@ -41,6 +44,8 @@ pub struct DesktopOnboardingRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DesktopOnboardingState {
     pub paired: bool,
+    /// The saved completion must be retried against this server until explicitly discarded.
+    pub pending_pairing_server: Option<crate::discovery::ServerInstallationId>,
     pub code: Option<String>,
     pub expires_at: Option<crate::transport::UnixMillis>,
 }

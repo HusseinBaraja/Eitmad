@@ -2210,6 +2210,7 @@ mod tests {
                 self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(DesktopOnboardingState {
                     paired: true,
+                    pending_pairing_server: None,
                     code: Some("synthetic-code".into()),
                     expires_at: None,
                 })

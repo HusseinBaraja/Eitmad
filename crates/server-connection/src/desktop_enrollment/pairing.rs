@@ -48,6 +48,10 @@ impl DesktopEnrollment {
             return Err(authentication_failure());
         }
         let retained = DesktopConnectionSettings::load(&self.directory)?;
+        // A completed pairing is not a pending exchange or permission to replace trust.
+        if self.paired_connection()?.is_some() {
+            return Err(authentication_failure());
+        }
         let (device, route) = self.device(retained.as_ref())?;
         let key = self.signing_key(device, &route)?;
         let pending_id = SecretId::new(
@@ -134,6 +138,14 @@ impl DesktopEnrollment {
                 session_key: stored.session_key.clone(),
             })
         } else {
+            if self
+                .directory
+                .join("desktop-pairing-pending.json")
+                .try_exists()
+                .map_err(|_| authentication_failure())?
+            {
+                return Err(authentication_failure());
+            }
             let config = bootstrap(candidate)?;
             let offer: PairingOffer = exchange(&config, "/v1/pairing/offer", &(), None)?;
             if offer.identity.server_id != candidate.server_id
@@ -194,7 +206,17 @@ impl DesktopEnrollment {
             .lock()
             .map_err(|_| authentication_failure())?;
         let retained = DesktopConnectionSettings::load(&self.directory)?;
-        let (device, _) = self.device(retained.as_ref())?;
+        if !self
+            .directory
+            .join("desktop-device.json")
+            .try_exists()
+            .map_err(|_| authentication_failure())?
+        {
+            return Err(authentication_failure());
+        }
+        let (device, route) = self.device(retained.as_ref())?;
+        // Do not erase the last evidence that a missing key belongs to an uncertain exchange.
+        let _key = self.signing_key(device, &route)?;
         let id = SecretId::new(
             SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
             SecretReferenceId::new(device.value()),
@@ -203,6 +225,50 @@ impl DesktopEnrollment {
             .delete(&id)
             .map_err(|_| authentication_failure())?;
         remove_pending_file(&self.directory)
+    }
+
+    /// Identifies the saved completion without exposing its transcript or session secret.
+    /// Expiry does not remove it: a committed server result can still return its receipt.
+    /// # Errors
+    /// Fails closed on damaged pending state or unavailable identity/secret storage.
+    pub fn pending_pairing_server(
+        &self,
+    ) -> Result<Option<eitmad_contracts::discovery::ServerInstallationId>, TransportFailure> {
+        let _owner = self
+            .admission
+            .lock()
+            .map_err(|_| authentication_failure())?;
+        let path = self.directory.join("desktop-pairing-pending.json");
+        let bytes = match read_pairing_file(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(authentication_failure()),
+        };
+        let device: DeviceId = serde_json::from_slice(
+            &fs::read(self.directory.join("desktop-device.json"))
+                .map_err(|_| authentication_failure())?,
+        )
+        .map_err(|_| authentication_failure())?;
+        let id = SecretId::new(
+            SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
+            SecretReferenceId::new(device.value()),
+        );
+        let secret = self
+            .secrets
+            .get(&id)
+            .map_err(|_| authentication_failure())?
+            .ok_or_else(authentication_failure)?;
+        let stored: PendingSecret =
+            serde_json::from_slice(secret.expose_secret()).map_err(|_| authentication_failure())?;
+        if Sha256::digest(&bytes).as_slice() != stored.request_hash {
+            return Err(authentication_failure());
+        }
+        let request: CompletePairing =
+            serde_json::from_slice(&bytes).map_err(|_| authentication_failure())?;
+        if request.binding.device_id != device {
+            return Err(authentication_failure());
+        }
+        Ok(Some(request.binding.offer.identity.server_id))
     }
 
     /// Creates the private local first-desktop enrollment request. The seed remains in this client.
