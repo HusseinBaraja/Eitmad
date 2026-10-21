@@ -5,6 +5,7 @@ fn request() -> DiscoverServers {
     DiscoverServers {
         request_id: RequestId::new(Uuid::new_v4()),
         correlation_id: CorrelationId::new(Uuid::new_v4()),
+        selected_server_id: None,
     }
 }
 fn offer(nonce: Uuid, server_id: ServerInstallationId, boot: Uuid) -> Vec<u8> {
@@ -392,4 +393,111 @@ async fn responder_rebinds_after_private_address_change_with_the_same_process_no
     UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port))
         .await
         .unwrap();
+}
+
+#[tokio::test(start_paused = true)]
+async fn revalidation_after_code_entry_beyond_lease_uses_a_new_offer_for_the_same_identity() {
+    let selected = ServerInstallationId::new(Uuid::new_v4());
+    let nonce = Uuid::new_v4();
+    let boot = Uuid::new_v4();
+    let mut cache = Candidates::default();
+    cache.accept(
+        &offer(nonce, selected, boot),
+        Ipv4Addr::new(192, 168, 40, 2),
+        nonce,
+        Instant::now(),
+    );
+    tokio::time::advance(Duration::from_secs(16)).await;
+    assert!(cache.project(Instant::now(), unix_now()).is_empty());
+
+    let nonce = Uuid::new_v4();
+    cache.accept(
+        &offer(nonce, selected, boot),
+        Ipv4Addr::new(192, 168, 40, 3),
+        nonce,
+        Instant::now(),
+    );
+    let mut found = result(&request(), DiscoveryStatus::Complete);
+    found.servers = cache.project(Instant::now(), unix_now());
+    let refreshed = revalidate(found, Some(selected));
+    assert_eq!(refreshed.status, DiscoveryStatus::Complete);
+    assert_eq!(refreshed.servers.len(), 1);
+    assert_eq!(refreshed.servers[0].server_id, selected);
+    assert_eq!(refreshed.servers[0].address, "192.168.40.3");
+    assert!(refreshed.servers[0].expires_at.0 > unix_now().0);
+}
+
+#[test]
+fn revalidation_never_substitutes_another_identity_or_accepts_a_conflicting_claim() {
+    let selected = ServerInstallationId::new(Uuid::new_v4());
+    let nonce = Uuid::new_v4();
+    let address = Ipv4Addr::new(192, 168, 40, 2);
+    let mut cache = Candidates::default();
+    cache.accept(
+        &offer(
+            nonce,
+            ServerInstallationId::new(Uuid::new_v4()),
+            Uuid::new_v4(),
+        ),
+        address,
+        nonce,
+        Instant::now(),
+    );
+    let mut found = result(&request(), DiscoveryStatus::Complete);
+    found.servers = cache.project(Instant::now(), unix_now());
+    let missing = revalidate(found, Some(selected));
+    assert_eq!(missing.status, DiscoveryStatus::ServerMissing);
+    assert!(missing.servers.is_empty());
+
+    cache.accept(
+        &offer(nonce, selected, Uuid::new_v4()),
+        address,
+        nonce,
+        Instant::now(),
+    );
+    cache.accept(
+        &offer(nonce, selected, Uuid::new_v4()),
+        Ipv4Addr::new(192, 168, 40, 3),
+        nonce,
+        Instant::now(),
+    );
+    let mut found = result(&request(), DiscoveryStatus::Complete);
+    found.servers = cache.project(Instant::now(), unix_now());
+    let conflict = revalidate(found, Some(selected));
+    assert_eq!(conflict.status, DiscoveryStatus::IdentityConflict);
+    assert!(conflict.servers.is_empty());
+}
+
+#[test]
+fn revalidation_discards_partial_results_and_expired_offers() {
+    let selected = ServerInstallationId::new(Uuid::new_v4());
+    let candidate = DiscoveredServer {
+        server_id: selected,
+        address: "192.168.40.2".into(),
+        port: 58443,
+        expires_at: UnixMillis(unix_now().0 + 15_000),
+        identity_conflict: false,
+    };
+    for status in [
+        DiscoveryStatus::Cancelled,
+        DiscoveryStatus::NetworkChanged,
+        DiscoveryStatus::Unavailable,
+        DiscoveryStatus::LimitReached,
+        DiscoveryStatus::Busy,
+        DiscoveryStatus::AuthenticationRequired,
+    ] {
+        let mut found = result(&request(), status);
+        found.servers.push(candidate.clone());
+        let refreshed = revalidate(found, Some(selected));
+        assert_eq!(refreshed.status, status);
+        assert!(refreshed.servers.is_empty());
+    }
+    let mut found = result(&request(), DiscoveryStatus::Complete);
+    found.servers.push(DiscoveredServer {
+        expires_at: UnixMillis(0),
+        ..candidate
+    });
+    let refreshed = revalidate(found, Some(selected));
+    assert_eq!(refreshed.status, DiscoveryStatus::ServerMissing);
+    assert!(refreshed.servers.is_empty());
 }

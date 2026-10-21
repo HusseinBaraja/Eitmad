@@ -3399,6 +3399,12 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("requestId")]
         public Guid RequestId { get; set; }
+
+        /// <summary>
+        /// Revalidate this untrusted identity before pairing; never substitute another server.
+        /// </summary>
+        [JsonPropertyName("selectedServerId")]
+        public Guid? SelectedServerId { get; set; }
     }
 
     public partial class CommandEnvelope
@@ -5590,7 +5596,7 @@ namespace Eitmad.Contracts
 
     public enum HandshakeOutcomeStatus { Accepted, Rejected };
 
-    public enum DiscoveryStatus { AuthenticationRequired, Busy, Cancelled, Complete, LimitReached, NetworkChanged, Unavailable };
+    public enum DiscoveryStatus { AuthenticationRequired, Busy, Cancelled, Complete, IdentityConflict, LimitReached, NetworkChanged, ServerMissing, Unavailable };
 
     /// <summary>
     /// Cached projections must be cleared and queried again after a policy change.
@@ -7769,10 +7775,14 @@ namespace Eitmad.Contracts
                     return DiscoveryStatus.Cancelled;
                 case "complete":
                     return DiscoveryStatus.Complete;
+                case "identityConflict":
+                    return DiscoveryStatus.IdentityConflict;
                 case "limitReached":
                     return DiscoveryStatus.LimitReached;
                 case "networkChanged":
                     return DiscoveryStatus.NetworkChanged;
+                case "serverMissing":
+                    return DiscoveryStatus.ServerMissing;
                 case "unavailable":
                     return DiscoveryStatus.Unavailable;
             }
@@ -7795,11 +7805,17 @@ namespace Eitmad.Contracts
                 case DiscoveryStatus.Complete:
                     JsonSerializer.Serialize(writer, "complete", options);
                     return;
+                case DiscoveryStatus.IdentityConflict:
+                    JsonSerializer.Serialize(writer, "identityConflict", options);
+                    return;
                 case DiscoveryStatus.LimitReached:
                     JsonSerializer.Serialize(writer, "limitReached", options);
                     return;
                 case DiscoveryStatus.NetworkChanged:
                     JsonSerializer.Serialize(writer, "networkChanged", options);
+                    return;
+                case DiscoveryStatus.ServerMissing:
+                    JsonSerializer.Serialize(writer, "serverMissing", options);
                     return;
                 case DiscoveryStatus.Unavailable:
                     JsonSerializer.Serialize(writer, "unavailable", options);

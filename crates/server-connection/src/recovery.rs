@@ -376,7 +376,7 @@ fn discover(
     let mut changed = control.0.changed.subscribe();
     control.check(generation)?;
     runtime.block_on(async {
-        let request = DiscoverServers { request_id: RequestId::new(Uuid::new_v4()), correlation_id: CorrelationId::new(Uuid::new_v4()) };
+        let request = DiscoverServers { selected_server_id: None, request_id: RequestId::new(Uuid::new_v4()), correlation_id: CorrelationId::new(Uuid::new_v4()) };
         let (_stop, cancellation) = watch::channel(false);
         tokio::select! {
             biased;

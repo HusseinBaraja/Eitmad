@@ -16,6 +16,8 @@ pub enum DiscoveryStatus {
     Busy,
     AuthenticationRequired,
     LimitReached,
+    ServerMissing,
+    IdentityConflict,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -35,6 +37,8 @@ pub struct DiscoveredServer {
 pub struct DiscoverServers {
     pub request_id: RequestId,
     pub correlation_id: CorrelationId,
+    /// Revalidate this untrusted identity before pairing; never substitute another server.
+    pub selected_server_id: Option<ServerInstallationId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

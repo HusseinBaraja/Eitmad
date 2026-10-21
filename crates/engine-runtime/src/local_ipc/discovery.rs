@@ -68,6 +68,7 @@ mod tests {
         DiscoverServers {
             request_id: RequestId::new(uuid::Uuid::new_v4()),
             correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
+            selected_server_id: None,
         }
     }
     #[tokio::test]

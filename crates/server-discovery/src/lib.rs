@@ -59,13 +59,40 @@ pub async fn discover(
     let deadline = Instant::now() + SCAN_TIME + Duration::from_secs(1);
     let mut stop = cancellation.clone();
     let mut provider = WindowsInterfaces;
-    tokio::select! {
+    let found = tokio::select! {
         biased;
         () = cancelled(&mut stop) => result(request, DiscoveryStatus::Cancelled),
         value = tokio::time::timeout_at(deadline, scan(request, &mut provider, &mut cancellation, DISCOVERY_PORT, Interface::broadcast)) => {
             value.unwrap_or_else(|_| result(request, DiscoveryStatus::Unavailable))
         }
+    };
+    revalidate(found, request.selected_server_id)
+}
+
+fn revalidate(
+    mut found: ServerDiscoveryResult,
+    selected: Option<ServerInstallationId>,
+) -> ServerDiscoveryResult {
+    let Some(selected) = selected else {
+        return found;
+    };
+    if found.status != DiscoveryStatus::Complete {
+        found.servers.clear();
+        return found;
     }
+    found.servers.retain(|server| server.server_id == selected);
+    if found.servers.iter().any(|server| server.identity_conflict) {
+        found.status = DiscoveryStatus::IdentityConflict;
+        found.servers.clear();
+    } else {
+        found
+            .servers
+            .retain(|server| server.expires_at.0 > unix_now().0);
+        if found.servers.is_empty() {
+            found.status = DiscoveryStatus::ServerMissing;
+        }
+    }
+    found
 }
 
 async fn scan(

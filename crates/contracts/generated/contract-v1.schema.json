@@ -4637,6 +4637,14 @@
         "requestId": {
           "type": "string",
           "format": "uuid"
+        },
+        "selectedServerId": {
+          "description": "Revalidate this untrusted identity before pairing; never substitute another server.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "additionalProperties": false,
@@ -4689,7 +4697,9 @@
         "unavailable",
         "busy",
         "authenticationRequired",
-        "limitReached"
+        "limitReached",
+        "serverMissing",
+        "identityConflict"
       ]
     },
     "DownloadCatalogImage": {

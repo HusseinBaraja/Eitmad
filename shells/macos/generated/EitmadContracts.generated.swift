@@ -3819,15 +3819,19 @@ public enum RequiredBy: String, Codable, Sendable {
 // MARK: - DiscoverServers
 public struct DiscoverServers: Codable, Sendable {
     public let correlationID, requestID: String
+    /// Revalidate this untrusted identity before pairing; never substitute another server.
+    public let selectedServerID: String?
 
     public enum CodingKeys: String, CodingKey {
         case correlationID = "correlationId"
         case requestID = "requestId"
+        case selectedServerID = "selectedServerId"
     }
 
-    public init(correlationID: String, requestID: String) {
+    public init(correlationID: String, requestID: String, selectedServerID: String?) {
         self.correlationID = correlationID
         self.requestID = requestID
+        self.selectedServerID = selectedServerID
     }
 }
 
@@ -4305,8 +4309,10 @@ public enum DiscoveryStatus: String, Codable, Sendable {
     case busy = "busy"
     case cancelled = "cancelled"
     case complete = "complete"
+    case identityConflict = "identityConflict"
     case limitReached = "limitReached"
     case networkChanged = "networkChanged"
+    case serverMissing = "serverMissing"
     case unavailable = "unavailable"
 }
 

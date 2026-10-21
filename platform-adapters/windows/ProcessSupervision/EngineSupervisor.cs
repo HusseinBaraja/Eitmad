@@ -125,8 +125,8 @@ public sealed class EngineSupervisor : IAsyncDisposable
 
     public async Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default) =>
         await (await AwaitOnboardingClientAsync(cancellationToken).ConfigureAwait(false)).OnboardingAsync(action, cancellationToken).ConfigureAwait(false);
-    public async Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default) =>
-        await (await AwaitOnboardingClientAsync(cancellationToken).ConfigureAwait(false)).DiscoverServersAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default, Guid? selectedServerId = null) =>
+        await (await AwaitOnboardingClientAsync(cancellationToken).ConfigureAwait(false)).DiscoverServersAsync(cancellationToken, selectedServerId).ConfigureAwait(false);
 
     private async Task<EngineIpcClient> AwaitOnboardingClientAsync(CancellationToken cancellationToken)
     {

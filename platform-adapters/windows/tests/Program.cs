@@ -13,6 +13,7 @@ try
     await IpcCancellationScenario.DiagnosticsRetainCorrelationAndRedactPayloads();
     await IpcCancellationScenario.DiagnosticQueueNeverWaitsForBlockedStderr();
     var tests = new SupervisionScenarios();
+    await IpcCancellationScenario.DiscoveryRevalidationCancellationPreservesIdentityAndTransport();
     await tests.UnavailableEngineIsTyped();
     await IpcCancellationScenario.CancelledWritePreservesTheNextFrame();
     await IpcCancellationScenario.BlockedWriteExpiresAndReleasesQueuedRequests();
