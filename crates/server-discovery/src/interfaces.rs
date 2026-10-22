@@ -90,7 +90,7 @@ fn parse(bytes: &[u8]) -> io::Result<Vec<Interface>> {
 
 #[cfg(windows)]
 async fn snapshot() -> io::Result<Vec<Interface>> {
-    use std::{path::Path, process::Stdio, time::Duration};
+    use std::{path::Path, process::Stdio};
     use tokio::io::AsyncReadExt as _;
     let system = std::env::var_os("SystemRoot").ok_or(io::ErrorKind::NotFound)?;
     let mut command = tokio::process::Command::new(
@@ -123,7 +123,7 @@ async fn snapshot() -> io::Result<Vec<Interface>> {
         }
         parse(&bytes)
     };
-    tokio::time::timeout(Duration::from_secs(2), read)
+    tokio::time::timeout(super::PROFILE_TIME, read)
         .await
         .map_err(|_| io::ErrorKind::TimedOut)?
 }

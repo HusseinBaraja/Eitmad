@@ -107,6 +107,42 @@ fn loopback_interface() -> Interface {
     }
 }
 
+struct SlowProfiles {
+    reads: usize,
+    change: bool,
+}
+impl InterfaceProvider for SlowProfiles {
+    async fn snapshot(&mut self) -> io::Result<Vec<Interface>> {
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        self.reads += 1;
+        Ok(if self.change && self.reads > 1 {
+            Vec::new()
+        } else {
+            vec![loopback_interface()]
+        })
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn slow_profile_reads_allow_scanning_and_still_reject_network_changes() {
+    for (change, expected) in [
+        (false, DiscoveryStatus::Complete),
+        (true, DiscoveryStatus::NetworkChanged),
+    ] {
+        let (_stop, mut cancellation) = watch::channel(false);
+        let result = scan(
+            &request(),
+            &mut SlowProfiles { reads: 0, change },
+            &mut cancellation,
+            free_port().await,
+            |_| Ipv4Addr::LOCALHOST,
+        )
+        .await;
+        assert_eq!(result.status, expected);
+        assert!(result.servers.is_empty());
+    }
+}
+
 async fn free_port() -> u16 {
     UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
         .await

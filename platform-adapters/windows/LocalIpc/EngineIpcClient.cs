@@ -231,7 +231,7 @@ public sealed class EngineIpcClient : IAsyncDisposable
         try
         {
             var response = await SendFrameAsync(IpcClientMessage.IpcDiscoverServersKind, request, id,
-                TimeSpan.FromSeconds(15), cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+                TimeSpan.FromSeconds(20), cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
             EnsureKind(response, IpcServerMessage.IpcServerDiscoveryKind);
             return response.AsIpcServerDiscovery() ?? throw ProtocolViolation("Invalid discovery response.");
         }

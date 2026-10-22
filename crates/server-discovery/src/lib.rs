@@ -32,6 +32,7 @@ use wire::{MAX_PACKET, Packet};
 
 pub const DISCOVERY_PORT: u16 = 58444;
 const SCAN_TIME: Duration = Duration::from_secs(5);
+const PROFILE_TIME: Duration = Duration::from_secs(5);
 const LEASE: Duration = Duration::from_secs(15);
 const REFRESH: Duration = Duration::from_secs(1);
 const MAX_PACKETS: usize = 256;
@@ -56,7 +57,7 @@ pub async fn discover(
     let Ok(_permit) = SCANS.try_acquire() else {
         return result(request, DiscoveryStatus::Busy);
     };
-    let deadline = Instant::now() + SCAN_TIME + Duration::from_secs(1);
+    let deadline = Instant::now() + PROFILE_TIME * 2 + SCAN_TIME + Duration::from_secs(1);
     let mut stop = cancellation.clone();
     let mut provider = WindowsInterfaces;
     let found = tokio::select! {
@@ -103,11 +104,10 @@ async fn scan(
     destination: fn(&Interface) -> Ipv4Addr,
 ) -> ServerDiscoveryResult {
     let mut output = result(request, DiscoveryStatus::Complete);
-    let deadline = Instant::now() + SCAN_TIME;
     let interfaces = tokio::select! {
         biased;
         () = cancelled(cancellation) => return result(request, DiscoveryStatus::Cancelled),
-        value = tokio::time::timeout_at(deadline, provider.snapshot()) => match value {
+        value = tokio::time::timeout(PROFILE_TIME, provider.snapshot()) => match value {
             Ok(Ok(value)) => value,
             _ => return result(request, DiscoveryStatus::Unavailable),
         }
@@ -115,6 +115,8 @@ async fn scan(
     if interfaces.is_empty() {
         return output;
     }
+    // Windows profile enumeration must not consume the packet reception window.
+    let deadline = Instant::now() + SCAN_TIME;
     let nonce = Uuid::new_v4();
     let query = wire::encode(&Packet::Query { nonce });
     let mut sockets = Vec::new();
@@ -145,7 +147,7 @@ async fn scan(
             () = cancelled(cancellation) => return result(request, DiscoveryStatus::Cancelled),
             () = sleep_until(deadline) => break,
             () = sleep_until(next_profile) => {
-                match tokio::time::timeout_at(deadline, provider.snapshot()).await {
+                match tokio::time::timeout(PROFILE_TIME, provider.snapshot()).await {
                     Ok(Ok(current)) if current == interfaces => (),
                     Ok(Ok(_)) => return result(request, DiscoveryStatus::NetworkChanged),
                     _ => return result(request, DiscoveryStatus::Unavailable),
