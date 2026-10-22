@@ -153,6 +153,40 @@ async fn free_port() -> u16 {
 }
 
 #[tokio::test]
+async fn profile_recheck_at_deadline_retains_the_queued_offer() {
+    let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let port = peer.local_addr().unwrap().port();
+    let id = ServerInstallationId::new(Uuid::new_v4());
+    let sender = tokio::spawn(async move {
+        let mut bytes = [0; MAX_PACKET + 1];
+        let (length, client) = peer.recv_from(&mut bytes).await.unwrap();
+        let Some(Packet::Query { nonce }) = wire::decode(&bytes[..length]) else {
+            panic!("expected discovery query");
+        };
+        tokio::time::sleep(SCAN_TIME - Duration::from_millis(100)).await;
+        peer.send_to(&offer(nonce, id, Uuid::new_v4()), client)
+            .await
+            .unwrap();
+    });
+    let (_stop, mut cancellation) = watch::channel(false);
+    let found = scan(
+        &request(),
+        &mut SlowProfiles {
+            reads: 0,
+            change: false,
+        },
+        &mut cancellation,
+        port,
+        |_| Ipv4Addr::LOCALHOST,
+    )
+    .await;
+    sender.await.unwrap();
+    assert_eq!(found.status, DiscoveryStatus::Complete);
+    assert_eq!(found.servers.len(), 1);
+    assert_eq!(found.servers[0].server_id, id);
+}
+
+#[tokio::test]
 async fn real_udp_scan_and_responder_cleanup_use_only_isolated_loopback() {
     let port = free_port().await;
     let id = ServerInstallationId::new(Uuid::new_v4());

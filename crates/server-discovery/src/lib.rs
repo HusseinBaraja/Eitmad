@@ -31,7 +31,7 @@ use uuid::Uuid;
 use wire::{MAX_PACKET, Packet};
 
 pub const DISCOVERY_PORT: u16 = 58444;
-const SCAN_TIME: Duration = Duration::from_secs(5);
+const SCAN_TIME: Duration = Duration::from_secs(8);
 const PROFILE_TIME: Duration = Duration::from_secs(5);
 const LEASE: Duration = Duration::from_secs(15);
 const REFRESH: Duration = Duration::from_secs(1);
@@ -142,6 +142,24 @@ async fn scan(
     let mut next_profile = Instant::now() + REFRESH;
     let mut next_query = Instant::now() + Duration::from_secs(2);
     loop {
+        // Profile reads can outlast the receive window; retain replies already queued.
+        for (socket, interface) in sockets.iter().zip(&interfaces) {
+            let mut bytes = [0; MAX_PACKET + 1];
+            while let Ok((length, source)) = socket.try_recv_from(&mut bytes) {
+                received += 1;
+                if received > MAX_PACKETS {
+                    return result(request, DiscoveryStatus::LimitReached);
+                }
+                if let SocketAddr::V4(source) = source {
+                    if source.port() == discovery_port && interface.contains(*source.ip()) {
+                        cache.accept(&bytes[..length], *source.ip(), nonce, Instant::now());
+                    }
+                }
+                if cache.entries.len() > MAX_RESULTS {
+                    return result(request, DiscoveryStatus::LimitReached);
+                }
+            }
+        }
         tokio::select! {
             biased;
             () = cancelled(cancellation) => return result(request, DiscoveryStatus::Cancelled),
@@ -155,19 +173,6 @@ async fn scan(
                 next_profile = Instant::now() + REFRESH;
             }
             () = tokio::time::sleep(Duration::from_millis(20)) => {
-                for (socket, interface) in sockets.iter().zip(&interfaces) {
-                    let mut bytes = [0; MAX_PACKET + 1];
-                    while let Ok((length, source)) = socket.try_recv_from(&mut bytes) {
-                        received += 1;
-                        if received > MAX_PACKETS { return result(request, DiscoveryStatus::LimitReached); }
-                        if let SocketAddr::V4(source) = source {
-                            if source.port() == discovery_port && interface.contains(*source.ip()) {
-                                cache.accept(&bytes[..length], *source.ip(), nonce, Instant::now());
-                            }
-                        }
-                        if cache.entries.len() > MAX_RESULTS { return result(request, DiscoveryStatus::LimitReached); }
-                    }
-                }
                 if Instant::now() >= next_query {
                     for (socket, interface) in sockets.iter().zip(&interfaces) {
                         if socket.send_to(&query, (destination(interface), discovery_port)).await.is_err() {
