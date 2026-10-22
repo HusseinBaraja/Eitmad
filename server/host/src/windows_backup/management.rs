@@ -1,5 +1,5 @@
 //! Post-installation Windows administration through the existing protected elevation channel.
-use super::{Configuration, MainError, Outcome, Saved, Status, native};
+use super::{Configuration, MainError, Outcome, Saved, Status, invoke, native};
 use eitmad_contracts::backup::{
     ManageServerBackup, ServerBackupAction as Action, ServerBackupManagement,
 };
@@ -67,47 +67,6 @@ pub(crate) fn elevate_management() -> Result<(), MainError> {
     }
 }
 
-fn invoke<T: serde::de::DeserializeOwned>(
-    backend: &Path,
-    state: &Path,
-    action: &str,
-    configuration: Option<&Configuration>,
-) -> Result<(T, bool), MainError> {
-    let mut child = Command::new(backend)
-        .args(["windows-backup", action])
-        .arg(state)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .creation_flags(0x0800_0000)
-        .spawn()
-        .map_err(|_| MainError::Backup)?;
-    if let Some(configuration) = configuration {
-        serde_json::to_writer(child.stdin.take().ok_or(MainError::Backup)?, configuration)
-            .map_err(|_| MainError::Backup)?;
-    } else {
-        drop(child.stdin.take());
-    }
-    let mut bytes = Vec::new();
-    child
-        .stdout
-        .take()
-        .ok_or(MainError::Backup)?
-        .take(65_537)
-        .read_to_end(&mut bytes)
-        .map_err(|_| MainError::Backup)?;
-    if bytes.len() > 65_536 {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(MainError::Backup);
-    }
-    let success = child.wait().map_err(|_| MainError::Backup)?.success();
-    Ok((
-        serde_json::from_slice(&bytes).map_err(|_| MainError::Backup)?,
-        success,
-    ))
-}
-
 pub(crate) fn manage() -> Result<(), MainError> {
     let request = request()?;
     let state = std::env::var_os("ProgramData")
@@ -136,35 +95,29 @@ pub(crate) fn manage() -> Result<(), MainError> {
     {
         return Err(MainError::Backup);
     }
-    let (mut configuration, ok): (Configuration, _) =
-        invoke(backend, &state, "configuration", None)?;
-    if !ok {
-        return Err(MainError::Backup);
-    }
     let mut action_outcome = Outcome::Succeeded;
     if request.action != Action::Inspect {
+        let mut configuration = None;
         let action = match request.action {
             Action::Capture => "run",
             Action::RepairSchedule => "schedule",
             Action::SaveDestinations => {
                 let destinations = request.destinations.ok_or(MainError::Input)?;
-                configuration.local_destination = destinations.local;
-                configuration.external_destination = destinations.external;
+                let (mut saved, ok): (Configuration, _) =
+                    invoke(backend, &state, "configuration", None)?;
+                if !ok {
+                    return Err(MainError::Backup);
+                }
+                saved.local_destination = destinations.local;
+                saved.external_destination = destinations.external;
+                configuration = Some(saved);
                 "configure"
             }
             Action::Inspect => return Err(MainError::Input),
         };
-        let result = invoke::<Status>(
-            backend,
-            &state,
-            action,
-            (action == "configure").then_some(&configuration),
-        );
+        let result = invoke::<Status>(backend, &state, action, configuration.as_ref());
         action_outcome = match result {
-            Ok((status, true)) => {
-                let _ = status;
-                Outcome::Succeeded
-            }
+            Ok((_, true)) => Outcome::Succeeded,
             Ok((status, false)) => match request.action {
                 Action::Capture if status.local_outcome == Outcome::Succeeded => {
                     status.external_outcome

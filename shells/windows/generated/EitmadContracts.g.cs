@@ -25,21 +25,6 @@ namespace Eitmad.Contracts
         [JsonPropertyName("guided_windows_setup")]
         public GuidedWindowsSetup GuidedWindowsSetup { get; set; }
 
-        [JsonPropertyName("initialize_workshop")]
-        public InitializeWorkshop InitializeWorkshop { get; set; }
-
-        [JsonPropertyName("initialized_workshop")]
-        public InitializedWorkshop InitializedWorkshop { get; set; }
-
-        [JsonPropertyName("install_windows")]
-        public Dictionary<string, object> InstallWindows { get; set; }
-
-        [JsonPropertyName("install_windows_client")]
-        public InstallWindowsClient InstallWindowsClient { get; set; }
-
-        [JsonPropertyName("install_windows_server")]
-        public InstallWindowsServer InstallWindowsServer { get; set; }
-
         [JsonPropertyName("ipc_client_message")]
         public Dictionary<string, object> IpcClientMessage { get; set; }
 
@@ -52,35 +37,14 @@ namespace Eitmad.Contracts
         [JsonPropertyName("manage_server_backup")]
         public ManageServerBackup ManageServerBackup { get; set; }
 
-        [JsonPropertyName("prepare_windows_workshop")]
-        public PrepareWindowsWorkshop PrepareWindowsWorkshop { get; set; }
-
-        [JsonPropertyName("prepared_windows_workshop")]
-        public PreparedWindowsWorkshop PreparedWindowsWorkshop { get; set; }
-
-        [JsonPropertyName("read_windows_installation")]
-        public ReadWindowsInstallation ReadWindowsInstallation { get; set; }
-
-        [JsonPropertyName("server_backup_configuration")]
-        public ServerBackupConfiguration ServerBackupConfiguration { get; set; }
-
         [JsonPropertyName("server_backup_management")]
         public ServerBackupManagement ServerBackupManagement { get; set; }
-
-        [JsonPropertyName("server_backup_status")]
-        public ServerBackupStatus ServerBackupStatus { get; set; }
 
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
 
-        [JsonPropertyName("windows_install_progress")]
-        public WindowsInstallProgress WindowsInstallProgress { get; set; }
-
         [JsonPropertyName("windows_installation_state")]
         public WindowsInstallationState WindowsInstallationState { get; set; }
-
-        [JsonPropertyName("windows_setup_bundle")]
-        public WindowsSetupBundle WindowsSetupBundle { get; set; }
     }
 
     public partial class GuidedWindowsSetup
@@ -132,183 +96,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("workshopName")]
         public string WorkshopName { get; set; }
-    }
-
-    /// <summary>
-    /// Public enrollment coordinates, without credentials or an activation token.
-    /// </summary>
-    public partial class InitializedWorkshop
-    {
-        [JsonPropertyName("branchId")]
-        public Guid BranchId { get; set; }
-
-        [JsonPropertyName("organizationId")]
-        public Guid OrganizationId { get; set; }
-
-        [JsonPropertyName("ownerAccountId")]
-        public Guid OwnerAccountId { get; set; }
-
-        [JsonPropertyName("tenantCode")]
-        public string TenantCode { get; set; }
-
-        [JsonPropertyName("tenantId")]
-        public Guid TenantId { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    public partial class InstallWindowsClient
-    {
-        [JsonPropertyName("desktop")]
-        public WindowsInstallPackage Desktop { get; set; }
-
-        /// <summary>
-        /// The initiating Windows user's SID, checked again immediately before registration.
-        /// </summary>
-        [JsonPropertyName("intendedUserSid")]
-        public string IntendedUserSid { get; set; }
-
-        [JsonPropertyName("progressDirectory")]
-        public string ProgressDirectory { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    public partial class WindowsInstallPackage
-    {
-        [JsonPropertyName("directory")]
-        public string Directory { get; set; }
-
-        [JsonPropertyName("publisher")]
-        public string Publisher { get; set; }
-
-        [JsonPropertyName("releaseSha256")]
-        public string ReleaseSha256 { get; set; }
-    }
-
-    public partial class InstallWindowsServer
-    {
-        [JsonPropertyName("backup")]
-        public SetupBackupDestinations Backup { get; set; }
-
-        [JsonPropertyName("client")]
-        public InstallWindowsClient Client { get; set; }
-
-        [JsonPropertyName("firstDesktop")]
-        public LoginRequest FirstDesktop { get; set; }
-
-        [JsonPropertyName("preparation")]
-        public PrepareWindowsWorkshop Preparation { get; set; }
-
-        [JsonPropertyName("server")]
-        public WindowsInstallPackage Server { get; set; }
-
-        [JsonPropertyName("serverProgressDirectory")]
-        public string ServerProgressDirectory { get; set; }
-
-        [JsonPropertyName("serviceName")]
-        public string ServiceName { get; set; }
-
-        [JsonPropertyName("serviceStateDirectory")]
-        public string ServiceStateDirectory { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-
-        [JsonPropertyName("winswExecutable")]
-        public string WinswExecutable { get; set; }
-
-        [JsonPropertyName("winswSha256")]
-        public string WinswSha256 { get; set; }
-    }
-
-    /// <summary>
-    /// Secret-bearing login request. It intentionally has no `Debug` implementation.
-    /// </summary>
-    public partial class LoginRequest
-    {
-        [JsonPropertyName("deviceId")]
-        public Guid DeviceId { get; set; }
-
-        [JsonPropertyName("deviceLabel")]
-        public string DeviceLabel { get; set; }
-
-        [JsonPropertyName("deviceProof")]
-        public DeviceProof DeviceProof { get; set; }
-
-        [JsonPropertyName("devicePublicKey")]
-        public DevicePublicKey DevicePublicKey { get; set; }
-
-        [JsonPropertyName("password")]
-        public string Password { get; set; }
-
-        [JsonPropertyName("tenantCode")]
-        public string TenantCode { get; set; }
-
-        [JsonPropertyName("username")]
-        public string Username { get; set; }
-    }
-
-    public partial class DeviceProof
-    {
-        [JsonPropertyName("deviceId")]
-        public Guid DeviceId { get; set; }
-
-        [JsonPropertyName("issuedAt")]
-        public long IssuedAt { get; set; }
-
-        [JsonPropertyName("nonce")]
-        public string Nonce { get; set; }
-
-        [JsonPropertyName("signatureBase64")]
-        public string SignatureBase64 { get; set; }
-    }
-
-    public partial class DevicePublicKey
-    {
-        [JsonPropertyName("algorithm")]
-        public string Algorithm { get; set; }
-
-        [JsonPropertyName("base64")]
-        public string Base64 { get; set; }
-    }
-
-    /// <summary>
-    /// Local deployment input. Paths identify reviewed offline installation tools.
-    /// </summary>
-    public partial class PrepareWindowsWorkshop
-    {
-        [JsonPropertyName("certificateExecutable")]
-        public string CertificateExecutable { get; set; }
-
-        [JsonPropertyName("databasePort")]
-        public long DatabasePort { get; set; }
-
-        [JsonPropertyName("listenAddress")]
-        public string ListenAddress { get; set; }
-
-        [JsonPropertyName("platformScript")]
-        public string PlatformScript { get; set; }
-
-        [JsonPropertyName("postgresBin")]
-        public string PostgresBin { get; set; }
-
-        [JsonPropertyName("serverName")]
-        public string ServerName { get; set; }
-
-        [JsonPropertyName("serverPort")]
-        public long ServerPort { get; set; }
-
-        [JsonPropertyName("stateDirectory")]
-        public string StateDirectory { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-
-        [JsonPropertyName("workshop")]
-        public InitializeWorkshop Workshop { get; set; }
     }
 
     public partial class LifecycleSnapshot
@@ -504,63 +291,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("destinations")]
         public SetupBackupDestinations Destinations { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    public partial class PreparedWindowsWorkshop
-    {
-        [JsonPropertyName("endpoint")]
-        public string Endpoint { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-
-        [JsonPropertyName("workshop")]
-        public InitializedWorkshop Workshop { get; set; }
-    }
-
-    public partial class ReadWindowsInstallation
-    {
-        [JsonPropertyName("progressDirectory")]
-        public string ProgressDirectory { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    public partial class ServerBackupConfiguration
-    {
-        [JsonPropertyName("deploymentId")]
-        public Guid DeploymentId { get; set; }
-
-        [JsonPropertyName("externalDestination")]
-        public string ExternalDestination { get; set; }
-
-        [JsonPropertyName("hostRoot")]
-        public string HostRoot { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("intervalHours")]
-        public long? IntervalHours { get; set; }
-
-        [JsonPropertyName("localDestination")]
-        public string LocalDestination { get; set; }
-
-        [JsonPropertyName("recoveryDirectory")]
-        public string RecoveryDirectory { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("reserveBytes")]
-        public long? ReserveBytes { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("retentionCount")]
-        public long? RetentionCount { get; set; }
-
-        [JsonPropertyName("serviceName")]
-        public string ServiceName { get; set; }
 
         [JsonPropertyName("version")]
         public long Version { get; set; }
@@ -952,14 +682,6 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("Event_QuotationDraftChangedEvent")]
         public QuotationDraftChangeNotice EventQuotationDraftChangedEvent { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("InstallWindows_Client")]
-        public InstallWindowsClient InstallWindowsClient { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        [JsonPropertyName("InstallWindows_Server")]
-        public InstallWindowsServer InstallWindowsServer { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcCancelServerDiscovery")]
@@ -5496,24 +5218,6 @@ namespace Eitmad.Contracts
     {
     }
 
-    /// <summary>
-    /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
-    /// </summary>
-    public partial class WindowsInstallProgress
-    {
-        [JsonPropertyName("sequence")]
-        public long Sequence { get; set; }
-
-        [JsonPropertyName("stage")]
-        public WindowsInstallStage Stage { get; set; }
-
-        [JsonPropertyName("status")]
-        public WindowsInstallStatus Status { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
     public partial class WindowsInstallationState
     {
         [JsonPropertyName("interrupted")]
@@ -5530,24 +5234,21 @@ namespace Eitmad.Contracts
     }
 
     /// <summary>
-    /// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
+    /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
     /// </summary>
-    public partial class WindowsSetupBundle
+    public partial class WindowsInstallProgress
     {
-        [JsonPropertyName("desktopReleaseSha256")]
-        public string DesktopReleaseSha256 { get; set; }
+        [JsonPropertyName("sequence")]
+        public long Sequence { get; set; }
 
-        [JsonPropertyName("publisher")]
-        public string Publisher { get; set; }
+        [JsonPropertyName("stage")]
+        public WindowsInstallStage Stage { get; set; }
 
-        [JsonPropertyName("serverReleaseSha256")]
-        public string ServerReleaseSha256 { get; set; }
+        [JsonPropertyName("status")]
+        public WindowsInstallStatus Status { get; set; }
 
         [JsonPropertyName("version")]
         public long Version { get; set; }
-
-        [JsonPropertyName("winswSha256")]
-        public string WinswSha256 { get; set; }
     }
 
     public enum GuidedSetupAction { Client, Inspect, Retry, Server };

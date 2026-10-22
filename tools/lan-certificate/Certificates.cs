@@ -43,15 +43,7 @@ public static class Certificates
         directory = Path.GetFullPath(directory);
         RequirePrivateDirectory(directory);
         using var owner = Lock(directory);
-        var identity = JsonSerializer.Deserialize<Identity>(File.ReadAllText(Path.Combine(directory, "identity.json")))
-            ?? throw new IOException("Missing identity.");
-        if (identity.Version != 1) throw new IOException("Unknown version.");
-        ValidateName(identity.ServerName);
-        using var key = ECDsa.Create();
-        key.ImportFromEncryptedPem(File.ReadAllText(Path.Combine(directory, "ca-key.encrypted.pem")), password);
-        using var certificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(directory, "trusted-ca.pem")));
-        using var ca = certificate.CopyWithPrivateKey(key);
-        Activate(directory, Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow));
+        Activate(directory, IssueRetained(directory, password));
     }
 
     public static string Fingerprint(string directory)
@@ -65,6 +57,11 @@ public static class Certificates
     {
         RenewalMaterial.RequireControl(directory);
         using var owner = Lock(directory);
+        return IssueRetained(directory, password, true);
+    }
+
+    private static ActiveTls IssueRetained(string directory, string password, bool controlled = false)
+    {
         var identity = JsonSerializer.Deserialize<Identity>(File.ReadAllText(Path.Combine(directory, "identity.json")))
             ?? throw new IOException("Missing identity.");
         if (identity.Version != 1) throw new IOException("Unknown version.");
@@ -73,7 +70,7 @@ public static class Certificates
         key.ImportFromEncryptedPem(File.ReadAllText(Path.Combine(directory, "ca-key.encrypted.pem")), password);
         using var certificate = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(directory, "trusted-ca.pem")));
         using var ca = certificate.CopyWithPrivateKey(key);
-        return Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow, true);
+        return Issue(directory, identity.ServerName, ca, DateTimeOffset.UtcNow, controlled);
     }
 
     private static ActiveTls Issue(string directory, string serverName, X509Certificate2 ca, DateTimeOffset now, bool controlled = false)

@@ -18,7 +18,7 @@ pub use catalog_sync::DirectCatalogSyncClient;
 pub use customer_sync::DirectCustomerSyncClient;
 pub use desktop_connection::DesktopConnectionSettings;
 pub use desktop_enrollment::DesktopEnrollment;
-pub use recovery::{ConnectionRecovery, RecoveryState};
+pub use recovery::ConnectionRecovery;
 mod pricing;
 mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;
@@ -308,7 +308,7 @@ impl DirectServerConfig {
         })
     }
 
-    /// Observes recovery and cancels current connection work without changing enrollment.
+    /// Cancels current connection work without changing enrollment.
     #[must_use]
     pub fn recovery(&self) -> Option<ConnectionRecovery> {
         self.recovery
@@ -321,12 +321,6 @@ impl DirectServerConfig {
             || connect_tls(url, &self.tls, deadline),
             |retained| retained.connect(self, url, deadline),
         )
-    }
-
-    fn record_result<T>(&self, result: &Result<T, TransportFailure>) {
-        if let Some(retained) = &self.recovery {
-            retained.control.record_result(result);
-        }
     }
 
     #[must_use]
@@ -743,13 +737,11 @@ impl ConnectionDriver for DirectServerDriver {
         target: &ConnectionTarget,
         authentication: &TransportAuthentication,
     ) -> Result<EstablishedConnection, TransportFailure> {
-        let result = self.establish_before(
+        self.establish_before(
             target,
             authentication,
             Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        );
-        self.config.record_result(&result);
-        result
+        )
     }
 
     fn send(&mut self, frame: &SyncTransportFrame) -> Result<(), TransportFailure> {

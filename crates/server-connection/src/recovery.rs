@@ -24,43 +24,24 @@ use uuid::Uuid;
 #[cfg(test)]
 mod tests;
 
-/// Connection progress contains no endpoint, account, or credential material.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RecoveryState {
-    Reconnecting,
-    Connected,
-    Unavailable,
-    TrustFailure,
-    SignInRequired,
-    Cancelled,
-}
-
 struct Control {
-    state: watch::Sender<RecoveryState>,
     generation: AtomicU64,
     changed: watch::Sender<u64>,
     sockets: Mutex<Vec<Weak<TcpStream>>>,
 }
 
-/// Cloneable observer and cancellation handle for one retained server route.
+/// Cloneable cancellation handle for one retained server route.
 #[derive(Clone)]
 pub struct ConnectionRecovery(Arc<Control>);
 
 impl ConnectionRecovery {
     fn new() -> Self {
-        let (state, _) = watch::channel(RecoveryState::Unavailable);
         let (changed, _) = watch::channel(0);
         Self(Arc::new(Control {
-            state,
             generation: AtomicU64::new(0),
             changed,
             sockets: Mutex::new(Vec::new()),
         }))
-    }
-
-    #[must_use]
-    pub fn subscribe(&self) -> watch::Receiver<RecoveryState> {
-        self.0.state.subscribe()
     }
 
     /// Cancels discovery, closes active sockets, and invalidates results already in flight.
@@ -73,32 +54,10 @@ impl ConnectionRecovery {
                 let _ = socket.shutdown(std::net::Shutdown::Both);
             }
         }
-        self.set(RecoveryState::Cancelled);
     }
 
     pub(super) fn cancelled(&self, generation: u64) -> bool {
         self.0.generation.load(Ordering::SeqCst) != generation
-    }
-
-    fn set(&self, state: RecoveryState) {
-        self.0.state.send_replace(state);
-    }
-
-    pub(super) fn record_result<T>(&self, result: &Result<T, TransportFailure>) {
-        if *self.0.state.borrow() == RecoveryState::Cancelled {
-            return;
-        }
-        self.set(match result {
-            Ok(_) => RecoveryState::Connected,
-            Err(failure) if failure.phase == FailurePhase::Cancellation => RecoveryState::Cancelled,
-            Err(failure) if failure.kind == TransportFailureKind::EncryptionRequired => {
-                RecoveryState::TrustFailure
-            }
-            Err(failure) if failure.kind == TransportFailureKind::AuthenticationFailed => {
-                RecoveryState::SignInRequired
-            }
-            Err(_) => RecoveryState::Unavailable,
-        });
     }
 
     pub(super) fn register(
@@ -221,9 +180,6 @@ impl RetainedServer {
                 .map_err(|_| unavailable(FailurePhase::Connect))?
                 .retry_at = Some(Instant::now() + Duration::from_secs(2));
         }
-        if result.is_err() {
-            self.control.record_result(&result);
-        }
         result
     }
 
@@ -252,7 +208,6 @@ impl RetainedServer {
                 .filter(|(owner, _)| *owner == generation)
                 .map(|(_, address)| address)
         };
-        self.control.set(RecoveryState::Reconnecting);
         let initial = self.open(
             config,
             url,

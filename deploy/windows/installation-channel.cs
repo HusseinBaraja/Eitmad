@@ -160,12 +160,6 @@ public static class EitmadInstallationChannel
                 Send(pipe, process.ExitCode == 0 ? "success" : "failed");
                 return process.ExitCode;
             }
-            catch
-            {
-                // Do not reset state or attempt another installation after a broken channel.
-                // The Rust worker owns its cluster cleanup and retained progress.
-                throw;
-            }
             finally { if (command != "windows-backup-management-worker") process.StandardInput.Close(); }
         }
     }

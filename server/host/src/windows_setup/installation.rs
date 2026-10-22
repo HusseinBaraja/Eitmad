@@ -278,18 +278,21 @@ pub(super) fn read_state(root: &Path) -> Result<WindowsInstallationState, MainEr
     let completed = progress.stage == Stage::Complete && progress.status == Status::Succeeded;
     let interrupted =
         !active && !completed && !matches!(progress.status, Status::Failed | Status::Blocked);
+    let recovery = recovery::action(root, active, &progress);
     Ok(WindowsInstallationState {
         version: 1,
         progress,
         interrupted,
-        recovery: recovery::action(root, active, completed),
+        recovery,
     })
 }
 
-fn read_last(root: &Path) -> Result<Option<WindowsInstallProgress>, MainError> {
+fn record_paths(root: &Path) -> Result<Vec<PathBuf>, MainError> {
     let mut files = fs::read_dir(root)
         .map_err(|_| MainError::Setup)?
-        .filter_map(Result::ok)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| MainError::Setup)?
+        .into_iter()
         .map(|entry| entry.path())
         .filter(|path| {
             path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
@@ -302,8 +305,12 @@ fn read_last(root: &Path) -> Result<Option<WindowsInstallProgress>, MainError> {
         })
         .collect::<Vec<_>>();
     files.sort();
+    Ok(files)
+}
+
+fn read_last(root: &Path) -> Result<Option<WindowsInstallProgress>, MainError> {
     // A torn final write is not completion. Fall back to the last durable stage.
-    Ok(files.iter().rev().find_map(|path| {
+    Ok(record_paths(root)?.iter().rev().find_map(|path| {
         plain_path(path, true).ok()?;
         let bytes = fs::read(path).ok()?;
         if bytes.len() > 1024 {

@@ -9,69 +9,33 @@ import Foundation
 // MARK: - EitmadContractSchema
 public struct EitmadContractSchema: Codable, Sendable {
     public let guidedWindowsSetup: GuidedWindowsSetup
-    public let initializeWorkshop: InitializeWorkshop
-    public let initializedWorkshop: InitializedWorkshop
-    public let installWindows: [String: JSONAny]
-    public let installWindowsClient: InstallWindowsClient
-    public let installWindowsServer: InstallWindowsServer
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
     public let manageServerBackup: ManageServerBackup
-    public let prepareWindowsWorkshop: PrepareWindowsWorkshop
-    public let preparedWindowsWorkshop: PreparedWindowsWorkshop
-    public let readWindowsInstallation: ReadWindowsInstallation
-    public let serverBackupConfiguration: ServerBackupConfiguration
     public let serverBackupManagement: ServerBackupManagement
-    public let serverBackupStatus: ServerBackupStatus
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
-    public let windowsInstallProgress: WindowsInstallProgress
     public let windowsInstallationState: WindowsInstallationState
-    public let windowsSetupBundle: WindowsSetupBundle
 
     public enum CodingKeys: String, CodingKey {
         case guidedWindowsSetup = "guided_windows_setup"
-        case initializeWorkshop = "initialize_workshop"
-        case initializedWorkshop = "initialized_workshop"
-        case installWindows = "install_windows"
-        case installWindowsClient = "install_windows_client"
-        case installWindowsServer = "install_windows_server"
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
         case manageServerBackup = "manage_server_backup"
-        case prepareWindowsWorkshop = "prepare_windows_workshop"
-        case preparedWindowsWorkshop = "prepared_windows_workshop"
-        case readWindowsInstallation = "read_windows_installation"
-        case serverBackupConfiguration = "server_backup_configuration"
         case serverBackupManagement = "server_backup_management"
-        case serverBackupStatus = "server_backup_status"
         case unionPayloadKeepAlive
-        case windowsInstallProgress = "windows_install_progress"
         case windowsInstallationState = "windows_installation_state"
-        case windowsSetupBundle = "windows_setup_bundle"
     }
 
-    public init(guidedWindowsSetup: GuidedWindowsSetup, initializeWorkshop: InitializeWorkshop, initializedWorkshop: InitializedWorkshop, installWindows: [String: JSONAny], installWindowsClient: InstallWindowsClient, installWindowsServer: InstallWindowsServer, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, prepareWindowsWorkshop: PrepareWindowsWorkshop, preparedWindowsWorkshop: PreparedWindowsWorkshop, readWindowsInstallation: ReadWindowsInstallation, serverBackupConfiguration: ServerBackupConfiguration, serverBackupManagement: ServerBackupManagement, serverBackupStatus: ServerBackupStatus, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallProgress: WindowsInstallProgress, windowsInstallationState: WindowsInstallationState, windowsSetupBundle: WindowsSetupBundle) {
+    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, serverBackupManagement: ServerBackupManagement, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState) {
         self.guidedWindowsSetup = guidedWindowsSetup
-        self.initializeWorkshop = initializeWorkshop
-        self.initializedWorkshop = initializedWorkshop
-        self.installWindows = installWindows
-        self.installWindowsClient = installWindowsClient
-        self.installWindowsServer = installWindowsServer
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
         self.manageServerBackup = manageServerBackup
-        self.prepareWindowsWorkshop = prepareWindowsWorkshop
-        self.preparedWindowsWorkshop = preparedWindowsWorkshop
-        self.readWindowsInstallation = readWindowsInstallation
-        self.serverBackupConfiguration = serverBackupConfiguration
         self.serverBackupManagement = serverBackupManagement
-        self.serverBackupStatus = serverBackupStatus
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
-        self.windowsInstallProgress = windowsInstallProgress
         self.windowsInstallationState = windowsInstallationState
-        self.windowsSetupBundle = windowsSetupBundle
     }
 }
 
@@ -125,163 +89,6 @@ public struct InitializeWorkshop: Codable, Sendable {
         self.ownerUsername = ownerUsername
         self.version = version
         self.workshopName = workshopName
-    }
-}
-
-/// Public enrollment coordinates, without credentials or an activation token.
-// MARK: - InitializedWorkshop
-public struct InitializedWorkshop: Codable, Sendable {
-    public let branchID, organizationID, ownerAccountID, tenantCode: String
-    public let tenantID: String
-    public let version: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case branchID = "branchId"
-        case organizationID = "organizationId"
-        case ownerAccountID = "ownerAccountId"
-        case tenantCode
-        case tenantID = "tenantId"
-        case version
-    }
-
-    public init(branchID: String, organizationID: String, ownerAccountID: String, tenantCode: String, tenantID: String, version: Int) {
-        self.branchID = branchID
-        self.organizationID = organizationID
-        self.ownerAccountID = ownerAccountID
-        self.tenantCode = tenantCode
-        self.tenantID = tenantID
-        self.version = version
-    }
-}
-
-// MARK: - InstallWindowsClient
-public struct InstallWindowsClient: Codable, Sendable {
-    public let desktop: WindowsInstallPackage
-    /// The initiating Windows user's SID, checked again immediately before registration.
-    public let intendedUserSid: String
-    public let progressDirectory: String
-    public let version: Int
-
-    public init(desktop: WindowsInstallPackage, intendedUserSid: String, progressDirectory: String, version: Int) {
-        self.desktop = desktop
-        self.intendedUserSid = intendedUserSid
-        self.progressDirectory = progressDirectory
-        self.version = version
-    }
-}
-
-// MARK: - WindowsInstallPackage
-public struct WindowsInstallPackage: Codable, Sendable {
-    public let directory, publisher, releaseSha256: String
-
-    public init(directory: String, publisher: String, releaseSha256: String) {
-        self.directory = directory
-        self.publisher = publisher
-        self.releaseSha256 = releaseSha256
-    }
-}
-
-// MARK: - InstallWindowsServer
-public struct InstallWindowsServer: Codable, Sendable {
-    public let backup: SetupBackupDestinations?
-    public let client: InstallWindowsClient
-    public let firstDesktop: LoginRequest?
-    public let preparation: PrepareWindowsWorkshop
-    public let server: WindowsInstallPackage
-    public let serverProgressDirectory, serviceName, serviceStateDirectory: String
-    public let version: Int
-    public let winswExecutable, winswSha256: String
-
-    public init(backup: SetupBackupDestinations?, client: InstallWindowsClient, firstDesktop: LoginRequest?, preparation: PrepareWindowsWorkshop, server: WindowsInstallPackage, serverProgressDirectory: String, serviceName: String, serviceStateDirectory: String, version: Int, winswExecutable: String, winswSha256: String) {
-        self.backup = backup
-        self.client = client
-        self.firstDesktop = firstDesktop
-        self.preparation = preparation
-        self.server = server
-        self.serverProgressDirectory = serverProgressDirectory
-        self.serviceName = serviceName
-        self.serviceStateDirectory = serviceStateDirectory
-        self.version = version
-        self.winswExecutable = winswExecutable
-        self.winswSha256 = winswSha256
-    }
-}
-
-/// Secret-bearing login request. It intentionally has no `Debug` implementation.
-// MARK: - LoginRequest
-public struct LoginRequest: Codable, Sendable {
-    public let deviceID, deviceLabel: String
-    public let deviceProof: DeviceProof?
-    public let devicePublicKey: DevicePublicKey
-    public let password, tenantCode, username: String
-
-    public enum CodingKeys: String, CodingKey {
-        case deviceID = "deviceId"
-        case deviceLabel, deviceProof, devicePublicKey, password, tenantCode, username
-    }
-
-    public init(deviceID: String, deviceLabel: String, deviceProof: DeviceProof?, devicePublicKey: DevicePublicKey, password: String, tenantCode: String, username: String) {
-        self.deviceID = deviceID
-        self.deviceLabel = deviceLabel
-        self.deviceProof = deviceProof
-        self.devicePublicKey = devicePublicKey
-        self.password = password
-        self.tenantCode = tenantCode
-        self.username = username
-    }
-}
-
-// MARK: - DeviceProof
-public struct DeviceProof: Codable, Sendable {
-    public let deviceID: String
-    public let issuedAt: Int
-    public let nonce, signatureBase64: String
-
-    public enum CodingKeys: String, CodingKey {
-        case deviceID = "deviceId"
-        case issuedAt, nonce, signatureBase64
-    }
-
-    public init(deviceID: String, issuedAt: Int, nonce: String, signatureBase64: String) {
-        self.deviceID = deviceID
-        self.issuedAt = issuedAt
-        self.nonce = nonce
-        self.signatureBase64 = signatureBase64
-    }
-}
-
-// MARK: - DevicePublicKey
-public struct DevicePublicKey: Codable, Sendable {
-    public let algorithm, base64: String
-
-    public init(algorithm: String, base64: String) {
-        self.algorithm = algorithm
-        self.base64 = base64
-    }
-}
-
-/// Local deployment input. Paths identify reviewed offline installation tools.
-// MARK: - PrepareWindowsWorkshop
-public struct PrepareWindowsWorkshop: Codable, Sendable {
-    public let certificateExecutable: String
-    public let databasePort: Int
-    public let listenAddress, platformScript, postgresBin, serverName: String
-    public let serverPort: Int
-    public let stateDirectory: String
-    public let version: Int
-    public let workshop: InitializeWorkshop
-
-    public init(certificateExecutable: String, databasePort: Int, listenAddress: String, platformScript: String, postgresBin: String, serverName: String, serverPort: Int, stateDirectory: String, version: Int, workshop: InitializeWorkshop) {
-        self.certificateExecutable = certificateExecutable
-        self.databasePort = databasePort
-        self.listenAddress = listenAddress
-        self.platformScript = platformScript
-        self.postgresBin = postgresBin
-        self.serverName = serverName
-        self.serverPort = serverPort
-        self.stateDirectory = stateDirectory
-        self.version = version
-        self.workshop = workshop
     }
 }
 
@@ -611,60 +418,6 @@ public enum ServerBackupAction: String, Codable, Sendable {
     case saveDestinations = "saveDestinations"
 }
 
-// MARK: - PreparedWindowsWorkshop
-public struct PreparedWindowsWorkshop: Codable, Sendable {
-    public let endpoint: String
-    public let version: Int
-    public let workshop: InitializedWorkshop
-
-    public init(endpoint: String, version: Int, workshop: InitializedWorkshop) {
-        self.endpoint = endpoint
-        self.version = version
-        self.workshop = workshop
-    }
-}
-
-// MARK: - ReadWindowsInstallation
-public struct ReadWindowsInstallation: Codable, Sendable {
-    public let progressDirectory: String
-    public let version: Int
-
-    public init(progressDirectory: String, version: Int) {
-        self.progressDirectory = progressDirectory
-        self.version = version
-    }
-}
-
-// MARK: - ServerBackupConfiguration
-public struct ServerBackupConfiguration: Codable, Sendable {
-    public let deploymentID: String
-    public let externalDestination: String?
-    public let hostRoot: String
-    public let intervalHours: Int?
-    public let localDestination, recoveryDirectory: String
-    public let reserveBytes, retentionCount: Int?
-    public let serviceName: String
-    public let version: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case deploymentID = "deploymentId"
-        case externalDestination, hostRoot, intervalHours, localDestination, recoveryDirectory, reserveBytes, retentionCount, serviceName, version
-    }
-
-    public init(deploymentID: String, externalDestination: String?, hostRoot: String, intervalHours: Int?, localDestination: String, recoveryDirectory: String, reserveBytes: Int?, retentionCount: Int?, serviceName: String, version: Int) {
-        self.deploymentID = deploymentID
-        self.externalDestination = externalDestination
-        self.hostRoot = hostRoot
-        self.intervalHours = intervalHours
-        self.localDestination = localDestination
-        self.recoveryDirectory = recoveryDirectory
-        self.reserveBytes = reserveBytes
-        self.retentionCount = retentionCount
-        self.serviceName = serviceName
-        self.version = version
-    }
-}
-
 /// Sanitized management projection; source paths and private configuration stay in Rust.
 // MARK: - ServerBackupManagement
 public struct ServerBackupManagement: Codable, Sendable {
@@ -811,8 +564,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
     public let eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?
     public let handshakeOutcomeAccepted: HandshakeAccepted?
     public let handshakeOutcomeRejected: HandshakeRejection?
-    public let installWindowsClient: InstallWindowsClient?
-    public let installWindowsServer: InstallWindowsServer?
     public let ipcClientMessageIPCCancelServerDiscovery: DiscoverServers?
     public let ipcClientMessageIPCCommand: CommandEnvelope?
     public let ipcClientMessageIPCDesktopOnboarding: DesktopOnboardingRequest?
@@ -1024,8 +775,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case eventQuotationDraftChangedEvent = "Event_QuotationDraftChangedEvent"
         case handshakeOutcomeAccepted = "HandshakeOutcome_Accepted"
         case handshakeOutcomeRejected = "HandshakeOutcome_Rejected"
-        case installWindowsClient = "InstallWindows_Client"
-        case installWindowsServer = "InstallWindows_Server"
         case ipcClientMessageIPCCancelServerDiscovery = "IpcClientMessage_IpcCancelServerDiscovery"
         case ipcClientMessageIPCCommand = "IpcClientMessage_IpcCommand"
         case ipcClientMessageIPCDesktopOnboarding = "IpcClientMessage_IpcDesktopOnboarding"
@@ -1163,7 +912,7 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         case subscriptionOutcomeSucceeded = "SubscriptionOutcome_Succeeded"
     }
 
-    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandCatalogImageImport: ImportCatalogImage?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerResolveConflict: ResolveCustomerConflict?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandOrderCancel: CancelOrder?, commandOrderConvert: ConvertQuotation?, commandOrderDeliver: RecordOrderDelivery?, commandOrderFulfillment: EditOrderFulfillment?, commandOrderWorkComplete: TransitionOrderWork?, commandOrderWorkStart: TransitionOrderWork?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandPricingPublish: PublishPrice?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandQuotationAccept: AcceptQuotation?, commandQuotationApprovalDecide: DecideDiscountApproval?, commandQuotationApprovalRequest: RequestDiscountApproval?, commandQuotationCancel: CancelQuotation?, commandQuotationDraftCancel: CancelQuotationDraft?, commandQuotationDraftCreate: CreateQuotationDraft?, commandQuotationDraftResolve: ResolveQuotationDraft?, commandQuotationDraftUpdate: UpdateQuotationDraft?, commandQuotationIssue: IssueQuotation?, commandQuotationRevise: SetQuotationValidity?, commandQuotationValidity: SetQuotationValidity?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultCatalogImageImported: CatalogImageRef?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerConflictResolved: ChangeRecord?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultDiscountApproval: DiscountApproval?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultOrder: OrderRecord?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultPricePublished: PublishedPrice?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultQuotation: QuotationRecord?, commandResultQuotationDraftCreated: QuotationDraft?, commandResultQuotationDraftResolved: ChangeRecord?, commandResultQuotationDraftUpdated: QuotationDraft?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, customerResolutionSourceConflict: CustomerConflictSource?, customerResolutionSourcePendingReview: ChangeRecord?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventDesktopAccountChangedEvent: DesktopAccountChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventOrderChangedEvent: OrderNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventPricingChangedEvent: PriceChangeNotice?, eventProductChangedEvent: ProductChangeNotice?, eventQuotationApprovalChangedEvent: DiscountApprovalNotice?, eventQuotationChangedEvent: QuotationNotice?, eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, installWindowsClient: InstallWindowsClient?, installWindowsServer: InstallWindowsServer?, ipcClientMessageIPCCancelServerDiscovery: DiscoverServers?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopOnboarding: DesktopOnboardingRequest?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCDiscoverServers: DiscoverServers?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopOnboardingResponse: DesktopOnboardingResponse?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCServerDiscovery: ServerDiscoveryResult?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, orderActionCancel: CancelOrder?, orderActionCompleteWork: TransitionOrderWork?, orderActionConvert: ConvertQuotation?, orderActionDeliver: RecordOrderDelivery?, orderActionEditFulfillment: EditOrderFulfillment?, orderActionStartWork: TransitionOrderWork?, priceTargetFurniture: FurnitureReference?, priceTargetProduct: ProductReference?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryCatalogImageGet: GetCatalogImage?, queryConfigGet: [String: JSONAny]?, queryCustomerConflicts: GetCustomerConflicts?, queryCustomerGet: GetCustomer?, queryCustomerHistory: GetCustomerHistory?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryHomeRead: ReadHome?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryOrderCustomerDocument: GetOrder?, queryOrderGet: GetOrder?, queryOrderList: ListOrders?, queryOrderQuotationDocument: GetOrder?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryPricingDiscount: CalculateDiscount?, queryPricingList: ListPrices?, queryPricingReview: ReviewPrice?, queryPricingSelection: PriceSelection?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryQuotationApprovalList: ListDiscountApprovals?, queryQuotationCustomerDocument: GetQuotationDraft?, queryQuotationDraftGet: GetQuotationDraft?, queryQuotationDraftList: ListQuotationDrafts?, queryQuotationDraftReview: GetQuotationDraftReview?, queryQuotationEvaluate: EvaluateQuotation?, queryQuotationList: ListQuotations?, querySalesCatalogCheck: CheckSalesConfiguration?, querySalesCatalogGet: GetSalesCatalogItem?, querySalesCatalogList: ListSalesCatalog?, queryWorkOrderList: ListWorkOrders?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultCatalogImage: CatalogImageChunk?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomerConflicts: CustomerConflictPage?, queryResultCustomerDocument: CustomerDocument?, queryResultCustomerHistory: CustomerHistoryPage?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultDiscountApprovals: DiscountApprovalPage?, queryResultDiscountTotal: DiscountTotal?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultHome: HomeSnapshot?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultOrders: OrderPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultPriceReview: PriceReview?, queryResultPrices: PricePage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultQuotationDraft: QuotationDraft?, queryResultQuotationDraftReview: QuotationDraftReview?, queryResultQuotationDrafts: QuotationDraftPage?, queryResultQuotationEvaluation: QuotationEvaluation?, queryResultQuotations: QuotationPage?, queryResultSalesCatalog: SalesCatalogPage?, queryResultSalesCatalogItem: SalesCatalogDetails?, queryResultSalesConfiguration: SalesConfiguration?, queryResultScopeRelationships: RelationshipPage?, queryResultSellingPrice: SellingPrice?, queryResultWorkOrders: WorkOrderPage?, quotationDraftResolutionSourceConflict: QuotationDraftConflictSource?, quotationDraftResolutionSourcePendingReview: ChangeRecord?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionDesktopAccountChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionOrderChangedSubscribe: OrderChanges?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionPricingChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionQuotationApprovalChangedSubscribe: DiscountApprovalChanges?, subscriptionQuotationChangedSubscribe: QuotationChanges?, subscriptionQuotationDraftChangedSubscribe: QuotationDraftChanges?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
+    public init(commandAuthorizationRelationshipGrant: GrantScopeRelationship?, commandAuthorizationRelationshipRevoke: RevokeScopeRelationship?, commandCatalogImageImport: ImportCatalogImage?, commandConfigUpdate: UpdateConfiguration?, commandCustomerCreate: CreateCustomer?, commandCustomerResolveConflict: ResolveCustomerConflict?, commandCustomerUpdate: UpdateCustomer?, commandDesktopAccountCreate: CreateDesktopAccount?, commandDesktopAccountDeactivate: DeactivateDesktopAccount?, commandDesktopAccountUpdate: UpdateDesktopAccount?, commandFurnitureCategorySave: SaveFurnitureCategory?, commandFurnitureSave: SaveFurniture?, commandMaterialCategorySave: SaveMaterialCategory?, commandMaterialSave: SaveMaterial?, commandMaterialUnitSave: SaveMaterialUnit?, commandOrderCancel: CancelOrder?, commandOrderConvert: ConvertQuotation?, commandOrderDeliver: RecordOrderDelivery?, commandOrderFulfillment: EditOrderFulfillment?, commandOrderWorkComplete: TransitionOrderWork?, commandOrderWorkStart: TransitionOrderWork?, commandPartCategorySave: SavePartCategory?, commandPartSave: SavePart?, commandPricingPublish: PublishPrice?, commandProductCategorySave: SaveProductCategory?, commandProductSave: SaveProduct?, commandQuotationAccept: AcceptQuotation?, commandQuotationApprovalDecide: DecideDiscountApproval?, commandQuotationApprovalRequest: RequestDiscountApproval?, commandQuotationCancel: CancelQuotation?, commandQuotationDraftCancel: CancelQuotationDraft?, commandQuotationDraftCreate: CreateQuotationDraft?, commandQuotationDraftResolve: ResolveQuotationDraft?, commandQuotationDraftUpdate: UpdateQuotationDraft?, commandQuotationIssue: IssueQuotation?, commandQuotationRevise: SetQuotationValidity?, commandQuotationValidity: SetQuotationValidity?, commandOutcomeFailed: ContractError?, commandOutcomeSucceeded: [String: JSONAny]?, commandResultCatalogImageImported: CatalogImageRef?, commandResultConfigurationUpdated: ConfigSnapshot?, commandResultCustomerConflictResolved: ChangeRecord?, commandResultCustomerCreated: CustomerMutationResult?, commandResultCustomerUpdated: CustomerMutationResult?, commandResultDesktopAccountCreated: DesktopAccountSummary?, commandResultDesktopAccountDeactivated: DesktopAccountSummary?, commandResultDesktopAccountUpdated: DesktopAccountSummary?, commandResultDiscountApproval: DiscountApproval?, commandResultFurnitureCategorySaved: FurnitureCategory?, commandResultFurnitureSaved: Furniture?, commandResultMaterialCategorySaved: MaterialCategory?, commandResultMaterialSaved: Material?, commandResultMaterialUnitSaved: MaterialUnit?, commandResultOrder: OrderRecord?, commandResultPartCategorySaved: PartCategory?, commandResultPartSaved: Part?, commandResultPricePublished: PublishedPrice?, commandResultProductCategorySaved: ProductCategory?, commandResultProductSaved: Product?, commandResultQuotation: QuotationRecord?, commandResultQuotationDraftCreated: QuotationDraft?, commandResultQuotationDraftResolved: ChangeRecord?, commandResultQuotationDraftUpdated: QuotationDraft?, commandResultRelationshipGranted: RelationshipMutationResult?, commandResultRelationshipRevoked: RelationshipMutationResult?, customerResolutionSourceConflict: CustomerConflictSource?, customerResolutionSourcePendingReview: ChangeRecord?, eventAuthorizationPolicyChangedEvent: AuthorizationPolicyChangeNotice?, eventConfigChangedEvent: ConfigSnapshot?, eventCustomerChangedEvent: CustomerChangeNotice?, eventDesktopAccountChangedEvent: DesktopAccountChangeNotice?, eventFurnitureChangedEvent: FurnitureChangeNotice?, eventMaterialChangedEvent: MaterialChangeNotice?, eventOrderChangedEvent: OrderNotice?, eventPartChangedEvent: PartChangeNotice?, eventPermissionsChangedEvent: EffectivePermissions?, eventPricingChangedEvent: PriceChangeNotice?, eventProductChangedEvent: ProductChangeNotice?, eventQuotationApprovalChangedEvent: DiscountApprovalNotice?, eventQuotationChangedEvent: QuotationNotice?, eventQuotationDraftChangedEvent: QuotationDraftChangeNotice?, handshakeOutcomeAccepted: HandshakeAccepted?, handshakeOutcomeRejected: HandshakeRejection?, ipcClientMessageIPCCancelServerDiscovery: DiscoverServers?, ipcClientMessageIPCCommand: CommandEnvelope?, ipcClientMessageIPCDesktopOnboarding: DesktopOnboardingRequest?, ipcClientMessageIPCDesktopSessionState: DesktopSessionRequest?, ipcClientMessageIPCDesktopSignIn: DesktopSignInRequest?, ipcClientMessageIPCDesktopSignOut: DesktopSessionRequest?, ipcClientMessageIPCDiscoverServers: DiscoverServers?, ipcClientMessageIPCHandshake: HandshakeRequest?, ipcClientMessageIPCQuery: QueryEnvelope?, ipcClientMessageIPCShutdown: ShutdownRequest?, ipcClientMessageIPCSubscribe: SubscriptionEnvelope?, ipcClientMessageIPCUnsubscribe: UnsubscribeRequest?, ipcServerMessageIPCCommandResponse: CommandResponseEnvelope?, ipcServerMessageIPCDesktopOnboardingResponse: DesktopOnboardingResponse?, ipcServerMessageIPCDesktopSessionResponse: DesktopSessionResponse?, ipcServerMessageIPCEvent: EventEnvelope?, ipcServerMessageIPCFailure: IPCFailureResponse?, ipcServerMessageIPCHandshakeResponse: HandshakeResponse?, ipcServerMessageIPCQueryResponse: QueryResponseEnvelope?, ipcServerMessageIPCServerDiscovery: ServerDiscoveryResult?, ipcServerMessageIPCShutdownResponse: ShutdownResponse?, ipcServerMessageIPCSubscribeResponse: SubscriptionResponseEnvelope?, ipcServerMessageIPCSubscriptionClosed: SubscriptionClosedEnvelope?, ipcServerMessageIPCUnsubscribeResponse: UnsubscribeResponse?, orderActionCancel: CancelOrder?, orderActionCompleteWork: TransitionOrderWork?, orderActionConvert: ConvertQuotation?, orderActionDeliver: RecordOrderDelivery?, orderActionEditFulfillment: EditOrderFulfillment?, orderActionStartWork: TransitionOrderWork?, priceTargetFurniture: FurnitureReference?, priceTargetProduct: ProductReference?, queryAuthorizationRelationshipsList: ListScopeRelationships?, queryCatalogImageGet: GetCatalogImage?, queryConfigGet: [String: JSONAny]?, queryCustomerConflicts: GetCustomerConflicts?, queryCustomerGet: GetCustomer?, queryCustomerHistory: GetCustomerHistory?, queryCustomerSearch: SearchCustomers?, queryDesktopAccountList: [String: JSONAny]?, queryFurnitureCategoryList: ListFurnitureCategories?, queryFurnitureList: ListFurnitures?, queryFurnitureReview: SaveFurniture?, queryFurnitureRevisionGet: GetFurnitureRevision?, queryFurnitureSelectionCheck: CheckFurnitureSelection?, queryHomeRead: ReadHome?, queryMaterialList: ListMaterials?, queryMaterialReferenceList: [String: JSONAny]?, queryOrderCustomerDocument: GetOrder?, queryOrderGet: GetOrder?, queryOrderList: ListOrders?, queryOrderQuotationDocument: GetOrder?, queryPartCategoryList: ListPartCategories?, queryPartCompositionGet: GetPartComposition?, queryPartCost: CalculatePartCost?, queryPartList: ListParts?, queryPermissionsGetEffective: [String: JSONAny]?, queryPricingDiscount: CalculateDiscount?, queryPricingList: ListPrices?, queryPricingReview: ReviewPrice?, queryPricingSelection: PriceSelection?, queryProductCategoryList: ListProductCategories?, queryProductList: ListProducts?, queryProductRevisionGet: GetProductRevision?, queryQuotationApprovalList: ListDiscountApprovals?, queryQuotationCustomerDocument: GetQuotationDraft?, queryQuotationDraftGet: GetQuotationDraft?, queryQuotationDraftList: ListQuotationDrafts?, queryQuotationDraftReview: GetQuotationDraftReview?, queryQuotationEvaluate: EvaluateQuotation?, queryQuotationList: ListQuotations?, querySalesCatalogCheck: CheckSalesConfiguration?, querySalesCatalogGet: GetSalesCatalogItem?, querySalesCatalogList: ListSalesCatalog?, queryWorkOrderList: ListWorkOrders?, queryOutcomeFailed: ContractError?, queryOutcomeSucceeded: [String: JSONAny]?, queryResultCatalogImage: CatalogImageChunk?, queryResultConfiguration: ConfigSnapshot?, queryResultCustomer: Customer?, queryResultCustomerConflicts: CustomerConflictPage?, queryResultCustomerDocument: CustomerDocument?, queryResultCustomerHistory: CustomerHistoryPage?, queryResultCustomers: CustomerPage?, queryResultDesktopAccounts: DesktopAccountPage?, queryResultDiscountApprovals: DiscountApprovalPage?, queryResultDiscountTotal: DiscountTotal?, queryResultEffectivePermissions: EffectivePermissions?, queryResultFurnitureCategories: FurnitureCategories?, queryResultFurnitureReview: FurnitureReview?, queryResultFurnitureRevision: Furniture?, queryResultFurnitures: FurniturePage?, queryResultFurnitureSelection: FurnitureSelection?, queryResultHome: HomeSnapshot?, queryResultMaterialReferences: MaterialReferences?, queryResultMaterials: MaterialPage?, queryResultOrders: OrderPage?, queryResultPartCategories: PartCategories?, queryResultPartComposition: Part?, queryResultPartCost: PartCost?, queryResultParts: PartPage?, queryResultPriceReview: PriceReview?, queryResultPrices: PricePage?, queryResultProductCategories: ProductCategories?, queryResultProductRevision: Product?, queryResultProducts: ProductPage?, queryResultQuotationDraft: QuotationDraft?, queryResultQuotationDraftReview: QuotationDraftReview?, queryResultQuotationDrafts: QuotationDraftPage?, queryResultQuotationEvaluation: QuotationEvaluation?, queryResultQuotations: QuotationPage?, queryResultSalesCatalog: SalesCatalogPage?, queryResultSalesCatalogItem: SalesCatalogDetails?, queryResultSalesConfiguration: SalesConfiguration?, queryResultScopeRelationships: RelationshipPage?, queryResultSellingPrice: SellingPrice?, queryResultWorkOrders: WorkOrderPage?, quotationDraftResolutionSourceConflict: QuotationDraftConflictSource?, quotationDraftResolutionSourcePendingReview: ChangeRecord?, subscriptionAuthorizationPolicyChangedSubscribe: [String: JSONAny]?, subscriptionConfigChangedSubscribe: [String: JSONAny]?, subscriptionCustomerChangedSubscribe: [String: JSONAny]?, subscriptionDesktopAccountChangedSubscribe: [String: JSONAny]?, subscriptionFurnitureChangedSubscribe: [String: JSONAny]?, subscriptionMaterialChangedSubscribe: [String: JSONAny]?, subscriptionOrderChangedSubscribe: OrderChanges?, subscriptionPartChangedSubscribe: [String: JSONAny]?, subscriptionPermissionsChangedSubscribe: [String: JSONAny]?, subscriptionPricingChangedSubscribe: [String: JSONAny]?, subscriptionProductChangedSubscribe: [String: JSONAny]?, subscriptionQuotationApprovalChangedSubscribe: DiscountApprovalChanges?, subscriptionQuotationChangedSubscribe: QuotationChanges?, subscriptionQuotationDraftChangedSubscribe: QuotationDraftChanges?, subscriptionOutcomeFailed: ContractError?, subscriptionOutcomeSucceeded: SubscriptionAccepted?) {
         self.commandAuthorizationRelationshipGrant = commandAuthorizationRelationshipGrant
         self.commandAuthorizationRelationshipRevoke = commandAuthorizationRelationshipRevoke
         self.commandCatalogImageImport = commandCatalogImageImport
@@ -1247,8 +996,6 @@ public struct UnionPayloadKeepAlive: Codable, Sendable {
         self.eventQuotationDraftChangedEvent = eventQuotationDraftChangedEvent
         self.handshakeOutcomeAccepted = handshakeOutcomeAccepted
         self.handshakeOutcomeRejected = handshakeOutcomeRejected
-        self.installWindowsClient = installWindowsClient
-        self.installWindowsServer = installWindowsServer
         self.ipcClientMessageIPCCancelServerDiscovery = ipcClientMessageIPCCancelServerDiscovery
         self.ipcClientMessageIPCCommand = ipcClientMessageIPCCommand
         self.ipcClientMessageIPCDesktopOnboarding = ipcClientMessageIPCDesktopOnboarding
@@ -5866,6 +5613,21 @@ public struct QuotationDraftChanges: Codable, Sendable {
     }
 }
 
+// MARK: - WindowsInstallationState
+public struct WindowsInstallationState: Codable, Sendable {
+    public let interrupted: Bool
+    public let progress: WindowsInstallProgress
+    public let recovery: WindowsSetupRecovery
+    public let version: Int
+
+    public init(interrupted: Bool, progress: WindowsInstallProgress, recovery: WindowsSetupRecovery, version: Int) {
+        self.interrupted = interrupted
+        self.progress = progress
+        self.recovery = recovery
+        self.version = version
+    }
+}
+
 /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
 // MARK: - WindowsInstallProgress
 public struct WindowsInstallProgress: Codable, Sendable {
@@ -5906,21 +5668,6 @@ public enum WindowsInstallStatus: String, Codable, Sendable {
     case succeeded = "succeeded"
 }
 
-// MARK: - WindowsInstallationState
-public struct WindowsInstallationState: Codable, Sendable {
-    public let interrupted: Bool
-    public let progress: WindowsInstallProgress
-    public let recovery: WindowsSetupRecovery
-    public let version: Int
-
-    public init(interrupted: Bool, progress: WindowsInstallProgress, recovery: WindowsSetupRecovery, version: Int) {
-        self.interrupted = interrupted
-        self.progress = progress
-        self.recovery = recovery
-        self.version = version
-    }
-}
-
 /// Rust decides which action is available; the native shell supplies localized copy.
 public enum WindowsSetupRecovery: String, Codable, Sendable {
     case complete = "complete"
@@ -5928,22 +5675,6 @@ public enum WindowsSetupRecovery: String, Codable, Sendable {
     case ownerPassword = "ownerPassword"
     case retry = "retry"
     case wait = "wait"
-}
-
-/// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
-// MARK: - WindowsSetupBundle
-public struct WindowsSetupBundle: Codable, Sendable {
-    public let desktopReleaseSha256, publisher, serverReleaseSha256: String
-    public let version: Int
-    public let winswSha256: String
-
-    public init(desktopReleaseSha256: String, publisher: String, serverReleaseSha256: String, version: Int, winswSha256: String) {
-        self.desktopReleaseSha256 = desktopReleaseSha256
-        self.publisher = publisher
-        self.serverReleaseSha256 = serverReleaseSha256
-        self.version = version
-        self.winswSha256 = winswSha256
-    }
 }
 
 // MARK: - Encode/decode helpers

@@ -96,13 +96,6 @@ impl AuthenticatedHttpClient {
     ) -> Result<T, HttpError> {
         let mut span = DiagnosticSpan::start(DiagnosticPhase::Confirmation);
         let result = self.request_inner(actor, route, input, budget);
-        let recovery_result = match &result {
-            Ok(_) => Ok(()),
-            Err(HttpError::Denied) => Err(super::authentication_failure()),
-            Err(HttpError::Unavailable(failure)) => Err(failure.clone()),
-            Err(_) => Err(super::unavailable(FailurePhase::Receive)),
-        };
-        self.driver.config.record_result(&recovery_result);
         span.finish(match &result {
             Ok(_) => DiagnosticResult::Succeeded,
             Err(HttpError::Unavailable(cause)) => match failure_result(cause, budget) {

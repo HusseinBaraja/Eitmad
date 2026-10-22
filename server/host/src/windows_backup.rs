@@ -102,27 +102,15 @@ pub(super) fn configure_setup(
         {
             continue;
         }
-        let mut child = Command::new(&executable)
-            .args(["windows-backup", action])
-            .arg(state)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .creation_flags(0x0800_0000)
-            .spawn()
-            .map_err(|_| MainError::Backup)?;
-        if action == "configure" {
-            serde_json::to_writer(child.stdin.take().ok_or(MainError::Backup)?, &configuration)
-                .map_err(|_| MainError::Backup)?;
-        } else {
-            drop(child.stdin.take());
-        }
-        let output = child.wait_with_output().map_err(|_| MainError::Backup)?;
-        if !output.status.success() || output.stdout.len() > 65536 {
+        let (status, success): (Status, _) = invoke(
+            &executable,
+            state,
+            action,
+            (action == "configure").then_some(configuration),
+        )?;
+        if !success {
             return Err(MainError::Backup);
         }
-        let status: Status =
-            serde_json::from_slice(&output.stdout).map_err(|_| MainError::Backup)?;
         if action == "status" {
             capture_action = setup_capture_action(&status);
         }
@@ -144,6 +132,52 @@ pub(super) fn configure_setup(
         }
     }
     Ok(())
+}
+
+fn invoke<T: serde::de::DeserializeOwned>(
+    backend: &Path,
+    state: &Path,
+    action: &str,
+    configuration: Option<&Configuration>,
+) -> Result<(T, bool), MainError> {
+    let mut child = Command::new(backend)
+        .args(["windows-backup", action])
+        .arg(state)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .creation_flags(0x0800_0000)
+        .spawn()
+        .map_err(|_| MainError::Backup)?;
+    let result = (|| {
+        if let Some(configuration) = configuration {
+            serde_json::to_writer(child.stdin.take().ok_or(MainError::Backup)?, configuration)
+                .map_err(|_| MainError::Backup)?;
+        } else {
+            drop(child.stdin.take());
+        }
+        let mut bytes = Vec::new();
+        child
+            .stdout
+            .take()
+            .ok_or(MainError::Backup)?
+            .take(65_537)
+            .read_to_end(&mut bytes)
+            .map_err(|_| MainError::Backup)?;
+        if bytes.len() > 65_536 {
+            return Err(MainError::Backup);
+        }
+        let success = child.wait().map_err(|_| MainError::Backup)?.success();
+        Ok((
+            serde_json::from_slice(&bytes).map_err(|_| MainError::Backup)?,
+            success,
+        ))
+    })();
+    if result.is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    result
 }
 
 fn setup_capture_action(status: &Status) -> &'static str {

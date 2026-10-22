@@ -414,10 +414,6 @@ fn spoofed_identity_and_replacement_ca_are_refused_before_credentials() {
                     .kind,
                 TransportFailureKind::EncryptionRequired
             );
-            assert_eq!(
-                *config.recovery().unwrap().subscribe().borrow(),
-                RecoveryState::TrustFailure
-            );
             peer.work.join().unwrap();
             assert_eq!(peer.requests.lock().unwrap().len(), 1);
         }
@@ -522,10 +518,6 @@ fn outage_retries_are_paced_and_cancellation_discards_late_discovery() {
         },
     );
     assert_eq!(result.err().unwrap().phase, FailurePhase::Cancellation);
-    assert_eq!(
-        *config.recovery().unwrap().subscribe().borrow(),
-        RecoveryState::Cancelled
-    );
     assert!(retained.route.lock().unwrap().address.is_none());
 }
 
@@ -594,7 +586,6 @@ fn cancellation_closes_an_active_identity_socket() {
 fn session_switching_uses_only_the_current_account_and_revocation_requires_sign_in() {
     for installation in [Installation::new(), Installation::first()] {
         let config = installation.config();
-        let control = config.recovery().unwrap();
         let peer = Peer::start(
             "127.0.0.1",
             installation.receipt.binding.offer.identity.clone(),
@@ -664,7 +655,6 @@ fn session_switching_uses_only_the_current_account_and_revocation_requires_sign_
                 Instant::now() + Duration::from_secs(3),
             );
             assert!(matches!(result, Err(HttpError::Denied)));
-            assert_eq!(*control.subscribe().borrow(), RecoveryState::SignInRequired);
         }
         peer.work.join().unwrap();
         let requests = peer.requests.lock().unwrap();

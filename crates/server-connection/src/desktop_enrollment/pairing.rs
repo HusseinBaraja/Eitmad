@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 struct Pending {
     request: CompletePairing,
-    session_key: Vec<u8>,
+    session_key: Zeroizing<Vec<u8>>,
 }
 #[derive(Serialize, Deserialize)]
 struct PendingSecret {
@@ -19,12 +19,6 @@ struct PendingSecret {
     request_hash: Vec<u8>,
 }
 impl Drop for PendingSecret {
-    fn drop(&mut self) {
-        self.session_key.zeroize();
-    }
-}
-
-impl Drop for Pending {
     fn drop(&mut self) {
         self.session_key.zeroize();
     }
@@ -54,10 +48,7 @@ impl DesktopEnrollment {
         }
         let (device, route) = self.device(retained.as_ref())?;
         let key = self.signing_key(device, &route)?;
-        let pending_id = SecretId::new(
-            SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
-            SecretReferenceId::new(device.value()),
-        );
+        let pending_id = pending_id(device)?;
         let pending = self.pending_pairing(candidate, code, device, &key, &pending_id)?;
         let binding = &pending.request.binding;
         if binding.offer.identity.server_id != candidate.server_id
@@ -120,32 +111,9 @@ impl DesktopEnrollment {
         key: &SigningKey,
         pending_id: &SecretId,
     ) -> Result<Pending, TransportFailure> {
-        if let Some(secret) = self
-            .secrets
-            .get(pending_id)
-            .map_err(|_| authentication_failure())?
-        {
-            let stored: PendingSecret = serde_json::from_slice(secret.expose_secret())
-                .map_err(|_| authentication_failure())?;
-            let bytes = read_pairing_file(&self.directory.join("desktop-pairing-pending.json"))
-                .map_err(|_| authentication_failure())?;
-            if Sha256::digest(&bytes).as_slice() != stored.request_hash {
-                return Err(authentication_failure());
-            }
-            let request = serde_json::from_slice(&bytes).map_err(|_| authentication_failure())?;
-            Ok(Pending {
-                request,
-                session_key: stored.session_key.clone(),
-            })
+        if let Some(pending) = self.load_pending_pairing(device, pending_id)? {
+            Ok(pending)
         } else {
-            if self
-                .directory
-                .join("desktop-pairing-pending.json")
-                .try_exists()
-                .map_err(|_| authentication_failure())?
-            {
-                return Err(authentication_failure());
-            }
             let config = bootstrap(candidate)?;
             let offer: PairingOffer = exchange(&config, "/v1/pairing/offer", &(), None)?;
             if offer.identity.server_id != candidate.server_id
@@ -171,7 +139,7 @@ impl DesktopEnrollment {
                 .map_err(|_| authentication_failure())?;
             let pending = Pending {
                 request,
-                session_key: session_key.to_vec(),
+                session_key,
             };
             // The public transcript can include a CA bundle larger than a credential-store entry.
             // Keep its integrity hash and only the session key in the existing bounded secret store.
@@ -182,7 +150,7 @@ impl DesktopEnrollment {
                 &request_bytes,
             )?;
             let stored = PendingSecret {
-                session_key: pending.session_key.clone(),
+                session_key: pending.session_key.to_vec(),
                 request_hash: Sha256::digest(&request_bytes).to_vec(),
             };
             let bytes =
@@ -194,6 +162,40 @@ impl DesktopEnrollment {
                 )
                 .map_err(|_| authentication_failure())?;
             Ok(pending)
+        }
+    }
+
+    fn load_pending_pairing(
+        &self,
+        device: DeviceId,
+        pending_id: &SecretId,
+    ) -> Result<Option<Pending>, TransportFailure> {
+        let path = self.directory.join("desktop-pairing-pending.json");
+        let secret = self
+            .secrets
+            .get(pending_id)
+            .map_err(|_| authentication_failure())?;
+        if let Some(secret) = secret {
+            let stored: PendingSecret = serde_json::from_slice(secret.expose_secret())
+                .map_err(|_| authentication_failure())?;
+            let bytes = read_pairing_file(&path).map_err(|_| authentication_failure())?;
+            if Sha256::digest(&bytes).as_slice() != stored.request_hash {
+                return Err(authentication_failure());
+            }
+            let request: CompletePairing =
+                serde_json::from_slice(&bytes).map_err(|_| authentication_failure())?;
+            if request.binding.device_id != device {
+                return Err(authentication_failure());
+            }
+            Ok(Some(Pending {
+                request,
+                session_key: Zeroizing::new(stored.session_key.clone()),
+            }))
+        } else {
+            if path.try_exists().map_err(|_| authentication_failure())? {
+                return Err(authentication_failure());
+            }
+            Ok(None)
         }
     }
 
@@ -217,10 +219,7 @@ impl DesktopEnrollment {
         let (device, route) = self.device(retained.as_ref())?;
         // Do not erase the last evidence that a missing key belongs to an uncertain exchange.
         let _key = self.signing_key(device, &route)?;
-        let id = SecretId::new(
-            SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
-            SecretReferenceId::new(device.value()),
-        );
+        let id = pending_id(device)?;
         self.secrets
             .delete(&id)
             .map_err(|_| authentication_failure())?;
@@ -239,36 +238,17 @@ impl DesktopEnrollment {
             .lock()
             .map_err(|_| authentication_failure())?;
         let path = self.directory.join("desktop-pairing-pending.json");
-        let bytes = match read_pairing_file(&path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(authentication_failure()),
-        };
+        if !path.try_exists().map_err(|_| authentication_failure())? {
+            return Ok(None);
+        }
         let device: DeviceId = serde_json::from_slice(
-            &fs::read(self.directory.join("desktop-device.json"))
+            &read_pairing_file(&self.directory.join("desktop-device.json"))
                 .map_err(|_| authentication_failure())?,
         )
         .map_err(|_| authentication_failure())?;
-        let id = SecretId::new(
-            SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
-            SecretReferenceId::new(device.value()),
-        );
-        let secret = self
-            .secrets
-            .get(&id)
-            .map_err(|_| authentication_failure())?
-            .ok_or_else(authentication_failure)?;
-        let stored: PendingSecret =
-            serde_json::from_slice(secret.expose_secret()).map_err(|_| authentication_failure())?;
-        if Sha256::digest(&bytes).as_slice() != stored.request_hash {
-            return Err(authentication_failure());
-        }
-        let request: CompletePairing =
-            serde_json::from_slice(&bytes).map_err(|_| authentication_failure())?;
-        if request.binding.device_id != device {
-            return Err(authentication_failure());
-        }
-        Ok(Some(request.binding.offer.identity.server_id))
+        Ok(self
+            .load_pending_pairing(device, &pending_id(device)?)?
+            .map(|pending| pending.request.binding.offer.identity.server_id))
     }
 
     /// Creates the private local first-desktop enrollment request. The seed remains in this client.
@@ -310,10 +290,10 @@ impl DesktopEnrollment {
     }
 
     pub(super) fn check_paired_inputs(
-        &self,
+        paired: Option<&DesktopEnrollmentSettings>,
         inputs: &DesktopEnrollmentSettings,
     ) -> Result<(), TransportFailure> {
-        if let Some(paired) = self.paired_connection()? {
+        if let Some(paired) = paired {
             if inputs.endpoint != paired.endpoint
                 || inputs.tenant_code != paired.tenant_code
                 || inputs.organization != paired.organization
@@ -362,6 +342,13 @@ impl DesktopEnrollment {
         }
         Ok(())
     }
+}
+
+fn pending_id(device: DeviceId) -> Result<SecretId, TransportFailure> {
+    Ok(SecretId::new(
+        SecretKind::parse("desktop-pairing-pending").map_err(|_| authentication_failure())?,
+        SecretReferenceId::new(device.value()),
+    ))
 }
 
 fn authenticated_config(offer: &PairingOffer) -> Result<DirectServerConfig, TransportFailure> {

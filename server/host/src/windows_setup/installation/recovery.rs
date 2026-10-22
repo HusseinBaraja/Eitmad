@@ -3,15 +3,16 @@ use super::*;
 use eitmad_contracts::setup::WindowsSetupRecovery as Recovery;
 
 fn public_request(request: &InstallWindows) -> Result<serde_json::Value, MainError> {
-    let mut value = serde_json::to_value(request).map_err(|_| MainError::Setup)?;
-    if let InstallWindows::Server(_) = request {
-        value["payload"]["preparation"]["workshop"]["ownerPassword"] = "".into();
-        if let Some(login) = value["payload"].get_mut("firstDesktop") {
-            login["password"] = "".into();
-            login["deviceProof"] = serde_json::Value::Null;
+    let mut request = request.clone();
+    if let InstallWindows::Server(server) = &mut request {
+        server.preparation.workshop.owner_password =
+            eitmad_contracts::accounts::AccountPassword::new("");
+        if let Some(login) = &mut server.first_desktop {
+            zeroize::Zeroize::zeroize(&mut login.password);
+            login.device_proof = None;
         }
     }
-    Ok(value)
+    serde_json::to_value(request).map_err(|_| MainError::Setup)
 }
 
 pub(in crate::windows_setup) fn save(
@@ -52,18 +53,18 @@ pub(super) fn binding(request: &InstallWindows) -> Result<serde_json::Value, Mai
     Ok(value)
 }
 
-pub(in crate::windows_setup) fn action(root: &Path, active: bool, complete: bool) -> Recovery {
+pub(in crate::windows_setup) fn action(
+    root: &Path,
+    active: bool,
+    progress: &WindowsInstallProgress,
+) -> Recovery {
     if active {
         return Recovery::Wait;
     }
-    if complete {
+    if progress.stage == Stage::Complete && progress.status == Status::Succeeded {
         return Recovery::Complete;
     }
-    if read_last(root)
-        .ok()
-        .flatten()
-        .is_some_and(|p| p.status == Status::Blocked)
-    {
+    if progress.status == Status::Blocked {
         return Recovery::InspectManually;
     }
     match load(root) {
@@ -117,21 +118,17 @@ impl Progress {
         {
             return Err(MainError::Setup);
         }
-        let mut sequence = 0;
-        for entry in fs::read_dir(root).map_err(|_| MainError::Setup)? {
-            let entry = entry.map_err(|_| MainError::Setup)?;
-            let name = entry.file_name();
-            let name = name.to_str().ok_or(MainError::Setup)?;
-            if name.len() == 13
-                && entry
-                    .path()
-                    .extension()
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-                && name.as_bytes()[..8].iter().all(u8::is_ascii_digit)
-            {
-                sequence = sequence.max(name[..8].parse::<u32>().map_err(|_| MainError::Setup)?);
-            }
-        }
+        let sequence = record_paths(Path::new(root))?
+            .last()
+            .map(|path| {
+                path.file_stem()
+                    .and_then(|name| name.to_str())
+                    .ok_or(MainError::Setup)?
+                    .parse::<u32>()
+                    .map_err(|_| MainError::Setup)
+            })
+            .transpose()?
+            .unwrap_or(0);
         // Never overwrite a torn record. Wire progress starts at one for each new process.
         Ok(Self {
             root: root.into(),
