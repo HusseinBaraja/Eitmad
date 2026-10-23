@@ -141,6 +141,13 @@ async fn prepare_database(
         b"synthetic public CA",
     )
     .unwrap();
+    let manifests = Path::new(&request.service_state_directory).join("manifests");
+    fs::create_dir(&manifests).unwrap();
+    fs::write(
+        manifests.join("server-identity"),
+        b"00000000-0000-4000-8000-000000000093",
+    )
+    .unwrap();
     fs::create_dir(&request.preparation.state_directory).unwrap();
     fs::write(
         Path::new(&request.preparation.state_directory).join("prepared-workshop.json"),
