@@ -305,6 +305,29 @@ function Remove-LocalBackupGeneration([string]$Root, [string]$Deployment, [strin
     Remove-Item -LiteralPath $path -Recurse -Force
 }
 
+function Assert-LocalBackupTaskOwner($Task, [string]$Backend, [string]$Arguments) {
+    try {
+        if (-not $Task -or @($Task.Actions).Count -ne 1 -or $Task.Actions.Execute -cne $Backend -or
+            $Task.Actions.Arguments -cne $Arguments -or $Task.Principal.UserId -notin 'SYSTEM','S-1-5-18' -or
+            $Task.State -eq 'Disabled') { throw 'ScheduleFailed' }
+    } catch { throw 'ScheduleFailed' }
+}
+
+function Test-LocalBackupSchedule($Task) {
+    try {
+        if (@($Task.Triggers).Count -ne 1) { return $false }
+        $trigger = $Task.Triggers[0]
+        # The hourly time trigger must repeat indefinitely, without an expiry boundary.
+        if ($trigger.CimClass.CimClassName -cne 'MSFT_TaskTimeTrigger' -or $trigger.Enabled -ne $true -or
+            [string]::IsNullOrWhiteSpace($trigger.StartBoundary) -or $trigger.EndBoundary -or
+            $trigger.Repetition.Duration -or $trigger.Repetition.StopAtDurationEnd -ne $false -or
+            [Xml.XmlConvert]::ToTimeSpan($trigger.Repetition.Interval) -ne [TimeSpan]::FromHours(1)) { return $false }
+        return ($Task.Settings.StartWhenAvailable -eq $true -and
+            [string]$Task.Settings.MultipleInstances -in 'IgnoreNew','2' -and
+            [Xml.XmlConvert]::ToTimeSpan($Task.Settings.ExecutionTimeLimit) -eq [TimeSpan]::FromHours(3))
+    } catch { return $false }
+}
+
 function Register-LocalBackupSchedule($Configuration, [string]$StateDirectory, [string]$Backend) {
     Assert-LocalBackupControl $Backend
     foreach ($name in 'local-backup.ps1', 'local-backup.psm1', 'backup-tools.psm1', 'backup.psm1', 'host.psm1') {
@@ -312,23 +335,27 @@ function Register-LocalBackupSchedule($Configuration, [string]$StateDirectory, [
     }
     $name = 'EitmadServerBackup-' + $Configuration.deploymentId
     $arguments = 'windows-backup tick "' + $StateDirectory + '"'
-    $existing = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+    $existing = Get-ScheduledTask -TaskName $name -TaskPath '\' -ErrorAction SilentlyContinue
     if ($existing) {
-        if ($existing.Actions.Execute -cne $Backend -or $existing.Actions.Arguments -cne $arguments -or
-            $existing.Principal.UserId -notin 'SYSTEM', 'S-1-5-18' -or $existing.State -eq 'Disabled') { throw 'ScheduleFailed' }
-        return
+        Assert-LocalBackupTaskOwner $existing $Backend $arguments
+        if (Test-LocalBackupSchedule $existing) { return }
     }
-    $action = New-ScheduledTaskAction -Execute $Backend -Argument $arguments
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Hours 1)
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 3)
-    Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings -User SYSTEM -RunLevel Highest | Out-Null
+    if ($existing) {
+        # Only the explicit Schedule action repairs an owned task; preserve its action and principal.
+        Set-ScheduledTask -TaskName $name -TaskPath '\' -Trigger $trigger -Settings $settings | Out-Null
+    } else {
+        $action = New-ScheduledTaskAction -Execute $Backend -Argument $arguments
+        Register-ScheduledTask -TaskName $name -TaskPath '\' -Action $action -Trigger $trigger -Settings $settings -User SYSTEM -RunLevel Highest | Out-Null
+    }
+    Read-LocalBackupSchedule $Configuration $StateDirectory $Backend
 }
 
 function Read-LocalBackupSchedule($Configuration, [string]$StateDirectory, [string]$Backend) {
-    $task = Get-ScheduledTask -TaskName ('EitmadServerBackup-' + $Configuration.deploymentId) -ErrorAction SilentlyContinue
-    if (-not $task -or @($task.Actions).Count -ne 1 -or $task.Actions.Execute -cne $Backend -or
-        $task.Actions.Arguments -cne ('windows-backup tick "' + $StateDirectory + '"') -or
-        $task.Principal.UserId -notin 'SYSTEM','S-1-5-18' -or $task.State -eq 'Disabled') { throw 'ScheduleFailed' }
+    $task = Get-ScheduledTask -TaskName ('EitmadServerBackup-' + $Configuration.deploymentId) -TaskPath '\' -ErrorAction SilentlyContinue
+    Assert-LocalBackupTaskOwner $task $Backend ('windows-backup tick "' + $StateDirectory + '"')
+    if (-not (Test-LocalBackupSchedule $task)) { throw 'ScheduleFailed' }
 }
 
 function Restore-LocalServerBackup([string]$Generation, [string]$PostgresBin, [string]$StageDirectory) {

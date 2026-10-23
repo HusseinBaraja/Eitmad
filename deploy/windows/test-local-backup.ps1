@@ -66,18 +66,95 @@ $root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString
     Assert (-not (Test-Path -LiteralPath $expired)) 'Recognized expired generation was retained.'
     foreach ($path in $held,$foreign,$partial,$unknown,$outside) { Assert (Test-Path -LiteralPath $path) 'Retention removed preserved evidence.' }
     # Scheduling is observed through mocks; no task is installed on this machine.
-    function Get-ScheduledTask { param($TaskName, $ErrorAction) }
+    function New-ScheduleFixture {
+        [pscustomobject]@{
+            TaskName=('EitmadServerBackup-' + $config.deploymentId); TaskPath='\'; State='Ready'
+            Actions=@([pscustomobject]@{Execute='C:\Synthetic\eitmad-server.exe';Arguments=('windows-backup tick "' + $Root + '"')})
+            Principal=[pscustomobject]@{UserId='SYSTEM'}
+            Triggers=@([pscustomobject]@{CimClass=@{CimClassName='MSFT_TaskTimeTrigger'}; Enabled=$true
+                StartBoundary='2026-10-21T12:00:00'; EndBoundary=''
+                Repetition=[pscustomobject]@{Interval='PT1H';Duration='';StopAtDurationEnd=$false}})
+            Settings=[pscustomobject]@{StartWhenAvailable=$true;MultipleInstances=2;ExecutionTimeLimit='PT3H'}
+        }
+    }
+    function ScheduleFailed([scriptblock]$Operation) {
+        $message = ''; try { & $Operation } catch { $message = $_.Exception.Message }
+        Assert ($message -ceq 'ScheduleFailed') ('Expected ScheduleFailed, got: ' + $message)
+    }
+    $script:ScheduledTask = $null; $script:Registrations = 0; $script:Repairs = 0; $script:ApplyScheduleRepair = $true
+    function Get-ScheduledTask { param($TaskName, $TaskPath, $ErrorAction)
+        Assert ($TaskName -ceq ('EitmadServerBackup-' + $config.deploymentId) -and $TaskPath -ceq '\') 'Lookup escaped the owned task path.'
+        return $script:ScheduledTask }
     function New-ScheduledTaskAction { param($Execute,$Argument) [pscustomobject]@{Execute=$Execute;Arguments=$Argument} }
     function New-ScheduledTaskTrigger { param([switch]$Once,$At,$RepetitionInterval)
-        Assert ($RepetitionInterval.TotalHours -eq 1) 'Missing bounded catch-up tick.'; return 'trigger' }
+        Assert ($Once -and $At -gt (Get-Date) -and $RepetitionInterval.TotalHours -eq 1) 'Missing bounded catch-up tick.'
+        return (New-ScheduleFixture).Triggers[0] }
     function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit)
-        Assert ($StartWhenAvailable -and $MultipleInstances -eq 'IgnoreNew' -and $ExecutionTimeLimit.TotalHours -eq 3) 'Unsafe scheduler settings.'; return 'settings' }
-    function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Settings,$User,$RunLevel)
-        Assert ($User -eq 'SYSTEM' -and $Action.Arguments -eq ('windows-backup tick "' + $Root + '"')) 'Task did not invoke Rust policy.' }
+        Assert ($StartWhenAvailable -and $MultipleInstances -eq 'IgnoreNew' -and $ExecutionTimeLimit.TotalHours -eq 3) 'Unsafe scheduler settings.'
+        return (New-ScheduleFixture).Settings }
+    function Register-ScheduledTask { param($TaskName,$TaskPath,$Action,$Trigger,$Settings,$User,$RunLevel)
+        Assert ($TaskName -ceq ('EitmadServerBackup-' + $config.deploymentId) -and $TaskPath -ceq '\' -and
+            $User -eq 'SYSTEM' -and $RunLevel -eq 'Highest' -and $Action.Execute -ceq 'C:\Synthetic\eitmad-server.exe' -and
+            $Action.Arguments -ceq ('windows-backup tick "' + $Root + '"')) 'Task did not invoke Rust policy.'
+        $script:Registrations++; $script:ScheduledTask = New-ScheduleFixture
+        $script:ScheduledTask.Actions = @($Action); $script:ScheduledTask.Triggers = @($Trigger); $script:ScheduledTask.Settings = $Settings }
+    function Set-ScheduledTask { param($TaskName,$TaskPath,$Trigger,$Settings)
+        Assert ($TaskName -ceq $script:ScheduledTask.TaskName -and $TaskPath -ceq $script:ScheduledTask.TaskPath) 'Repair changed a different task.'
+        $script:Repairs++
+        if ($script:ApplyScheduleRepair) { $script:ScheduledTask.Triggers = @($Trigger); $script:ScheduledTask.Settings = $Settings } }
+    ScheduleFailed { Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
     Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
-    function Get-ScheduledTask { param($TaskName,$ErrorAction)
-        [pscustomobject]@{Actions=@{Execute='foreign.exe';Arguments=''};Principal=@{UserId='SYSTEM'}} }
-    Reject { Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
+    Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
+    Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
+    Assert ($script:Registrations -eq 1 -and $script:Repairs -eq 0) 'Healthy registration was not idempotent.'
+    # Accept equivalent XML durations and the enum's displayed value as well as its CIM integer.
+    $script:ScheduledTask.Triggers[0].Repetition.Interval = 'PT60M'
+    $script:ScheduledTask.Settings.ExecutionTimeLimit = 'PT180M'; $script:ScheduledTask.Settings.MultipleInstances = 'IgnoreNew'
+    Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
+    $invalidSchedules = @(
+        @{name='missing trigger'; change={param($t) $t.Triggers=@()}},
+        @{name='disabled trigger'; change={param($t) $t.Triggers[0].Enabled=$false}},
+        @{name='incorrect cadence'; change={param($t) $t.Triggers[0].Repetition.Interval='PT2H'}},
+        @{name='malformed cadence'; change={param($t) $t.Triggers[0].Repetition.Interval='invalid'}},
+        @{name='finite repetition'; change={param($t) $t.Triggers[0].Repetition.Duration='P1D'}},
+        @{name='expiring trigger'; change={param($t) $t.Triggers[0].EndBoundary='2026-10-22T12:00:00'}},
+        @{name='incorrect trigger kind'; change={param($t) $t.Triggers[0].CimClass.CimClassName='MSFT_TaskLogonTrigger'}},
+        @{name='extra trigger'; change={param($t) $t.Triggers += $t.Triggers[0]}},
+        @{name='missing catch-up'; change={param($t) $t.Settings.StartWhenAvailable=$false}},
+        @{name='parallel instances'; change={param($t) $t.Settings.MultipleInstances=0}},
+        @{name='missing settings'; change={param($t) $t.Settings=$null}},
+        @{name='incorrect execution limit'; change={param($t) $t.Settings.ExecutionTimeLimit='PT2H'}},
+        @{name='malformed execution limit'; change={param($t) $t.Settings.ExecutionTimeLimit='invalid'}},
+        @{name='unlimited execution'; change={param($t) $t.Settings.ExecutionTimeLimit='PT0S'}}
+    )
+    foreach ($case in $invalidSchedules) {
+        $script:ScheduledTask = New-ScheduleFixture; & $case.change $script:ScheduledTask
+        $repairs = $script:Repairs
+        ScheduleFailed { Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
+        Assert ($script:Repairs -eq $repairs -and $script:Registrations -eq 1) ('Status repaired ' + $case.name)
+        $action = $script:ScheduledTask.Actions; $principal = $script:ScheduledTask.Principal
+        Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
+        Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe'
+        Assert ($script:Repairs -eq ($repairs + 1) -and $script:Registrations -eq 1 -and
+            [object]::ReferenceEquals($action,$script:ScheduledTask.Actions) -and
+            [object]::ReferenceEquals($principal,$script:ScheduledTask.Principal)) ('Unsafe repair: ' + $case.name)
+    }
+    foreach ($change in @(
+        {param($t) $t.Actions[0].Execute='foreign.exe'},
+        {param($t) $t.Actions[0].Arguments='foreign arguments'},
+        {param($t) $t.Actions += $t.Actions[0]},
+        {param($t) $t.Principal.UserId='foreign-user'},
+        {param($t) $t.State='Disabled'}
+    )) {
+        $script:ScheduledTask = New-ScheduleFixture; & $change $script:ScheduledTask
+        $script:ScheduledTask.Triggers = @(); $repairs = $script:Repairs
+        ScheduleFailed { Read-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
+        ScheduleFailed { Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
+        Assert ($script:Repairs -eq $repairs -and $script:Registrations -eq 1) 'Refused task was changed.'
+    }
+    $script:ScheduledTask = New-ScheduleFixture; $script:ScheduledTask.Triggers = @()
+    $script:ApplyScheduleRepair = $false
+    ScheduleFailed { Register-LocalBackupSchedule $config $Root 'C:\Synthetic\eitmad-server.exe' }
     # Refuse writing a restore stage inside its own source, before creating any directory.
     & $script:HostTools { function script:Assert-Administrator {} }
     function Test-LocalBackupGeneration { param($Generation,$Deployment,$PostgresBin) }
