@@ -493,10 +493,23 @@ fn exchange<T: DeserializeOwned>(
     input: &impl Serialize,
     auth: Option<(&str, DeviceProof)>,
 ) -> Result<T, TransportFailure> {
+    exchange_at(config, route, input, auth, None)
+}
+
+fn exchange_at<T: DeserializeOwned>(
+    config: &DirectServerConfig,
+    route: &str,
+    input: &impl Serialize,
+    auth: Option<(&str, DeviceProof)>,
+    destination: Option<std::net::SocketAddr>,
+) -> Result<T, TransportFailure> {
     let deadline = Instant::now() + super::CONNECT_TIMEOUT + super::IO_TIMEOUT;
     let mut url = config.endpoint.clone();
     url.set_path(route);
-    let mut socket = config.connect(&url, deadline)?;
+    let mut socket = match destination {
+        Some(address) => super::connect_tls_at(&url, &config.tls, deadline, Some(address), None)?,
+        None => config.connect(&url, deadline)?,
+    };
     let body = Zeroizing::new(serde_json::to_vec(input).map_err(|_| authentication_failure())?);
     let mut headers = Zeroizing::new(format!(
         "{} {route} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n",

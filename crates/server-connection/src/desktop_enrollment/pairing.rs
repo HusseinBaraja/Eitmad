@@ -75,8 +75,18 @@ impl DesktopEnrollment {
             }
         }
         let config = authenticated_config(&binding.offer)?;
-        let receipt: PairingReceipt =
-            exchange(&config, "/v1/pairing/complete", &pending.request, None)?;
+        let address = candidate
+            .address
+            .parse()
+            .map_err(|_| authentication_failure())?;
+        // Discovery selects only the TCP route. The PAKE-bound origin still owns TLS and HTTP.
+        let receipt: PairingReceipt = exchange_at(
+            &config,
+            "/v1/pairing/complete",
+            &pending.request,
+            None,
+            Some(std::net::SocketAddr::new(address, candidate.port)),
+        )?;
         eitmad_pairing::verify_receipt(&pending.session_key, binding, &receipt)
             .map_err(|_| authentication_failure())?;
         let settings = self.pairing_settings(&receipt);

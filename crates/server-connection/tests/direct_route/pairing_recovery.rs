@@ -124,7 +124,7 @@ async fn expire(server: &ProvisionedServer, request: &CompletePairing) {
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn pairing_recovery_preserves_identity_through_expiry_abandonment_and_lost_receipts() {
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let server = provision_server(
+    let mut server = provision_server(
         &env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap(),
         &required_path("EITMAD_DIRECT_TEST_CERTIFICATE"),
         &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
@@ -180,7 +180,7 @@ async fn pairing_recovery_preserves_identity_through_expiry_abandonment_and_lost
     assert_eq!(client.device(), device);
     assert!(client.sign_in(request(None)).await.unwrap());
     assert_committed_state_retained(&client, &server);
-    verify_lost_receipt(&server).await;
+    verify_lost_receipt(&mut server).await;
     verify_abandoned_committed_exchange(&server).await;
     server
         .handle
@@ -292,11 +292,11 @@ fn assert_committed_state_retained(client: &Installation, server: &ProvisionedSe
     );
 }
 
-async fn verify_lost_receipt(server: &ProvisionedServer) {
+async fn verify_lost_receipt(server: &mut ProvisionedServer) {
     let client = Installation::new();
     let request = interrupt_completion(&client, server).await;
     // The server commits, but the caller loses its receipt. Expiry must not hide that result.
-    server
+    let committed = server
         .control
         .pairing
         .complete(
@@ -308,10 +308,42 @@ async fn verify_lost_receipt(server: &ProvisionedServer) {
         .await
         .unwrap();
     expire(server, &request).await;
+    let old_address = server.address;
+    server
+        .handle
+        .graceful_shutdown(Some(Duration::from_secs(1)));
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while std::net::TcpStream::connect_timeout(&old_address, Duration::from_millis(25)).is_ok() {
+        assert!(Instant::now() < deadline, "Synthetic server did not stop");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let listener = TcpListener::bind("127.0.0.2:0").unwrap();
+    server.address = listener.local_addr().unwrap();
+    assert_ne!(old_address.ip(), server.address.ip());
+    assert_ne!(old_address.port(), server.address.port());
+    drop(listener);
+    // Keep the authenticated origin and trust; only the discovery candidate moves.
+    server.handle = start_server(
+        server.address,
+        server.state.clone(),
+        &required_path("EITMAD_DIRECT_TEST_CERTIFICATE"),
+        &required_path("EITMAD_DIRECT_TEST_PRIVATE_KEY"),
+    )
+    .await;
     client.pair(server).await;
     let bytes = std::fs::read(client.directory.path().join("desktop-pairing.json")).unwrap();
     let receipt: eitmad_contracts::pairing::PairingReceipt =
         serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(receipt.binding, committed.binding);
+    assert_eq!(receipt.confirmation, committed.confirmation);
+    assert_eq!(
+        enrollment(&client)
+            .paired_connection()
+            .unwrap()
+            .unwrap()
+            .endpoint,
+        request.binding.offer.identity.endpoint
+    );
     assert_eq!(receipt.binding, request.binding);
     assert!(
         enrollment(&client)
