@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -16,6 +17,68 @@ namespace Eitmad.LanCertificate.Tests;
 public sealed class UnattendedRenewalTests
 {
     private const string Password = "isolated unattended test password";
+
+    [TestMethod]
+    public async Task RenewalUsesCurrentLocalListenerWhenInstallationAddressIsUnavailable()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "eitmad-renewal-route-" + Guid.NewGuid().ToString("N"));
+        Certificates.Initialize(root, "workshop.test", Password);
+        var identity = File.ReadAllBytes(Path.Combine(root, "identity.json"));
+        var ca = Path.Combine(root, "trusted-ca.pem");
+        var trust = File.ReadAllBytes(ca);
+        var staged = Certificates.Stage(root, Password);
+        using var renewedPair = Load(root, staged);
+        using var server = new ReadinessServer(renewedPair);
+        var endpoint = $"https://workshop.test:{server.Port}/";
+        const string installationAddress = "127.0.0.2";
+        var fingerprint = Inspect(root, staged).Fingerprint;
+        await Assert.ThrowsExactlyAsync<SocketException>(() =>
+            RenewalMaterial.Probe(endpoint, installationAddress, ca, fingerprint));
+
+        Directory.CreateDirectory(Path.Combine(root, "app"));
+        File.WriteAllText(Path.Combine(root, "app/host-service.xml"),
+            $"<service><env name=\"EITMAD_SERVER_LISTEN\" value=\"0.0.0.0:{server.Port}\" /></service>");
+        var settings = new { endpoint, address = installationAddress, serverPort = server.Port };
+        var manifest = Path.Combine(root, "host.json");
+        File.WriteAllText(manifest, JsonSerializer.Serialize(settings));
+        var savedSettings = File.ReadAllBytes(manifest);
+        var address = await SelectProbeAddress(root);
+
+        await RenewalMaterial.Probe(endpoint, address, ca, fingerprint);
+        CollectionAssert.AreEqual(savedSettings, File.ReadAllBytes(manifest));
+        CollectionAssert.AreEqual(identity, File.ReadAllBytes(Path.Combine(root, "identity.json")));
+        CollectionAssert.AreEqual(trust, File.ReadAllBytes(ca));
+    }
+
+    private static async Task<string> SelectProbeAddress(string root)
+    {
+        const string script = """
+            $ErrorActionPreference = 'Stop'
+            $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+            Import-Module $request.module -Force -DisableNameChecking
+            $settings = Get-Content -LiteralPath (Join-Path $request.root 'host.json') -Raw | ConvertFrom-Json
+            & (Get-Module tls-renewal) { param($root, $settings) Get-TlsProbeAddress $root $settings } $request.root $settings
+            """;
+        var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "WindowsPowerShell/v1.0/powershell.exe")) {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        foreach (var argument in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand",
+            Convert.ToBase64String(Encoding.Unicode.GetBytes(script)) }) start.ArgumentList.Add(argument);
+        using var process = Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        await process.StandardInput.WriteAsync(JsonSerializer.Serialize(new {
+            root, module = Path.Combine(AppContext.BaseDirectory, "deploy/windows/tls-renewal.psm1")
+        }));
+        process.StandardInput.Close();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) { process.Kill(true); throw; }
+        Assert.AreEqual(0, process.ExitCode, await error);
+        return (await output).Trim();
+    }
 
     [TestMethod]
     public async Task StagedRenewalRequiresNewLeafReadinessAndRetainsClientTrustAcrossReconnect()

@@ -195,6 +195,29 @@ function Restart-TlsHost($Settings) {
     } $Settings
 }
 
+function Get-TlsProbeAddress([string]$Root, $Settings) {
+    $xml = [xml](Get-Content -LiteralPath (Join-Path $Root 'app/host-service.xml') -Raw)
+    $listen = @($xml.service.env | Where-Object name -CEQ 'EITMAD_SERVER_LISTEN')
+    if ($listen.Count -ne 1 -or $listen[0].value -cnotmatch '^([0-9.]+):([0-9]{1,5})$') {
+        throw 'Invalid installed HTTPS listener.'
+    }
+    $address = $null
+    if (-not [Net.IPAddress]::TryParse($Matches[1], [ref]$address) -or
+        $address.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or
+        $address.ToString() -cne $Matches[1] -or [int]$Matches[2] -ne $Settings.serverPort -or
+        [int]$Matches[2] -ne ([Uri]$Settings.endpoint).Port) { throw 'Invalid installed HTTPS listener.' }
+    # The installed wildcard listener is reachable locally after DHCP changes. This route
+    # does not replace the retained endpoint used for TLS authentication and HTTP Host.
+    if ($address.Equals([Net.IPAddress]::Any)) { return '127.0.0.1' }
+    if ([Net.IPAddress]::IsLoopback($address)) { return $address.ToString() }
+    foreach ($adapter in [Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        foreach ($local in $adapter.GetIPProperties().UnicastAddresses) {
+            if ($local.Address.Equals($address)) { return $address.ToString() }
+        }
+    }
+    throw 'The installed HTTPS listener is not a current local address.'
+}
+
 function Invoke-TlsMechanic([string]$Action, [string]$StateDirectory, $Request, [string]$Backend) {
     $root = & $script:HostTools { param($p) Get-SafePath $p } $StateDirectory
     $settings = & $script:HostTools { param($p)
@@ -256,10 +279,11 @@ function Invoke-TlsMechanic([string]$Action, [string]$StateDirectory, $Request, 
         Ready {
             # Bounded retry permits Rust/database startup. Every attempt validates CA, name,
             # expiry, the exact leaf fingerprint, and HTTP 204. There is no validation bypass.
+            $address = Get-TlsProbeAddress $root $settings
             $deadline = [DateTime]::UtcNow.AddSeconds(150)
             do {
                 try {
-                    [void](Invoke-TlsTool $root 'probe' @{endpoint=$settings.endpoint; address=$settings.address
+                    [void](Invoke-TlsTool $root 'probe' @{endpoint=$settings.endpoint; address=$address
                         authority=(Join-Path $root 'private/trusted-ca.pem'); fingerprint=$Request.pair.fingerprint})
                     return @{}
                 } catch { Start-Sleep -Milliseconds 500 }

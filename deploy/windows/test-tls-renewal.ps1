@@ -44,13 +44,23 @@ $root = Join-Path $env:TEMP ('eitmad-tls-adapter-' + [Guid]::NewGuid().ToString(
     }
     $oldPair = Read-TlsPair $Root 'private/server-cert.pem' 'private/server-key.pem'
     $newPair = Read-TlsPair $Root ('private/' + $next.Certificate) ('private/' + $next.PrivateKey)
-    $settings = [pscustomobject]@{name='IsolatedTls';root=$Root;endpoint='https://workshop.test:8443/';serverPort=8443;databasePort=55432}
+    $settings = [pscustomobject]@{name='IsolatedTls';root=$Root;endpoint='https://workshop.test:8443/';serverPort=8443;databasePort=55432;address='127.0.0.2'}
     $xml = & $script:HostTools { param($s) New-WrapperXml $s @{
+        EITMAD_SERVER_LISTEN='0.0.0.0:8443'
         EITMAD_SERVER_TLS_CERTIFICATE=(Join-Path $s.root 'private/server-cert.pem')
         EITMAD_SERVER_TLS_PRIVATE_KEY=(Join-Path $s.root 'private/server-key.pem')
     } } $settings
     $manifest = Join-Path $Root 'app/host-service.xml'
     $xml.Save($manifest)
+    Assert ((Get-TlsProbeAddress $Root $settings) -ceq '127.0.0.1') 'Wildcard readiness did not select loopback.'
+    $listener = $xml.service.env | Where-Object name -CEQ 'EITMAD_SERVER_LISTEN'
+    $listener.SetAttribute('value', '127.0.0.1:8443'); $xml.Save($manifest)
+    Assert ((Get-TlsProbeAddress $Root $settings) -ceq '127.0.0.1') 'Explicit local listener was not retained.'
+    $listener.SetAttribute('value', '192.0.2.1:8443'); $xml.Save($manifest)
+    Reject { Get-TlsProbeAddress $Root $settings }
+    $listener.SetAttribute('value', '0.0.0.0:8444'); $xml.Save($manifest)
+    Reject { Get-TlsProbeAddress $Root $settings }
+    $listener.SetAttribute('value', '0.0.0.0:8443'); $xml.Save($manifest)
     Set-TlsPair $Root $newPair
     $xml = [xml](Get-Content -LiteralPath $manifest -Raw)
     Assert (($xml.service.env | Where-Object name -EQ 'EITMAD_SERVER_TLS_CERTIFICATE').value -eq (Join-Path $Root $newPair.certificate)) 'New certificate was not activated.'
