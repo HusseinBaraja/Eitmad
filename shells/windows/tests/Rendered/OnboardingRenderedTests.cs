@@ -210,9 +210,10 @@ public sealed class OnboardingRenderedTests
         });
         WpfTestHost.RunWindow(() => new OwnerPairingWindow(engine) { Width = width, Height = height }, window => {
             Record(window, width, height);
+            var initialCode = WpfTestHost.FindByName<TextBlock>(window, "CodeText").Text;
             var open = WpfTestHost.FindByName<Button>(window, "OpenCodeButton"); Assert.IsTrue(open.Focus());
             open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); WpfTestHost.CompleteLayout(window);
-            Assert.AreEqual("", WpfTestHost.FindByName<TextBlock>(window, "CodeText").Text);
+            Assert.AreEqual(initialCode, WpfTestHost.FindByName<TextBlock>(window, "CodeText").Text);
             WpfTestHost.Capture(window, $"onboarding-owner-denied-{width}");
         });
         engine.OnboardingHandler = _ => Task.FromResult(new DesktopOnboardingState { Paired = false });

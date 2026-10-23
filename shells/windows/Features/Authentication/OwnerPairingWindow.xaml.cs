@@ -28,7 +28,7 @@ public partial class OwnerPairingWindow : Window
     }
     private async void OpenClick(object sender, RoutedEventArgs e)
     {
-        OpenCodeButton.IsEnabled = false; CodeText.Text = ""; expiry.Stop();
+        OpenCodeButton.IsEnabled = false;
         PairingNotice.Text = "جارٍ التحقق من صلاحية المالك…";
         try
         {
@@ -39,14 +39,18 @@ public partial class OwnerPairingWindow : Window
             expiry.Start(); UpdateExpiry();
         }
         catch (Exception error) when (error is EngineIpcException or NotSupportedException or System.IO.IOException)
-        { if (!closed) PairingNotice.Text = "تعذر إنشاء الرمز. يلزم حساب مالك المنشأة واتصال بالخادم. تحقق من الاتصال ثم أعد المحاولة."; }
+        {
+            if (!closed) PairingNotice.Text = expiresAt > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                ? "تعذر إنشاء رمز جديد. الرمز الحالي ما زال صالحًا؛ استخدمه أو انتظر انتهاء صلاحيته."
+                : "تعذر إنشاء الرمز. يلزم حساب مالك المنشأة واتصال بالخادم. تحقق من الاتصال ثم أعد المحاولة.";
+        }
         finally { if (!closed) OpenCodeButton.IsEnabled = true; }
     }
     private void UpdateExpiry()
     {
         var seconds = Math.Max(0, (expiresAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) / 1000);
         ExpiryText.Text = $"ينتهي الرمز خلال {seconds / 60:0}:{seconds % 60:00}";
-        if (seconds == 0) { expiry.Stop(); CodeText.Text = "انتهت صلاحية الرمز"; ExpiryText.Text = "اطلب رمزًا جديدًا عند جاهزية الجهاز."; }
+        if (seconds == 0) { ClearCode(); CodeText.Text = "انتهت صلاحية الرمز"; ExpiryText.Text = "اطلب رمزًا جديدًا عند جاهزية الجهاز."; PairingNotice.Text = ""; }
     }
     private void StaffClick(object sender, RoutedEventArgs e) { StaffRequested?.Invoke(this, EventArgs.Empty); Close(); }
 }
