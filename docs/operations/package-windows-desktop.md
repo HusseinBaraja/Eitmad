@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-23"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -29,7 +29,7 @@ Both Windows ZIPs include the canonical `docs/` tree with its repository paths u
 
 ## Build and sign
 
-Use x64 Windows, Python 3.11+, rustup with Rust **1.85.1**, .NET 8 SDK, and Windows SDK x64 `makeappx.exe`. Restore locked dependencies through approved Cargo/NuGet sources. The builder selects the Rust compiler explicitly and reuses `target/toolchain-1.85.1`. It publishes into a new temporary directory, independent of existing runtime data.
+Use x64 Windows, PowerShell 7.4+ with `pwsh.exe` on PATH, Python 3.11+, rustup with Rust **1.85.1**, .NET 8 SDK, and Windows SDK x64 `makeappx.exe`. Build-time signature checks, catalog creation, signing, and asset generation use PowerShell 7. Restore locked dependencies through approved Cargo/NuGet sources. The builder selects the Rust compiler explicitly and reuses `target/toolchain-1.85.1`. It publishes into a new temporary directory, independent of existing runtime data.
 
 ```powershell
 python scripts/release/build_artifacts.py windows-server --version 0.1.0 --output dist

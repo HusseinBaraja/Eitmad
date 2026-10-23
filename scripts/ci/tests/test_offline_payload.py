@@ -386,7 +386,7 @@ class OfflinePayloadTests(unittest.TestCase):
         script = script.replace("Microsoft.PowerShell.Security\\Get-AuthenticodeSignature", "Get-SyntheticSignature")
         script = "function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; TimeStamperCertificate='synthetic'; SignerCertificate=[pscustomobject]@{Subject='CN=Synthetic'}} };\n" + script
         def check() -> subprocess.CompletedProcess:
-            return subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+            return subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                                   input=json.dumps({"root": str(stage), "anchor": str(content), "publisher": "CN=Synthetic"}),
                                   text=True, capture_output=True)
         self.assertEqual(check().returncode, 0)

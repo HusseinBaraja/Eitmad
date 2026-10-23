@@ -177,7 +177,7 @@ def verify_payload_signatures(root: Path, files: dict[str, dict]) -> None:
         "foreach($item in $items) { $s=Get-AuthenticodeSignature -LiteralPath $item.path; " \
         "if($s.Status -ne 'Valid' -or -not $s.TimeStamperCertificate -or " \
         "$s.SignerCertificate.Subject -cne $item.publisher) { throw 'Untrusted payload signature or publisher' } }"
-    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+    subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                    input=json.dumps(requests), text=True, check=True, capture_output=True)
 
 
@@ -464,7 +464,7 @@ def create_offline_catalog(stage: Path, publisher: str, hook: Path | None) -> No
     script = "$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd() | ConvertFrom-Json; " \
         "New-FileCatalog -Path $p.root -CatalogFilePath $p.catalog -CatalogVersion 2 | Out-Null"
     catalog = stage.parent / "offline.cat"
-    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+    subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                    input=json.dumps({"root": str(stage), "catalog": str(catalog)}), text=True, check=True)
     sign_path(catalog, publisher, hook)
     shutil.move(catalog, stage / "offline.cat")
@@ -473,7 +473,7 @@ def create_offline_catalog(stage: Path, publisher: str, hook: Path | None) -> No
 
 
 def verify_offline_catalog(stage: Path, publisher: str) -> None:
-    subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(ROOT / "deploy/windows/verify-offline.ps1")],
+    subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-File", str(ROOT / "deploy/windows/verify-offline.ps1")],
                    input=json.dumps({"root": str(stage), "anchor": str(stage / "setup/EitmadSetup.exe"), "publisher": publisher}),
                    text=True, check=True, capture_output=True)
 
@@ -676,7 +676,7 @@ def copy_install_tools(stage: Path, target: str) -> None:
 
 def sign_path(path: Path, publisher: str, hook: Path | None) -> None:
     if hook:
-        run("powershell.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/sign-windows.ps1"),
+        run("pwsh.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/sign-windows.ps1"),
             "-Path", str(path), "-Publisher", publisher, "-SigningHook", str(hook.resolve()))
 
 
@@ -720,7 +720,7 @@ def copy_vc_runtime(stage: Path, source: Path | None) -> None:
     """Use reviewed app-local redistribution files, never DLLs from System32."""
     source = source if source is not None else find_vc_runtime()
     metadata = json.loads(subprocess.check_output(
-        ["powershell.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/verify-vc-runtime.ps1"),
+        ["pwsh.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/verify-vc-runtime.ps1"),
          "-Directory", str(source.absolute())], cwd=ROOT, text=True, encoding="utf-8",
     ))
     for name in metadata["files"]:
@@ -756,7 +756,7 @@ def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsign
         if report["identity"]["productVersion"] != version:
             raise ValueError("Engine runtime identity differs from the release version")
         # Native package assets are generated from a fixed vector-like mark, without local input.
-        run("powershell.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/package-assets.ps1"), "-Directory", str(stage / "Assets"))
+        run("pwsh.exe", "-NoProfile", "-File", str(ROOT / "deploy/windows/package-assets.ps1"), "-Directory", str(stage / "Assets"))
         manifest = (ROOT / "deploy/windows/AppxManifest.xml").read_text(encoding="utf-8")
         manifest = manifest.replace("@VERSION@", windows_version(version)).replace("@PUBLISHER@", escape(publisher, {'"': '&quot;'}))
         (stage / "AppxManifest.xml").write_text(manifest, encoding="utf-8")
