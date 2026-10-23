@@ -304,6 +304,95 @@ fn recover(
     )
 }
 
+#[tokio::test(start_paused = true)]
+async fn slow_profiles_cross_the_discovery_recovery_boundary_within_the_request_budget() {
+    let control = ConnectionRecovery::new();
+    let server_id = eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4());
+    for (budget, succeeds) in [
+        (Duration::from_secs(10), false),
+        (crate::REQUEST_TIMEOUT, true),
+    ] {
+        let start = tokio::time::Instant::now();
+        let deadline = start + budget;
+        let found = discover_using(&control, 0, deadline.into_std(), |request, cancellation| {
+            eitmad_server_discovery::test_support::discover_slow_profiles(
+                request,
+                cancellation,
+                server_id,
+                58443,
+            )
+        })
+        .await;
+        if succeeds {
+            let found = found.unwrap();
+            assert_eq!(found.len(), 1);
+            assert_eq!(found[0].server_id, server_id);
+            assert!(start.elapsed() >= Duration::from_secs(11));
+            assert!(
+                deadline
+                    .checked_duration_since(tokio::time::Instant::now())
+                    .unwrap()
+                    >= crate::CONNECT_TIMEOUT + crate::IO_TIMEOUT
+            );
+        } else {
+            assert_eq!(found.unwrap_err().phase, FailurePhase::Discovery);
+            assert_eq!(start.elapsed(), budget);
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires generated disposable direct-route TLS certificates"]
+fn slow_profile_recovery_completes_tls_identity_and_the_requested_operation() {
+    let installation = Installation::new();
+    let config = installation.config();
+    let peer = Peer::start(
+        "127.0.0.1",
+        installation.receipt.binding.offer.identity.clone(),
+        1,
+        200,
+    );
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .unwrap();
+    let mut stream = config
+        .recovery
+        .as_ref()
+        .unwrap()
+        .connect_using(
+            &config,
+            &config.endpoint,
+            Instant::now() + crate::REQUEST_TIMEOUT,
+            |control, generation, deadline| {
+                runtime.block_on(discover_using(
+                    control,
+                    generation,
+                    deadline,
+                    |request, cancellation| {
+                        eitmad_server_discovery::test_support::discover_slow_profiles(
+                            request,
+                            cancellation,
+                            installation.receipt.binding.offer.identity.server_id,
+                            peer.address.port(),
+                        )
+                    },
+                ))
+            },
+        )
+        .unwrap();
+    stream
+        .write_all(b"POST /synthetic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2\r\n\r\n{}")
+        .unwrap();
+    stream.flush().unwrap();
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response).unwrap();
+    assert_eq!(parse_http_response(&response).unwrap().0, 200);
+    peer.work.join().unwrap();
+    assert_eq!(peer.requests.lock().unwrap().len(), 2);
+}
+
 #[test]
 #[ignore = "requires generated disposable direct-route TLS certificates"]
 fn first_desktop_uppercase_hostname_loads_without_allowing_endpoint_replacement() {

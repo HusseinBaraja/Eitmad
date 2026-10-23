@@ -6,7 +6,7 @@ use super::{
 };
 use eitmad_contracts::identity::DeviceId;
 use eitmad_contracts::{
-    discovery::{DiscoverServers, DiscoveredServer, DiscoveryStatus},
+    discovery::{DiscoverServers, DiscoveredServer, DiscoveryStatus, ServerDiscoveryResult},
     pairing::PairingIdentity,
     transport::{CorrelationId, RequestId},
 };
@@ -328,20 +328,38 @@ fn discover(
         .enable_all()
         .build()
         .map_err(|_| unavailable(FailurePhase::Discovery))?;
+    runtime.block_on(discover_using(
+        control,
+        generation,
+        deadline,
+        |request, cancellation| async move {
+            eitmad_server_discovery::discover(&request, cancellation).await
+        },
+    ))
+}
+
+async fn discover_using<F: std::future::Future<Output = ServerDiscoveryResult>>(
+    control: &ConnectionRecovery,
+    generation: u64,
+    deadline: Instant,
+    scan: impl FnOnce(DiscoverServers, watch::Receiver<bool>) -> F,
+) -> Result<Vec<DiscoveredServer>, TransportFailure> {
     let mut changed = control.0.changed.subscribe();
     control.check(generation)?;
-    runtime.block_on(async {
-        let request = DiscoverServers { selected_server_id: None, request_id: RequestId::new(Uuid::new_v4()), correlation_id: CorrelationId::new(Uuid::new_v4()) };
-        let (_stop, cancellation) = watch::channel(false);
-        tokio::select! {
-            biased;
-            _ = changed.changed() => Err(unavailable(FailurePhase::Cancellation)),
-            result = tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), eitmad_server_discovery::discover(&request, cancellation)) => {
-                let result = result.map_err(|_| unavailable(FailurePhase::Discovery))?;
-                if result.status == DiscoveryStatus::Complete { Ok(result.servers) } else { Err(unavailable(FailurePhase::Discovery)) }
-            }
+    let request = DiscoverServers {
+        selected_server_id: None,
+        request_id: RequestId::new(Uuid::new_v4()),
+        correlation_id: CorrelationId::new(Uuid::new_v4()),
+    };
+    let (_stop, cancellation) = watch::channel(false);
+    tokio::select! {
+        biased;
+        _ = changed.changed() => Err(unavailable(FailurePhase::Cancellation)),
+        result = tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), scan(request, cancellation)) => {
+            let result = result.map_err(|_| unavailable(FailurePhase::Discovery))?;
+            if result.status == DiscoveryStatus::Complete { Ok(result.servers) } else { Err(unavailable(FailurePhase::Discovery)) }
         }
-    })
+    }
 }
 
 // Authenticate installation identity on this exact TLS socket before sending any credential.

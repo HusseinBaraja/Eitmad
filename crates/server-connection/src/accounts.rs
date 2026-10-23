@@ -15,7 +15,7 @@ use eitmad_contracts::{
 };
 use eitmad_engine_runtime::{DesktopAccountAuthority, DesktopAccountError};
 use eitmad_secret_storage::SecretStore;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct DirectAccountClient {
     http: AuthenticatedHttpClient,
@@ -41,7 +41,7 @@ impl DirectAccountClient {
                     organization_id: self.organization,
                     branch_id: self.branch,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| map_error(&error))
     }
@@ -118,7 +118,7 @@ impl DirectAccountClient {
                     },
                     revision,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| map_error(&error))
     }
@@ -134,7 +134,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
                     after: None,
                     limit: 1,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map(|_| ())
             .map_err(|error| map_error(&error))
@@ -146,7 +146,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
     ) -> Result<DesktopAccountPage, DesktopAccountError> {
         let mut after = None;
         let mut accounts = Vec::new();
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + crate::REQUEST_TIMEOUT;
         loop {
             let page: ServerAccountPage = self
                 .http
@@ -205,7 +205,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
                     idempotency_key: context.idempotency_key,
                     change,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| map_error(&error))?;
         self.summary(result.receipt.account)

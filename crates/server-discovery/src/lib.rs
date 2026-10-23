@@ -2,6 +2,8 @@
 //! No credentials, trust anchors, customer data, or enrollment operations cross this boundary.
 mod identity;
 mod interfaces;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 #[cfg(test)]
 mod tests;
 mod wire;
@@ -33,6 +35,11 @@ use wire::{MAX_PACKET, Packet};
 pub const DISCOVERY_PORT: u16 = 58444;
 const SCAN_TIME: Duration = Duration::from_secs(8);
 const PROFILE_TIME: Duration = Duration::from_secs(5);
+/// Maximum duration of one discovery attempt, including profile reads and socket work.
+pub const DISCOVERY_TIMEOUT: Duration = PROFILE_TIME
+    .saturating_mul(2)
+    .saturating_add(SCAN_TIME)
+    .saturating_add(Duration::from_secs(1));
 const LEASE: Duration = Duration::from_secs(15);
 const REFRESH: Duration = Duration::from_secs(1);
 const MAX_PACKETS: usize = 256;
@@ -52,18 +59,36 @@ fn result(request: &DiscoverServers, status: DiscoveryStatus) -> ServerDiscovery
 /// Discovery is permitted only after the caller authenticates its local IPC bootstrap channel.
 pub async fn discover(
     request: &DiscoverServers,
-    mut cancellation: watch::Receiver<bool>,
+    cancellation: watch::Receiver<bool>,
 ) -> ServerDiscoveryResult {
-    let Ok(_permit) = SCANS.try_acquire() else {
+    discover_using(
+        request,
+        cancellation,
+        &mut WindowsInterfaces,
+        DISCOVERY_PORT,
+        Interface::broadcast,
+        &SCANS,
+    )
+    .await
+}
+
+async fn discover_using(
+    request: &DiscoverServers,
+    mut cancellation: watch::Receiver<bool>,
+    provider: &mut impl InterfaceProvider,
+    port: u16,
+    destination: fn(&Interface) -> Ipv4Addr,
+    scans: &Semaphore,
+) -> ServerDiscoveryResult {
+    let Ok(_permit) = scans.try_acquire() else {
         return result(request, DiscoveryStatus::Busy);
     };
-    let deadline = Instant::now() + PROFILE_TIME * 2 + SCAN_TIME + Duration::from_secs(1);
+    let deadline = Instant::now() + DISCOVERY_TIMEOUT;
     let mut stop = cancellation.clone();
-    let mut provider = WindowsInterfaces;
     let found = tokio::select! {
         biased;
         () = cancelled(&mut stop) => result(request, DiscoveryStatus::Cancelled),
-        value = tokio::time::timeout_at(deadline, scan(request, &mut provider, &mut cancellation, DISCOVERY_PORT, Interface::broadcast)) => {
+        value = tokio::time::timeout_at(deadline, scan(request, provider, &mut cancellation, port, destination)) => {
             value.unwrap_or_else(|_| result(request, DiscoveryStatus::Unavailable))
         }
     };

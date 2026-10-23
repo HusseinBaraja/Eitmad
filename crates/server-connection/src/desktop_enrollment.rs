@@ -503,7 +503,7 @@ fn exchange_at<T: DeserializeOwned>(
     auth: Option<(&str, DeviceProof)>,
     destination: Option<std::net::SocketAddr>,
 ) -> Result<T, TransportFailure> {
-    let deadline = Instant::now() + super::CONNECT_TIMEOUT + super::IO_TIMEOUT;
+    let deadline = Instant::now() + super::REQUEST_TIMEOUT;
     let mut url = config.endpoint.clone();
     url.set_path(route);
     let mut socket = match destination {

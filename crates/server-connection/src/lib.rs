@@ -68,6 +68,11 @@ use zeroize::{Zeroize, Zeroizing};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
+// One saved-address probe, the full discovery bound, then TLS, identity and operation I/O.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(1)
+    .saturating_add(eitmad_server_discovery::DISCOVERY_TIMEOUT)
+    .saturating_add(CONNECT_TIMEOUT)
+    .saturating_add(IO_TIMEOUT);
 const POLL_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
@@ -745,11 +750,7 @@ impl ConnectionDriver for DirectServerDriver {
         target: &ConnectionTarget,
         authentication: &TransportAuthentication,
     ) -> Result<EstablishedConnection, TransportFailure> {
-        self.establish_before(
-            target,
-            authentication,
-            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        )
+        self.establish_before(target, authentication, Instant::now() + REQUEST_TIMEOUT)
     }
 
     fn send(&mut self, frame: &SyncTransportFrame) -> Result<(), TransportFailure> {
