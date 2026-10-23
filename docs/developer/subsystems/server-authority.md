@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-22"
+last_verified: "2026-10-23"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -63,6 +63,8 @@ Preserve the runtime directory and credential store under the same Windows user.
 Focused proof: `desktop_connection` tests cover bounded loading and retained settings; `enrollment_rejects_server_and_retained_identity_mismatches_without_replacing_accounts` covers tenant, account, user, and device mismatch. The live `desktop_enrollment_recovers_interruption_expiry_and_credential_loss` scenario covers wrong TLS trust, partial setup, independent devices, expiry, missing account credentials, and retained records and pending publications. Set `EITMAD_DESKTOP_ENROLLMENT_ENGINE` to a current engine executable to include the real Windows shell controller and IPC path. `DesktopEnrollmentRenderedTests` covers Arabic input, keyboard focus, retry, and password clearing at the three requested window sizes.
 
 ### Recover a paired connection after restart or DHCP changes
+
+First-desktop retention and connection loading use the same validated HTTPS URL parser. New first-desktop records store its canonical origin, so an uppercase Windows hostname such as `https://DESKTOP-ABC:58443/` becomes `https://desktop-abc:58443/`. Loading existing enrollment records and server-bound connection settings canonicalizes endpoints in memory without rewriting retained files. A different hostname or port still fails trust validation. The `first_desktop_uppercase_hostname_loads_without_allowing_endpoint_replacement` and `existing_uppercase_endpoint_loads_without_rewriting_retained_trust` regressions cover these cases with the disposable TLS prerequisites below.
 
 `crates/server-connection/src/recovery.rs` owns connection recovery for independent paired clients and the first desktop on the Server PC. `desktop_enrollment/retained.rs` reads either the verified public pairing receipt or the authenticated first-desktop record beside the installation CA. Both records feed the same `DirectServerConfig::new` and recovery authority. It validates the TLS origin, CA bytes, route scope, and device ID. Conflicting enrollment records fail closed. Existing manual diagnostic routes without an authenticated enrollment record retain their explicit endpoint; discovery cannot create enrollment for them. A missing retained device file or signing key fails authentication instead of creating a replacement identity. Account-specific token loss can still recover through sign-in with the retained key.
 

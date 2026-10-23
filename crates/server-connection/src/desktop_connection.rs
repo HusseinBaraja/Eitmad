@@ -56,6 +56,8 @@ impl DesktopConnectionSettings {
             settings.trusted_certificate = directory.join(settings.trusted_certificate);
         }
         if let Some(id) = settings.server_id {
+            settings.endpoint =
+                super::DirectServerConfig::parse_endpoint(&settings.endpoint)?.into();
             let saved = super::desktop_enrollment::retained::RetainedEnrollment::load(directory)?
                 .ok_or_else(super::encryption_failure)?;
             if id != saved.identity.server_id

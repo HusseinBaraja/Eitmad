@@ -268,16 +268,8 @@ impl DirectServerConfig {
         schema_version: u32,
         pem: &[u8],
     ) -> Result<Self, TransportFailure> {
-        let endpoint = Url::parse(endpoint).map_err(|_| encryption_failure())?;
-        if endpoint.scheme() != "https"
-            || endpoint.host_str().is_none()
-            || endpoint.username() != ""
-            || endpoint.password().is_some()
-            || endpoint.query().is_some()
-            || endpoint.fragment().is_some()
-            || endpoint.path() != "/"
-            || schema_version == 0
-        {
+        let endpoint = Self::parse_endpoint(endpoint)?;
+        if schema_version == 0 {
             return Err(encryption_failure());
         }
         let certificates = CertificateDer::pem_slice_iter(pem)
@@ -306,6 +298,22 @@ impl DirectServerConfig {
             tls: Arc::new(tls),
             recovery: None,
         })
+    }
+
+    // Retained trust and live connections must use the same validated URL representation.
+    fn parse_endpoint(endpoint: &str) -> Result<Url, TransportFailure> {
+        let endpoint = Url::parse(endpoint).map_err(|_| encryption_failure())?;
+        if endpoint.scheme() != "https"
+            || endpoint.host_str().is_none()
+            || endpoint.username() != ""
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+            || endpoint.path() != "/"
+        {
+            return Err(encryption_failure());
+        }
+        Ok(endpoint)
     }
 
     /// Cancels current connection work without changing enrollment.

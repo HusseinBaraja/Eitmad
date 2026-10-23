@@ -31,7 +31,12 @@ struct Installation {
 }
 impl Installation {
     fn first() -> Self {
-        let installation = Self::new();
+        Self::first_with_endpoint("https://localhost:1/")
+    }
+
+    fn first_with_endpoint(endpoint: &str) -> Self {
+        let mut installation = Self::new();
+        installation.receipt.binding.offer.identity.endpoint = endpoint.into();
         let directory = installation.directory.path();
         std::fs::remove_file(directory.join("desktop-pairing.json")).unwrap();
         let store = eitmad_storage::AuthorityStore::open(directory).unwrap();
@@ -75,7 +80,7 @@ impl Installation {
         // Interrupted setup can reuse the exact handoff, but cannot replace authenticated identity.
         enrollment.retain_first_desktop(&handoff, &request).unwrap();
         let before = std::fs::read(directory.join("desktop-first-server.json")).unwrap();
-        for change in ["identity", "ca", "scope", "key"] {
+        for change in ["identity", "endpoint", "ca", "scope", "key"] {
             let mut changed = handoff.clone();
             let mut login = request.clone();
             match change {
@@ -84,6 +89,7 @@ impl Installation {
                         eitmad_contracts::discovery::ServerInstallationId::new(Uuid::new_v4());
                 }
                 "ca" => changed.public_ca_pem.push(' '),
+                "endpoint" => changed.prepared.endpoint = "https://other.test/".into(),
                 "scope" => changed.prepared.workshop.branch_id = ScopeId::new(Uuid::new_v4()),
                 _ => login.device_public_key.base64 = URL_SAFE_NO_PAD.encode([0; 32]),
             }
@@ -296,6 +302,74 @@ fn recover(
         Instant::now() + Duration::from_secs(3),
         |_, _, _| Ok(candidates),
     )
+}
+
+#[test]
+#[ignore = "requires generated disposable direct-route TLS certificates"]
+fn first_desktop_uppercase_hostname_loads_without_allowing_endpoint_replacement() {
+    let installation = Installation::first_with_endpoint("https://DESKTOP-ABC:58443/");
+    let config = installation.config();
+    assert_eq!(config.endpoint.as_str(), "https://desktop-abc:58443/");
+    assert!(config.recovery().is_some());
+    let path = installation.metadata_path();
+    let before = std::fs::read(&path).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&before).unwrap();
+    assert_eq!(saved["identity"]["endpoint"], "https://desktop-abc:58443/");
+    for endpoint in ["https://desktop-other:58443/", "https://desktop-abc:58444/"] {
+        assert_eq!(
+            DirectServerConfig::new(
+                endpoint,
+                config.scope.clone(),
+                config.schema_id.clone(),
+                config.schema_version,
+                &installation.directory.path().join("desktop-pairing-ca.pem"),
+            )
+            .err()
+            .unwrap()
+            .kind,
+            TransportFailureKind::EncryptionRequired
+        );
+    }
+    assert_eq!(std::fs::read(path).unwrap(), before);
+}
+
+#[test]
+#[ignore = "requires generated disposable direct-route TLS certificates"]
+fn existing_uppercase_endpoint_loads_without_rewriting_retained_trust() {
+    let installation = Installation::first_with_endpoint("https://DESKTOP-ABC:58443/");
+    let path = installation.metadata_path();
+    let mut saved: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    saved["identity"]["endpoint"] = "https://DESKTOP-ABC:58443/".into();
+    let before = serde_json::to_vec(&saved).unwrap();
+    std::fs::write(&path, &before).unwrap();
+    let offer = &installation.receipt.binding.offer;
+    let settings = DesktopConnectionSettings {
+        version: 1,
+        endpoint: offer.identity.endpoint.clone(),
+        trusted_certificate: "desktop-pairing-ca.pem".into(),
+        credential: SecretId::new(
+            eitmad_contracts::secrets::SecretKind::parse("desktop-route").unwrap(),
+            eitmad_contracts::config::SecretReferenceId::new(Uuid::new_v4()),
+        ),
+        organization: offer.organization_id,
+        branch: offer.branch_id,
+        tenant_code: Some(offer.tenant_code.clone()),
+        server_id: Some(offer.identity.server_id),
+    };
+    let connection = serde_json::to_vec(&settings).unwrap();
+    let connection_path = installation
+        .directory
+        .path()
+        .join(DesktopConnectionSettings::FILE_NAME);
+    std::fs::write(&connection_path, &connection).unwrap();
+    let loaded = DesktopConnectionSettings::load(installation.directory.path())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.endpoint, "https://desktop-abc:58443/");
+    assert!(installation.config().recovery().is_some());
+    assert_eq!(std::fs::read(path).unwrap(), before);
+    assert_eq!(std::fs::read(connection_path).unwrap(), connection);
 }
 
 #[test]

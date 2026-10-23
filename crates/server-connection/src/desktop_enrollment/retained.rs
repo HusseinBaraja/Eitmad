@@ -26,7 +26,7 @@ impl RetainedEnrollment {
     pub(crate) fn load(directory: &Path) -> Result<Option<Self>, TransportFailure> {
         let first = read_optional(&directory.join(Self::FIRST_FILE))?;
         let paired = read_optional(&directory.join("desktop-pairing.json"))?;
-        let retained = match (first, paired) {
+        let mut retained: Self = match (first, paired) {
             (Some(_), Some(_)) => return Err(encryption_failure()),
             (Some(bytes), None) => {
                 serde_json::from_slice(&bytes).map_err(|_| encryption_failure())?
@@ -50,6 +50,8 @@ impl RetainedEnrollment {
             (None, None) => return Ok(None),
         };
         retained.validate()?;
+        retained.identity.endpoint =
+            DirectServerConfig::parse_endpoint(&retained.identity.endpoint)?.into();
         Ok(Some(retained))
     }
 
@@ -83,7 +85,7 @@ impl RetainedEnrollment {
             version: 1,
             identity: PairingIdentity {
                 server_id: handoff.server_id,
-                endpoint: handoff.prepared.endpoint.clone(),
+                endpoint: DirectServerConfig::parse_endpoint(&handoff.prepared.endpoint)?.into(),
                 public_ca_pem: handoff.public_ca_pem.clone(),
             },
             tenant_id: workshop.tenant_id,
