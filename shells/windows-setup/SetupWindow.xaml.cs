@@ -73,7 +73,7 @@ public partial class SetupWindow : Window
                     SetupNotice.Text = "تعذر إثبات حالة التثبيت المحفوظة. احتفظ بكل المجلدات. افحص سجل الإعداد والخدمات وفق دليل استرداد التثبيت؛ لا تغيّر المسارات ولا تنشئ ورشة أخرى.";
             }
         }
-        catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
         { SetupNotice.Text = "تعذر قراءة حالة الإعداد. شغّل EitmadSetup.exe من الحزمة الكاملة المعتمدة، ثم أعد فحص الحالة. لا تغيّر أي تثبيت قائم."; }
         finally { busy = false; UpdateActions(); }
     }
@@ -95,7 +95,7 @@ public partial class SetupWindow : Window
             recovery = WindowsSetupRecovery.Complete; RecoveryPanel.Visibility = Visibility.Collapsed;
             RetryButton.Visibility = Visibility.Collapsed; Complete();
         }
-        catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
         {
             SetupNotice.Text = FailureText(last?.Stage ?? WindowsInstallStage.Preflight) + " تعذر تأكيد الاستكمال. افحص الحالة المحفوظة. إذا كانت ملفات التجهيز أو الخدمة غير مكتملة، احتفظ بها واتبع دليل الاسترداد.";
             if (last?.Status == WindowsInstallStatus.Blocked) {
@@ -122,7 +122,7 @@ public partial class SetupWindow : Window
                 new Progress<WindowsInstallProgress>(p => { last = p; stages.Add(StageText(p.Stage) + " · " + StatusText(p.Status)); }));
             Complete();
         }
-        catch (Exception error) when (error is System.IO.IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
         { SetupNotice.Text = FailureText(last?.Stage ?? WindowsInstallStage.Preflight); }
         finally
         {

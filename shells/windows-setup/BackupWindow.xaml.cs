@@ -44,7 +44,7 @@ public partial class BackupWindow : Window
                 ? action switch { ServerBackupAction.Capture => "انتهى طلب النسخ. راجع نتيجة كل وجهة أدناه؛ الاستعادة تحتاج اختبارًا مستقلاً.", ServerBackupAction.SaveDestinations => "حُفظت الوجهات بعد فحص الخادم. الأجيال السابقة محفوظة.", ServerBackupAction.RepairSchedule => "انتهى طلب إصلاح الجدولة. راجع حالتها أدناه.", _ => "حالة أبلغ عنها الخادم الآن. حدّثها بعد توصيل القرص أو معالجة العطل." }
                 : "لم يكتمل الإجراء. " + Outcome(state.ActionOutcome);
         }
-        catch (Exception error) when (error is IOException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
         {
             available = false; StatePanel.Visibility = Visibility.Collapsed;
             Notice.Text = "تعذر تأكيد الحالة أو لم تكتمل موافقة مسؤول Windows. استخدم الحزمة المعتمدة على جهاز الخادم وتحقق من التثبيت المحفوظ، ثم حدّث الحالة. حساب المالك لا يكفي. لا تحذف النسخ أو بيانات التثبيت.";

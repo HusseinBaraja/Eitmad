@@ -92,6 +92,37 @@ public sealed class BackupManagementRenderedTests
     }
 
     [TestMethod]
+    [DataRow(ServerBackupAction.Inspect)] [DataRow(ServerBackupAction.Capture)]
+    [DataRow(ServerBackupAction.SaveDestinations)] [DataRow(ServerBackupAction.RepairSchedule)]
+    public void Denied_payload_access_hides_backup_state_and_restores_refresh(ServerBackupAction action)
+    {
+        var backend = new Backend();
+        WpfTestHost.RunWindow(() => new BackupWindow(backend), window => {
+            var view = (BackupWindow)window;
+            view.ManageAsync(ServerBackupAction.Inspect).GetAwaiter().GetResult();
+            var completion = new TaskCompletionSource<ServerBackupManagement>();
+            backend.Response = () => completion.Task;
+            var pending = view.ManageAsync(action);
+            var refresh = WpfTestHost.FindByName<Button>(window, "RefreshButton");
+            Assert.IsFalse(refresh.IsEnabled);
+            var waiting = WpfTestHost.FindByName<TextBlock>(window, "Notice").Text;
+            completion.SetException(new UnauthorizedAccessException("Synthetic payload access denied"));
+            WpfTestHost.CompleteLayout(window);
+            pending.GetAwaiter().GetResult();
+            Assert.AreNotEqual(waiting, WpfTestHost.FindByName<TextBlock>(window, "Notice").Text);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<StackPanel>(window, "StatePanel").Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<ProgressBar>(window, "BusyProgress").Visibility);
+            Assert.IsTrue(refresh.IsEnabled);
+            Assert.IsTrue(((StackPanel)window.FindName("DestinationPanel")).IsEnabled);
+            foreach (var name in new[] { "CaptureButton", "SaveButton", "ScheduleButton" })
+                Assert.IsFalse(((Button)window.FindName(name)).IsEnabled);
+            backend.Response = null;
+            view.ManageAsync(ServerBackupAction.Inspect).GetAwaiter().GetResult();
+            Assert.IsTrue(WpfTestHost.FindByName<Button>(window, "CaptureButton").IsEnabled);
+        });
+    }
+
+    [TestMethod]
     public void Busy_request_prevents_duplicate_mutations_and_unconfirmed_success()
     {
         var backend = new Backend();

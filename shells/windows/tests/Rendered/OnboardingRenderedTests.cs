@@ -20,9 +20,10 @@ public sealed class OnboardingRenderedTests
     private sealed class SetupBackend : IWindowsSetupBridge
     {
         public WindowsInstallationState? State { get; set; }
+        public Func<Task<WindowsInstallationState?>>? Inspect { get; set; }
         public Func<IProgress<WindowsInstallProgress>, Task>? Install { get; set; }
         public int Calls { get; private set; }
-        public Task<WindowsInstallationState?> InspectAsync() => Task.FromResult(State);
+        public Task<WindowsInstallationState?> InspectAsync() => Inspect?.Invoke() ?? Task.FromResult(State);
         public Task OpenDesktopAsync() => Task.CompletedTask;
         public string? RetryPassword { get; private set; }
         public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress)
@@ -140,6 +141,43 @@ public sealed class OnboardingRenderedTests
             Assert.AreEqual(1, backend.Calls);
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
             Assert.IsFalse(WpfTestHost.FindByName<Button>(window, "InstallButton").IsEnabled);
+        });
+    }
+    [TestMethod]
+    [DataRow("inspect")] [DataRow("install")] [DataRow("retry")]
+    public void Denied_payload_access_shows_setup_failure_and_restores_controls(string operation)
+    {
+        var inspection = new TaskCompletionSource<WindowsInstallationState?>();
+        var mutation = new TaskCompletionSource();
+        var backend = new SetupBackend { Install = _ => mutation.Task };
+        if (operation == "retry") backend.State = new WindowsInstallationState {
+            Version = 1, Recovery = WindowsSetupRecovery.Retry,
+            Progress = new WindowsInstallProgress { Version = 1, Sequence = 1,
+                Stage = WindowsInstallStage.Preflight, Status = WindowsInstallStatus.Failed },
+        };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend), window => {
+            var view = (SetupWindow)window;
+            WpfTestHost.FindByName<RadioButton>(window, "ClientChoice").IsChecked = true;
+            backend.Inspect = () => inspection.Task;
+            var pending = operation switch {
+                "inspect" => view.InspectAsync(), "install" => view.InstallAsync(), _ => view.RetryAsync(),
+            };
+            var inspect = WpfTestHost.FindByName<Button>(window, "InspectButton");
+            Assert.IsFalse(inspect.IsEnabled);
+            var waiting = WpfTestHost.FindByName<TextBlock>(window, "SetupNotice").Text;
+            var denied = new UnauthorizedAccessException("Synthetic payload access denied");
+            if (operation == "inspect") inspection.SetException(denied);
+            else mutation.SetException(denied);
+            WpfTestHost.CompleteLayout(window);
+            pending.GetAwaiter().GetResult();
+            Assert.AreNotEqual(waiting, WpfTestHost.FindByName<TextBlock>(window, "SetupNotice").Text);
+            Assert.IsTrue(inspect.IsEnabled);
+            Assert.IsTrue(WpfTestHost.FindByName<StackPanel>(window, "InputPanel").IsEnabled);
+            Assert.AreEqual(operation == "retry", WpfTestHost.FindByName<Button>(window, "RetryButton").IsEnabled);
+            Assert.IsFalse(WpfTestHost.FindByName<Button>(window, "InstallButton").IsEnabled);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
+            if (operation != "inspect")
+                Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<ProgressBar>(window, "BusyProgress").Visibility);
         });
     }
     [TestMethod]
