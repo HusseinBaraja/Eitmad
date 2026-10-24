@@ -11,9 +11,22 @@
     <TextBlock x:Name="InstallerNotice" Text="يتحقق الإعداد من ملفاته ويجهّز المتطلبات تلقائيًا. اتبع الإرشادات التي تظهر داخل التطبيق."
      TextWrapping="Wrap" Margin="0,16" AutomationProperties.LiveSetting="Polite"/>
     <ProgressBar x:Name="PreparationProgress" Height="5" IsIndeterminate="True" AutomationProperties.Name="التحقق من ملفات الإعداد وتجهيزها"/>
+    <StackPanel x:Name="PublisherTrustPanel" Visibility="Collapsed" Margin="0,16,0,0">
+     <TextBlock Text="اعتماد ناشر الاعتماد" FontSize="20" FontWeight="SemiBold"/>
+     <TextBlock Text="اسم الناشر" Margin="0,12,0,4"/>
+     <TextBox x:Name="PublisherName" IsReadOnly="True" FlowDirection="LeftToRight" Style="{StaticResource TextInput}" AutomationProperties.Name="اسم ناشر ملف الإعداد"/>
+     <TextBlock Text="بصمة شهادة الناشر" Margin="0,12,0,4"/>
+     <TextBox x:Name="PublisherFingerprint" IsReadOnly="True" FlowDirection="LeftToRight" TextWrapping="Wrap" Style="{StaticResource TextInput}" AutomationProperties.Name="بصمة شهادة الناشر للمقارنة مع المصدر المعتمد"/>
+     <CheckBox x:Name="ConfirmedPublisher" Margin="0,16,0,0" Checked="PublisherConfirmationChanged" Unchecked="PublisherConfirmationChanged"
+      AutomationProperties.Name="تأكيد مقارنة بصمة شهادة الناشر بالمصدر المعتمد">
+      <TextBlock Text="قارنت البصمة مع المصدر الذي سلّمني ملف الإعداد، وأوافق على اعتماد هذه الشهادة." TextWrapping="Wrap"/>
+     </CheckBox>
+    </StackPanel>
    </StackPanel>
   </ScrollViewer>
   <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0">
+   <Button x:Name="TrustPublisher" Content="اعتماد الناشر والمتابعة" Visibility="Collapsed" IsEnabled="False" Click="TrustPublisherClick"
+    Style="{StaticResource PrimaryButton}" AutomationProperties.Name="اعتماد شهادة ناشر الاعتماد بموافقة مسؤول Windows والمتابعة"/>
    <Button x:Name="RetryPreparation" Content="إعادة المحاولة" Visibility="Collapsed" Click="RetryClick"
     Style="{StaticResource PrimaryButton}" AutomationProperties.Name="إعادة التحقق من ملفات الإعداد وتجهيزها"/>
    <Button x:Name="ClosePreparation" Content="إغلاق" Click="CloseClick" Style="{StaticResource SecondaryButton}"

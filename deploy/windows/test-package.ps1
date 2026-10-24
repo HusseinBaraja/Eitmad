@@ -26,7 +26,7 @@ function Read-Inventory([switch]$Unsigned) {
 Save-Inventory
 [void](Read-Inventory -Unsigned)
 Reject { Read-EitmadPackage -Directory $root -Target windows-server -ExpectedReleaseSha256 $script:digest -Publisher 'CN=Other' } 'approved publisher'
-Reject { Read-Inventory } 'trusted, timestamped'
+Reject { Read-Inventory } 'trusted signature'
 [IO.File]::WriteAllText($binary, 'changed executable')
 Reject { Read-Inventory -Unsigned } 'differs from the release inventory'
 [IO.File]::WriteAllText($binary, 'synthetic executable')

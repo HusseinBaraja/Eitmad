@@ -17,11 +17,11 @@ keywords:
 
 # ADR-0031: Distribute two self-contained Windows installers
 
-> - Status: Accepted
+> - Status: Partially superseded by ADR-0032 (publisher signing and first-use Client certificate elevation only)
 > - Date: 2026-10-24
 > - Decision owners: Product developer
 > - Supersedes: ADR-0030, distribution format and installer role selection only
-> - Superseded by: None
+> - Superseded by: [ADR-0032](0032-self-signed-windows-publisher.md), publisher signing and first-use Client certificate elevation only
 
 ## Context
 

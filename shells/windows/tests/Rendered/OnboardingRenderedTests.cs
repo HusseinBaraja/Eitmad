@@ -42,6 +42,29 @@ public sealed class OnboardingRenderedTests
     }
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Publisher_trust_requires_confirmation_and_keeps_fingerprint_readable(int width, int height)
+    {
+        WpfTestHost.RunWindow(() => new InstallerWindow { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            ((InstallerWindow)window).ShowPublisherTrust("CN=Eitmad synthetic publisher", new string('A', 64));
+            WpfTestHost.CompleteLayout(window);
+            var trust = WpfTestHost.FindByName<Button>(window, "TrustPublisher");
+            var confirm = WpfTestHost.FindByName<CheckBox>(window, "ConfirmedPublisher");
+            Assert.IsFalse(trust.IsEnabled);
+            confirm.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(confirm.Focus()); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(confirm)));
+            confirm.IsChecked = true;
+            Assert.IsTrue(trust.IsEnabled); Assert.IsTrue(confirm.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            Assert.IsTrue(trust.Focus()); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(trust)));
+            var fingerprint = WpfTestHost.FindByName<TextBox>(window, "PublisherFingerprint");
+            Assert.AreEqual(FlowDirection.LeftToRight, fingerprint.FlowDirection);
+            fingerprint.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"onboarding-publisher-trust-{width}");
+            confirm.IsChecked = false; Assert.IsFalse(trust.IsEnabled);
+        });
+    }
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
     public void Client_setup_and_payload_preparation_have_native_accessible_actions(int width, int height)
     {
         WpfTestHost.RunWindow(() => new SetupWindow(new SetupBackend(), WindowsSetupRole.Client) { Width = width, Height = height }, window => {

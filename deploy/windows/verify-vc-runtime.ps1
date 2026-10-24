@@ -25,9 +25,9 @@ foreach ($file in $files) {
         # Hold a read-only handle without write/delete sharing until its signature
         # and digest are recorded. The copy step must match that verified digest.
         $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-        if ($signature.Status -ne 'Valid' -or -not $signature.TimeStamperCertificate -or
+        if ($signature.Status -ne 'Valid' -or
             $signature.SignerCertificate.Subject -notmatch '(^|, )O=Microsoft Corporation(,|$)') {
-            throw 'Runtime files require trusted, timestamped Microsoft signatures.'
+            throw 'Runtime files require trusted Microsoft signatures.'
         }
         $version = [version]$file.VersionInfo.FileVersion
         if ($version -lt [version]'14.40.0.0') { throw 'Use a reviewed Microsoft CRT version 14.40 or later.' }

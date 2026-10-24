@@ -26,22 +26,22 @@ Use the two installers from the same release. Install the server first. It keeps
 
 Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. For a PC where Eitmad is already installed, use [repair or upgrade](package-windows-desktop.md#repair-and-data-preserving-uninstall). Do not create another workshop to repair a failed installation.
 
-**Current release limit:** standalone packaging, authenticated automatic extraction, fixed roles, and the existing guided installation flow are implemented. A complete approved signed installer pair and clean-PC installation acceptance remain **Needs verification**. Unsigned packaging probes are not usable installers. See [offline setup verification](verify-offline-windows-setup.md) for the evidence still required. The steps below describe the implemented path; they do not claim a live installation has passed.
+**Current release limit:** standalone packaging, authenticated automatic extraction, fixed roles, and the existing guided installation flow are implemented. A complete reviewed self-signed installer pair and clean-PC installation acceptance remain **Needs verification**. Unsigned packaging probes are not usable installers. See [offline setup verification](verify-offline-windows-setup.md) for the evidence still required. The steps below describe the implemented path; they do not claim a live installation has passed.
 
 ## Before you start
 
 - Obtain the appropriate signed EXE and its authenticated release record from the release operator. If you are building it, use [standalone installer preparation](package-windows-desktop.md#build-the-two-standalone-installers). Component ZIPs and developer script folders do not meet this delivery requirement.
 - Use patched x64 Windows with local NTFS storage and a policy that permits the signed MSIX. See [target prerequisites](package-windows-desktop.md#target-prerequisites) for host versions and Windows Server edition limits.
-- On the server, have Windows administrator credentials available for the UAC prompt. Start setup from the normal Windows account that will use the desktop; a different administrator can approve the prompt. On clients, use the intended normal Windows account without elevation.
+- On every PC, have Windows administrator credentials for the one-time publisher trust prompt. The server also needs administrator approval to install its services. Start setup from the normal Windows account that will use the desktop; a different administrator can approve the prompt. On clients, start setup from the intended normal Windows account; a separate administrator can approve the certificate import.
 - Connect all PCs to the same trusted workshop LAN. Set the workshop interface to **Private** through Windows settings. Setup does not change the network profile. The server's Windows computer name must resolve to its private IPv4 address. Keep that name unchanged and keep the server powered on, connected, and awake.
 - Prepare protected backup folders on unlocked, fully BitLocker-encrypted NTFS volumes. The default local destination is `%ProgramData%\EitmadBackups`, so its volume must meet these checks too. An optional external destination must be on a different physical disk. A local backup on the server's disk does not protect against disk loss.
 
-End users need no Rust compiler, .NET SDK, database commands, or internet download during setup. The bundle contains the desktop runtimes and reviewed server tools. Server setup installs missing C++ and .NET Framework prerequisites from the bundle. Client setup installs no global runtime, service, database, or firewall rule. Windows must already trust the approved package publisher; setup does not add a signing certificate to make an untrusted package pass.
+End users need no Rust compiler, .NET SDK, database commands, or internet download during setup. The bundle contains the desktop runtimes and reviewed server tools. Server setup installs missing C++ and .NET Framework prerequisites from the bundle. Client setup installs no global runtime, service, database, or firewall rule. On first launch, setup shows the self-signed publisher and its public certificate fingerprint. Compare it with the authenticated handover, confirm it, then select **اعتماد الناشر والمتابعة**. Windows asks for administrator approval to trust that exact public code-signing certificate in its machine Root store. This applies to both Server and Client. The private signing key stays on the build PC. Later launches reuse existing valid trust. An initial Windows publisher or SmartScreen warning can still occur before the wizard opens; self-signing does not provide public reputation. See [publisher trust and signing](package-windows-desktop.md#build-the-two-standalone-installers).
 
 ## 1. Install the server PC
 
 1. Verify `EitmadServerSetup.exe` against the authenticated release record.
-2. Open it as the intended normal Windows user. Do not select **Run as administrator**. Setup verifies and extracts its embedded files automatically.
+2. Open it as the intended normal Windows user. Do not select **Run as administrator**. Complete the guided publisher trust step if shown. Setup then verifies and extracts its embedded files automatically.
 3. Confirm that **إعداد خادم الورشة** appears.
 4. Enter **اسم الورشة**, **اسم مستخدم المالك**, and **كلمة مرور المالك**. The password must contain at least 12 characters. Retain it securely. This creates the first active application Owner with Manager duties and the first branch; no separate activation step is required.
 5. Under **وجهات النسخ الاحتياطي**, leave the local destination empty to use the default, or select a protected folder. Select an external folder if a suitable encrypted separate disk is available. Both selected destinations must be available for the first capture.
@@ -60,8 +60,8 @@ Application Owner authority is separate from Windows administrator rights. Pairi
 
 ## 3. Install and pair each employee PC
 
-1. Open the release's `EitmadClientSetup.exe` as the normal Windows user who will use the app. Setup verifies and extracts its embedded files automatically.
-2. Confirm **إعداد جهاز الموظف**, then select **بدء التثبيت**. This role requires no UAC approval. Wait for **اكتمل التثبيت**, then select **فتح الاعتماد** or open **الاعتماد** from Start.
+1. Open the release's `EitmadClientSetup.exe` as the normal Windows user who will use the app. Complete the guided publisher trust step if shown. Setup then verifies and extracts its embedded files automatically.
+2. Confirm **إعداد جهاز الموظف**, then select **بدء التثبيت**. After publisher trust, the application installs for the original user without elevation. Wait for **اكتمل التثبيت**, then select **فتح الاعتماد** or open **الاعتماد** from Start.
 3. In the app, select **البحث عن الخوادم** and select the intended server. If needed, select **فحص إعداد الاتصال** on sign-in to open connection setup.
 4. On the already connected server desktop, sign in as Owner. Open **المستخدمون** → **ربط جهاز**, then select **إظهار رمز ربط جديد**. Share this code only with the person pairing the intended PC.
 5. On the employee PC, enter that code and select **ربط هذا الجهاز**. Use a fresh code for each PC. Codes expire after three minutes and approve only one device. Do not photograph or record them.

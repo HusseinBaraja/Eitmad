@@ -10,6 +10,8 @@
   <EmbeddedResource Include="$(InstallerPayload)" LogicalName="Eitmad.InstallerPayload.zip"/>
   <AssemblyMetadata Include="InstallerPayloadSha256" Value="$(InstallerPayloadSha256)"/>
   <AssemblyMetadata Include="InstallerRole" Value="$(InstallerRole)"/>
+  <EmbeddedResource Include="$(PublisherCertificate)" LogicalName="Eitmad.PublisherCertificate.cer"/>
+  <AssemblyMetadata Include="PublisherCertificateSha256" Value="$(PublisherCertificateSha256)"/>
  </ItemGroup>
  <ItemGroup Condition="'$(InstallerCrtDirectory)' != ''">
   <Content Include="$(InstallerCrtDirectory)\*.dll" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest"/>

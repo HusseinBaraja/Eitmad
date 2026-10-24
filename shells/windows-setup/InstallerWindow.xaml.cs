@@ -17,10 +17,11 @@ public partial class InstallerWindow : Window
         Closing += (_, e) => { if (busy) e.Cancel = true; };
     }
 
-    public async Task StartAsync()
+    public async Task StartAsync(bool trustPublisher = false)
     {
         if (busy) return;
         busy = true; ClosePreparation.IsEnabled = false; RetryPreparation.Visibility = Visibility.Collapsed;
+        PublisherTrustPanel.IsEnabled = false; TrustPublisher.IsEnabled = false;
         PreparationProgress.Visibility = Visibility.Visible;
         InstallerNotice.Text = "جارٍ التحقق من ملف الإعداد وتجهيز المتطلبات. انتظر قليلًا…";
         try
@@ -32,6 +33,23 @@ public partial class InstallerWindow : Window
             if (role is not ("server" or "client")) throw new IOException("Installer role missing.");
             var executable = Environment.ProcessPath ?? throw new IOException("Installer path missing.");
             using var retainedExecutable = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var certificateSource = assembly.GetManifestResourceStream("Eitmad.PublisherCertificate.cer")
+                ?? throw new IOException("Publisher certificate missing.");
+            if (certificateSource.Length is 0 or > 16384) throw new IOException("Invalid publisher certificate size.");
+            var certificateBytes = new byte[certificateSource.Length];
+            await certificateSource.ReadExactlyAsync(certificateBytes);
+            using var publisher = new PublisherCertificateTrust(certificateBytes, Metadata("PublisherCertificateSha256"));
+            await Task.Run(() => publisher.VerifyInstallerSigner(executable));
+            if (!await Task.Run(publisher.IsTrustedForMachine))
+            {
+                ShowPublisherTrust(publisher.Publisher, publisher.Fingerprint);
+                if (!trustPublisher || ConfirmedPublisher.IsChecked != true) return;
+                InstallerNotice.Text = "وافق على طلب مسؤول Windows لاعتماد شهادة الناشر. تبقى عملية تثبيت التطبيق للمستخدم الذي بدأ الإعداد.";
+                await Task.Run(publisher.TrustForMachineAsync);
+            }
+            PublisherTrustPanel.Visibility = Visibility.Collapsed; TrustPublisher.Visibility = Visibility.Collapsed;
+            PreparationProgress.Visibility = Visibility.Visible;
+            InstallerNotice.Text = "جارٍ التحقق من ملف الإعداد وتجهيز المتطلبات. انتظر قليلًا…";
             await Task.Run(() => AuthenticodeTrust.Verify(retainedExecutable));
             using var source = assembly.GetManifestResourceStream("Eitmad.InstallerPayload.zip")
                 ?? throw new IOException("Installer payload missing.");
@@ -54,9 +72,25 @@ public partial class InstallerWindow : Window
             InstallerNotice.Text = "تعذر التحقق من ملف الإعداد أو تجهيز متطلباته. استخدم ملف إعداد الاعتماد المعتمد، وتأكد من وجود مساحة كافية ومن سماح Windows بتشغيله، ثم أعد المحاولة. حُفظت أي ملفات تجهيز سابقة؛ لا تحذف بيانات الورشة.";
             RetryPreparation.Visibility = Visibility.Visible;
         }
-        finally { busy = false; ClosePreparation.IsEnabled = true; }
+        finally
+        {
+            busy = false; ClosePreparation.IsEnabled = true; PublisherTrustPanel.IsEnabled = true;
+            UpdateTrustAction();
+        }
     }
 
+    public void ShowPublisherTrust(string publisher, string fingerprint)
+    {
+        PublisherName.Text = publisher; PublisherFingerprint.Text = fingerprint;
+        PublisherTrustPanel.Visibility = Visibility.Visible; TrustPublisher.Visibility = Visibility.Visible;
+        PreparationProgress.Visibility = Visibility.Collapsed;
+        InstallerNotice.Text = "يستخدم الاعتماد شهادة ناشر ذاتية التوقيع. قارن البصمة مع المصدر الذي سلّمك الملف قبل المتابعة. بموافقة مسؤول Windows، تُضاف الشهادة العامة مرة واحدة إلى مخزن الشهادات الجذرية الموثوقة لهذا الجهاز، حتى على جهاز الموظف. يسمح ذلك بتشغيل البرامج الموقّعة بهذا المفتاح. الشهادة مخصّصة لتوقيع البرامج ولا تحتوي على مفتاح خاص.";
+        UpdateTrustAction();
+    }
+
+    private void UpdateTrustAction() => TrustPublisher.IsEnabled = !busy && ConfirmedPublisher.IsChecked == true;
+    private void PublisherConfirmationChanged(object sender, RoutedEventArgs e) { if (TrustPublisher is not null) UpdateTrustAction(); }
+    private async void TrustPublisherClick(object sender, RoutedEventArgs e) => await StartAsync(true);
     private async void RetryClick(object sender, RoutedEventArgs e) => await StartAsync();
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
 }

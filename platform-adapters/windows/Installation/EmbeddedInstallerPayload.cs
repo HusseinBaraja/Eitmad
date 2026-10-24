@@ -136,7 +136,7 @@ public static class EmbeddedInstallerPayload
         return written;
     }
 
-    private static void CreatePrivateDirectory(string path)
+    internal static void CreatePrivateDirectory(string path)
     {
         PlainAncestors(path);
         var security = new DirectorySecurity();

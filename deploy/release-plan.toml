@@ -37,7 +37,7 @@ enabled = true
 format = "zip"
 runtime = "win-x64"
 launcher = "setup/EitmadSetup.exe"
-authenticated_inventory = "offline.cat (SHA-256, trusted publisher, RFC3161 timestamp)"
+authenticated_inventory = "offline.cat (SHA-256, trusted self-signed publisher certificate shared with setup)"
 client_installer = "per-user MSIX Eitmad.Desktop"
 
 [artifacts.windows_installers]

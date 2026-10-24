@@ -424,7 +424,18 @@ class OfflinePayloadTests(unittest.TestCase):
         # Mock only signature approval; Windows computes and compares the real catalog hashes.
         script = (artifacts.ROOT / "deploy/windows/verify-offline.ps1").read_text()
         script = script.replace("Microsoft.PowerShell.Security\\Get-AuthenticodeSignature", "Get-SyntheticSignature")
-        script = "function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; TimeStamperCertificate='synthetic'; SignerCertificate=[pscustomobject]@{Subject='CN=Synthetic'}} };\n" + script
+        script = """
+$rsa = [Security.Cryptography.RSA]::Create(2048)
+$request = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
+    'CN=Synthetic', $rsa, [Security.Cryptography.HashAlgorithmName]::SHA256,
+    [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+$usages = [Security.Cryptography.OidCollection]::new()
+[void]$usages.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3'))
+$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($usages, $true))
+$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true))
+$syntheticCertificate = $request.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-1),[DateTimeOffset]::UtcNow.AddHours(1))
+function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; SignerCertificate=$syntheticCertificate} }
+""" + script
         def check() -> subprocess.CompletedProcess:
             return subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                                   input=json.dumps({"root": str(stage), "anchor": str(content), "publisher": "CN=Synthetic"}),

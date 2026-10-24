@@ -20,7 +20,7 @@ keywords:
 
 Use this procedure to assess one exact offline release. A successful development test does not accept an installer. Keep each failed result and mark checks without observed evidence **Needs verification**. Never run installation, reboot, profile changes, or restore against a development machine's live installation.
 
-The product authority and required outcomes are [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) and [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md). Acceptance must start with the appropriate EXE and satisfy **"click and run and follow in app guided setup"**. Use [Windows packaging](package-windows-desktop.md) for authenticated release preparation and [native setup](prepare-windows-workshop.md#use-native-arabic-setup) for stage meanings and recovery limits. Server and Client below are **installer roles**. The current MSIX targets `Windows.Desktop`; Windows Server operating-system edition support is not established by a build-number check. If a Windows Server SKU is required, record the exact edition and AppX support and run this procedure there. It remains unverified until it passes on that edition.
+The product authority and required outcomes are [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) , [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md), and [ADR-0032](../decisions/0032-self-signed-windows-publisher.md). Acceptance must start with the appropriate EXE and satisfy **"click and run and follow in app guided setup"**. Use [Windows packaging](package-windows-desktop.md) for authenticated release preparation and [native setup](prepare-windows-workshop.md#use-native-arabic-setup) for stage meanings and recovery limits. Server and Client below are **installer roles**. The current MSIX targets `Windows.Desktop`; Windows Server operating-system edition support is not established by a build-number check. If a Windows Server SKU is required, record the exact edition and AppX support and run this procedure there. It remains unverified until it passes on that edition.
 
 ## Run isolated development checks
 
@@ -40,16 +40,16 @@ Pairing tests exercise the Rust authority and interrupted completion. Address te
 Check acceptance-probe verdicts without accessing a network:
 
 ```powershell
-powershell -NoProfile -File deploy/windows/test-offline-machine-probes.ps1
+pwsh.exe -NoProfile -File deploy/windows/test-offline-machine-probes.ps1
 ```
 
 ## Prepare clean offline PCs
 
-1. Use three disposable supported x64 Windows PCs or isolated VMs: **S** for Server, **C1** and **C2** for ordinary-user Client. Use local NTFS and distinct Windows standard users without Administrators membership. Keep a separate lab administrator for S. Record Windows edition/build, machine identity, network adapter, scaling, and date. Start each repeat from a clean image, never by deleting product state. Retain failed images as evidence.
-2. Copy only `EitmadServerSetup.exe` to S and only `EitmadClientSetup.exe` to C1/C2. Use the exact signed pair and independently authenticated EXE/archive/catalog digests and publisher from the release handover. An unsigned development probe, self-signed test identity, or manually arranged payload cannot pass this acceptance. A rebuilt script or binary requires a new reviewed/signed installer; do not replace files inside the signed catalog.
+1. Use three disposable supported x64 Windows PCs or isolated VMs: **S** for Server, **C1** and **C2** for ordinary-user Client. Use local NTFS and distinct Windows standard users without Administrators membership. Keep separate lab administrator credentials for each PC to approve the one-time publisher trust step and Server service installation. Record Windows edition/build, machine identity, network adapter, scaling, and date. Start each repeat from a clean image, never by deleting product state. Retain failed images as evidence.
+2. Copy only `EitmadServerSetup.exe` to S and only `EitmadClientSetup.exe` to C1/C2. Use the exact signed pair and independently authenticated EXE/archive/catalog digests, public certificate SHA-256, and publisher from the release handover. An unsigned development probe, a different diagnostic test identity, or a manually arranged payload cannot pass this acceptance. A rebuilt script or binary requires a new reviewed/signed installer; do not replace files inside the signed catalog.
 3. Copy `test-offline-machine.ps1` and `verify-offline.ps1` from the same reviewed source revision into `C:\LabChecks`. Authenticate those files through the handover too. They are lab probes, not installed application prerequisites. Windows PowerShell 5.1 is sufficient. Do not install Python, .NET, C++, an SDK or a compiler on these PCs for this drill.
-4. Disconnect the lab router's WAN and all alternate uplinks, retaining the local LAN and its DHCP. Record this physical isolation and the adapters/routes. Do not merely block one website. Ensure the supported Windows trust policy can validate the approved publisher offline; unknown trust is a failed prerequisite, not grounds to disable signature or certificate validation.
-5. Open the appropriate EXE as the intended **standard user**. Require automatic verification and extraction followed by the correct role's native screen. Do not select installation yet. Record that no archive extraction, terminal command, runtime installer, or certificate procedure was required from the end user. Lab observers can now inspect the automatically extracted directory. Set both digests from that role's authenticated handover, not from local files:
+4. Disconnect the lab router's WAN and all alternate uplinks, retaining the local LAN and its DHCP. Record this physical isolation and the adapters/routes. Do not merely block one website. Begin without the Eitmad publisher certificate trusted. Require the guided public fingerprint confirmation and administrator approval while offline. Keep signature and certificate validation enabled.
+5. Open the appropriate EXE as the intended **standard user**. Require the native publisher trust screen. Compare its fingerprint with the independent handover and confirm it. Cancel the Windows prompt once: require no payload execution and a clear retry path. Reopen, confirm, and approve the certificate import as the lab administrator. Inspect that only the expected public code-signing leaf was added to `LocalMachine\Root`, with no private key or TLS CA. Require signature verification and automatic extraction followed by the correct role's native screen. Do not select installation yet. Record that no archive extraction, terminal command, runtime installer, or manual certificate procedure was required from the end user. Record the guided trust UAC separately from the Client installation baseline. Lab observers can now inspect the automatically extracted directory. Set both digests from that role's authenticated handover, not from local files:
 
 ```powershell
 $approvedCatalog = Read-Host 'Authenticated offline.cat SHA-256'
@@ -63,7 +63,7 @@ Baseline verifies the signed catalog and records the user, service names, firewa
 ## Install the roles and connect independent users
 
 1. On S, continue the Server wizard opened by `EitmadServerSetup.exe`. Enter a synthetic Arabic workshop name and a new synthetic Owner. Choose local backup storage; record the same-disk warning and select a separate supported external destination for the recovery drill. Authorize UAC with the separate lab administrator. Do not start setup from the administrator desktop. Require confirmed completion, then open the desktop under the original standard user. A runtime-requested restart is not completion; preserve the stage and follow the interruption procedure below.
-2. On C1 and C2, continue the Client wizard opened by `EitmadClientSetup.exe` under each intended standard user. Record that no UAC or installer/download prompt occurs. Require confirmed completion and launch from Start. Do not supply administrator credentials or install a runtime to make this pass. Under the same user run:
+2. On C1 and C2, continue the Client wizard opened by `EitmadClientSetup.exe` under each intended standard user. After the recorded one-time certificate trust approval, require no further UAC or separate runtime installer/download prompt. Require confirmed completion and launch from Start. Do not elevate Client application installation or install a runtime to make this pass. Under the same user run:
 
 ```powershell
 powershell -NoProfile -File C:\LabChecks\test-offline-machine.ps1 -Stage Client -EvidenceDirectory C:\LabEvidence
@@ -113,7 +113,7 @@ For each row retain release/catalog digest, source revision, exact command or UI
 
 | Required boundary | Evidence required for acceptance |
 | --- | --- |
-| Clean offline Server and standard-user Client | Real signed catalog, offline launches, Client baseline comparison, no elevation/download/toolchain, healthy services |
+| Clean offline Server and standard-user Client | Real signed catalog, offline launches, Client baseline comparison, one explicit publisher trust approval per PC, no elevated Client app install/download/toolchain, healthy services |
 | Discovery, independent pairing and staff authorization | Native flow on distinct devices and accounts, expired/replayed code refusal, authorized change visible on C2 |
 | HTTPS and PostgreSQL | Client validated 204; wrong-name/wrong-CA refusal; database inaccessible from both clients |
 | Effective profiles | Private success, Public TCP/discovery denial while locally ready, restored Private success; active-policy review |
@@ -138,7 +138,7 @@ The following checks ran on the development Windows host with synthetic data. No
 | Check actually run | Observed result and limit |
 | --- | --- |
 | `python -m unittest discover -s scripts/ci/tests -p test_offline_payload.py -v` | 17 tests passed, including real Windows rejection of unsigned synthetic signatures/catalogs. Final expanded Client-policy cases also passed in a focused rerun |
-| `powershell -NoProfile -File deploy/windows/test-package.ps1` | Passed inventory, app-local C++, self-contained .NET, external-package/server-tool refusal and migration checks with synthetic packages |
+| `pwsh.exe -NoProfile -File deploy/windows/test-package.ps1` | Passed inventory, app-local C++, self-contained .NET, external-package/server-tool refusal and migration checks with synthetic packages |
 | `test-installation.ps1`, `test-host.ps1`, `test-discovery-interfaces.ps1`, `test-local-backup.ps1` through Windows PowerShell | Passed existing isolated adapter/channel, mocked SCM/firewall/profile and local-backup checks; no real service, task or firewall installation |
 | `rustup run 1.85.1 cargo test --locked -p eitmad-server --bin eitmad-server windows_setup` | 10 setup and journal tests passed, including retained failed/interrupted/torn state and Client-only stages |
 | `rustup run 1.85.1 cargo test --locked -p eitmad-server-discovery` | 11 tests passed, including loopback UDP; no physical LAN discovery proof |
@@ -146,7 +146,7 @@ The following checks ran on the development Windows host with synthetic data. No
 | Runner `fresh-preparation` | Real fresh PostgreSQL 17/SCRAM, migrations and retained setup, validated HTTPS 204 and HTTP 401 for an unapproved Owner device passed. The old expectation of HTTP 200 was corrected; account usability is tested separately |
 | Runner `tls-accounts-pairing-two-clients` | Account/staff authorization and audit rollback, pairing rejection/interrupted completion, real TLS sync, two isolated customer engines, host restart and retained-identity loopback address recovery passed |
 | Runner `backup-restore` with `--server-backup` | Real capture/copy/staging, restored CA renewal, new PostgreSQL cluster, two recovered clients, rowsets/image bytes, pending work confirmation and zero duplicate order effects passed. Recovery interval 115,147 ms; whole command 135.216 s. Privilege/service/disk observations were substituted; Windows image and lost-profile credentials were not recovered |
-| `powershell -NoProfile -File deploy/windows/test-offline-machine-probes.ps1` | Synthetic verdict tests passed for valid 204, readiness/TLS failures, database exposure, and TCP versus certificate failure on Public |
+| `pwsh.exe -NoProfile -File deploy/windows/test-offline-machine-probes.ps1` | Synthetic verdict tests passed for valid 204, readiness/TLS failures, database exposure, and TCP versus certificate failure on Public |
 | Existing `eitmad-desktop-0.1.0-offline.1-win-x64-unsigned.zip`, current `Read-EitmadPackage -AllowUnsignedValidation` and `Assert-DesktopRuntime` | Static inventory/runtime checks passed without package registration. This older unsigned component is not the finished signed offline bundle |
 | `python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs` and focused Python compilation | Documentation audit passed for 110 pages; changed Python harnesses compiled |
 
