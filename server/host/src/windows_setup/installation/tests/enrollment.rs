@@ -222,7 +222,7 @@ async fn delayed_server_installation_refreshes_proof_and_enrolls_the_same_device
         .await
         .unwrap();
     let mut wrong_password = login.clone();
-    wrong_password.password = "Wrong-password-123!".into();
+    wrong_password.password = "Wrong-synthetic-password-123!".into();
     assert_eq!(
         control
             .pairing

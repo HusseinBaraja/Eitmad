@@ -111,7 +111,7 @@ public sealed class CustomerSyncLiveTests
             }
             else
             {
-                Assert.AreEqual("eitmad.error.customer-not-found.v1", response.Outcome.Payload.Code,
+                Assert.AreEqual(ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1, response.Outcome.Payload.Code,
                     "A rejected read must fail the test instead of being reported as a sync timeout.");
             }
             await Task.Delay(100, timeout.Token);
@@ -129,7 +129,7 @@ public sealed class CustomerSyncLiveTests
             // Keep one frozen mutation and key while waiting only for that missing local row.
             var response = await engine.SubmitCommandAsync(update, key, cancellationToken: timeout.Token);
             if (response.Outcome.Status == CommandOutcomeStatus.Succeeded) return response;
-            Assert.AreEqual("eitmad.error.customer-not-found.v1", response.Outcome.Payload.Code,
+            Assert.AreEqual(ProtocolIds.ErrorCodes.EitmadErrorCustomerNotFoundV1, response.Outcome.Payload.Code,
                 "An update rejection other than a pending download must fail immediately.");
             await Task.Delay(100, timeout.Token);
         }

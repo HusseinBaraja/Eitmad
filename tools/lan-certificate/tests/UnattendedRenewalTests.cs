@@ -16,7 +16,7 @@ namespace Eitmad.LanCertificate.Tests;
 [TestClass]
 public sealed class UnattendedRenewalTests
 {
-    private const string Password = "isolated unattended test password";
+    private const string Password = "synthetic unattended test password";
 
     [TestMethod]
     public async Task RenewalUsesCurrentLocalListenerWhenInstallationAddressIsUnavailable()

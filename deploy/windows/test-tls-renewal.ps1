@@ -21,7 +21,7 @@ $root = Join-Path $env:TEMP ('eitmad-tls-adapter-' + [Guid]::NewGuid().ToString(
         Assert $failed 'Expected refusal.'
     }
     $OutputEncoding = New-Object Text.UTF8Encoding($false, $true)
-    $unlockPassword = 'isolated adapter CA password ' + [char]0x0633
+    $unlockPassword = 'synthetic adapter CA password ' + [char]0x0633
     # No services, scheduled tasks, trust stores, or firewall rules are changed.
     Reject { Invoke-TlsMechanic Guard $Root @{} }
     foreach ($child in 'renewal/tool','app','private') { [void][IO.Directory]::CreateDirectory((Join-Path $Root $child)) }
