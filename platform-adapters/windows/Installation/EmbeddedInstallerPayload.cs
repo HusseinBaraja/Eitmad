@@ -12,6 +12,10 @@ public static class EmbeddedInstallerPayload
 {
     private const long MaximumExpandedBytes = 4L * 1024 * 1024 * 1024;
 
+    public static Task<OfflinePayloadLease> PrepareAsync(Stream payload, string expectedSha256) =>
+        PrepareAsync(payload, expectedSha256, Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Eitmad", "Installers"));
+
     public static async Task<OfflinePayloadLease> PrepareAsync(Stream payload, string expectedSha256, string parent)
     {
         if (expectedSha256.Length != 64 || !expectedSha256.All(Uri.IsHexDigit))

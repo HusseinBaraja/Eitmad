@@ -7,6 +7,10 @@ namespace Eitmad.Platform.Windows.Installation;
 [SupportedOSPlatform("windows")]
 public static class AuthenticodeTrust
 {
+    /// <summary>Prevent replacement of the installer while its publisher and payload are verified.</summary>
+    public static FileStream RetainInstaller(string path) =>
+        new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
     [DllImport("wintrust.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
     private static extern int WinVerifyTrust(nint window, [In] ref Guid action, ref TrustData data);
 
@@ -34,7 +38,7 @@ public static class AuthenticodeTrust
 
     public static void Verify(string path)
     {
-        using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var source = RetainInstaller(path);
         Verify(source);
     }
 

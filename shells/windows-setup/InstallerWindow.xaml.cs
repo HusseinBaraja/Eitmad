@@ -32,7 +32,7 @@ public partial class InstallerWindow : Window
             var role = Metadata("InstallerRole");
             if (role is not ("server" or "client")) throw new IOException("Installer role missing.");
             var executable = Environment.ProcessPath ?? throw new IOException("Installer path missing.");
-            using var retainedExecutable = new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var retainedExecutable = await Task.Run(() => AuthenticodeTrust.RetainInstaller(executable));
             using var certificateSource = assembly.GetManifestResourceStream("Eitmad.PublisherCertificate.cer")
                 ?? throw new IOException("Publisher certificate missing.");
             if (certificateSource.Length is 0 or > 16384) throw new IOException("Invalid publisher certificate size.");
@@ -54,8 +54,7 @@ public partial class InstallerWindow : Window
             using var source = assembly.GetManifestResourceStream("Eitmad.InstallerPayload.zip")
                 ?? throw new IOException("Installer payload missing.");
             using var payload = await Task.Run(() => EmbeddedInstallerPayload.PrepareAsync(source,
-                Metadata("InstallerPayloadSha256"), Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Eitmad", "Installers")));
+                Metadata("InstallerPayloadSha256")));
             var start = new ProcessStartInfo(Path.Combine(payload.RootDirectory, "setup", "EitmadSetup.exe")) {
                 UseShellExecute = false, WorkingDirectory = payload.RootDirectory,
             };
