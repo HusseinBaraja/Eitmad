@@ -175,12 +175,17 @@ def verify_payload_signatures(root: Path, files: dict[str, dict]) -> None:
         return
     if os.name != "nt":
         raise ValueError("Trusted payload signature validation requires Windows")
+    # The PowerShell script SIP otherwise fails beyond MAX_PATH, even when
+    # the copied bytes and PE signatures are valid at that same location.
+    for item in requests:
+        path = item["path"]
+        item["path"] = "\\\\?\\" + ("UNC\\" + path[2:] if path.startswith("\\\\") else path)
     # Input travels as JSON on stdin; neither paths nor publisher names become code.
     script = "$ErrorActionPreference='Stop'; $config=[Console]::In.ReadToEnd() | ConvertFrom-Json; " \
         "Import-Module $config.module -Force; $items=$config.items; " \
         "foreach($item in $items) { $s=Get-AuthenticodeSignature -LiteralPath $item.path; " \
         "if($s.Status -ne 'Valid' -or " \
-        "$s.SignerCertificate.Subject -cne $item.publisher) { throw 'Untrusted payload signature or publisher' }; " \
+        "$s.SignerCertificate.Subject -cne $item.publisher) { throw ('Untrusted payload signature or publisher: ' + $item.path + ' [' + $s.Status + ']') }; " \
         "if($item.selfSigned) { Assert-EitmadSelfSignedCertificate $s.SignerCertificate $item.publisher } }"
     subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                    input=json.dumps({"module": str(ROOT / "deploy/windows/signing-certificate.psm1"), "items": requests}),

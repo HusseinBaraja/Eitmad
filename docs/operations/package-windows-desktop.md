@@ -176,6 +176,8 @@ pwsh.exe -NoProfile -File deploy/windows/test-self-signed-signing.ps1
 
 This proof creates a temporary certificate and key in the build user's stores, verifies signed EXE and catalog acceptance without timestamps, and rejects changed bytes, a wrong publisher, and another key with the same subject. It removes only its own test key, trust entry, and files. It does not import machine trust, exercise UAC, install the app, or establish clean-PC acceptance.
 
+Use `-CertificateThumbprint $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT` to reuse the retained signing certificate and its existing build-user trust. This option imports no certificate and preserves the retained key. The proof also verifies a signed PowerShell module beyond the normal Windows path limit used by nested payload staging.
+
 When the retained signing certificate expires, create a replacement, rebuild and sign the release, and repeat the guided trust check on every PC. Without timestamps, expiry stops signature acceptance. After all installed packages have moved to a replacement, an administrator can remove only the retired public thumbprint from `Cert:\LocalMachine\Root`. Remove the build-user public trust entry from `Cert:\CurrentUser\Root` when retired; preserve the private build key until its retention requirement ends. A lost or compromised key needs a new certificate, reviewed rebuilds, and explicit removal of the old trust entry on every PC. Do not change the publisher DN during routine renewal; test publisher identity migration separately if it must change.
 
 ## Target prerequisites

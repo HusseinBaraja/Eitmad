@@ -1,6 +1,6 @@
 #Requires -Version 7.4
 [CmdletBinding()]
-param()
+param([ValidatePattern('^[a-fA-F0-9]{40}$')][string]$CertificateThumbprint)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -17,8 +17,15 @@ function Reject([scriptblock]$Operation) {
     if (-not $rejected) { throw 'An invalid signing operation was accepted.' }
 }
 try {
-    $result = & (Join-Path $PSScriptRoot 'new-signing-certificate.ps1') -Publisher $subject | ConvertFrom-Json
-    $certificate = Get-Item -LiteralPath ('Cert:\CurrentUser\My\' + $result.certificateThumbprint)
+    if ($CertificateThumbprint) {
+        $certificate = Get-Item -LiteralPath ('Cert:\CurrentUser\My\' + $CertificateThumbprint)
+        Assert-EitmadSelfSignedCertificate $certificate
+        $subject = $certificate.Subject
+        $result = [pscustomobject]@{certificateSha256 = $certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256)}
+    } else {
+        $result = & (Join-Path $PSScriptRoot 'new-signing-certificate.ps1') -Publisher $subject | ConvertFrom-Json
+        $certificate = Get-Item -LiteralPath ('Cert:\CurrentUser\My\' + $result.certificateThumbprint)
+    }
     $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT = $certificate.Thumbprint
     $publicPath = Join-Path $root 'publisher.cer'
     $hook = Join-Path $PSScriptRoot 'sign-with-self-signed-certificate.ps1'
@@ -59,6 +66,17 @@ try {
     } finally { $rsa.Dispose() }
     Reject { Assert-PackageSignature $executable 'CN=Wrong publisher' }
     Assert-PackageSignature $executable $subject
+    # The real script SIP needs extended paths when staging exceeds MAX_PATH.
+    $module = Join-Path $root 'probe.psm1'
+    [IO.File]::WriteAllText($module, '# Synthetic signed module for long-path verification.')
+    & (Join-Path $PSScriptRoot 'sign-windows.ps1') -Path $module -Publisher $subject -SigningHook $hook
+    $relative = ('staging-' + ('x' * 100) + '/payload-' + ('y' * 100) + '/probe.psm1')
+    $longPath = Join-Path $root $relative
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($longPath))
+    [IO.File]::Copy($module, $longPath)
+    $check = 'import runpy,sys; from pathlib import Path; m=runpy.run_path(str(Path(sys.argv[1])/"scripts/release/build_artifacts.py")); m["verify_payload_signatures"](Path(sys.argv[2]),{sys.argv[3]:{"publisher":sys.argv[4]}})'
+    & python -c $check $repository $root $relative $subject
+    if ($LASTEXITCODE -ne 0) { throw 'Long-path signed script verification failed.' }
     # A real signed catalog and anchor must use the same exact certificate.
     $payload = Join-Path $root 'payload'
     [void][IO.Directory]::CreateDirectory($payload)
@@ -81,12 +99,12 @@ try {
     Write-Output 'Self-signed EXE, public certificate, native trust, catalog, and tamper checks passed without timestamps.'
 } finally {
     # Remove only the certificate/key and files created by this invocation.
-    if ($certificate) {
+    if ($certificate -and -not $CertificateThumbprint) {
         $store = [Security.Cryptography.X509Certificates.X509Store]::new('Root', 'CurrentUser')
         try { $store.Open('ReadWrite'); $store.Remove($certificate) } finally { $store.Dispose() }
         Remove-Item -LiteralPath ('Cert:\CurrentUser\My\' + $certificate.Thumbprint) -DeleteKey
-        $certificate.Dispose()
     }
+    if ($certificate) { $certificate.Dispose() }
     $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT = $previousThumbprint
     $resolved = [IO.Path]::GetFullPath($root)
     if ([IO.Path]::GetDirectoryName($resolved) -cne [IO.Path]::GetTempPath().TrimEnd('\') -or
