@@ -3,6 +3,15 @@
   <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF>
   <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   <EnableNETAnalyzers>true</EnableNETAnalyzers><AssemblyName>EitmadSetup</AssemblyName><RootNamespace>Eitmad.WindowsSetup</RootNamespace>
+  <AssemblyName Condition="'$(InstallerExecutableName)' != ''">$(InstallerExecutableName)</AssemblyName>
  </PropertyGroup>
  <ItemGroup><ProjectReference Include="../windows/Eitmad.WindowsShell.csproj"/></ItemGroup>
+ <ItemGroup Condition="'$(InstallerPayload)' != ''">
+  <EmbeddedResource Include="$(InstallerPayload)" LogicalName="Eitmad.InstallerPayload.zip"/>
+  <AssemblyMetadata Include="InstallerPayloadSha256" Value="$(InstallerPayloadSha256)"/>
+  <AssemblyMetadata Include="InstallerRole" Value="$(InstallerRole)"/>
+ </ItemGroup>
+ <ItemGroup Condition="'$(InstallerCrtDirectory)' != ''">
+  <Content Include="$(InstallerCrtDirectory)\*.dll" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest"/>
+ </ItemGroup>
 </Project>

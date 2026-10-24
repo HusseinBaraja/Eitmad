@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-23"
+last_verified: "2026-10-24"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -67,9 +67,27 @@ Executables are signed before MSIX assembly, then the final MSIX is signed. The 
 
 Keep packages under `dist`, outside Git. Transfer the ZIP digest and extracted `release.json` digest through an authenticated release channel. A checksum beside an untrusted download is not independent proof. The outer `.manifest.json` remains conservatively unsigned/non-production; a server ZIP also needs the authenticated release channel or approved detached release signature. Never edit generated inventory to pass verification. Package inventory is not the Rust signed update manifest. Do not create automatic-update assignments for this manual path; the [automatic update adapter](../developer/subsystems/update-distribution.md) remains unimplemented.
 
+## Build the two standalone installers
+
+The end-user requirement is **"click and run and follow in app guided setup"**. [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md) requires `EitmadServerSetup.exe` and `EitmadClientSetup.exe`. Each contains its role's complete offline payload and opens native Arabic guidance. ZIPs below are component inputs and internal validation outputs.
+
+Build reviewed desktop, server, and setup components from the same clean current source revision. Prepare and authenticate the full input review described below. Then run:
+
+```powershell
+python scripts/release/build_artifacts.py windows-installers --version 0.1.5 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --publisher $approvedPublisher --signing-hook deploy/windows/sign-with-artifact-signing.ps1 --output dist
+```
+
+This target requires the approved timestamped signing hook and new destination filenames. It verifies all reviewed components, stages each role, creates and signs each role's catalog, embeds the archive with its SHA-256 and fixed role, and signs the final EXEs. The outer launcher uses the same reviewed .NET runtime patch and app-local C++ files as the inner setup. Both roles must finish before either final EXE is published. The adjacent manifest records the role, embedded archive digest, and catalog digest; authenticate the manifest through the release handover. `productionEligible` remains false until the separate release acceptance gates pass.
+
+Server includes all reviewed components. Client includes the setup, desktop, and complete authenticated application component because the Rust setup backend runs from that component. Client omits PostgreSQL, WinSW, PowerShell 7, C++ redistributable installers, and Framework installers. Its installed MSIX contains no server tools. The temporary setup backend is not a Client host-service installation.
+
+At launch, Windows authenticates the retained EXE before any embedded payload is used. The adapter checks the compiled archive digest, rejects unsafe or duplicate paths and links, bounds extraction, and retains verified files against replacement. Extraction uses a private `%LocalAppData%\Eitmad\Installers\<archive-sha256>` directory. Reopening the same EXE verifies and reuses that directory. Changed or unexpected retained files stop setup and are preserved. Rust verifies the signed catalog and enforces the authenticated role, including recovery; launch arguments cannot grant the other role. Server elevation continues to authenticate a separate protected ProgramData copy.
+
+No approved signing identity or complete newly reviewed signed input set was available during implementation. Single-file packaging probes and focused tests do not constitute usable installers or [clean offline acceptance](verify-offline-windows-setup.md). Do not distribute synthetic or unsigned probes as a LAN test installer.
+
 ## Prepare the combined offline payload
 
-The `windows-offline` target creates `eitmad-offline-<version>-win-x64-payload-signed.zip` from prebuilt, reviewed inputs. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. Extract the complete ZIP before launching `setup/EitmadSetup.exe` as the intended ordinary Windows user. Assembly does not grant production acceptance.
+The `windows-offline` target creates `eitmad-offline-<version>-win-x64-payload-signed.zip` from prebuilt, reviewed inputs for internal validation. It does not download dependencies, run payload executables, register MSIX, provision a database, or change Windows services, certificate stores, firewall rules, or installed runtimes. Use `windows-installers` above for end-user delivery. The internal `setup/EitmadSetup.exe` requires an explicit `--role server` or `--role client`; Rust accepts only the role in authenticated metadata. The full internal bundle defaults to Server metadata. Assembly does not grant production acceptance.
 
 Use signed desktop, server, and setup ZIPs from the same release version and clean source revision. Extract them without changing their inventories. Include reviewed redistribution notices before creating and signing those component packages. Supply the following input tree; the collector copies these paths unchanged:
 

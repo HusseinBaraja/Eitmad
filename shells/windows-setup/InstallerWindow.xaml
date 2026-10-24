@@ -1,0 +1,23 @@
+<Window x:Class="Eitmad.WindowsSetup.InstallerWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="إعداد الاعتماد" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen"
+ FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource CanvasBrush}" UseLayoutRounding="True">
+ <Grid Margin="24">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <TextBlock Text="الاعتماد" Foreground="{DynamicResource CopperBrush}" FontSize="26" FontWeight="Bold"/>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel MaxWidth="720" VerticalAlignment="Center" Margin="0,24">
+    <TextBlock Text="مرحبًا بك في إعداد الاعتماد" FontSize="27" FontWeight="Bold" TextWrapping="Wrap"/>
+    <TextBlock x:Name="InstallerNotice" Text="يتحقق الإعداد من ملفاته ويجهّز المتطلبات تلقائيًا. اتبع الإرشادات التي تظهر داخل التطبيق."
+     TextWrapping="Wrap" Margin="0,16" AutomationProperties.LiveSetting="Polite"/>
+    <ProgressBar x:Name="PreparationProgress" Height="5" IsIndeterminate="True" AutomationProperties.Name="التحقق من ملفات الإعداد وتجهيزها"/>
+   </StackPanel>
+  </ScrollViewer>
+  <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0">
+   <Button x:Name="RetryPreparation" Content="إعادة المحاولة" Visibility="Collapsed" Click="RetryClick"
+    Style="{StaticResource PrimaryButton}" AutomationProperties.Name="إعادة التحقق من ملفات الإعداد وتجهيزها"/>
+   <Button x:Name="ClosePreparation" Content="إغلاق" Click="CloseClick" Style="{StaticResource SecondaryButton}"
+    Margin="12,0,0,0" AutomationProperties.Name="إغلاق إعداد الاعتماد"/>
+  </StackPanel>
+ </Grid>
+</Window>

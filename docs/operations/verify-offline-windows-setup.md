@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "product developer"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "offline payload validation, installation stages, network recovery, supported Windows editions, or acceptance results change"
 keywords:
@@ -20,7 +20,7 @@ keywords:
 
 Use this procedure to assess one exact offline release. A successful development test does not accept an installer. Keep each failed result and mark checks without observed evidence **Needs verification**. Never run installation, reboot, profile changes, or restore against a development machine's live installation.
 
-The product authority and required outcomes are [ADR-0030](../decisions/0030-offline-guided-windows-setup.md). Use [Windows packaging](package-windows-desktop.md) for authenticated release preparation and [native setup](prepare-windows-workshop.md#use-native-arabic-setup) for stage meanings and recovery limits. Server and Client below are **installer roles**. The current MSIX targets `Windows.Desktop`; Windows Server operating-system edition support is not established by a build-number check. If a Windows Server SKU is required, record the exact edition and AppX support and run this procedure there. It remains unverified until it passes on that edition.
+The product authority and required outcomes are [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) and [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md). Acceptance must start with the appropriate EXE and satisfy **"click and run and follow in app guided setup"**. Use [Windows packaging](package-windows-desktop.md) for authenticated release preparation and [native setup](prepare-windows-workshop.md#use-native-arabic-setup) for stage meanings and recovery limits. Server and Client below are **installer roles**. The current MSIX targets `Windows.Desktop`; Windows Server operating-system edition support is not established by a build-number check. If a Windows Server SKU is required, record the exact edition and AppX support and run this procedure there. It remains unverified until it passes on that edition.
 
 ## Run isolated development checks
 
@@ -46,22 +46,24 @@ powershell -NoProfile -File deploy/windows/test-offline-machine-probes.ps1
 ## Prepare clean offline PCs
 
 1. Use three disposable supported x64 Windows PCs or isolated VMs: **S** for Server, **C1** and **C2** for ordinary-user Client. Use local NTFS and distinct Windows standard users without Administrators membership. Keep a separate lab administrator for S. Record Windows edition/build, machine identity, network adapter, scaling, and date. Start each repeat from a clean image, never by deleting product state. Retain failed images as evidence.
-2. Use the exact complete signed offline ZIP and independently authenticated ZIP/catalog SHA-256 and publisher from the release handover. Keep all components together. An unsigned development ZIP, self-signed test identity, or missing combined bundle cannot pass this acceptance. A rebuilt script or binary requires a new reviewed/signed bundle; do not replace files inside the signed catalog.
+2. Copy only `EitmadServerSetup.exe` to S and only `EitmadClientSetup.exe` to C1/C2. Use the exact signed pair and independently authenticated EXE/archive/catalog digests and publisher from the release handover. An unsigned development probe, self-signed test identity, or manually arranged payload cannot pass this acceptance. A rebuilt script or binary requires a new reviewed/signed installer; do not replace files inside the signed catalog.
 3. Copy `test-offline-machine.ps1` and `verify-offline.ps1` from the same reviewed source revision into `C:\LabChecks`. Authenticate those files through the handover too. They are lab probes, not installed application prerequisites. Windows PowerShell 5.1 is sufficient. Do not install Python, .NET, C++, an SDK or a compiler on these PCs for this drill.
 4. Disconnect the lab router's WAN and all alternate uplinks, retaining the local LAN and its DHCP. Record this physical isolation and the adapters/routes. Do not merely block one website. Ensure the supported Windows trust policy can validate the approved publisher offline; unknown trust is a failed prerequisite, not grounds to disable signature or certificate validation.
-5. Extract the complete bundle to `C:\LabBundle`. Under the intended **standard user**, on each PC run the following with that PC's fresh evidence directory. Set the digest from the authenticated handover, not from the extracted file itself.
+5. Open the appropriate EXE as the intended **standard user**. Require automatic verification and extraction followed by the correct role's native screen. Do not select installation yet. Record that no archive extraction, terminal command, runtime installer, or certificate procedure was required from the end user. Lab observers can now inspect the automatically extracted directory. Set both digests from that role's authenticated handover, not from local files:
 
 ```powershell
 $approvedCatalog = Read-Host 'Authenticated offline.cat SHA-256'
-powershell -NoProfile -File C:\LabChecks\test-offline-machine.ps1 -Stage Baseline -EvidenceDirectory C:\LabEvidence -BundleDirectory C:\LabBundle -ExpectedCatalogSha256 $approvedCatalog
+$approvedPayload = Read-Host 'Authenticated embeddedPayloadSha256'
+$labBundle = Join-Path $env:LOCALAPPDATA ('Eitmad\Installers\' + $approvedPayload)
+powershell -NoProfile -File C:\LabChecks\test-offline-machine.ps1 -Stage Baseline -EvidenceDirectory C:\LabEvidence -BundleDirectory $labBundle -ExpectedCatalogSha256 $approvedCatalog
 ```
 
 Baseline verifies the signed catalog and records the user, service names, firewall rule names and global runtime versions. It refuses existing Eitmad state, common development tools and a separate .NET installation. Retain the image inventory as well: PATH checks alone cannot prove every possible SDK is absent. These observations do not by themselves prove offline execution.
 
 ## Install the roles and connect independent users
 
-1. On S, launch `C:\LabBundle\setup\EitmadSetup.exe` as the standard user and select Server. Enter a synthetic Arabic workshop name and a new synthetic Owner. Choose local backup storage; record the same-disk warning and select a separate supported external destination for the recovery drill. Authorize UAC with the separate lab administrator. Do not start setup from the administrator desktop. Require confirmed completion, then open the desktop under the original standard user. A runtime-requested restart is not completion; preserve the stage and follow the interruption procedure below.
-2. On C1 and C2, launch the same setup as their own standard users and select Client. Record that no UAC or installer/download prompt occurs. Require confirmed completion and launch from Start. Do not supply administrator credentials or install a runtime to make this pass. Under the same user run:
+1. On S, continue the Server wizard opened by `EitmadServerSetup.exe`. Enter a synthetic Arabic workshop name and a new synthetic Owner. Choose local backup storage; record the same-disk warning and select a separate supported external destination for the recovery drill. Authorize UAC with the separate lab administrator. Do not start setup from the administrator desktop. Require confirmed completion, then open the desktop under the original standard user. A runtime-requested restart is not completion; preserve the stage and follow the interruption procedure below.
+2. On C1 and C2, continue the Client wizard opened by `EitmadClientSetup.exe` under each intended standard user. Record that no UAC or installer/download prompt occurs. Require confirmed completion and launch from Start. Do not supply administrator credentials or install a runtime to make this pass. Under the same user run:
 
 ```powershell
 powershell -NoProfile -File C:\LabChecks\test-offline-machine.ps1 -Stage Client -EvidenceDirectory C:\LabEvidence
@@ -117,6 +119,17 @@ For each row retain release/catalog digest, source revision, exact command or UI
 | Effective profiles | Private success, Public TCP/discovery denial while locally ready, restored Private success; active-policy review |
 | Restart, boot and DHCP | Existing clients recover; operation before S Windows sign-in; observed new lease with retained identity/trust |
 | Interrupted setup and backup | Preserved stage/state, observed repair, external-generation activation, accepted/pending data and credential recovery |
+
+### Standalone installer implementation evidence, 2026-10-24
+
+The new distribution path uses one shared WPF implementation and Rust-enforced Server/Client metadata. Focused development evidence is retained under `artifacts/two-installers-verification`; it is not clean-PC acceptance.
+
+- The adapter extraction suite passed 13 cases: archive digest rejection, traversal, duplicate names, reserved paths, links, changed or unexpected retained content, retained file handles, and unsigned EXE rejection. Windows trust also accepted the installed signed .NET host in a separate positive probe.
+- `OnboardingRenderedTests` passed 17 cases, including the Server, Client, preparation, and recovery screens. The affected screens were captured and inspected at the maximized, default, and minimum sizes on the existing 1920 × 1080 physical display at 125%. Actual dimensions were approximately 1550.4 × 830.4, 1338.4 × 752.8, and 720 × 560 DIP. Exact 100% baselines remain **Needs verification**. No display setting was changed.
+- Single-file publishing produced one self-contained EXE for each role with a synthetic archive, without loose runtime files. These unsigned probes contain no installable product payload and are not release artifacts.
+- Focused Rust setup tests, the role-specific payload builder tests, generated-contract verification, and C# conformance cover the changed boundaries. The fresh-database integration test retains its explicit prerequisite and was not run as part of this change.
+
+No approved signing identity or complete newly reviewed signed component set was available. The final installer pair, offline standard-user installation, two-device native LAN use, and unattended Server reboot acceptance remain **Needs verification**. Signing and integrity checks remain enabled.
 
 ### Observed development evidence, 2026-10-21
 

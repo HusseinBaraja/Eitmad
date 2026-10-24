@@ -5,28 +5,32 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
   - "Windows installation"
   - "offline setup"
-  - "EitmadSetup.exe"
+  - "EitmadServerSetup.exe"
+  - "EitmadClientSetup.exe"
+  - "click and run and follow in app guided setup"
   - "server and client"
   - "device pairing"
 ---
 
 # Install Eitmad on the server and employee PCs
 
-Use one complete offline Windows bundle for the server PC and all employee PCs. Install the server first. It keeps the workshop database and also installs the desktop app for the Windows user who starts setup. Each employee PC installs only the desktop app and connects to that server.
+**Delivery requirement:** "click and run and follow in app guided setup". [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md) requires `EitmadServerSetup.exe` and `EitmadClientSetup.exe`, each with its required offline payload embedded. End users do not run scripts, extract a ZIP, install runtimes separately, or configure certificates and firewall rules manually.
+
+Use the two installers from the same release. Install the server first. It keeps the workshop database and also installs the desktop app for the Windows user who starts setup. Each employee PC installs only the desktop app and connects to that server. Each EXE fixes its role; there is no second role-choice screen.
 
 Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. For a PC where Eitmad is already installed, use [repair or upgrade](package-windows-desktop.md#repair-and-data-preserving-uninstall). Do not create another workshop to repair a failed installation.
 
-**Current release limit:** the guided flow is implemented. A complete trusted signed offline bundle and clean-PC installation acceptance remain **Needs verification**. Unsigned development ZIPs cannot be installed through this flow. See [offline setup verification](verify-offline-windows-setup.md) for the evidence still required. The steps below describe the current implementation; this documentation review did not perform a live installation.
+**Current release limit:** standalone packaging, authenticated automatic extraction, fixed roles, and the existing guided installation flow are implemented. A complete approved signed installer pair and clean-PC installation acceptance remain **Needs verification**. Unsigned packaging probes are not usable installers. See [offline setup verification](verify-offline-windows-setup.md) for the evidence still required. The steps below describe the implemented path; they do not claim a live installation has passed.
 
 ## Before you start
 
-- Obtain the complete signed offline ZIP and its authenticated release record from the release operator. If you are building it, use [offline bundle preparation](package-windows-desktop.md#prepare-the-combined-offline-payload). A desktop-only or server-only ZIP is not the combined setup bundle.
+- Obtain the appropriate signed EXE and its authenticated release record from the release operator. If you are building it, use [standalone installer preparation](package-windows-desktop.md#build-the-two-standalone-installers). Component ZIPs and developer script folders do not meet this delivery requirement.
 - Use patched x64 Windows with local NTFS storage and a policy that permits the signed MSIX. See [target prerequisites](package-windows-desktop.md#target-prerequisites) for host versions and Windows Server edition limits.
 - On the server, have Windows administrator credentials available for the UAC prompt. Start setup from the normal Windows account that will use the desktop; a different administrator can approve the prompt. On clients, use the intended normal Windows account without elevation.
 - Connect all PCs to the same trusted workshop LAN. Set the workshop interface to **Private** through Windows settings. Setup does not change the network profile. The server's Windows computer name must resolve to its private IPv4 address. Keep that name unchanged and keep the server powered on, connected, and awake.
@@ -36,9 +40,9 @@ End users need no Rust compiler, .NET SDK, database commands, or internet downlo
 
 ## 1. Install the server PC
 
-1. Verify the ZIP against the authenticated release record. Extract the **complete** ZIP to a local folder. Keep all extracted files together and accessible to the administrator who will approve UAC. Do not run setup inside the ZIP.
-2. Open `setup\EitmadSetup.exe` as the intended normal Windows user. Do not select **Run as administrator**.
-3. Select **خادم الورشة ومعه تطبيق الموظف**.
+1. Verify `EitmadServerSetup.exe` against the authenticated release record.
+2. Open it as the intended normal Windows user. Do not select **Run as administrator**. Setup verifies and extracts its embedded files automatically.
+3. Confirm that **إعداد خادم الورشة** appears.
 4. Enter **اسم الورشة**, **اسم مستخدم المالك**, and **كلمة مرور المالك**. The password must contain at least 12 characters. Retain it securely. This creates the first active application Owner with Manager duties and the first branch; no separate activation step is required.
 5. Under **وجهات النسخ الاحتياطي**, leave the local destination empty to use the default, or select a protected folder. Select an external folder if a suitable encrypted separate disk is available. Both selected destinations must be available for the first capture.
 6. Select **بدء التثبيت** and approve Windows UAC. Leave setup open until it reports **اكتمل التثبيت**. If a prerequisite requests a restart, use the recovery steps below after restarting; a restart request is not successful completion.
@@ -56,8 +60,8 @@ Application Owner authority is separate from Windows administrator rights. Pairi
 
 ## 3. Install and pair each employee PC
 
-1. Extract the same complete reviewed bundle on the employee PC. Open `setup\EitmadSetup.exe` as the normal Windows user who will use the app.
-2. Select **جهاز موظف**, then **بدء التثبيت**. This role requires no UAC approval. Wait for **اكتمل التثبيت**, then select **فتح الاعتماد** or open **الاعتماد** from Start.
+1. Open the release's `EitmadClientSetup.exe` as the normal Windows user who will use the app. Setup verifies and extracts its embedded files automatically.
+2. Confirm **إعداد جهاز الموظف**, then select **بدء التثبيت**. This role requires no UAC approval. Wait for **اكتمل التثبيت**, then select **فتح الاعتماد** or open **الاعتماد** from Start.
 3. In the app, select **البحث عن الخوادم** and select the intended server. If needed, select **فحص إعداد الاتصال** on sign-in to open connection setup.
 4. On the already connected server desktop, sign in as Owner. Open **المستخدمون** → **ربط جهاز**, then select **إظهار رمز ربط جديد**. Share this code only with the person pairing the intended PC.
 5. On the employee PC, enter that code and select **ربط هذا الجهاز**. Use a fresh code for each PC. Codes expire after three minutes and approve only one device. Do not photograph or record them.
@@ -70,12 +74,12 @@ The app authenticates server trust during pairing and keeps an independent devic
 - Sign in on the server desktop and on each employee PC with their intended accounts. Protected work requires the live LAN server even when installation used an offline bundle. Internet access and a live workshop server are separate requirements.
 - With a permitted account, save a synthetic customer and confirm that another authorized PC can read the server-confirmed record. Do not treat a local pending row as server confirmation.
 - Exit and reopen each desktop. Check that sign-in works without pairing again and that the confirmed record remains.
-- On the server, reopen the complete setup bundle and select **إدارة النسخ الاحتياطي**. Approve the administration prompt and check the schedule, last successful local capture, and any external copy. Follow [backup management and restore verification](backup-lan-installation.md#manage-backups-after-installation). A successful capture does not prove replacement-machine recovery.
+- On the server, reopen `EitmadServerSetup.exe` and select **إدارة النسخ الاحتياطي**. Approve the administration prompt and check the schedule, last successful local capture, and any external copy. Follow [backup management and restore verification](backup-lan-installation.md#manage-backups-after-installation). A successful capture does not prove replacement-machine recovery.
 - Before depending on unattended operation, verify client access after a planned server reboot while the server is still at the Windows sign-in screen. Use [offline setup acceptance](verify-offline-windows-setup.md) for the controlled reboot, firewall, DHCP, and restore checks.
 
 ## If setup or pairing stops
 
-Keep the complete bundle, installation folders, and original Windows user. Reopen the **same authenticated bundle** and select **فحص حالة الإعداد**. If offered, select **فحص واستكمال الإعداد**. Server recovery asks for the current Owner password; Client recovery requires no password or elevation. Wait if another worker is still active. A blocked or uncertain result needs [stage-specific installation recovery](prepare-windows-workshop.md#progress-interruption-and-recovery).
+Keep the original installer EXE, installation folders, and original Windows user. Reopen the **same authenticated installer EXE** and select **فحص حالة الإعداد**. If offered, select **فحص واستكمال الإعداد**. Server recovery asks for the current Owner password; Client recovery requires no password or elevation. Wait if another worker is still active. A blocked or uncertain result needs [stage-specific installation recovery](prepare-windows-workshop.md#progress-interruption-and-recovery).
 
 A server can remain installed when a later enrollment, backup, or desktop stage fails. Do not delete its database, journals, certificates, or device key, and do not select new paths to start again. Repair and upgrade use their [separate package lifecycle procedures](package-windows-desktop.md#repair-and-data-preserving-uninstall).
 

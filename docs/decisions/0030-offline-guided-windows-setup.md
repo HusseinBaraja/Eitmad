@@ -17,11 +17,11 @@ keywords:
 
 # ADR-0030: Provide offline guided Windows setup
 
-> - Status: Accepted
+> - Status: Partially superseded by ADR-0031 (distribution format and installer role selection only)
 > - Date: 2026-10-20
 > - Decision owners: Product developer
 > - Supersedes: None
-> - Superseded by: None
+> - Superseded by: [ADR-0031](0031-two-self-contained-windows-installers.md), distribution format and installer role selection only
 
 ## Context
 

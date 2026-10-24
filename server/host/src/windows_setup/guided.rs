@@ -7,7 +7,7 @@ use eitmad_contracts::{
     setup::{
         GuidedSetupAction, GuidedWindowsSetup, InstallWindows, InstallWindowsClient,
         InstallWindowsServer, PrepareWindowsWorkshop, PreparedWindowsWorkshop, SetupDesktopHandoff,
-        WindowsInstallPackage, WindowsSetupBundle,
+        WindowsInstallPackage, WindowsSetupBundle, WindowsSetupRole,
     },
     transport::{CorrelationId, RequestId},
 };
@@ -66,6 +66,18 @@ pub(super) async fn execute() -> Result<(), MainError> {
     if Path::new(&request.bundle_directory) != root {
         return Err(MainError::Input);
     }
+    let metadata = root.join("setup-bundle.json");
+    plain_path(&metadata, true)?;
+    let profile: WindowsSetupBundle = serde_json::from_reader(
+        std::fs::File::open(metadata)
+            .map_err(|_| MainError::Input)?
+            .take(16385),
+    )
+    .map_err(|_| MainError::Input)?;
+    if profile.version != 2 || !allows_action(profile.role, request.action) {
+        return Err(MainError::Input);
+    }
+    let role = profile.role;
     let progress = local_root()?.join("EitmadSetupProgress");
     if matches!(request.action, GuidedSetupAction::Inspect) {
         let state = if progress.try_exists().map_err(|_| MainError::Setup)? {
@@ -85,9 +97,27 @@ pub(super) async fn execute() -> Result<(), MainError> {
         if progress.try_exists().map_err(|_| MainError::Setup)? {
             return Err(MainError::Setup);
         }
-        compose(request, progress)?
+        compose(request, progress, profile)?
     };
+    if !matches!(
+        (role, &install),
+        (WindowsSetupRole::Server, InstallWindows::Server(_))
+            | (WindowsSetupRole::Client, InstallWindows::Client(_))
+    ) {
+        return Err(MainError::Input);
+    }
     installation::install(&install, &mut installation::native::WindowsPlatform).await
+}
+
+fn allows_action(role: WindowsSetupRole, action: GuidedSetupAction) -> bool {
+    matches!(
+        action,
+        GuidedSetupAction::Inspect | GuidedSetupAction::Retry
+    ) || matches!(
+        (role, action),
+        (WindowsSetupRole::Server, GuidedSetupAction::Server)
+            | (WindowsSetupRole::Client, GuidedSetupAction::Client)
+    )
 }
 
 fn retry(request: GuidedWindowsSetup, progress: &Path) -> Result<InstallWindows, MainError> {
@@ -115,20 +145,13 @@ fn retry(request: GuidedWindowsSetup, progress: &Path) -> Result<InstallWindows,
     Ok(retained)
 }
 
-fn compose(request: GuidedWindowsSetup, progress: PathBuf) -> Result<InstallWindows, MainError> {
+fn compose(
+    request: GuidedWindowsSetup,
+    progress: PathBuf,
+    profile: WindowsSetupBundle,
+) -> Result<InstallWindows, MainError> {
     let bundle = Path::new(&request.bundle_directory);
     plain_path(bundle, true)?;
-    let metadata = bundle.join("setup-bundle.json");
-    plain_path(&metadata, true)?;
-    let profile: WindowsSetupBundle = serde_json::from_reader(
-        std::fs::File::open(metadata)
-            .map_err(|_| MainError::Input)?
-            .take(16385),
-    )
-    .map_err(|_| MainError::Input)?;
-    if profile.version != 1 {
-        return Err(MainError::Input);
-    }
     let text = |path: PathBuf| path.to_string_lossy().into_owned();
     let client = InstallWindowsClient {
         version: 1,
@@ -347,6 +370,20 @@ pub(super) fn configure_backups(request: &InstallWindowsServer) -> Result<(), Ma
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fixed_role_refuses_the_other_install_action() {
+        use eitmad_contracts::setup::{GuidedSetupAction as Action, WindowsSetupRole as Role};
+        for (role, allowed, denied) in [
+            (Role::Server, Action::Server, Action::Client),
+            (Role::Client, Action::Client, Action::Server),
+        ] {
+            assert!(super::allows_action(role, allowed));
+            assert!(!super::allows_action(role, denied));
+            assert!(super::allows_action(role, Action::Inspect));
+            assert!(super::allows_action(role, Action::Retry));
+        }
+    }
+
     #[test]
     fn new_server_refuses_existing_desktop_data_before_opening_the_store() {
         let directory =

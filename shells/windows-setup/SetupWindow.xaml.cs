@@ -9,27 +9,27 @@ public partial class SetupWindow : Window
 {
     private readonly IWindowsSetupBridge backend;
     private readonly IWindowsBackupBridge? backups;
+    private readonly WindowsSetupRole role;
     private readonly ObservableCollection<string> stages = [];
     private bool busy;
     private bool fresh;
     private WindowsSetupRecovery recovery = WindowsSetupRecovery.InspectManually;
     private WindowsInstallProgress? last;
-    public SetupWindow(IWindowsSetupBridge backend, IWindowsBackupBridge? backups = null)
+    public SetupWindow(IWindowsSetupBridge backend, WindowsSetupRole role, IWindowsBackupBridge? backups = null)
     {
-        this.backend = backend; this.backups = backups; InitializeComponent(); StageList.ItemsSource = stages;
+        this.backend = backend; this.backups = backups; this.role = role;
+        InitializeComponent(); StageList.ItemsSource = stages;
+        ServerFields.Visibility = role == WindowsSetupRole.Server ? Visibility.Visible : Visibility.Collapsed;
+        RoleTitle.Text = role == WindowsSetupRole.Server ? "إعداد خادم الورشة" : "إعداد جهاز الموظف";
+        RoleDescription.Text = role == WindowsSetupRole.Server
+            ? "ينشئ ورشة جديدة وحساب المالك، ويثبت الخدمات وتطبيق الاعتماد لهذا المستخدم في Windows. أبقِ الخادم مشغّلًا ومتصلًا بالشبكة الخاصة."
+            : "يثبت تطبيق الاعتماد. بعد فتحه، اختر خادم الورشة وأدخل رمز الربط من المالك، ثم سجل الدخول بحسابك.";
         Loaded += async (_, _) => await InspectAsync();
         Closing += (_, e) => { if (busy) { e.Cancel = true; SetupNotice.Text = "الإعداد يعمل. انتظر انتهاء المرحلة قبل إغلاق النافذة. إذا انقطع التيار، افتح الإعداد وافحص الحالة المحفوظة."; } else { OwnerPassword.Clear(); RecoveryPassword.Clear(); } };
     }
-    private void RoleChanged(object sender, RoutedEventArgs e)
-    {
-        if (ServerFields is null) return;
-        ServerFields.Visibility = ServerChoice.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-        if (ClientChoice.IsChecked == true) OwnerPassword.Clear();
-        UpdateActions();
-    }
     private void UpdateActions()
     {
-        InstallButton.IsEnabled = !busy && fresh && (ServerChoice.IsChecked == true || ClientChoice.IsChecked == true);
+        InstallButton.IsEnabled = !busy && fresh;
         InstallButton.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
         ManageBackupButton.IsEnabled = !busy && backups is not null;
         InspectButton.IsEnabled = !busy; InputPanel.IsEnabled = !busy;
@@ -49,7 +49,9 @@ public partial class SetupWindow : Window
             fresh = state is null;
             if (state is null) {
                 InputPanel.Visibility = Visibility.Visible; ProgressPanel.Visibility = Visibility.Collapsed; OpenDesktopButton.Visibility = Visibility.Collapsed;
-                SetupNotice.Text = "اختر دور هذا الجهاز. تثبيت الخادم يطلب موافقة مسؤول Windows؛ يبقى التطبيق للمستخدم الذي بدأ الإعداد.";
+                SetupNotice.Text = role == WindowsSetupRole.Server
+                    ? "اتبع خطوات الإعداد. تثبيت الخادم يطلب موافقة مسؤول Windows؛ يبقى التطبيق للمستخدم الذي بدأ الإعداد."
+                    : "اضغط تثبيت، ثم اتبع إرشادات ربط الجهاز داخل التطبيق.";
             }
             else
             {
@@ -74,7 +76,7 @@ public partial class SetupWindow : Window
             }
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
-        { SetupNotice.Text = "تعذر قراءة حالة الإعداد. شغّل EitmadSetup.exe من الحزمة الكاملة المعتمدة، ثم أعد فحص الحالة. لا تغيّر أي تثبيت قائم."; }
+        { SetupNotice.Text = "تعذر قراءة حالة الإعداد. افتح ملف إعداد الاعتماد المعتمد، ثم أعد فحص الحالة. لا تغيّر أي تثبيت قائم."; }
         finally { busy = false; UpdateActions(); }
     }
     private async void InstallClick(object sender, RoutedEventArgs e) => await InstallAsync();
@@ -112,7 +114,7 @@ public partial class SetupWindow : Window
         InputPanel.Visibility = Visibility.Collapsed; ProgressPanel.Visibility = Visibility.Visible;
         BusyProgress.Visibility = Visibility.Visible; StepTitle.Text = "تثبيت الاعتماد";
         SetupNotice.Text = "اترك النافذة مفتوحة. لن تظهر نتيجة نجاح قبل اكتمال التحقق.";
-        var server = ServerChoice.IsChecked == true;
+        var server = role == WindowsSetupRole.Server;
         var workshop = server ? new InitializeWorkshop { Version = 1, WorkshopName = WorkshopName.Text, OwnerUsername = OwnerUsername.Text, OwnerPassword = OwnerPassword.Password } : null;
         OwnerPassword.Clear();
         try

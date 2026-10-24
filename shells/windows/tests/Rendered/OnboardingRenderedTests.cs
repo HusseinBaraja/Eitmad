@@ -23,13 +23,14 @@ public sealed class OnboardingRenderedTests
         public Func<Task<WindowsInstallationState?>>? Inspect { get; set; }
         public Func<IProgress<WindowsInstallProgress>, Task>? Install { get; set; }
         public int Calls { get; private set; }
+        public GuidedSetupAction? Action { get; private set; }
         public Task<WindowsInstallationState?> InspectAsync() => Inspect?.Invoke() ?? Task.FromResult(State);
         public Task OpenDesktopAsync() => Task.CompletedTask;
         public string? RetryPassword { get; private set; }
         public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress)
         { Calls++; RetryPassword = ownerPassword; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic retry failure")); }
         public Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress)
-        { Calls++; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic failure")); }
+        { Calls++; Action = action; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic failure")); }
     }
     private void Record(Window window, int width, int height)
     {
@@ -41,16 +42,39 @@ public sealed class OnboardingRenderedTests
     }
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
-    public void Setup_roles_forms_and_interruption_are_accessible(int width, int height)
+    public void Client_setup_and_payload_preparation_have_native_accessible_actions(int width, int height)
+    {
+        WpfTestHost.RunWindow(() => new SetupWindow(new SetupBackend(), WindowsSetupRole.Client) { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<StackPanel>(window, "ServerFields").Visibility);
+            var install = WpfTestHost.FindByName<Button>(window, "InstallButton");
+            Assert.IsTrue(install.IsEnabled); Assert.IsTrue(install.Focus());
+            Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(install)));
+            Assert.IsTrue(install.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            WpfTestHost.CompleteLayout(window);
+            var position = install.TransformToAncestor(window).Transform(new Point());
+            Assert.IsTrue(install.IsVisible && position.Y + install.ActualHeight <= window.ActualHeight);
+            WpfTestHost.Capture(window, $"onboarding-client-{width}");
+        });
+        WpfTestHost.RunWindow(() => new InstallerWindow { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            var close = WpfTestHost.FindByName<Button>(window, "ClosePreparation");
+            Assert.IsTrue(close.Focus());
+            Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(close)));
+            WpfTestHost.Capture(window, $"onboarding-preparation-{width}");
+        });
+    }
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Server_setup_forms_and_interruption_are_accessible(int width, int height)
     {
         var backend = new SetupBackend();
-        WpfTestHost.RunWindow(() => new SetupWindow(backend) { Width = width, Height = height }, window =>
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) { Width = width, Height = height }, window =>
         {
             Record(window, width, height);
-            var server = WpfTestHost.FindByName<RadioButton>(window, "ServerChoice");
-            Assert.IsTrue(server.Focus());
-            Assert.IsTrue(server.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
-            server.IsChecked = true; WpfTestHost.CompleteLayout(window);
+            var workshop = WpfTestHost.FindByName<TextBox>(window, "WorkshopName");
+            Assert.IsTrue(workshop.Focus());
+            Assert.IsTrue(workshop.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
             WpfTestHost.FindByName<TextBox>(window, "WorkshopName").Text = "ورشة الاختبار للأثاث";
             WpfTestHost.FindByName<TextBox>(window, "OwnerUsername").Text = "مالك الاختبار";
             foreach (var button in WpfTestHost.Descendants<Button>(window).Where(b => b.IsVisible))
@@ -89,7 +113,7 @@ public sealed class OnboardingRenderedTests
         var backend = new SetupBackend { State = new WindowsInstallationState { Version = 1, Interrupted = true,
             Recovery = WindowsSetupRecovery.OwnerPassword,
             Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.EnrollDesktop, Status = WindowsInstallStatus.Failed } } };
-        WpfTestHost.RunWindow(() => new SetupWindow(backend) { Width = width, Height = height }, window => {
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) { Width = width, Height = height }, window => {
             Record(window, width, height);
             var retry = WpfTestHost.FindByName<Button>(window, "RetryButton");
             Assert.IsTrue(retry.Focus());
@@ -109,7 +133,7 @@ public sealed class OnboardingRenderedTests
     {
         var backend = new SetupBackend { State = new WindowsInstallationState { Version = 1, Recovery = WindowsSetupRecovery.OwnerPassword,
             Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.ConfigureBackups, Status = WindowsInstallStatus.Failed } } };
-        WpfTestHost.RunWindow(() => new SetupWindow(backend), window => {
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server), window => {
             var password = WpfTestHost.FindByName<PasswordBox>(window, "RecoveryPassword"); password.Password = "Synthetic-password-123!";
             _ = ((SetupWindow)window).RetryAsync(); WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(1, backend.Calls); Assert.AreEqual("", password.Password);
@@ -135,10 +159,10 @@ public sealed class OnboardingRenderedTests
             progress.Report(new WindowsInstallProgress { Version = 1, Sequence = 1, Stage = WindowsInstallStage.RegisterDesktop, Status = WindowsInstallStatus.Running });
             return Task.FromException(new IOException("Synthetic registration failure"));
         } };
-        WpfTestHost.RunWindow(() => new SetupWindow(backend), window => {
-            WpfTestHost.FindByName<RadioButton>(window, "ClientChoice").IsChecked = true;
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Client), window => {
             _ = ((SetupWindow)window).InstallAsync(); WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(1, backend.Calls);
+            Assert.AreEqual(GuidedSetupAction.Client, backend.Action);
             Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
             Assert.IsFalse(WpfTestHost.FindByName<Button>(window, "InstallButton").IsEnabled);
         });
@@ -155,9 +179,8 @@ public sealed class OnboardingRenderedTests
             Progress = new WindowsInstallProgress { Version = 1, Sequence = 1,
                 Stage = WindowsInstallStage.Preflight, Status = WindowsInstallStatus.Failed },
         };
-        WpfTestHost.RunWindow(() => new SetupWindow(backend), window => {
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Client), window => {
             var view = (SetupWindow)window;
-            WpfTestHost.FindByName<RadioButton>(window, "ClientChoice").IsChecked = true;
             backend.Inspect = () => inspection.Task;
             var pending = operation switch {
                 "inspect" => view.InspectAsync(), "install" => view.InstallAsync(), _ => view.RetryAsync(),

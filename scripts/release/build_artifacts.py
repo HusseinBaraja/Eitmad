@@ -426,13 +426,107 @@ def verify_offline_payload(output: Path, expected_review: str, version: str) -> 
         verify_offline_catalog(output, release["publisher"])
 
 
-def setup_bundle_metadata(root: Path, review: dict) -> dict:
+def setup_bundle_metadata(root: Path, review: dict, role: str = "server") -> dict:
     """Bind the native launcher's inputs to the independently authenticated review."""
-    return {"version": 1,
+    if role not in {"server", "client"}:
+        raise ValueError("Installer role must be server or client")
+    return {"version": 2, "role": role,
             "publisher": review["components"]["application"]["files"]["eitmad-server.exe"]["publisher"],
             "desktopReleaseSha256": sha256(root / "client/desktop/release.json"),
             "serverReleaseSha256": sha256(root / "server/application/release.json"),
             "winswSha256": review["components"]["winsw"]["files"]["WinSW.NET461.exe"]["sha256"]}
+
+
+def prepare_installer_role(source: Path, stage: Path, review: dict, role: str) -> dict:
+    """Select complete authenticated components; never split an inventoried component."""
+    metadata = setup_bundle_metadata(source, review, role)
+    selected = set(OFFLINE_COMPONENTS) if role == "server" else {"setup", "desktop", "application"}
+    if stage.exists():
+        raise ValueError("Installer staging directory must be new")
+    stage.mkdir(parents=True)
+    for name in sorted(selected):
+        relative = OFFLINE_COMPONENTS[name][0]
+        shutil.copytree(source / relative, stage / relative)
+        copied = tree_files(stage / relative)
+        approved = review["components"][name]["files"]
+        if set(copied) != set(approved) or any(sha256(path) != approved[key]["sha256"] for key, path in copied.items()):
+            raise ValueError("Role payload differs from its authenticated component review")
+    # Keep independent source provenance, with an explicit inventory of what this role ships.
+    shutil.copyfile(source / "reviewed-inputs.json", stage / "reviewed-inputs.json")
+    inventory = read_json(source / "payload.json")
+    if sha256(stage / "reviewed-inputs.json") != inventory["reviewManifestSha256"]:
+        raise ValueError("Role payload review changed during preparation")
+    inventory["role"] = role
+    inventory["roles"] = {role.title(): sorted(OFFLINE_COMPONENTS[name][0] for name in selected)}
+    inventory["components"] = {name: review["components"][name] for name in sorted(selected)}
+    if role == "client":
+        inventory["serverDotnetRuntimes"].pop("powershell", None)
+    inventory["files"] = {name: sha256(path) for name, path in sorted(tree_files(stage).items())
+                          if name != "reviewed-inputs.json"}
+    (stage / "payload.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
+    (stage / "setup-bundle.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    return dict(review, components=inventory["components"])
+
+
+def publish_installer(stage: Path, payload: Path, role: str, version: str, crt: Path) -> Path:
+    """The same WPF application is the outer single-file launcher and the inner wizard."""
+    name = "EitmadServerSetup" if role == "server" else "EitmadClientSetup"
+    frameworks = self_contained_runtime(crt / "EitmadSetup.runtimeconfig.json", desktop=True)
+    versions = {framework["version"] for framework in frameworks}
+    if len(versions) != 1:
+        raise ValueError("Installer and reviewed setup must use one matching .NET runtime patch")
+    runtime_version = versions.pop()
+    crt_stage = stage.parent / f"{role}-crt"
+    crt_stage.mkdir()
+    for name_in_crt in sorted(CRT_FILES):
+        shutil.copyfile(crt / name_in_crt, crt_stage / name_in_crt)
+    run("dotnet", "publish", "shells/windows-setup/Eitmad.WindowsSetup.csproj", "--configuration", "Release",
+        "--runtime", "win-x64", "--self-contained", "true", "--nologo", "--output", str(stage),
+        f"-p:Version={version}", f"-p:AssemblyVersion={windows_version(version)}", f"-p:FileVersion={windows_version(version)}",
+        f"-p:RuntimeFrameworkVersion={runtime_version}", "-p:TargetLatestRuntimePatch=false",
+        f"-p:InstallerExecutableName={name}", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
+        "-p:IncludeAllContentForSelfExtract=true", "-p:DebugType=None", "-p:DebugSymbols=false",
+        f"-p:InstallerPayload={payload}", f"-p:InstallerPayloadSha256={sha256(payload)}",
+        f"-p:InstallerRole={role}", f"-p:InstallerCrtDirectory={crt_stage}")
+    executable = stage / f"{name}.exe"
+    if set(tree_files(stage)) != {executable.name}:
+        raise ValueError("Installer publish must contain exactly one self-contained EXE")
+    return executable
+
+
+def build_windows_installers(output: Path, version: str, source: Path, review_path: Path, expected_review: str,
+                             publisher: str, hook: Path | None) -> list[tuple[Path, dict]]:
+    if os.name != "nt" or hook is None:
+        raise ValueError("Standalone installers require Windows and the approved timestamped signing hook")
+    names = [output / "EitmadServerSetup.exe", output / "EitmadClientSetup.exe"]
+    if any(path.exists() for path in names):
+        raise ValueError("Installer destinations must be new")
+    review = load_payload_review(review_path, expected_review, version)
+    validate_offline_publishers(review, publisher)
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="eitmad-installers-", dir=output) as temporary:
+        working = Path(temporary)
+        verified = prepare_offline_payload(source, working / "verified", review_path, expected_review, version)
+        current = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        if read_json(verified / "setup/release.json")["sourceCommit"] != current:
+            raise ValueError("Standalone installers must use components from the reviewed current source revision")
+        completed = []
+        for role in ("server", "client"):
+            stage = working / role
+            scoped_review = prepare_installer_role(verified, stage, review, role)
+            write_offline_sbom(stage, scoped_review)
+            release_inventory(stage, version, f"windows-{role}-installer", publisher, sha256(stage / "payload.json"))
+            create_offline_catalog(stage, publisher, hook)
+            archive = working / f"{role}.zip"
+            deterministic_zip(stage, archive)
+            executable = publish_installer(working / f"{role}-exe", archive, role, version, verified / "setup")
+            sign_path(executable, publisher, hook)
+            completed.append((executable, {"role": role, "embeddedPayloadSha256": sha256(archive),
+                                           "offlineCatalogSha256": sha256(stage / "offline.cat")}))
+        # Publish neither role until both signing and all packaging checks succeed.
+        for (executable, _), destination in zip(completed, names, strict=True):
+            executable.rename(destination)
+    return [(destination, record) for destination, (_, record) in zip(names, completed, strict=True)]
 
 
 def write_offline_sbom(stage: Path, review: dict) -> None:
@@ -483,12 +577,7 @@ def verify_offline_catalog(stage: Path, publisher: str) -> None:
 def build_windows_offline(output: Path, version: str, source: Path, review_path: Path, expected_review: str,
                           publisher: str, hook: Path | None) -> Path:
     review = load_payload_review(review_path, expected_review, version)
-    for name in ("setup", "application", "desktop"):
-        for relative, entry in review["components"][name]["files"].items():
-            if Path(relative).suffix.lower() in EXECUTABLE_SUFFIXES and (
-                Path(relative).name.lower().startswith("eitmad") or Path(relative).suffix.lower() in {".ps1", ".psm1", ".msix"}
-            ) and entry.get("publisher") != publisher:
-                raise ValueError("Eitmad setup, server, scripts, and MSIX must retain the approved publisher")
+    validate_offline_publishers(review, publisher)
     destination = output / f"eitmad-offline-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"
     if destination.exists():
         raise ValueError("Offline archive destination must be new")
@@ -507,6 +596,15 @@ def build_windows_offline(output: Path, version: str, source: Path, review_path:
         deterministic_zip(stage, pending)
         pending.rename(destination)
     return destination
+
+
+def validate_offline_publishers(review: dict, publisher: str) -> None:
+    for name in ("setup", "application", "desktop"):
+        for relative, entry in review["components"][name]["files"].items():
+            if Path(relative).suffix.lower() in EXECUTABLE_SUFFIXES and (
+                Path(relative).name.lower().startswith("eitmad") or Path(relative).suffix.lower() in {".ps1", ".psm1", ".msix"}
+            ) and entry.get("publisher") != publisher:
+                raise ValueError("Eitmad setup, server, scripts, and MSIX must retain the approved publisher")
 
 
 def run(*command: str, env: dict | None = None) -> None:
@@ -549,7 +647,7 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def write_manifest(output: Path, artifact: Path, version: str, target: str) -> Path:
+def write_manifest(output: Path, artifact: Path, version: str, target: str, installer: dict | None = None) -> Path:
     manifest = output / f"{artifact.name}.manifest.json"
     payload = {
         "schemaVersion": 1,
@@ -561,6 +659,8 @@ def write_manifest(output: Path, artifact: Path, version: str, target: str) -> P
         "signed": False,
         "productionEligible": False,
     }
+    if installer is not None:
+        payload["installer"] = installer
     manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return manifest
 
@@ -857,7 +957,7 @@ def verify(artifact: Path, manifest: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("target", choices=("windows-desktop", "windows-server", "windows-setup", "windows-offline", "server"))
+    parser.add_argument("target", choices=("windows-desktop", "windows-server", "windows-setup", "windows-offline", "windows-installers", "server"))
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
     parser.add_argument("--publisher", default="CN=Eitmad Unsigned Validation")
@@ -875,6 +975,20 @@ def main() -> None:
             parser.error("Signing requires the exact approved certificate-profile subject")
         if subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT):
             parser.error("Signed release builds require a clean reviewed checkout")
+    if arguments.target == "windows-installers":
+        if not all((arguments.payload_input, arguments.payload_review, arguments.expected_review_sha256, arguments.signing_hook)):
+            parser.error("Standalone installers require reviewed payload inputs, their independent review digest, and --signing-hook")
+        if arguments.vc_runtime or arguments.verify_payload or arguments.prepare_payload:
+            parser.error("Standalone installers consume complete reviewed component packages")
+        installers = build_windows_installers(arguments.output.resolve(), arguments.version, arguments.payload_input,
+                                              arguments.payload_review, arguments.expected_review_sha256,
+                                              arguments.publisher, arguments.signing_hook)
+        for executable, record in installers:
+            manifest = write_manifest(arguments.output, executable, arguments.version, arguments.target, record)
+            verify(executable, manifest)
+            print(executable)
+            print(manifest)
+        return
     if arguments.target == "windows-offline":
         if not arguments.expected_review_sha256 or arguments.vc_runtime:
             parser.error("Offline assembly requires --expected-review-sha256 and prebuilt reviewed packages")
@@ -902,7 +1016,7 @@ def main() -> None:
         print(arguments.output)
         return
     if arguments.payload_input or arguments.payload_review or arguments.expected_review_sha256 or arguments.verify_payload or arguments.prepare_payload:
-        parser.error("Payload review options apply only to windows-offline")
+        parser.error("Payload review options apply only to windows-offline or windows-installers")
     if arguments.target not in {"windows-desktop", "windows-server", "windows-setup"} and arguments.vc_runtime is not None:
         parser.error("--vc-runtime applies only to Windows component builds")
     arguments.output.mkdir(parents=True, exist_ok=True)

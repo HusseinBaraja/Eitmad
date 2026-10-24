@@ -12,18 +12,8 @@
   <ScrollViewer x:Name="SetupScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
    <StackPanel MaxWidth="760" HorizontalAlignment="Stretch" Margin="0,0,0,20">
     <StackPanel x:Name="InputPanel">
-     <TextBlock Text="كيف ستستخدم هذا الجهاز؟" FontSize="27" FontWeight="Bold" Margin="0,4,0,8"/>
-     <TextBlock Text="اختر الخادم للجهاز الذي تبقى عليه بيانات الورشة. اختر جهاز موظف لبقية الأجهزة." Margin="0,0,0,18"/>
-     <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,10">
-      <StackPanel><RadioButton x:Name="ServerChoice" GroupName="Role" Content="خادم الورشة ومعه تطبيق الموظف" FontSize="17" Checked="RoleChanged" AutomationProperties.Name="تثبيت خادم الورشة والتطبيق"/>
-       <TextBlock Text="ينشئ ورشة جديدة وحساب المالك، ويثبت الخدمات وتطبيق الاعتماد لهذا المستخدم في Windows. يجب إبقاء الجهاز مشغّلًا ومتصلًا بالشبكة الخاصة." Margin="24,8,0,0"/>
-      </StackPanel>
-     </Border>
-     <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,18">
-      <StackPanel><RadioButton x:Name="ClientChoice" GroupName="Role" Content="جهاز موظف" FontSize="17" Checked="RoleChanged" AutomationProperties.Name="تثبيت تطبيق الموظف فقط"/>
-       <TextBlock Text="يثبت التطبيق فقط دون صلاحيات مسؤول Windows. بعد فتحه، اختر خادم الورشة وأدخل رمز الربط من المالك، ثم سجل الدخول بحسابك." Margin="24,8,0,0"/>
-      </StackPanel>
-     </Border>
+     <TextBlock x:Name="RoleTitle" FontSize="27" FontWeight="Bold" Margin="0,4,0,8"/>
+     <TextBlock x:Name="RoleDescription" TextWrapping="Wrap" Margin="0,0,0,18"/>
      <StackPanel x:Name="ServerFields" Visibility="Collapsed">
       <TextBlock Text="الورشة وحساب المالك" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
       <controls:FormField Label="اسم الورشة" IsRequired="True"><TextBox x:Name="WorkshopName" Style="{StaticResource TextInput}" MaxLength="160" AutomationProperties.Name="اسم الورشة"/></controls:FormField>

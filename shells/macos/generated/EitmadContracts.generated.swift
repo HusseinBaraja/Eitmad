@@ -15,6 +15,7 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let serverBackupManagement: ServerBackupManagement
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
     public let windowsInstallationState: WindowsInstallationState
+    public let windowsSetupRole: WindowsSetupRole
 
     public enum CodingKeys: String, CodingKey {
         case guidedWindowsSetup = "guided_windows_setup"
@@ -25,9 +26,10 @@ public struct EitmadContractSchema: Codable, Sendable {
         case serverBackupManagement = "server_backup_management"
         case unionPayloadKeepAlive
         case windowsInstallationState = "windows_installation_state"
+        case windowsSetupRole = "windows_setup_role"
     }
 
-    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, serverBackupManagement: ServerBackupManagement, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState) {
+    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, serverBackupManagement: ServerBackupManagement, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState, windowsSetupRole: WindowsSetupRole) {
         self.guidedWindowsSetup = guidedWindowsSetup
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
@@ -36,6 +38,7 @@ public struct EitmadContractSchema: Codable, Sendable {
         self.serverBackupManagement = serverBackupManagement
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
         self.windowsInstallationState = windowsInstallationState
+        self.windowsSetupRole = windowsSetupRole
     }
 }
 
@@ -5675,6 +5678,12 @@ public enum WindowsSetupRecovery: String, Codable, Sendable {
     case ownerPassword = "ownerPassword"
     case retry = "retry"
     case wait = "wait"
+}
+
+/// Fixed installation capability of an authenticated offline payload.
+public enum WindowsSetupRole: String, Codable, Sendable {
+    case client = "client"
+    case server = "server"
 }
 
 // MARK: - Encode/decode helpers
