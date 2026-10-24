@@ -957,9 +957,12 @@ def build_windows_server(output: Path, version: str, publisher: str = "CN=Eitmad
         # Keep the existing LAN tool's relative assembly path; it loads into PowerShell 7.4+.
         (stage / "tools").mkdir()
         shutil.copy2(ROOT / "tools/lan-server.ps1", stage / "tools")
-        publish("tools/lan-certificate/Eitmad.LanCertificate.csproj",
-                stage / "tools/lan-certificate/bin/Release/net8.0-windows", version)
-        copy_vc_runtime(stage / "tools/lan-certificate/bin/Release/net8.0-windows", vc_runtime)
+        certificate_tool = stage / "tools/lan-certificate/bin/Release/net8.0-windows"
+        publish("tools/lan-certificate/Eitmad.LanCertificate.csproj", certificate_tool, version)
+        # Keep runtime terms at the package root, outside the tool's deep binary path.
+        # Native catalog hashing must also work within the Windows path limit.
+        (certificate_tool / "licenses").rename(stage / "licenses")
+        copy_vc_runtime(certificate_tool, vc_runtime)
         write_sbom(stage, load_plan()["artifacts"]["windows_server"]["rust_package"], version)
         sign_path(stage, publisher, hook)
         release_inventory(stage, version, "windows-server", publisher)
