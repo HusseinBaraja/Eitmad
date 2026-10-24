@@ -205,8 +205,6 @@ fn seed_quotation(
 ) -> Result<()> {
     let auth = AuthorizationService::new(reception.store.clone());
     let drafts = QuotationDraftService::new(reception.store.clone(), auth);
-    // One draft, one pending discount approval, one issued quotation, one accepted quotation,
-    // and one converted ready-made order exercise distinct durable workflow states.
     let step = 0x4844_5000 + index * 20;
     let draft = checked(
         drafts.create(
@@ -219,17 +217,7 @@ fn seed_quotation(
                     }),
                     lines: vec![QuotationLineIntent {
                         id: Uuid::from_u128(step),
-                        configuration: CheckSalesConfiguration {
-                            selection: PriceSelection {
-                                target: target.clone(),
-                                price_revision: 1,
-                                quantity: 1 + u32::try_from(index % 3)
-                                    .map_err(|_| "demo quantity")?,
-                                color_id: None,
-                                handle_id: None,
-                            },
-                            dimensions: None,
-                        },
+                        configuration: configuration(reception, target, index)?,
                     }],
                     discount_basis_points: discount,
                 },
@@ -258,6 +246,41 @@ fn seed_quotation(
         return Ok(());
     }
     finish_quotation(reception, &drafts, &draft.snapshot, state, step)
+}
+
+fn configuration(
+    client: &Client,
+    target: &PriceTarget,
+    index: u128,
+) -> Result<CheckSalesConfiguration> {
+    let details = checked(
+        eitmad_pricing::PricingService::new(
+            client.store.clone(),
+            AuthorizationService::new(client.store.clone()),
+        )
+        .sales_catalog_item(
+            &client.actor,
+            &eitmad_contracts::sales_catalog::GetSalesCatalogItem {
+                target: target.clone(),
+            },
+        ),
+        "demo confirmed sales definition",
+    )?;
+    let entry = details
+        .variants
+        .into_iter()
+        .find(|entry| entry.price.target == *target)
+        .ok_or("demo sales variant")?;
+    Ok(CheckSalesConfiguration {
+        selection: PriceSelection {
+            target: target.clone(),
+            price_revision: entry.price.revision,
+            quantity: 1 + u32::try_from(index % 3).map_err(|_| "demo quantity")?,
+            color_id: None,
+            handle_id: None,
+        },
+        dimensions: entry.dimensions,
+    })
 }
 
 fn finish_quotation(

@@ -107,6 +107,7 @@ fn admit(request: &Request, manager: &Client, reception: &Client) -> Result<()> 
             .synchronize(&manager.actor, super::deadline()),
         "demo existing catalog check",
     )?;
+    super::customers::synchronize(reception)?;
     let prices = checked(
         PricingService::new(
             manager.store.clone(),
