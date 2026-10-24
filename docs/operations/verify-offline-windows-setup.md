@@ -120,38 +120,16 @@ For each row retain release/catalog digest, source revision, exact command or UI
 | Restart, boot and DHCP | Existing clients recover; operation before S Windows sign-in; observed new lease with retained identity/trust |
 | Interrupted setup and backup | Preserved stage/state, observed repair, external-generation activation, accepted/pending data and credential recovery |
 
-### Standalone installer implementation evidence, 2026-10-24
+## Current verification status
 
-The new distribution path uses one shared WPF implementation and Rust-enforced Server/Client metadata. Focused development evidence is retained under `artifacts/two-installers-verification`; it is not clean-PC acceptance.
+The two standalone installers use one shared WPF implementation and Rust-enforced Server/Client metadata. On 2026-10-24, a complete reviewed self-signed pair was built with real offline inputs. Component inventories, source revision, architectures, redistribution notices, file hashes, signed catalogs, and final EXE signatures passed build-host checks. The private signing key remained in the build user's Windows certificate store.
 
-- The adapter extraction suite passed 13 cases: archive digest rejection, traversal, duplicate names, reserved paths, links, changed or unexpected retained content, retained file handles, and unsigned EXE rejection. Windows trust also accepted the installed signed .NET host in a separate positive probe.
-- `OnboardingRenderedTests` passed 17 cases, including the Server, Client, preparation, and recovery screens. The affected screens were captured and inspected at the maximized, default, and minimum sizes on the existing 1920 × 1080 physical display at 125%. Actual dimensions were approximately 1550.4 × 830.4, 1338.4 × 752.8, and 720 × 560 DIP. Exact 100% baselines remain **Needs verification**. No display setting was changed.
-- Single-file publishing produced one self-contained EXE for each role with a synthetic archive, without loose runtime files. These unsigned probes contain no installable product payload and are not release artifacts.
-- Focused Rust setup tests, the role-specific payload builder tests, generated-contract verification, and C# conformance cover the changed boundaries. The fresh-database integration test retains its explicit prerequisite and was not run as part of this change.
+Focused packaging verification passed 9 artifact-builder tests and 21 offline-payload tests. The real Windows self-signed proof passed EXE and catalog verification, changed-byte rejection, and signed PowerShell-module verification beyond the normal Windows path limit. These checks establish packaging and signing behavior; they do not establish a working installation on another PC.
 
-No approved signing identity or complete newly reviewed signed component set was available. The final installer pair, offline standard-user installation, two-device native LAN use, and unattended Server reboot acceptance remain **Needs verification**. Signing and integrity checks remain enabled.
+The extraction and role tests cover archive digest rejection, unsafe and duplicate paths, links, changed or unexpected retained files, retained file handles, and unsigned EXE rejection. Native Server, Client, preparation, recovery, and publisher-trust screens have focused rendered-test evidence. Existing captures used a 1920 × 1080 display at 125% scaling; exact 100% baseline verification remains **Needs verification**. The final signed EXE launch-screen check was unavailable because Computer Use app approval timed out.
 
-### Observed development evidence, 2026-10-21
+For each current pair, retain the exact version, source revision, EXE SHA-256 values, public certificate fingerprint, build results, and verification limits in its authenticated handover. Keep private build inputs and evidence outside the USB delivery folder. Component archives and synthetic packaging probes are build inputs or test evidence, not extra installation choices.
 
-The following checks ran on the development Windows host with synthetic data. No live installation was changed and no branch was created. The runner was resumed at failed checks with fresh roots; unchanged successful suites were retained. None of these results is whole-installer acceptance.
-
-| Check actually run | Observed result and limit |
-| --- | --- |
-| `python -m unittest discover -s scripts/ci/tests -p test_offline_payload.py -v` | 17 tests passed, including real Windows rejection of unsigned synthetic signatures/catalogs. Final expanded Client-policy cases also passed in a focused rerun |
-| `pwsh.exe -NoProfile -File deploy/windows/test-package.ps1` | Passed inventory, app-local C++, self-contained .NET, external-package/server-tool refusal and migration checks with synthetic packages |
-| `test-installation.ps1`, `test-host.ps1`, `test-discovery-interfaces.ps1`, `test-local-backup.ps1` through Windows PowerShell | Passed existing isolated adapter/channel, mocked SCM/firewall/profile and local-backup checks; no real service, task or firewall installation |
-| `rustup run 1.85.1 cargo test --locked -p eitmad-server --bin eitmad-server windows_setup` | 10 setup and journal tests passed, including retained failed/interrupted/torn state and Client-only stages |
-| `rustup run 1.85.1 cargo test --locked -p eitmad-server-discovery` | 11 tests passed, including loopback UDP; no physical LAN discovery proof |
-| `dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter FullyQualifiedName~OfflineSetupPayloadTests` | One launcher rejection test passed. A first build attempt hit a file lock; serial rerun passed without warnings. No native UI rendering was performed |
-| Runner `fresh-preparation` | Real fresh PostgreSQL 17/SCRAM, migrations and retained setup, validated HTTPS 204 and HTTP 401 for an unapproved Owner device passed. The old expectation of HTTP 200 was corrected; account usability is tested separately |
-| Runner `tls-accounts-pairing-two-clients` | Account/staff authorization and audit rollback, pairing rejection/interrupted completion, real TLS sync, two isolated customer engines, host restart and retained-identity loopback address recovery passed |
-| Runner `backup-restore` with `--server-backup` | Real capture/copy/staging, restored CA renewal, new PostgreSQL cluster, two recovered clients, rowsets/image bytes, pending work confirmation and zero duplicate order effects passed. Recovery interval 115,147 ms; whole command 135.216 s. Privilege/service/disk observations were substituted; Windows image and lost-profile credentials were not recovered |
-| `pwsh.exe -NoProfile -File deploy/windows/test-offline-machine-probes.ps1` | Synthetic verdict tests passed for valid 204, readiness/TLS failures, database exposure, and TCP versus certificate failure on Public |
-| Existing `eitmad-desktop-0.1.0-offline.1-win-x64-unsigned.zip`, current `Read-EitmadPackage -AllowUnsignedValidation` and `Assert-DesktopRuntime` | Static inventory/runtime checks passed without package registration. This older unsigned component is not the finished signed offline bundle |
-| `python .agents/skills/maintain-project-documentation/scripts/audit_docs.py --root docs` and focused Python compilation | Documentation audit passed for 110 pages; changed Python harnesses compiled |
-
-Private results are retained in Windows TEMP under `eitmad-offline-acceptance-20261021-c` (adapter/build/discovery results), `eitmad-offline-acceptance-20261021-d` (corrected preparation and runtime; its restore attempt failed the path-length guard), and `eo-20261021-e` (successful restore). The runner now refuses overly long roots before starting tests. Package-only evidence is under `eo-msix-6dba9014`. Keep these private; publish only sanitized summaries. Full evidence-root paths are environment-specific.
-
-A complete trusted signed offline bundle was not available. Clean offline Server/Client installation, actual standard-user launch without prerequisites, native pairing/staff sign-in on separate PCs, effective Private/Public access, boot without sign-in, physical DHCP and replacement-machine credential/media recovery remain **Needs verification**. No clean-PC, real firewall, reboot or physical DHCP acceptance was performed.
+Clean offline Server/Client installation, actual standard-user launch, native pairing and staff sign-in on separate PCs, effective Private/Public access, operation after reboot before sign-in, physical DHCP recovery, interruption recovery, and replacement-machine credential/media recovery remain **Needs verification**. Run the acceptance steps above on the target PCs and record the actual results before claiming support.
 
 Return to [operations](index.md), [package preparation](package-windows-desktop.md), or [backup recovery](backup-lan-installation.md).

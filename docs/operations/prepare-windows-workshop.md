@@ -25,7 +25,7 @@ For normal installation, follow [Install Eitmad on the server and employee PCs](
 
 `eitmad-server prepare-windows-workshop` prepares a **new** Windows state directory using reviewed offline tools. It creates a private CA and matching leaf certificate, an isolated PostgreSQL 17 cluster with SCRAM authentication, separate random administrator and application credentials, an application database, migrations, and the active Owner/Manager and branch. PostgreSQL binds only to `127.0.0.1`. The command stops this cluster before it returns public enrollment coordinates and writes `prepared-workshop.json`.
 
-The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. The native `EitmadSetup.exe` now composes the installation backend, Rust [discovery](../developer/subsystems/server-discovery.md), authenticated pairing, and automatic local backup scheduling. [ADR-0030](../decisions/0030-offline-guided-windows-setup.md) defines the selected user experience.
+The separate `prepare-windows-workshop` command installs no service, firewall rule, desktop, or scheduled backup. The native `EitmadServerSetup.exe` and `EitmadClientSetup.exe` compose the installation backend, Rust [discovery](../developer/subsystems/server-discovery.md), authenticated pairing, and automatic local backup scheduling. [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md) defines the delivery format; [ADR-0032](../decisions/0032-self-signed-windows-publisher.md) defines publisher trust.
 
 ## Use native Arabic setup
 

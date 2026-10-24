@@ -80,7 +80,7 @@ The end-user requirement is **"click and run and follow in app guided setup"**. 
 Build reviewed desktop, server, and setup components from the same clean current source revision. Prepare and authenticate the full input review described below. Then run:
 
 ```powershell
-python scripts/release/build_artifacts.py windows-installers --version 0.1.5 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --publisher $approvedPublisher --signing-hook deploy/windows/sign-with-self-signed-certificate.ps1 --output dist
+python scripts/release/build_artifacts.py windows-installers --version 0.1.0 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --publisher $approvedPublisher --signing-hook deploy/windows/sign-with-self-signed-certificate.ps1 --output dist
 ```
 
 This target requires the local self-signed certificate signing hook and new destination filenames. It verifies all reviewed components, stages each role, creates and signs each role's catalog, embeds the archive with its SHA-256 and fixed role, and signs the final EXEs. The outer launcher uses the same reviewed .NET runtime patch and app-local C++ files as the inner setup. Both roles must finish before either final EXE is published. The adjacent manifest records the role, embedded archive digest, catalog digest, and public certificate SHA-256; authenticate the manifest through the release handover. `productionEligible` remains false until the separate release acceptance gates pass.
@@ -91,7 +91,7 @@ At first launch on each PC, the outer launcher reads its embedded public certifi
 
 A self-signed EXE can show an initial Windows unknown-publisher or SmartScreen warning before its UI opens. Self-signing does not create public publisher reputation. Do not disable Windows protection. The installer cannot authenticate its own initial download: obtain the EXE digest and public certificate fingerprint through the independent release handover. The adapter checks the compiled archive digest, rejects unsafe or duplicate paths and links, bounds extraction, and retains verified files against replacement. Extraction uses a private `%LocalAppData%\Eitmad\Installers\<archive-sha256>` directory. Reopening the same EXE verifies and reuses that directory. Changed or unexpected retained files stop setup and are preserved. Rust verifies the signed catalog and enforces the authenticated role, including recovery; launch arguments cannot grant the other role. Server elevation continues to authenticate a separate protected ProgramData copy.
 
-A complete newly reviewed installer pair and clean-PC acceptance remain **Needs verification**. Local self-signed signing is the supported signing path. Single-file packaging probes and focused tests do not constitute usable installers or [clean offline acceptance](verify-offline-windows-setup.md). Do not distribute synthetic or unsigned probes as a LAN test installer.
+A complete reviewed self-signed installer pair has been built, and both final EXE signatures passed build-host verification. Record each pair's source revision, hashes, and certificate fingerprint in its release handover. Clean-PC installation, company LAN, reboot, and recovery still require [offline acceptance](verify-offline-windows-setup.md#current-verification-status). Distribute only the authenticated Server and Client EXEs and their current handover instructions.
 
 ## Prepare the combined offline payload
 
@@ -222,41 +222,6 @@ For a fresh workshop, use [guided Server setup](install-windows.md#1-install-the
 
 Protected storage is `%ProgramData%\EitmadHost`: read-only binaries in `app`/`postgres`, server-only settings/TLS in `private`, and PostgreSQL storage in `data`. Separate password-free virtual service accounts run Rust and PostgreSQL. Administrators and SYSTEM retain control. Keep CA operator state outside the service tree. Links, foreign service registrations, active clusters, and unsafe ancestors are rejected. See [service identities and storage](run-windows-host-services.md#identity-secrets-and-storage).
 
-## Test MSIX with a local certificate
-
-This older isolated MSIX test identity is a developer diagnostic. Use the two standalone self-signed installers for the required guided LAN test and normal delivery. This manual path does not satisfy the click-and-run requirement or replace [release acceptance](validate-release-candidate.md).
-
-Prerequisites on the build laptop: the authenticated unsigned desktop ZIP, its SHA-256 from the build record, Windows SDK x64 MakeAppx and SignTool, Windows PowerShell 5.1, and the Windows .NET Framework 4.x C# compiler. The input app already includes its .NET 8 runtime and Rust engine; the builder does not copy source code into the package. Client PCs need the [desktop prerequisites](#target-prerequisites).
-
-Build once with new work and output directories:
-
-```powershell
-.\deploy\windows\build-test-client.ps1 -SourceArchive $unsignedDesktopZip -ExpectedSourceSha256 $sourceZipDigest -WorkDirectory artifacts\local-msix-test\work -OutputDirectory artifacts\local-msix-test\client
-```
-
-The builder verifies the ZIP and both original payload inventories before repacking. It creates `Eitmad.Desktop.Test` with publisher `CN=Eitmad Local Test` and an Arabic test label. A small Windows launcher passes the existing runtime-directory argument to the unchanged shell; both Start-menu activation and direct launcher activation use `%LOCALAPPDATA%\Eitmad\TestClient\engine`. This path retains test data after package removal. Product authorization, validation, and audit stay in Rust. Test accounts can change the connected server tenant; use a test tenant when the data must be disposable.
-
-The builder creates a one-year, non-exportable RSA code-signing key in the build user's `CurrentUser\My` Windows certificate store. It exports only `Eitmad-Local-Test.cer`. Keep that private key on the build laptop. For another build, supply the retained public thumbprint with `-CertificateThumbprint`; changing certificates requires a separate reviewed client trust import. The test MSIX is signed with SHA-256 without a timestamp. Expiration requires a new valid build and trust check.
-
-Transfer only the output directory as a ZIP. Compare its ZIP digest through the authenticated handover channel. The generated command files contain the exact public-certificate and MSIX SHA-256 pins; `test-release.json` records the same public evidence. These pins are meaningful only when the bundle itself came from the trusted handover.
-
-On each client:
-
-1. Extract the complete bundle. Right-click `Trust-TestCertificate.cmd` and select **Run as administrator**. This verifies both hashes and the code-signing-only leaf certificate, imports only that public certificate into `LocalMachine\TrustedPeople`, then verifies the MSIX signature. If that signature check fails, a newly imported certificate is removed. It never imports a root CA, enables Developer Mode, or changes machine execution policy. Trust applies to all Windows users on that test PC; use it only for this controlled test.
-2. Close the Administrator window. Double-click `Install-TestApp.cmd` as the intended normal Windows user. It checks the pinned trusted signature and prerequisites, uses normal `Add-AppxPackage`, and confirms the separate test identity. No unsigned-install switch is used. Each command sets execution policy only for its own PowerShell process.
-3. Open **الاعتماد - اختبار** from Start. Follow [discovery and Owner-code pairing](install-windows.md#3-install-and-pair-each-employee-pc) with this test client's own runtime, then sign in with its intended account. The HTTPS server CA is separate from this code-signing certificate; authenticated pairing establishes server trust.
-4. Close and reopen the test app and sign in again. Verify retained connection settings and connected work on the actual client. Signature verification on the build laptop alone does not prove client installation or application behavior.
-
-Verify the signature and meaningful rejection cases on a Windows host where the test certificate is already trusted:
-
-```powershell
-.\deploy\windows\test-local-signing.ps1 -BundleDirectory artifacts\local-msix-test\client
-```
-
-For a hash mismatch, retain the error and obtain the original bundle; do not edit a pin or generated inventory to continue. For signature or trust failure, compare the certificate, clock, and thumbprint. Do not weaken Windows policy or the production installer. If installation fails after trust succeeds, retain the Windows AppXDeploymentServer error and the runtime.
-
-To remove only the test app as its Windows user, close it and run `Get-AppxPackage -Name Eitmad.Desktop.Test | Remove-AppxPackage`. This preserves the separate test runtime. When no users need the signing certificate, an administrator can remove exactly `Cert:\LocalMachine\TrustedPeople\<certificateThumbprint>` from the trusted handover record. Retain the runtime and build key if later test work still needs them. See [Microsoft's certificate trust guidance](https://learn.microsoft.com/en-us/windows/msix/package/create-certificate-package-signing).
-
 ## Install and enroll desktops
 
 For normal Client setup, follow [install and pair each employee PC](install-windows.md#3-install-and-pair-each-employee-pc). Use the command below only for separate desktop-package registration. From the extracted desktop package, as the intended ordinary Windows user:
@@ -322,20 +287,7 @@ Use server `Status` for SCM and validated health routes, client `Status` for pac
 
 Missing Redistributable: install the Microsoft prerequisite. Signature/publisher failure: stop and check release provenance. TLS failure: check endpoint name, public CA, expiry, clock, and network. Readiness failure: check PostgreSQL and Rust configuration/migrations. Enrollment denial: check account activation and branch/role assignments. Never bypass trust, authorization, or the firewall to fix these symptoms.
 
-Local verification on 2026-10-19 used validation version `0.1.0` on the development Windows host:
-
-| Proof | Result |
-| --- | --- |
-| Desktop MSIX and Windows server ZIP builds; MakeAppx manifest validation; payload inventories and excluded-state scan | Passed; unsigned validation artifacts |
-| Packaged Rust CLI and diagnostic identity; matching .NET/MSIX identities | `0.1.0`; local IPC `1.28` |
-| Python repository/package tests | 19 passed, including dependency graph scope, deterministic archive bytes, migration drift, unsafe versions, and excluded operational state |
-| Windows package, existing host, and release lifecycle scenarios | Passed with real temporary files and mocked SCM; tamper rejection, repair, backup gate, failed migration, exact-target recovery, retained work/credential sentinels |
-| Rust workspace unit/integration tests and doctests; strict all-target Clippy; formatting | Passed with Rust 1.85.1; environment-dependent tests remain ignored unless explicitly run |
-| Complete Windows shell suite | 406 passed, 5 environment-dependent tests skipped; focused adapter tests passed after the version identity change |
-| Packaged server with isolated PostgreSQL 17 and TLS | Passed late database startup, loss/recovery with unchanged PID, port conflict, and graceful CTRL_C shutdown |
-| Existing enrollment integration with packaged engine | Passed trusted TLS, wrong-CA denial, interrupted setup, reopen, retained state, credential recovery, and the real Windows named-pipe session controller |
-| Missing signing configuration | Explicit refusal; binary digest unchanged |
-| Documentation and PowerShell parsing | Passed; documentation audit covered 106 pages |
+Use [current setup verification](verify-offline-windows-setup.md#current-verification-status) for observed packaging and signing results and the remaining acceptance limits. Keep release-specific checksums and source revisions with the generated installer handover, rather than copying old validation records into installation guidance.
 
 The isolated runtime command is `python deploy/windows/test-runtime.py --postgres-bin <PostgreSQL17-bin> --server <extracted-server-exe> --certificate-tool <built-synthetic-certificate-tool-dll> --root <new-private-evidence-directory> --verify-desktop-enrollment-engine <extracted-engine-exe>`. Build the Windows test project first; the reused enrollment scenario invokes its focused controller test with `--no-build`. Synthetic clusters and keys stay outside packages and compiler output. The test needed an unrestricted process token because PostgreSQL cannot create its restricted child token inside this host's sandbox. It installs no services. This proof is not signed MSIX deployment, rendered UI acceptance, real SCM/reboot behavior, or a coordinated Windows image restore.
 

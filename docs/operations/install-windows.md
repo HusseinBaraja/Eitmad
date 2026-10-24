@@ -26,7 +26,7 @@ Use the two installers from the same release. Install the server first. It keeps
 
 Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. For a PC where Eitmad is already installed, use [repair or upgrade](package-windows-desktop.md#repair-and-data-preserving-uninstall). Do not create another workshop to repair a failed installation.
 
-**Current release limit:** standalone packaging, authenticated automatic extraction, fixed roles, and the existing guided installation flow are implemented. A complete reviewed self-signed installer pair and clean-PC installation acceptance remain **Needs verification**. Unsigned packaging probes are not usable installers. See [offline setup verification](verify-offline-windows-setup.md) for the evidence still required. The steps below describe the implemented path; they do not claim a live installation has passed.
+**Current verification:** a complete reviewed self-signed Server and Client pair has been assembled, and both final EXE signatures passed build-host verification. Clean-PC installation, company LAN, reboot, and recovery acceptance remain **Needs verification**. See [offline setup verification](verify-offline-windows-setup.md#current-verification-status) for the observed evidence and its limits. The steps below describe the implemented path; they do not claim a live installation has passed.
 
 ## Before you start
 
