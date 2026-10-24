@@ -230,8 +230,8 @@ def load_payload_review(path: Path, expected: str, version: str) -> dict:
             elif "publisher" in entry or "unsignedReason" in entry:
                 raise ValueError("Signature policy only applies to executable content")
             if suffix in {".exe", ".dll"}:
-                allowed = {"x64", "anycpu"} if name != "netfx" else {"x86", "x64"}
-                if name in {"postgresql", "vc-redist"} or relative in {
+                allowed = {"x86", "x64"} if name in {"netfx", "vc-redist"} else {"x64", "anycpu"}
+                if name == "postgresql" or relative in {
                     "eitmad-server.exe", "pwsh.exe", "coreclr.dll",
                     "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe"}:
                     allowed = {"x64"}
@@ -749,6 +749,19 @@ def write_sbom(stage: Path, package: str, version: str, *, rust: bool = True) ->
             cwd=ROOT, env=environment,
         ))
         components = rust_components(metadata, package)
+        included = {(component["name"], component["version"]) for component in components}
+        for dependency in metadata["packages"]:
+            if dependency["source"] is None or (dependency["name"], dependency["version"]) not in included:
+                continue
+            source = Path(dependency["manifest_path"]).parent
+            destination = stage / "licenses" / f"{dependency['name']}-{dependency['version']}"
+            for notice in source.iterdir():
+                if notice.name.lower().startswith(("license", "copying", "notice", "copyright")):
+                    destination.mkdir(parents=True, exist_ok=True)
+                    if notice.is_dir():
+                        shutil.copytree(notice, destination / notice.name, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(notice, destination / notice.name)
     for path in sorted(stage.rglob("*.deps.json")):
         libraries = json.loads(path.read_text(encoding="utf-8"))["libraries"]
         for identity, library in sorted(libraries.items()):
@@ -807,6 +820,20 @@ def publish(project: str, stage: Path, version: str) -> None:
         "--self-contained", "true", f"-p:Version={version}", f"-p:AssemblyVersion={windows_version(version)}",
         f"-p:FileVersion={windows_version(version)}", "-p:DebugType=None", "-p:DebugSymbols=false",
         "--output", str(stage), "--nologo")
+    # Preserve the terms from the exact runtime packages selected by publish.
+    packages = Path(os.environ.get("NUGET_PACKAGES", str(Path.home() / ".nuget/packages")))
+    runtime = next(stage.glob("*.runtimeconfig.json"))
+    for framework in self_contained_runtime(runtime, desktop="Microsoft.WindowsDesktop.App" in runtime.read_text()):
+        name = framework["name"].lower() + ".runtime.win-x64"
+        source = packages / name / framework["version"]
+        notices = [path for path in source.iterdir() if path.is_file() and
+                   path.name.lower().startswith(("license", "third-party-notices"))]
+        if not any(path.name.lower().startswith("license") for path in notices):
+            raise ValueError("Published runtime requires its original redistribution terms")
+        destination = stage / "licenses" / f"{name}-{framework['version']}"
+        destination.mkdir(parents=True, exist_ok=True)
+        for notice in notices:
+            shutil.copy2(notice, destination / notice.name)
 
 
 def find_vc_runtime() -> Path:
@@ -880,6 +907,7 @@ def build_windows(output: Path, version: str, publisher: str = "CN=Eitmad Unsign
         bundle.mkdir()
         shutil.copy2(package, bundle)
         copy_install_tools(bundle, "windows-desktop")
+        shutil.copytree(stage / "licenses", bundle / "docs/third-party")
         sign_path(bundle, publisher, hook)
         release_inventory(bundle, version, "windows-desktop", publisher, sha256(stage / "release.json"))
         destination = output / f"eitmad-desktop-{version}-win-x64-{'payload-signed' if hook else 'unsigned'}.zip"

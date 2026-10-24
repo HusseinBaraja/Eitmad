@@ -171,6 +171,20 @@ class OfflinePayloadTests(unittest.TestCase):
                                                self.review_path, self.digest, "CN=Synthetic", None)
         self.assertFalse((self.root / "installers").exists())
 
+    def test_x64_runtime_installer_accepts_its_x86_bootstrapper_but_not_arm(self) -> None:
+        relative = "vc_redist.x64.exe"
+        component = self.review["components"]["vc-redist"]
+        executable = self.source / "server/vc-redist" / relative
+        executable.write_bytes(pe(0x14c))
+        component["files"][relative].update(sha256=artifacts.sha256(executable), architecture="x86")
+        self.save_review()
+        with patch.object(artifacts, "verify_payload_signatures"):
+            self.prepare()
+        component["files"][relative]["architecture"] = "arm64"
+        self.save_review()
+        with self.assertRaisesRegex(ValueError, "supported reviewed PE architecture"):
+            artifacts.load_payload_review(self.review_path, self.digest, self.version)
+
     def test_role_copy_rechecks_bytes_against_the_independent_review(self) -> None:
         with patch.object(artifacts, "verify_payload_signatures"):
             self.prepare()
