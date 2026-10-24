@@ -184,7 +184,7 @@ When the retained signing certificate expires, create a replacement, rebuild and
 
 | Machine | Requirements |
 | --- | --- |
-| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; encrypted disk and protected backups |
+| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; protected backups; optional disk encryption |
 | Desktop | MSIX permitted by local policy; self-signed publisher trusted once per PC through the guided administrator approval; install as each intended ordinary Windows user; no elevated application install, global C++ runtime installation, Rust compiler, or .NET SDK required |
 | Server | Target hosts are Windows Server 2022/2025 or Windows 11; elevation for services; `curl.exe`; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+ and patched .NET Framework 4.8 for WinSW. Guided setup supplies reviewed PostgreSQL 17 and WinSW 2.12.0, installs missing C++/Framework prerequisites offline, and provisions the cluster. Manual import requires those prerequisites, a provisioned stopped cluster, reviewed tool digests, and PowerShell 7.4+ for manual LAN settings. Guided setup also registers the desktop MSIX; Server-edition AppX prerequisites and the complete guided path still need clean-edition acceptance |
 

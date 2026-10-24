@@ -21,6 +21,16 @@ $root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString
             Reject { Invoke-LocalBackupAction $action $Root '' @{owner=$true; backend='synthetic'} }
         }
     }
+    # Writable local NTFS storage works without a BitLocker provider or encrypted volume.
+    $script:BackupFileSystem = 'NTFS'; $script:BackupDriveLetter = 'Z'
+    function Get-Volume { param($FilePath)
+        [pscustomobject]@{FileSystem=$script:BackupFileSystem;DriveLetter=$script:BackupDriveLetter;SizeRemaining=1024} }
+    function Get-Partition { param($DriveLetter) [pscustomobject]@{DiskNumber=7} }
+    function Get-BitLockerVolume { throw 'Disk encryption is optional; the provider must not be required.' }
+    $plainDisk = Get-BackupDisk $Root
+    Assert ($plainDisk.disk -eq 7 -and $plainDisk.free -eq 1024) 'Plain NTFS storage was refused.'
+    $script:BackupFileSystem = 'exFAT'; Reject { Get-BackupDisk $Root }
+    $script:BackupFileSystem = 'NTFS'; $script:BackupDriveLetter = $null; Reject { Get-BackupDisk $Root }
     # Synthetic observations only. No tasks, volumes, services, or live directories are changed.
     function Get-BackupDisk { param($Path) [pscustomobject]@{ disk = 1; free = 100 } }
     Reject { Assert-BackupCapacity $Root 51 50 }
