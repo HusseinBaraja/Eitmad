@@ -134,6 +134,8 @@ Client MSIX validation also refuses external package dependencies and server too
 
 ### Collect and recheck without installation
 
+During setup, both launchers keep payload files open against writes and deletion. The embedded verifier authenticates the catalog and its publisher, reads the catalog inventory against an empty temporary directory, and verifies the root `release.json` hash from that inventory. It then checks every retained file's raw SHA-256 against this authenticated release inventory and rejects missing or unexpected files. The empty-directory catalog result alone never accepts a payload. This avoids incompatible file sharing in `Test-FileCatalog` and preserves the distinction between Windows PE catalog hashes and raw file hashes. A preflight failure leaves installation state untouched; preserve the failed release and use a newly reviewed, signed installer instead of editing extracted files.
+
 On the release build host, set `$approvedReviewDigest` to the independently authenticated review digest, then run:
 
 ```powershell

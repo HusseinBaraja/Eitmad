@@ -434,6 +434,10 @@ class OfflinePayloadTests(unittest.TestCase):
         stage.mkdir()
         content = stage / "synthetic.txt"
         content.write_bytes(b"synthetic payload")
+        # Native PE catalog hashes differ from raw SHA256; cover both formats.
+        native = Path(os.environ["SystemRoot"]) / "System32/whoami.exe"
+        (stage / "signed-native.exe").write_bytes(native.read_bytes())
+        self.release(stage, "windows-offline")
         artifacts.create_offline_catalog(stage, "CN=Synthetic", None)
         # Mock only signature approval; Windows computes and compares the real catalog hashes.
         script = (artifacts.ROOT / "deploy/windows/verify-offline.ps1").read_text()
@@ -449,12 +453,22 @@ $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509E
 $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true))
 $syntheticCertificate = $request.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-1),[DateTimeOffset]::UtcNow.AddHours(1))
 function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; SignerCertificate=$syntheticCertificate} }
+# Match the launcher's immutable file leases, including the catalog itself.
+$heldFiles = @(Get-ChildItem -LiteralPath $env:EITMAD_CATALOG_TEST_ROOT -File -Recurse | ForEach-Object {
+    [IO.FileStream]::new($_.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+})
 """ + script
         def check() -> subprocess.CompletedProcess:
             return subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                                   input=json.dumps({"root": str(stage), "anchor": str(content), "publisher": "CN=Synthetic"}),
-                                  text=True, capture_output=True)
+                                  text=True, capture_output=True,
+                                  env={**os.environ, "EITMAD_CATALOG_TEST_ROOT": str(stage)})
         self.assertEqual(check().returncode, 0)
+        manifest = stage / "release.json"
+        original_manifest = manifest.read_bytes()
+        manifest.write_text(original_manifest.decode().replace(artifacts.sha256(content), "0" * 64))
+        self.assertNotEqual(check().returncode, 0)
+        manifest.write_bytes(original_manifest)
         content.write_bytes(b"tampered payload")
         self.assertNotEqual(check().returncode, 0)
         content.unlink()
