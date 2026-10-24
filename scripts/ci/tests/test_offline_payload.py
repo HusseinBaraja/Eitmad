@@ -339,7 +339,10 @@ class OfflinePayloadTests(unittest.TestCase):
         def catalog(stage: Path, publisher: str, hook: Path | None) -> None:
             (stage / "offline.cat").write_bytes(b"Synthetic catalog: not signed or installable")
         output = self.root / "archives"
-        with patch.object(artifacts, "verify_payload_signatures"), patch.object(artifacts, "create_offline_catalog", side_effect=catalog):
+        with patch.object(artifacts, "verify_payload_signatures"), \
+                patch.object(artifacts, "create_offline_catalog", side_effect=catalog), \
+                patch.object(artifacts, "os", wraps=os) as host:
+            host.name = "posix"
             archive = artifacts.build_windows_offline(output, self.version, self.source, self.review_path, self.digest,
                                                        "CN=Synthetic Test Publisher", None)
         with zipfile.ZipFile(archive) as package:

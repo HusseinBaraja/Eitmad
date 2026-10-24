@@ -459,6 +459,8 @@ def write_offline_sbom(stage: Path, review: dict) -> None:
 
 
 def create_offline_catalog(stage: Path, publisher: str, hook: Path | None) -> None:
+    if os.name != "nt":
+        raise ValueError("Windows offline catalogs require Windows")
     # Build outside the tree to avoid catalog self-inclusion. The catalog is the
     # authenticated root for inventories, metadata, license files, and all code.
     script = "$ErrorActionPreference='Stop'; $p=[Console]::In.ReadToEnd() | ConvertFrom-Json; " \
@@ -480,8 +482,6 @@ def verify_offline_catalog(stage: Path, publisher: str) -> None:
 
 def build_windows_offline(output: Path, version: str, source: Path, review_path: Path, expected_review: str,
                           publisher: str, hook: Path | None) -> Path:
-    if os.name != "nt":
-        raise ValueError("Windows offline catalogs require Windows")
     review = load_payload_review(review_path, expected_review, version)
     for name in ("setup", "application", "desktop"):
         for relative, entry in review["components"][name]["files"].items():
