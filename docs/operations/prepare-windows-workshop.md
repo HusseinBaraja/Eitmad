@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "fresh setup contracts, PostgreSQL preparation, credentials, certificates, or service import changes"
 keywords:
@@ -213,7 +213,7 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --bin eitmad-server windo
 ```
 
 ```powershell
-powershell.exe -NoProfile -File deploy/windows/test-installation.ps1
+pwsh.exe -NoProfile -File deploy/windows/test-installation.ps1
 ```
 
 Rust tests exercise Client and Server order, stage failures and retry, cancelled UAC, reuse without Owner initialization, blocked uncertain preparation, torn/interrupted journals, user/release/device binding, unchanged trust, backup deployment binding, input validation, and credential/proof redaction using isolated synthetic files and platform doubles. The native adapter test substitutes service and AppX actions, simulates a different elevated administrator and existing desktop, and tests real local pipe framing, UTF-8, peer PID refusal, and frame bounds. It installs no package, service, or firewall rule. Real UAC with another administrator, signed MSIX registration, and a fresh clean-machine service installation remain **Needs verification** in an isolated Windows VM; these tests do not claim that deployment proof. The separate executable preparation proof below checks real PostgreSQL, first-owner sign-in, and HTTPS without installing services.

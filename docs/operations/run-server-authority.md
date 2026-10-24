@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -65,7 +65,7 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, including control migration `16` for shared accounts, before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, currently `1–18`, before it exits. See [schema ownership](../developer/subsystems/server-authority.md#storage-scope-and-audit-invariants) for the capability migrations. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
 
@@ -229,7 +229,7 @@ Start the foreground server:
 cargo run -q -p eitmad-server -- serve
 ```
 
-The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The base server can start with no registered sync domain. In that state, negotiation advertises an empty schema list and domain traffic fails closed. A product deployment must register its domain handler and verify its required schema before it accepts product traffic.
+The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The executable registers its customer, catalog, quotation, order, and work-order handlers before listening. Verify that negotiation includes the required schema and capability before accepting product traffic. Library tests can compose an empty registry; that is not the normal executable configuration.
 
 Verify:
 
@@ -239,7 +239,7 @@ Verify:
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
-7. Backup status does not claim success when no reporter row exists, unimplemented support actions fail as invalid, and migration status reports version `4` current.
+7. Backup status does not claim success when no reporter row exists and unimplemented support actions fail as invalid. The administration migration projection uses foundation version `3` as its minimum; verify the complete migration registry separately through `migrate`, not only its `Current` status.
 8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.
@@ -260,7 +260,7 @@ Do not delete operation history until a complete snapshot covers it and retained
 
 ## Current verification limit
 
-On 2026-08-24, `check-config` passed with synthetic loopback, manifest-directory, and trusted-public-key configuration. Rust tests, strict Clippy, and generated contract verification passed. Live `migrate`, `bootstrap`, `serve`, RLS, backup/restore, and HTTP/WebSocket integration still require a deployment environment with PostgreSQL.
+The repository provides real TLS/PostgreSQL scenarios for desktop authentication, catalog delivery, quotations, orders, and revocation below. The [isolated restore drill](recover-local-storage.md#recorded-drill-2026-10-11) records local recovery evidence. These checks do not establish production deployment, clean-machine installation, physical-LAN access, or replacement-machine credential recovery. Use [offline setup verification](verify-offline-windows-setup.md) for those remaining acceptance checks.
 
 For failures, use [server authentication and sync failures](../troubleshooting/server-authentication-and-sync.md) or [relay, update, and administration failures](../troubleshooting/server-plane-failures.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).
 

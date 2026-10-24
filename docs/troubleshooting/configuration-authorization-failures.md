@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust configuration, authorization, and storage maintainers"
-last_verified: "2026-07-18"
+last_verified: "2026-10-24"
 review_triggers:
   - "configuration, authorization, migration, or revocation error behavior changes"
 keywords:
@@ -27,12 +27,12 @@ Use stable codes, revisions, scope, correlation ID, and operation identifiers. N
 | `eitmad.error.config-revision-conflict.v1` | `expectedRevision` is stale | Query a fresh snapshot, reconcile user intent, then submit a new idempotency key against the returned revision |
 | `eitmad.error.config-unavailable.v1` | Storage/schema/read failure, or a commit succeeded but its durable event publication is still pending | Retry the exact same command with the same idempotency key once; if unavailable persists, stop mutations, run diagnostics, preserve the runtime directory, and escalate with sanitized health/error IDs |
 | `eitmad.error.authorization-denied.v1` | Policy grants no permission in the exact scope | Confirm authenticated principal and scope, then ask an owner to inspect bounded relationships; do not grant via shell state |
-| `eitmad.error.authorization-policy-conflict.v1` | Expected policy revision is stale | Owner refreshes the relationship page and retries the intended mutation with a new idempotency key |
+| `eitmad.error.authorization-policy-conflict.v1` | Expected policy revision is stale | An authorized owner queries current relationships through the Rust contract and retries the intended mutation with a new idempotency key |
 | `eitmad.error.authorization-relation-invalid.v1` | Unknown relation or missing relationship | Refresh owner relationship state and use generated relation identifiers |
 | `eitmad.error.authorization-last-owner.v1` | Revocation would remove the final persisted owner | Grant another persisted owner first, verify policy revision, then revoke; never bypass the guard |
 | `eitmad.error.authorization-unavailable.v1` | Authorization storage failed, or a relationship commit succeeded but policy-event publication remains pending | Retry the exact same command with the same idempotency key once; if unavailable persists, stop mutations and preserve the runtime directory for diagnosis |
-| `authorizationRevoked` | Active `1.2` subscription lost permission | Discard buffered later state, refresh identity/policy through an authorized path, and resubscribe only after access is restored |
-| Older connection closes after policy mutation | A `1.0`/`1.1` client was revoked | Reconnect with compatible bindings; do not interpret the close as permission to reuse cached configuration |
+| `authorizationRevoked` | Active subscription lost permission before a frame write began | Discard buffered later state, refresh identity/policy through an authorized path, and resubscribe only after access is restored |
+| Connection closes during policy revocation | Revocation interrupted a partial or blocked frame write | Reconnect with the current engine/shell pair and reauthorize; do not reuse cached configuration as proof of access |
 
 ## Migration or corruption
 
@@ -42,4 +42,4 @@ Run non-mutating diagnostics against the same runtime directory. A missing datab
 
 Query the redacted snapshot or effective permissions in the same scope. Confirm revisions are monotonic, a no-op does not increment, one real mutation emits one event, and no protected value appears in output. Then run focused tests and the [foundation checks](../operations/index.md).
 
-Implementation details are in [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and the [configuration authority](../developer/subsystems/configuration.md).
+Implementation details are in [configuration](../developer/subsystems/configuration.md), [authorization](../developer/subsystems/authorization.md), and [local IPC](../developer/subsystems/local-ipc.md).

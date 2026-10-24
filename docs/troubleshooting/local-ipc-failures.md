@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine and Windows platform maintainers"
-last_verified: "2026-10-17"
+last_verified: "2026-10-24"
 review_triggers:
   - "local IPC errors, timeouts, payload bounds, negotiation, or recovery changes"
 keywords:
@@ -112,12 +112,12 @@ The allowlist contains fixed enums, opaque diagnostic IDs, and duration only. It
 
 Each process emits at most 4096 diagnostic events through a 256-entry non-blocking queue. The queue and background writer start only when an enabled event is emitted. A full queue drops events. The writer drains it; activation and shutdown do not wait for stderr. The supervisor already drains engine stderr concurrently with lifecycle output. A blocked sink, saturation, process exit, or disabled diagnostics can leave missing events. Absence is not evidence that work did not occur. Start a new bounded run if the relevant phase is missing; do not raise limits or timeouts to hide a cause.
 
-HTTP receive time includes TLS/network I/O, remote queueing, server work, and response transfer. There is no separate SQL/lock or server-handler timer, and server-local audit correlation can differ. This trace cannot distinguish those parts. Local desktop sign-in uses Rust's stored account state and has no network stage. Background subscription/sync work without an explicit context is not attributed to activation. No trace produced now establishes the source of an old 27-second read. Empty stderr or PostgreSQL logs without errors do not rule out slow queries.
+HTTP receive time includes TLS/network I/O, remote queueing, server work, and response transfer. There is no separate SQL/lock or server-handler timer, and server-local audit correlation can differ. This trace cannot distinguish those parts. Desktop sign-in requires live server confirmation as well as local account/session work; missing sign-in network events do not prove that authentication was local-only. Background subscription/sync work without an explicit context is not attributed to activation. A new trace cannot establish the source of an earlier slow read. Empty stderr or PostgreSQL logs without errors do not rule out slow queries.
 
 The focused regression proof is in `DiagnosticScenario.cs`, runtime blocking-worker tests, server-connection admission/loopback timeout tests, and observability output/redaction tests. Escalate only the relevant metadata interval and test result to the owner named below. Preserve original evidence privately; do not paste raw environment or TRX contents into support messages without checking them.
 
 ## Verify recovery
 
-Confirm a new engine generation reaches `Ready`, the handshake reports the expected version `1.13`, and `eitmad.capability.authorization-scopes.v1` plus operation-specific capabilities are present. Confirm that Rust returns the tenant, scope, principal, and session; the shell must not send these fields. Verify one synthetic scoped subscription receives an ordered event and a revoked synthetic member receives no later configuration event. Intentional shutdown must reach `Stopping → Stopped` with exit code `0`.
+Confirm a new engine generation reaches `Ready`, the handshake reports the current Rust `PROTOCOL_VERSION` (`1.31`), and `eitmad.capability.authorization-scopes.v1` plus operation-specific capabilities are present. Confirm that Rust returns the tenant, scope, principal, and session; the shell must not invent or alter this context. Verify one synthetic scoped subscription receives an ordered event and a revoked synthetic member receives no later configuration event. Intentional shutdown must reach `Stopping → Stopped` with exit code `0`.
 
 Escalate with engine/shell versions, Windows version, generation, `EngineInstanceId`, stable error code, message ID, retry disposition, timestamp, and correlation ID. See [typed local IPC](../developer/subsystems/local-ipc.md), [Windows supervision](../developer/subsystems/windows-process-supervision.md), and the [threat model](../architecture/local-ipc-threat-model.md).

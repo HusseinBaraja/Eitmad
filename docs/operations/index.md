@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -26,8 +26,6 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
 - [Build and maintain Windows installation packages](package-windows-desktop.md): assemble and sign offline bundles; use advanced manual import, repair, removal, and upgrades with retained data.
 - [Verify offline Windows Server and Client setup](verify-offline-windows-setup.md): repeat isolated proofs and record clean-PC, standard-user, pairing, firewall, reboot, DHCP, interruption, and restore acceptance.
 - [Use the Windows setup backend and recover installation stages](prepare-windows-workshop.md): inspect Rust setup internals, private CLI requests, retained progress, and standalone preparation.
-- [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
-- [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.
 - [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.
 - [Run and recover the modular server authority](run-server-authority.md): configure and exercise the current combined binary.
 - [Set up a stable Windows LAN server with TLS](setup-lan-server.md): manually provision a separate fixed endpoint or inspect retained trust and unattended certificate renewal.
@@ -39,12 +37,14 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
 
 ## Run the local foundation checks
 
+Use these broad checks for release preparation or a workspace-wide change. For routine work, select the [smallest normal proof](../developer/index.md#choose-the-smallest-normal-proof). The [release guide](validate-release-candidate.md) owns the complete publication and platform gates.
+
 ## Prerequisites
 
 - rustup with Rust `1.85.1` installed for minimum-supported-version checks;
-- the current stable Rust toolchain for daily development;
+- PowerShell 7 for local Windows commands;
 - Python 3 for the Markdown audit;
-- Node.js and npm for pinned contract generation;
+- Node.js 22 and npm for pinned contract generation;
 - .NET 8 for local Windows binding and process-supervision conformance;
 - commands run from the repository root without real customer data.
 
@@ -53,37 +53,41 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
 1. Check formatting:
 
    ```powershell
-   cargo fmt --all -- --check
+   rustup run 1.85.1 cargo fmt --all -- --check
    ```
 
 2. Check all targets with the minimum supported Rust version used by CI:
 
    ```powershell
-   rustup run 1.85.1 cargo check --workspace --all-targets
+   rustup run 1.85.1 cargo check --locked --workspace --all-targets
    ```
 
 3. Reject Clippy warnings:
 
    ```powershell
-   cargo clippy --workspace --all-targets -- -D warnings
+   rustup run 1.85.1 cargo clippy --locked --workspace --all-targets -- -D warnings
    ```
 
 4. Run workspace tests:
 
    ```powershell
-   cargo test --workspace
+   rustup run 1.85.1 cargo test --locked --workspace
    ```
 
 5. Run non-mutating engine diagnostics:
 
    ```powershell
-   cargo run -q -p eitmad-engine-cli -- diagnose
+   rustup run 1.85.1 cargo run --locked -q -p eitmad-engine-cli -- diagnose
    ```
 
 6. Install and validate generated contracts:
 
    ```powershell
    npm ci --ignore-scripts --prefix crates/contracts/codegen
+   ```
+
+   ```powershell
+   npm audit --audit-level=high --prefix crates/contracts/codegen
    ```
 
    ```powershell
@@ -99,7 +103,7 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
 8. Build the Rust CLI and run Windows process supervision scenarios on Windows:
 
    ```powershell
-   cargo build -p eitmad-engine-cli
+   rustup run 1.85.1 cargo build --locked -p eitmad-engine-cli
    ```
 
    ```powershell
@@ -115,7 +119,7 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
 10. On each release platform, run the synthetic native secret lifecycle through that platform's protected credential store. This test is ignored during routine hermetic runs because it mutates OS credential state and then cleans it up:
 
    ```powershell
-   cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
+   rustup run 1.85.1 cargo test --locked -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
    ```
 
 11. Enforce repository ownership, migration checksum, secret/logging, direct shell authority, release plan, and Arabic root-direction rules:
@@ -134,7 +138,7 @@ For a new Windows workshop, start with [Install Eitmad on the server and employe
    python scripts/release/build_artifacts.py server --version 0.0.0-ci --output dist
    ```
 
-13. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations `1–3`, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
+13. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify the complete current migration registry, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
 
 ## Verify
 

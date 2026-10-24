@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-24"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or platform boundary changes"
 keywords:
@@ -16,7 +16,7 @@ keywords:
 
 # Understand Eitmad architecture
 
-Eitmad uses an Arabic-first Windows shell connected to a separate Rust engine. Rust owns the implemented Customers, Materials, Parts, Furniture, Products, account administration, configuration, storage, authorization, audit, and local IPC. The modular PostgreSQL server registers Customer synchronization. See the [known limitations](known-limitations.md) for deployment and platform gaps.
+Eitmad uses an Arabic-first Windows shell connected to a separate Rust engine. Rust owns Customers, Materials, Parts, Furniture, Products, Pricing, quotations, orders, work orders, account administration, configuration, storage, authorization, audit, and local IPC. The modular PostgreSQL server registers customer, catalog, quotation, order, and work-order handlers. See the [known limitations](known-limitations.md) for deployment and platform gaps.
 
 ## Start here
 

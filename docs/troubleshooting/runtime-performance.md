@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "runtime, IPC, synchronization, and Windows adapter maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-10-24"
 review_triggers:
   - "performance expectations, diagnostics, IPC limits, retry policy, sync batches, or startup work changes"
 keywords:
@@ -48,7 +48,7 @@ The diagnostic report does not contain paths, product payloads, secrets, relatio
 1. Run `diagnose` three times against the same stopped runtime directory. Separate one-time OS cache effects from repeatable slow checks.
 2. Start the Windows app and wait two minutes without interaction or pending sync. Compare process CPU time over a five-minute window and record working set. The engine and shell use blocking pipe, channel, subscription, signal, and process waits; there is no product-state polling loop to tune.
 3. Exercise 100 synthetic `GetConfiguration` queries and 100 synthetic material commands through the named pipe in a temporary test installation. Use correct expected revisions and idempotency keys. Record p50, p95, maximum, error count, and frame size. Do not use customer scopes.
-4. Use the focused sync transport fixture to queue synthetic work offline, then reconnect. The desktop has no background sync connector. Confirm batches never exceed 50, transport attempts stop after five failures, and cancellation stops reconnect delay promptly.
+4. Use the focused sync transport fixture to queue synthetic work offline, then reconnect. Configured engines run Rust-owned customer and quotation recovery workers, and catalog replication uses the retained authenticated connection. Check each worker's documented bounds and confirm cancellation stops reconnect delay promptly; see [synchronization](../developer/subsystems/synchronization.md) and [quotation recovery](../developer/subsystems/quotations.md#automatic-recovery-of-offline-saves).
 5. Compare results with a release build. Debug builds are useful for functional diagnosis but not performance acceptance.
 
 ## Evidence and resolution

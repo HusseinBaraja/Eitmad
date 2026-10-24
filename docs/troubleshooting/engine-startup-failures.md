@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-10-24"
 review_triggers:
   - "engine lifecycle error IDs, authority locking, readiness checks, CLI exit codes, or recovery behavior changes"
 keywords:
@@ -28,7 +28,7 @@ A `failed` lifecycle snapshot means the engine did not become ready or could not
 - a second engine reports `eitmad.error.engine-already-running.v1`;
 - supervised mode reports `eitmad.error.engine-supervisor-invalid.v1`.
 
-These identifiers apply to Windows, macOS, and Linux; supervised desktop and headless modes share the same Rust lifecycle. No user-facing Arabic message exists yet. A future shell must localize the returned `messageId` without exposing internal details.
+These identifiers belong to the shared Rust lifecycle. Windows has a runnable shell with Arabic startup and connection-failure guidance; see [Windows shell recovery](windows-shell-state-recovery.md). macOS and Linux have no runnable desktop shell. CLI output remains structured and locale independent.
 
 ## Fast checks
 
@@ -51,11 +51,11 @@ These identifiers apply to Windows, macOS, and Linux; supervised desktop and hea
 | `eitmad.error.engine-health-check-failed.v1` with `readinessCheck` | A required check is degraded, unhealthy, or timed out | Run `diagnose` and inspect the check ID/status | Correct the environment represented by the stable check ID, then retry |
 | `eitmad.error.engine-startup-failed.v1` with `authorityLock` | Runtime directory or lock metadata cannot be created safely | Verify the selected directory is user-local and available | Correct directory availability or permissions; never redirect it into customer data |
 | `eitmad.error.engine-startup-failed.v1` with `componentStartup` | A component failed or the 30-second startup deadline elapsed | Reproduce with focused runtime tests and sanitized correlation data | Repair the owning component; startup rollback has already stopped earlier components |
-| `eitmad.error.engine-startup-failed.v1` with `componentStartup` after storage was introduced | SQLite could not open, pre-migration snapshot failed, version is outside 2–5, integrity/history/checksum failed, or schema drift was detected | Run read-only diagnostics; preserve the complete runtime directory and storage version | Follow [local storage recovery failures](local-storage-recovery-failures.md); never edit schema or migration rows manually |
+| `eitmad.error.engine-startup-failed.v1` with `componentStartup` during storage startup | SQLite could not open, pre-migration snapshot failed, storage version is unsupported, integrity/history/checksum failed, or schema drift was detected | Run read-only diagnostics; preserve the complete runtime directory and storage version | Follow [local storage recovery failures](local-storage-recovery-failures.md); never edit schema or migration rows manually |
 | `eitmad.error.engine-shutdown-failed.v1` | A component failed to stop or the 10-second deadline elapsed | Confirm the process exited and preserve the structured stage | Treat state as failed, investigate the owning component, and verify its cleanup before restart |
 
 ## Verify recovery
 
 Run diagnostics, start the intended mode, observe `state: "ready"` with `ready: true`, then request clean shutdown and observe `stopped` with exit `0`. If the same failure returns, stop retrying automatically and escalate to the Rust engine maintainers.
 
-Safe escalation evidence excludes paths, stdin contents, raw component errors, secrets, product payloads, customer data, authorization graphs, backup contents, and copied lock-file contents. Storage compatibility currently accepts versions 2–8. See [Run and diagnose the engine runtime](../operations/run-engine-runtime.md), [runtime performance diagnostics](runtime-performance.md), [local storage ownership](../developer/subsystems/local-storage.md), [engine runtime ownership](../developer/subsystems/engine-runtime.md), and [Windows supervision recovery](windows-engine-supervision-failures.md).
+Safe escalation evidence excludes paths, stdin contents, raw component errors, secrets, product payloads, customer data, authorization graphs, backup contents, and copied lock-file contents. Check the current migration window in [local storage ownership](../developer/subsystems/local-storage.md#migration-history-and-schema-drift). See [Run and diagnose the engine runtime](../operations/run-engine-runtime.md), [runtime performance diagnostics](runtime-performance.md), [engine runtime ownership](../developer/subsystems/engine-runtime.md), and [Windows supervision recovery](windows-engine-supervision-failures.md).

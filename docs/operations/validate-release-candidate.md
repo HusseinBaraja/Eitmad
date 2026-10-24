@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -61,4 +61,6 @@ For a release failure after promotion, pause the channel, preserve evidence, fol
 
 Unsigned Windows artifacts cannot satisfy production acceptance. The [Windows installation procedure](package-windows-desktop.md) lists signing prerequisites, clean-host installation and enrollment, retained repair/removal, interrupted-upgrade recovery, and coordinated restore evidence. A signed payload or hermetic package test alone does not meet those gates.
 
-Related pages: [Windows packaging](package-windows-desktop.md), [macOS expectations](prepare-macos-distribution.md), [Linux expectations](prepare-linux-distribution.md), and [server deployment](deploy-server-environments.md).
+macOS and Linux desktop packaging remain disabled in `deploy/release-plan.toml`; neither platform has a runnable desktop shell or updater. Apply [ADR-0013](../decisions/0013-platform-native-update-adapters.md) when a native adapter is implemented. Swift binding conformance remains a required macOS CI check.
+
+Related pages: [Windows packaging](package-windows-desktop.md), [known platform limits](../architecture/known-limitations.md), and [server deployment](deploy-server-environments.md).

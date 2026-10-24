@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-23"
+last_verified: "2026-10-24"
 review_triggers:
   - "server identity, authorization, storage, synchronization, licensing, update assignment, or deployment boundaries change"
 keywords:
@@ -25,9 +25,9 @@ Use the [shared server account lifecycle](identity-foundation.md#shared-server-a
 
 ## Purpose and current scope
 
-The foundation provides tenant and organization identity, accounts, registered devices, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
+The server provides tenant and organization identity, shared account administration, registered devices and pairing, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-The host registers branch-scoped Customer contacts and organization-scoped Material, Part, Product, Furniture, public catalog, and Pricing schemas. It does not provide billing, email, MFA challenge, package CDN, production relay payload routing, admin UI or customer conflict resolution. Privileged local server backup policy, scheduling decisions, and typed status are implemented in the host CLI; see [server backup and recovery](../../operations/backup-lan-installation.md#automatic-local-server-backups). The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
+The host registers Customer, private catalog, public catalog, Pricing, quotation draft, approval, lifecycle, Order, and Work Order schemas. Customer and quotation-draft conflict resolution use authenticated Rust routes. It does not provide billing, email delivery, MFA challenge, package CDN, relay payload routing, or a general server-plane administration UI. Privileged local server backup policy, scheduling decisions, and typed status are implemented in the host CLI; see [server backup and recovery](../../operations/backup-lan-installation.md#automatic-local-server-backups). The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
 
 ## Ownership and module boundaries
 
@@ -114,7 +114,7 @@ The ignored `pairing_recovery_preserves_identity_through_expiry_abandonment_and_
 
 ## Contracts and compatibility
 
-Protocol `1.5` adds relay, signed update, and administration contracts and generated bindings. Protocol `1.6` changes only the local IPC handshake. The server WebSocket accepts protocol `1.4–1.17`, consumes `ServerClientMessage`, and emits `ServerMessage`. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation.
+The server WebSocket accepts protocol `1.4` through the current Rust `PROTOCOL_VERSION` (`1.31`), consumes `ServerClientMessage`, and emits `ServerMessage`. The offered schema and required capabilities also constrain negotiation. A client must first send `eitmad.server.hello.v1`; no sync or subscription traffic is valid before negotiation. This server range differs from the current-only local desktop boundary.
 
 The server requires these capabilities:
 
@@ -148,7 +148,7 @@ Every access-authenticated request must include the access token, device ID, tim
 
 ## Storage, scope, and audit invariants
 
-Migrations `0001_control_foundation.sql`, `0002_sync_foundation.sql`, `0003_admin_foundation.sql`, `0004_server_audit_envelope.sql`, `0005_customer_branches.sql`, `0006_catalog_images.sql`, `0007_pricing.sql`, `0008_catalog_revisions.sql`, `0009_catalog_synchronization.sql`, and `0010_catalog_image_references.sql` own the PostgreSQL schema. Control migration `0016_server_accounts.sql` adds the [shared account lifecycle](identity-foundation.md#shared-server-account-lifecycle) revisions and receipts. Migration `0017_desktop_accounts.sql` adds display names and the durable account-change cursor used by [connected desktop administration](identity-foundation.md#connected-desktop-account-administration). Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS. The [catalog image capability](catalog-images.md) owns immutable organization asset transfer through authenticated HTTP routes.
+The PostgreSQL registry currently contains migrations `1–18`. Control, sync, administration, and audit own their immutable migration files and apply them through their Rust database modules. Migrations `1–10` establish identity, synchronization, administration, audit, customers, images, pricing, and catalog history. Sync migrations `11–15` add quotation drafts, approvals, lifecycle, orders, and work orders. Control migration `16` adds [shared account lifecycle](identity-foundation.md#shared-server-account-lifecycle) revisions and receipts; `17` adds display names and the account-change cursor; `18` adds pairing and the durable first-desktop enrollment claim. Every tenant-scoped table has a `tenant_id`, enables row-level security, and forces row-level security. Rust opens a transaction and sets the tenant context before scoped access. Application credentials must not have a PostgreSQL role that can bypass RLS. The [catalog image capability](catalog-images.md) owns immutable organization asset transfer through authenticated HTTP routes.
 
 Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
@@ -156,7 +156,7 @@ Migration files are append-only after release. Back up PostgreSQL before migrati
 
 ## Sync modes and flows
 
-Customer contacts and private Material, Part, Product, and Furniture streams use `LocalFirst`. Public catalog and Pricing streams use `ServerAuthoritative`. The coordinator accepts an authorized local operation, assigns ordered server history, projects the record, and creates a conflict when the base revision is stale and the domain cannot resolve it safely. There is no server-authoritative command submission entry point. The host rejects unsupported command traffic; the client contract retains its typed mode and stored command state.
+Customer contacts, quotation drafts, and private Material, Part, Product, and Furniture streams use `LocalFirst`. Public catalog, Pricing, quotation approval/lifecycle, Order, and Work Order streams use `ServerAuthoritative`. The coordinator accepts an authorized local operation, assigns ordered server history, projects the record, and creates a conflict when the base revision is stale and the domain cannot resolve it safely. Generic synchronization command submission is unavailable. Pricing and commercial transitions instead use their typed authenticated HTTP routes; see [Pricing](pricing.md), [Quotations](quotations.md), [Orders](orders.md), and [Work Orders](work-orders.md).
 
 An idempotency key is stored with a deterministic request fingerprint and serialized result. An exact retry returns the first result, including the same conflict ID. Reusing the key for another intent returns `eitmad.error.server-idempotency-mismatch.v1`. Scope locking prevents concurrent writers from assigning the same next position.
 
@@ -246,6 +246,6 @@ npm run contracts:verify --prefix crates/contracts/codegen
 
 One process reduces initial deployment and operational cost. Separate crates, migrations, contracts, and ownership files preserve later service seams. PostgreSQL gives durable transactions, row locking, and defense-in-depth tenant RLS, but it adds an external operational dependency and does not remove the need for Rust scope checks.
 
-To add a domain, implement `DomainHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Add provider integrations only when a current workflow needs them; keep relay routers, manifest repositories, and administration providers behind their existing seams rather than adding product logic to HTTP handlers.
+To add a domain, implement `DomainSyncHandler`, register one immutable `DomainDescriptor`, define its sync mode and schema range, authorize every action, define conflict and stale-data behavior, add Arabic/mixed-direction evidence, and add live PostgreSQL tests. Add provider integrations only when a current workflow needs them; keep relay routers, manifest repositories, and administration providers behind their existing seams rather than adding product logic to HTTP handlers.
 
-Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), [server operations](../../operations/run-server-authority.md), [server operations](../../operations/run-server-authority.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).
+Related documents: [ADR-0025](../../decisions/0025-modular-server-authority-foundation.md), [ADR-0026](../../decisions/0026-compose-authorized-operational-server-planes.md), [server operations](../../operations/run-server-authority.md), [synchronization](synchronization.md), and [protocol contracts](../../api/index.md).

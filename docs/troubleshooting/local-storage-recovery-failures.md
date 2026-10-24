@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-10-24"
 review_triggers:
   - "storage error contracts, compatibility window, integrity, backup, restore, or export behavior changes"
 keywords:
@@ -25,7 +25,7 @@ keywords:
 - engine startup fails during `componentStartup`, or diagnostics mark `eitmad.health.authority-store.v1` unhealthy;
 - a pre-migration, pre-restore, or failed-restore artifact appears;
 - backup validation, restore, full integrity check, or tenant export returns `StorageError`;
-- the database reports a storage version outside 2–5, changed migration checksum/history, or schema drift.
+- the database reports an unsupported storage version, changed migration checksum/history, or schema drift. The current engine opens version `31`, upgrades versions `2–30`, and initializes fresh version `0`; version `1` is unsupported.
 
 No Arabic recovery UI exists. Likely future search text includes `فشل ترحيل قاعدة البيانات`, `تلف قاعدة البيانات`, and `فشل استعادة قاعدة البيانات`.
 
@@ -41,7 +41,7 @@ No Arabic recovery UI exists. Likely future search text includes `فشل ترح�
 | Evidence | Likely cause | Next safe check | Resolution |
 | --- | --- | --- | --- |
 | Version `1` or below, except fresh `0` | Database is outside the supported migration window | Confirm the last engine that successfully owned it | Upgrade first through a release supporting that version; do not force history forward |
-| Version above `5` | Engine downgrade or mismatched installation | Compare engine package and database provenance | Reinstall a compatible newer engine; do not downgrade the schema |
+| Version above `31` | Engine downgrade or mismatched installation | Compare engine package and database provenance against `CURRENT_STORAGE_VERSION` in `crates/storage/src/lib.rs` | Reinstall a compatible newer engine; do not downgrade the schema |
 | `eitmad.pre-migration-*` exists, validates, and startup failed | Snapshot succeeded; migration or post-migration verification failed | Preserve the snapshot and failed live family | Escalate the failing migration; restore only through the stopped-engine coordinator after deciding which writes must survive |
 | `eitmad.pre-migration-*` exists but fails validation | The reusable snapshot is corrupt, incompatible, or drifted | Preserve the complete runtime directory and validate an independent known backup | Stop retrying startup and escalate; do not delete or replace the only recovery artifact |
 | No pre-migration artifact for a pending supported migration | Snapshot creation, privacy permission, disk space, or validation failed | Check free space and owner-only path access without exposing paths | Correct the environment and retry; no migration SQL should have run |

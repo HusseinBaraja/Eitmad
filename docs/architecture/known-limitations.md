@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -23,7 +23,7 @@ The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products,
 - Desktop password sign-in uses [live server authority](../decisions/0029-require-live-server-authority-for-protected-access.md). Retained local records and credentials do not authorize disconnected access. Debug seeding is a synthetic development path, not workshop installation.
 - The [direct server connection](../developer/subsystems/server-authority.md#retained-desktop-connection) supports enrolled desktops and synchronized customer work. Isolated engine tests do not establish clean-PC or physical-LAN deployment acceptance.
 - [LAN discovery](../developer/subsystems/server-discovery.md) and [Owner-code device pairing](../operations/install-windows.md#3-install-and-pair-each-employee-pc) are implemented. Clean-machine, multi-PC, effective firewall, and physical DHCP acceptance remain required. WAN relay payload routing is not implemented; relay routes coordinate metadata and lifecycle only. Consult each product subsystem for its synchronization boundary.
-- The server has no later-account invitation creation or delivery, license service, channel-assignment mutation, server-authoritative command submission, or history compaction entry point. Existing database rows and immutable migrations remain intact.
+- Shared account administration supports invitation creation and activation through authenticated Rust routes; email delivery remains unimplemented. The server has no license service, channel-assignment mutation, generic synchronization command-submission route, or history compaction entry point. Pricing and commercial transitions use their own server-confirmed routes. Existing database rows and immutable migrations remain intact.
 
 ## Updates and platforms
 

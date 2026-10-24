@@ -5,7 +5,7 @@ audience: "api"
 page_type: "reference"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-10-02"
+last_verified: "2026-10-24"
 review_triggers:
   - "a command, query, subscription, error, version, capability, or generator changes"
 keywords:
@@ -39,11 +39,11 @@ Rust exports the full wire schema for engine and server boundaries. Native gener
 
 ## Interaction contracts
 
-| Interaction | Required context | Foundation operations |
+| Interaction | Required context | Implemented examples |
 | --- | --- | --- |
-| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration; create/update a customer; grant/revoke scoped relationships |
-| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read configuration, get/search customers, effective permissions, relationships, material references, and product definitions |
-| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, permissions, authorization-policy, customers, materials, Parts, Furniture, and Products |
+| Command | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline, idempotency key | Update configuration, customer contacts, catalog definitions, quotation drafts, approvals, and orders |
+| Query | Version, request/correlation/causation IDs, authenticated session, tenant, optional workspace, scope, deadline | Read effective permissions, accounts, customers, catalog, prices, quotations, orders, work orders, and Home projections |
+| Subscription | Version, request/correlation IDs, authenticated session, tenant, optional workspace, scope, optional resume cursor | Configuration, permissions, authorization policy, accounts, customers, catalog, pricing, quotations, orders, and work orders |
 | Event | Subscription/correlation IDs, sequence, cursor, occurrence time | Typed state and compact product-change metadata |
 
 The identity, tenant, workspace, and scope fields are assertions to verify against the authenticated channel, not credentials and not proof of authorization. Rust must authorize and audit every boundary operation; state-changing verticals keep state and audit atomic.
@@ -56,7 +56,7 @@ The foreground CLI emits lifecycle snapshots as newline-delimited JSON on child 
 
 ## Wire and compatibility rules
 
-- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. The current minor is `1.14`.
+- Protocol v1 uses UTF-8 JSON with camel-case fields and explicit `kind`/`payload` tags. `PROTOCOL_VERSION` in `crates/contracts/src/transport.rs` declares the current version, `1.31`.
 - Local IPC frames add a four-byte little-endian length and enforce an 8 MiB maximum.
 - UUIDs are lowercase hyphenated strings. Times are Unix milliseconds. Canonical values remain locale-independent.
 - Unknown object fields are accepted for additive minor-version evolution.
@@ -87,13 +87,13 @@ Each peer sends supported protocol major/minor ranges, available and required ca
 - a capability required by either peer but absent from the other;
 - a required schema with no overlapping version.
 
-The beta desktop boundary accepts protocol `1.14` only. Engine and shell contracts change together. Historical minor-version dispatch paths and fixtures are removed; required capabilities, schema overlap, and envelope version checks still fail closed before normal traffic.
+The beta desktop boundary accepts the current Rust-declared protocol only. Engine and shell contracts change together. Historical minor-version dispatch paths and fixtures are removed; required capabilities, schema overlap, and envelope version checks still fail closed before normal traffic.
 
 Event cursors are opaque, scoped, and valid only in the current engine generation's bounded replay window. Per-subscription sequence numbers order delivered events but do not establish global order. When a close envelope can be delivered, `clientRequested` follows explicit unsubscribe, `engineStopping` precedes shutdown, and `backpressure` identifies an unreplayable discrete gap. Authorization revocation sends `SubscriptionClosed` with `authorizationRevoked` when no partial frame has been written; revocation after a partial write terminates the connection. See [typed local IPC](../developer/subsystems/local-ipc.md) for replay, duplicate delivery, backpressure, reauthorization, and resync rules.
 
 ## Implemented configuration and authorization authority
 
-The real engine dispatcher currently executes configuration query/update, effective-permission query, relationship grant/revoke/list, desktop account create/update/deactivate/list, customer create/update/get/search, and their supported change subscriptions. Configuration import/export remain Rust service APIs and have no shell IPC operation.
+The real engine dispatcher executes configuration, effective-permission, relationship, account, customer, catalog, pricing, quotation, order, work-order, Home, and saved-document operations. Use the [generated identifier reference](../_generated/contracts-v1.md) and each [owning subsystem](../developer/index.md) for the exact supported commands, queries, and subscriptions. Configuration import/export remain Rust service APIs and have no shell IPC operation.
 
 Configuration snapshots are revisioned, redacted, stable-key projections. Relationship mutations use a separate optimistic policy revision. Rust also defines scoped object, tuple, condition, permission-rule, request, and decision types for engine-owned boundaries, but they are not part of the current generated IPC root and no generic tuple-management operation exists. Read [configuration authority](../developer/subsystems/configuration.md) and [authorization/audit authority](../developer/subsystems/authorization.md) before consuming these contracts.
 
@@ -103,7 +103,7 @@ The active compatibility window, capability rules, change classification, and ma
 
 The combined server exposes bounded JSON activation, login, refresh, update assignment, signed update check/publication, relay lifecycle/health/failure, and administration routes plus one authenticated WebSocket. The socket accepts hello, sync frames, subscription requests, and cursor acknowledgements. It returns a negotiated hello, sync messages, durable events, or structured failures. A client authenticates its device and negotiates before normal traffic. The host automatically sends a snapshot manifest, chunks, and completion when retained operation history cannot satisfy the requested checkpoint.
 
-The executable has no registered production domain. Domain-specific operations remain unavailable until a vertical supplies one `DomainHandler`, schema, mode, authorization policy, validation or command execution, and conflict policy.
+`server/host/src/main.rs` registers catalog, Customer, quotation draft, approval, lifecycle, Order, and Work Order handlers in `DomainRegistry`. New synchronized domains must supply a `DomainSyncHandler`, schema, mode, authorization policy, validation or command execution, and conflict policy. See [server authority](../developer/subsystems/server-authority.md) for the registered schemas and separate authenticated HTTP routes.
 
 ## Structured failures
 

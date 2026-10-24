@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-24"
 review_triggers:
   - "backup, restore, migration, corruption, recovery artifact, retention, or export policy changes"
 keywords:
@@ -33,13 +33,13 @@ Install and accept the [scheduled LAN recovery procedure](backup-lan-installatio
 
 Prove the restore procedure in an isolated environment with synthetic data. Check recovered business records, audit history, and pending synchronization work, and verify that reconnecting does not repeat accepted business effects or silently lose pending work. Record the recovery time and result before using the workflow with real operational data.
 
-Synchronization is not a backup: it can distribute an accidental deletion or an incorrect change. Retain recoverable history independently of the current synchronized state. Use these requirements when [Developer guide](../developer/index.md).
+Synchronization is not a backup: it can distribute an accidental deletion or an incorrect change. Retain recoverable history independently of the current synchronized state. Apply these requirements when changing storage through the [developer guide](../developer/index.md).
 
 ## Backup and migration protection
 
 `AuthorityStore::backup_to` uses SQLite online backup, includes committed WAL data, writes an owner-private temporary file, runs full `PRAGMA integrity_check`, proves migration/schema compatibility on an in-memory copy, then atomically publishes the requested path. Existing destinations are rejected.
 
-Before any pending migration from supported storage versions 2–27, startup creates and validates `eitmad.pre-migration-vN-to-v28.sqlite3`. A retry for the same source and target versions validates and reuses that one artifact. Failure to create or validate it stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`.
+Before any pending migration from supported storage versions 2–30, startup creates and validates `eitmad.pre-migration-vN-to-v31.sqlite3`. A retry for the same source and target versions validates and reuses that one artifact. Failure to create or validate it stops startup before migration SQL. Each migration runs in its own transaction; SQL or history failure rolls back that migration and leaves the snapshot discoverable through `AuthorityStore::recovery_artifacts`. Check [the storage migration authority](../developer/subsystems/local-storage.md#migration-history-and-schema-drift) when the engine version changes.
 
 ## Manual SQLite backup and restore
 

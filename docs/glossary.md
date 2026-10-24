@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "product maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-10-24"
 review_triggers:
   - "a domain term, UI label, contract concept, or workshop synonym changes"
 keywords:
@@ -173,7 +173,7 @@ Terms marked **provisional** require confirmation with الاعتماد domain e
 | مراجعة تعارض العميل | Customer conflict review | A Manager compares preserved inputs and the current server contact, selects or corrects each final field, then confirms against the current server revision. Later pending edits require separate review. |
 | مراجعة تعارض المسودة | Quotation-draft conflict review | A Manager reviews both preserved draft inputs and the current server snapshot, then explicitly keeps the current snapshot or uses the saved input. Later held revisions require separate review. This decision does not approve or issue the quotation. |
 | سجل التعارض | Conflict record | **Provisional UI term.** The durable scoped record that preserves both competing sync inputs, revisions, status, and resolution provenance. |
-| محلي أولًا | Local-first | A mode in which local durable work continues offline and later synchronizes under explicit conflict rules. |
+| محلي أولًا | Local-first | A synchronization mode that retains local durable work for later reconciliation under explicit conflict rules. It does not authorize disconnected desktop access; see [the live-access rule](decisions/0029-require-live-server-authority-for-protected-access.md). |
 | الخادم هو المرجع | Server-authoritative | A mode in which the server determines canonical state and ordering for the domain. |
 | تغيير معلّق | Pending change | A durable local-first mutation waiting for acknowledgement or reconciliation. No user-facing label is approved yet. |
 | أمر معلّق | Pending command | A durable server-authoritative intent waiting for an accepted or denied server result. No user-facing label is approved yet. |

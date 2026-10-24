@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "sales and fulfillment capability maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-24"
 review_triggers:
   - "Manager or Receptionist permissions, record visibility, money, catalog, quotation, order, work-order, delivery, or offline behavior changes"
 keywords:
@@ -50,7 +50,7 @@ It does not define inventory reservation, procurement, accounting, tax, payment 
 - A role name in the UI is not authority. Rust evaluates an authenticated principal's relationships for every command and query.
 - A Manager and a Receptionist are separate permission bundles. A Manager does not implicitly inherit Receptionist mutations.
 - Every mutation writes its audit result atomically with authoritative state. Denial and validation outcomes use redacted stable error identifiers.
-- Draft contact, catalog, and quotation work can be durable offline. Publishing or committing business truth requires the server where this page says **Server confirmation**.
+- Local-first contact, catalog, and quotation state remains durable across outages. [ADR-0029](../../decisions/0029-require-live-server-authority-for-protected-access.md) requires live confirmation for protected desktop access; durable state does not grant offline use. Publishing or committing business truth also requires the server where this page says **Server confirmation**.
 - A server-confirmed operation never appears complete while queued, optimistic, or awaiting an unknown result.
 - Official numbers come only from the server and are never reused.
 - Issued commercial documents keep immutable price and customer snapshots. Later catalog or customer edits do not rewrite history.
@@ -346,22 +346,22 @@ Exact idempotent retry returns the original Delivery. A second different deliver
 
 ## Offline and server-confirmation behavior
 
-The implementation uses separate synchronization domains so one domain does not mix local-first and server-authoritative semantics:
+The implementation uses separate synchronization domains so one domain does not mix local-first and server-authoritative semantics. ADR-0029 supersedes the earlier offline-access allowance: the current desktop cannot read, edit, or print protected state without live authenticated confirmation. The table describes retained state and confirmation requirements, not an offline authorization grant. Customer merge, archive, and extra branch association remain unimplemented; see [customer capability status](customers.md).
 
 | Domain or operation | Sync mode | Offline behavior | Confirmation rule |
 | --- | --- | --- | --- |
-| Customer contact create/edit | Local-first | Commit to scoped local authority, label queued, reconcile later | Local Rust commit is durable; sync is not yet confirmed |
-| Customer identity merge/archive/branch association | Server-authoritative | Read cached state only; mutation unavailable | Server result required |
-| Catalog draft | Local-first | Create and edit durable private draft | Local Rust commit is durable; not published |
+| Customer contact create/edit | Local-first | Retain committed contacts and pending work; protected access unavailable | Local Rust commit is durable; sync is not yet confirmed |
+| Customer identity merge/archive/branch association | Server-authoritative | Protected access unavailable | Server result required when implemented |
+| Catalog draft | Local-first | Retain durable private draft and pending work; protected access unavailable | Local Rust commit is durable; not published |
 | Catalog publish/archive and published price | Server-authoritative | Mutation unavailable | Server result required |
-| Quotation draft | Local-first | Create and edit durable branch-scoped draft | Local Rust commit is durable; not issued |
+| Quotation draft | Local-first | Retain durable branch-scoped draft and pending work; protected access unavailable | Local Rust commit is durable; not issued |
 | Approval request or decision | Server-authoritative | Unavailable | Server result required |
 | Quotation issue, revised issue, acceptance, cancellation | Server-authoritative | Unavailable | Server result required |
 | Order conversion or cancellation | Server-authoritative | Unavailable | Server result required |
 | Work-order start, completion, or cancellation | Server-authoritative | Unavailable | Server result required |
 | Delivery | Server-authoritative | Unavailable | Server result required |
 
-The shell can browse an authorized confirmed cache offline. It must show freshness and connectivity. Stale catalog prices can support browsing and draft composition, but they cannot prove issuance eligibility. Immutable issued documents already confirmed by the server can be viewed and printed offline from scoped durable cache. The shell must label any local draft, queued customer change, stale projection, or unresolved conflict accurately.
+Rust services can retain confirmed cache and return explicit freshness when an individual projection cannot refresh. That cache never replaces the live access check. Once live authority cannot be confirmed, Rust closes protected sessions and feeds; the shell clears protected views and requires online sign-in. Keep local drafts, queued changes, and unresolved conflicts intact for authorized recovery. See [disconnected authorization limits](identity-foundation.md#disconnected-authorization-limit).
 
 For a server-confirmed command with an unknown network outcome, keep the same idempotency key and query command status before retry. Do not create a new intent, roll forward local state, or infer success from a closed dialog.
 
@@ -392,7 +392,7 @@ These scenarios are the minimum behavior proof. Contract, domain, authorization,
 
 ### Catalog, money, and price snapshots
 
-6. Given a Manager catalog draft, when the device is offline, then the draft saves durably but no Receptionist can see it as published.
+6. Given a saved Manager catalog draft, when the device loses server access, then the committed draft and pending work remain durable, protected desktop access closes, and no Receptionist can see the draft as published.
 7. Given a price of `12,500 YER`, when the Manager publishes online, then Receptionist UI and customer documents display `12,500 ر.ي`, while contracts retain `YER` and integer `12500`.
 8. Given a published item below current cost, when the Manager confirms the warning, then publication succeeds with an audit marker; cost and margin remain hidden from Receptionists.
 9. Given subtotal `1,010 YER` and discount `5.00%`, when Rust calculates the quotation, then it rounds the midpoint `50.5` away from zero to `51` and produces final total `959 YER`.
