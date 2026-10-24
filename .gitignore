@@ -13,6 +13,8 @@ node_modules/
 /shells/windows/obj/
 /shells/windows/tests/bin/
 /shells/windows/tests/obj/
+/shells/windows-setup/bin/
+/shells/windows-setup/obj/
 /tools/lan-certificate/bin/
 /tools/lan-certificate/obj/
 /tools/lan-certificate/tests/bin/

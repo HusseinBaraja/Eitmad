@@ -5,6 +5,7 @@ param(
     [string]$StateDirectory = "$env:ProgramData\EitmadHost",
     [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
     [string]$ClientAddress,
+    [switch]$PrivateLan,
     [switch]$WhatIf,
     [string]$LanDirectory,
     [string]$ClusterDirectory,

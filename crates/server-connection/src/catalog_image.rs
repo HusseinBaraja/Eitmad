@@ -183,6 +183,7 @@ mod tests {
         id: SecretId,
     ) -> Arc<DirectCatalogImageClient> {
         let config = super::super::DirectServerConfig {
+            recovery: None,
             endpoint,
             scope,
             schema_id: SchemaId::parse("eitmad.schema.catalog-image.v1").unwrap(),

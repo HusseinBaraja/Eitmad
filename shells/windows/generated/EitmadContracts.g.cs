@@ -22,6 +22,9 @@ namespace Eitmad.Contracts
 
     public partial class EitmadContractSchema
     {
+        [JsonPropertyName("guided_windows_setup")]
+        public GuidedWindowsSetup GuidedWindowsSetup { get; set; }
+
         [JsonPropertyName("ipc_client_message")]
         public Dictionary<string, object> IpcClientMessage { get; set; }
 
@@ -31,8 +34,68 @@ namespace Eitmad.Contracts
         [JsonPropertyName("lifecycle_snapshot")]
         public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
+        [JsonPropertyName("manage_server_backup")]
+        public ManageServerBackup ManageServerBackup { get; set; }
+
+        [JsonPropertyName("server_backup_management")]
+        public ServerBackupManagement ServerBackupManagement { get; set; }
+
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
+
+        [JsonPropertyName("windows_installation_state")]
+        public WindowsInstallationState WindowsInstallationState { get; set; }
+    }
+
+    public partial class GuidedWindowsSetup
+    {
+        [JsonPropertyName("action")]
+        public GuidedSetupAction Action { get; set; }
+
+        [JsonPropertyName("backup")]
+        public SetupBackupDestinations Backup { get; set; }
+
+        [JsonPropertyName("bundleDirectory")]
+        public string BundleDirectory { get; set; }
+
+        [JsonPropertyName("intendedUserSid")]
+        public string IntendedUserSid { get; set; }
+
+        /// <summary>
+        /// Retry credentials are transient and are never written to the recovery journal.
+        /// </summary>
+        [JsonPropertyName("ownerPassword")]
+        public string OwnerPassword { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshop")]
+        public InitializeWorkshop Workshop { get; set; }
+    }
+
+    public partial class SetupBackupDestinations
+    {
+        [JsonPropertyName("external")]
+        public string External { get; set; }
+
+        [JsonPropertyName("local")]
+        public string Local { get; set; }
+    }
+
+    public partial class InitializeWorkshop
+    {
+        [JsonPropertyName("ownerPassword")]
+        public string OwnerPassword { get; set; }
+
+        [JsonPropertyName("ownerUsername")]
+        public string OwnerUsername { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+
+        [JsonPropertyName("workshopName")]
+        public string WorkshopName { get; set; }
     }
 
     public partial class LifecycleSnapshot
@@ -216,6 +279,90 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("minor")]
         public long Minor { get; set; }
+    }
+
+    /// <summary>
+    /// Local Windows administration only. No application account can authorize this request.
+    /// </summary>
+    public partial class ManageServerBackup
+    {
+        [JsonPropertyName("action")]
+        public ServerBackupAction Action { get; set; }
+
+        [JsonPropertyName("destinations")]
+        public SetupBackupDestinations Destinations { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    /// <summary>
+    /// Sanitized management projection; source paths and private configuration stay in Rust.
+    /// </summary>
+    public partial class ServerBackupManagement
+    {
+        [JsonPropertyName("actionOutcome")]
+        public ServerBackupOutcome ActionOutcome { get; set; }
+
+        [JsonPropertyName("destinations")]
+        public SetupBackupDestinations Destinations { get; set; }
+
+        [JsonPropertyName("intervalHours")]
+        public long IntervalHours { get; set; }
+
+        [JsonPropertyName("retentionCount")]
+        public long RetentionCount { get; set; }
+
+        [JsonPropertyName("status")]
+        public ServerBackupStatus Status { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    /// <summary>
+    /// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
+    /// </summary>
+    public partial class ServerBackupStatus
+    {
+        [JsonPropertyName("deploymentId")]
+        public Guid DeploymentId { get; set; }
+
+        /// <summary>
+        /// Only a copy verified on a different physical disk can set this value.
+        /// </summary>
+        [JsonPropertyName("diskLossProtected")]
+        public bool DiskLossProtected { get; set; }
+
+        [JsonPropertyName("externalConfigured")]
+        public bool ExternalConfigured { get; set; }
+
+        [JsonPropertyName("externalOutcome")]
+        public ServerBackupOutcome ExternalOutcome { get; set; }
+
+        [JsonPropertyName("lastAttemptAt")]
+        public long? LastAttemptAt { get; set; }
+
+        [JsonPropertyName("lastExternalSuccessAt")]
+        public long? LastExternalSuccessAt { get; set; }
+
+        [JsonPropertyName("lastLocalSuccessAt")]
+        public long? LastLocalSuccessAt { get; set; }
+
+        [JsonPropertyName("localOutcome")]
+        public ServerBackupOutcome LocalOutcome { get; set; }
+
+        [JsonPropertyName("nextDueAt")]
+        public long NextDueAt { get; set; }
+
+        [JsonPropertyName("overdue")]
+        public bool Overdue { get; set; }
+
+        [JsonPropertyName("scheduleOutcome")]
+        public ServerBackupOutcome ScheduleOutcome { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
     }
 
     public partial class UnionPayloadKeepAlive
@@ -537,8 +684,16 @@ namespace Eitmad.Contracts
         public QuotationDraftChangeNotice EventQuotationDraftChangedEvent { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcCancelServerDiscovery")]
+        public DiscoverServers IpcClientMessageIpcCancelServerDiscovery { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcCommand")]
         public CommandEnvelope IpcClientMessageIpcCommand { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDesktopOnboarding")]
+        public DesktopOnboardingRequest IpcClientMessageIpcDesktopOnboarding { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcDesktopSessionState")]
@@ -551,6 +706,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcDesktopSignOut")]
         public DesktopSessionRequest IpcClientMessageIpcDesktopSignOut { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcClientMessage_IpcDiscoverServers")]
+        public DiscoverServers IpcClientMessageIpcDiscoverServers { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcClientMessage_IpcHandshake")]
@@ -577,6 +736,10 @@ namespace Eitmad.Contracts
         public CommandResponseEnvelope IpcServerMessageIpcCommandResponse { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcServerMessage_IpcDesktopOnboardingResponse")]
+        public DesktopOnboardingResponse IpcServerMessageIpcDesktopOnboardingResponse { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcDesktopSessionResponse")]
         public DesktopSessionResponse IpcServerMessageIpcDesktopSessionResponse { get; set; }
 
@@ -595,6 +758,10 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcQueryResponse")]
         public QueryResponseEnvelope IpcServerMessageIpcQueryResponse { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("IpcServerMessage_IpcServerDiscovery")]
+        public ServerDiscoveryResult IpcServerMessageIpcServerDiscovery { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("IpcServerMessage_IpcShutdownResponse")]
@@ -2992,6 +3159,21 @@ namespace Eitmad.Contracts
         public ScopeRef Scope { get; set; }
     }
 
+    public partial class DiscoverServers
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        /// <summary>
+        /// Revalidate this untrusted identity before pairing; never substitute another server.
+        /// </summary>
+        [JsonPropertyName("selectedServerId")]
+        public Guid? SelectedServerId { get; set; }
+    }
+
     public partial class CommandEnvelope
     {
         [JsonPropertyName("authorization")]
@@ -3050,6 +3232,64 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("serviceId")]
         public Guid? ServiceId { get; set; }
+    }
+
+    public partial class DesktopOnboardingRequest
+    {
+        [JsonPropertyName("action")]
+        public DesktopOnboardingAction Action { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+    }
+
+    /// <summary>
+    /// Explicitly abandon only the pending exchange; retain identity, trust, and data.
+    /// </summary>
+    public partial class DesktopOnboardingAction
+    {
+        [JsonPropertyName("kind")]
+        public DesktopOnboardingActionKind Kind { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("payload")]
+        public DesktopOnboardingActionPayload Payload { get; set; }
+    }
+
+    public partial class DesktopOnboardingActionPayload
+    {
+        [JsonPropertyName("candidate")]
+        public DiscoveredServer Candidate { get; set; }
+
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+    }
+
+    public partial class DiscoveredServer
+    {
+        /// <summary>
+        /// A hint only. Pairing must authenticate the server identity and TLS name separately.
+        /// </summary>
+        [JsonPropertyName("address")]
+        public string Address { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long ExpiresAt { get; set; }
+
+        /// <summary>
+        /// More than one running installation claims this identity. Never select it automatically.
+        /// </summary>
+        [JsonPropertyName("identityConflict")]
+        public bool IdentityConflict { get; set; }
+
+        [JsonPropertyName("port")]
+        public long Port { get; set; }
+
+        [JsonPropertyName("serverId")]
+        public Guid ServerId { get; set; }
     }
 
     public partial class DesktopSessionRequest
@@ -3287,6 +3527,39 @@ namespace Eitmad.Contracts
         public RetryDisposition Retry { get; set; }
     }
 
+    public partial class DesktopOnboardingResponse
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("error")]
+        public ContractError Error { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("state")]
+        public DesktopOnboardingState State { get; set; }
+    }
+
+    public partial class DesktopOnboardingState
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; }
+
+        [JsonPropertyName("expiresAt")]
+        public long? ExpiresAt { get; set; }
+
+        [JsonPropertyName("paired")]
+        public bool Paired { get; set; }
+
+        /// <summary>
+        /// The saved completion must be retried against this server until explicitly discarded.
+        /// </summary>
+        [JsonPropertyName("pendingPairingServer")]
+        public Guid? PendingPairingServer { get; set; }
+    }
+
     public partial class DesktopSessionResponse
     {
         [JsonPropertyName("correlationId")]
@@ -3489,6 +3762,21 @@ namespace Eitmad.Contracts
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         [JsonPropertyName("retry")]
         public RetryDisposition Retry { get; set; }
+    }
+
+    public partial class ServerDiscoveryResult
+    {
+        [JsonPropertyName("correlationId")]
+        public Guid CorrelationId { get; set; }
+
+        [JsonPropertyName("requestId")]
+        public Guid RequestId { get; set; }
+
+        [JsonPropertyName("servers")]
+        public DiscoveredServer[] Servers { get; set; }
+
+        [JsonPropertyName("status")]
+        public DiscoveryStatus Status { get; set; }
     }
 
     public partial class ShutdownResponse
@@ -4930,6 +5218,41 @@ namespace Eitmad.Contracts
     {
     }
 
+    public partial class WindowsInstallationState
+    {
+        [JsonPropertyName("interrupted")]
+        public bool Interrupted { get; set; }
+
+        [JsonPropertyName("progress")]
+        public WindowsInstallProgress Progress { get; set; }
+
+        [JsonPropertyName("recovery")]
+        public WindowsSetupRecovery Recovery { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    /// <summary>
+    /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
+    /// </summary>
+    public partial class WindowsInstallProgress
+    {
+        [JsonPropertyName("sequence")]
+        public long Sequence { get; set; }
+
+        [JsonPropertyName("stage")]
+        public WindowsInstallStage Stage { get; set; }
+
+        [JsonPropertyName("status")]
+        public WindowsInstallStatus Status { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public enum GuidedSetupAction { Client, Inspect, Retry, Server };
+
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
 
     public enum QuotationField { ColorId, Customer, CustomerRevision, Dimensions, DiscountBasisPoints, HandleId, LineId, Lines, PriceRevision, Quantity, Target, Total };
@@ -4949,6 +5272,10 @@ namespace Eitmad.Contracts
     public enum EngineMode { Diagnostic, Headless, SupervisedDesktop };
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
+
+    public enum ServerBackupAction { Capture, Inspect, RepairSchedule, SaveDestinations };
+
+    public enum ServerBackupOutcome { CaptureFailed, DestinationUnavailable, InsufficientSpace, Interrupted, NeverRun, RetentionFailed, Running, ScheduleFailed, Succeeded };
 
     public enum PrincipalKind { Device, Service, User };
 
@@ -5001,6 +5328,8 @@ namespace Eitmad.Contracts
 
     public enum PermissionDecision { Denied, Granted };
 
+    public enum DesktopOnboardingActionKind { DiscardPendingPairing, OpenPairing, Pair, State };
+
     public enum PeerKind { DiagnosticClient, Engine, Server, Shell };
 
     public enum CommandOutcomeStatus { Failed, Succeeded };
@@ -5015,6 +5344,8 @@ namespace Eitmad.Contracts
 
     public enum HandshakeOutcomeStatus { Accepted, Rejected };
 
+    public enum DiscoveryStatus { AuthenticationRequired, Busy, Cancelled, Complete, IdentityConflict, LimitReached, NetworkChanged, ServerMissing, Unavailable };
+
     /// <summary>
     /// Cached projections must be cleared and queried again after a policy change.
     /// </summary>
@@ -5028,6 +5359,18 @@ namespace Eitmad.Contracts
     public enum HomeAvailability { Available, Denied, Unavailable };
 
     public enum HomeDestination { Catalog, Customer, Order, Quotation };
+
+    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureBackups, ConfigureFirewall, Elevation, EnrollDesktop, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
+
+    /// <summary>
+    /// State cannot be proved safe. Preserve it for an operator inspection.
+    /// </summary>
+    public enum WindowsInstallStatus { Blocked, Failed, Running, Succeeded };
+
+    /// <summary>
+    /// Rust decides which action is available; the native shell supplies localized copy.
+    /// </summary>
+    public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Wait };
 
     public partial struct ErrorParameterValueValue
     {
@@ -5067,6 +5410,7 @@ namespace Eitmad.Contracts
         {
             Converters =
             {
+                GuidedSetupActionConverter.Singleton,
                 DetailKindConverter.Singleton,
                 QuotationFieldConverter.Singleton,
                 QuotationIssueConverter.Singleton,
@@ -5078,6 +5422,8 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
+                ServerBackupActionConverter.Singleton,
+                ServerBackupOutcomeConverter.Singleton,
                 CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
@@ -5103,6 +5449,7 @@ namespace Eitmad.Contracts
                 QuotationDraftResolutionChoiceConverter.Singleton,
                 MaterialRecordKindConverter.Singleton,
                 PermissionDecisionConverter.Singleton,
+                DesktopOnboardingActionKindConverter.Singleton,
                 PeerKindConverter.Singleton,
                 CommandOutcomeStatusConverter.Singleton,
                 DesktopSessionStatusConverter.Singleton,
@@ -5110,15 +5457,63 @@ namespace Eitmad.Contracts
                 NegotiationRejectionKindConverter.Singleton,
                 RequiredByConverter.Singleton,
                 HandshakeOutcomeStatusConverter.Singleton,
+                DiscoveryStatusConverter.Singleton,
                 SubscriptionCloseReasonConverter.Singleton,
                 ConflictStatusConverter.Singleton,
                 HomeAvailabilityConverter.Singleton,
                 HomeDestinationConverter.Singleton,
+                WindowsInstallStageConverter.Singleton,
+                WindowsInstallStatusConverter.Singleton,
+                WindowsSetupRecoveryConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
             },
         };
+    }
+
+    internal class GuidedSetupActionConverter : JsonConverter<GuidedSetupAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(GuidedSetupAction);
+
+        public override GuidedSetupAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "client":
+                    return GuidedSetupAction.Client;
+                case "inspect":
+                    return GuidedSetupAction.Inspect;
+                case "retry":
+                    return GuidedSetupAction.Retry;
+                case "server":
+                    return GuidedSetupAction.Server;
+            }
+            throw new Exception("Cannot unmarshal type GuidedSetupAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, GuidedSetupAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case GuidedSetupAction.Client:
+                    JsonSerializer.Serialize(writer, "client", options);
+                    return;
+                case GuidedSetupAction.Inspect:
+                    JsonSerializer.Serialize(writer, "inspect", options);
+                    return;
+                case GuidedSetupAction.Retry:
+                    JsonSerializer.Serialize(writer, "retry", options);
+                    return;
+                case GuidedSetupAction.Server:
+                    JsonSerializer.Serialize(writer, "server", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type GuidedSetupAction");
+        }
+
+        public static readonly GuidedSetupActionConverter Singleton = new GuidedSetupActionConverter();
     }
 
     internal class DetailKindConverter : JsonConverter<DetailKind>
@@ -5640,6 +6035,119 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
+    }
+
+    internal class ServerBackupActionConverter : JsonConverter<ServerBackupAction>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerBackupAction);
+
+        public override ServerBackupAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "capture":
+                    return ServerBackupAction.Capture;
+                case "inspect":
+                    return ServerBackupAction.Inspect;
+                case "repairSchedule":
+                    return ServerBackupAction.RepairSchedule;
+                case "saveDestinations":
+                    return ServerBackupAction.SaveDestinations;
+            }
+            throw new Exception("Cannot unmarshal type ServerBackupAction");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerBackupAction value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerBackupAction.Capture:
+                    JsonSerializer.Serialize(writer, "capture", options);
+                    return;
+                case ServerBackupAction.Inspect:
+                    JsonSerializer.Serialize(writer, "inspect", options);
+                    return;
+                case ServerBackupAction.RepairSchedule:
+                    JsonSerializer.Serialize(writer, "repairSchedule", options);
+                    return;
+                case ServerBackupAction.SaveDestinations:
+                    JsonSerializer.Serialize(writer, "saveDestinations", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerBackupAction");
+        }
+
+        public static readonly ServerBackupActionConverter Singleton = new ServerBackupActionConverter();
+    }
+
+    internal class ServerBackupOutcomeConverter : JsonConverter<ServerBackupOutcome>
+    {
+        public override bool CanConvert(Type t) => t == typeof(ServerBackupOutcome);
+
+        public override ServerBackupOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "captureFailed":
+                    return ServerBackupOutcome.CaptureFailed;
+                case "destinationUnavailable":
+                    return ServerBackupOutcome.DestinationUnavailable;
+                case "insufficientSpace":
+                    return ServerBackupOutcome.InsufficientSpace;
+                case "interrupted":
+                    return ServerBackupOutcome.Interrupted;
+                case "neverRun":
+                    return ServerBackupOutcome.NeverRun;
+                case "retentionFailed":
+                    return ServerBackupOutcome.RetentionFailed;
+                case "running":
+                    return ServerBackupOutcome.Running;
+                case "scheduleFailed":
+                    return ServerBackupOutcome.ScheduleFailed;
+                case "succeeded":
+                    return ServerBackupOutcome.Succeeded;
+            }
+            throw new Exception("Cannot unmarshal type ServerBackupOutcome");
+        }
+
+        public override void Write(Utf8JsonWriter writer, ServerBackupOutcome value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case ServerBackupOutcome.CaptureFailed:
+                    JsonSerializer.Serialize(writer, "captureFailed", options);
+                    return;
+                case ServerBackupOutcome.DestinationUnavailable:
+                    JsonSerializer.Serialize(writer, "destinationUnavailable", options);
+                    return;
+                case ServerBackupOutcome.InsufficientSpace:
+                    JsonSerializer.Serialize(writer, "insufficientSpace", options);
+                    return;
+                case ServerBackupOutcome.Interrupted:
+                    JsonSerializer.Serialize(writer, "interrupted", options);
+                    return;
+                case ServerBackupOutcome.NeverRun:
+                    JsonSerializer.Serialize(writer, "neverRun", options);
+                    return;
+                case ServerBackupOutcome.RetentionFailed:
+                    JsonSerializer.Serialize(writer, "retentionFailed", options);
+                    return;
+                case ServerBackupOutcome.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case ServerBackupOutcome.ScheduleFailed:
+                    JsonSerializer.Serialize(writer, "scheduleFailed", options);
+                    return;
+                case ServerBackupOutcome.Succeeded:
+                    JsonSerializer.Serialize(writer, "succeeded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type ServerBackupOutcome");
+        }
+
+        public static readonly ServerBackupOutcomeConverter Singleton = new ServerBackupOutcomeConverter();
     }
 
     internal class CatalogImageKindConverter : JsonConverter<CatalogImageKind>
@@ -6731,6 +7239,50 @@ namespace Eitmad.Contracts
         public static readonly PermissionDecisionConverter Singleton = new PermissionDecisionConverter();
     }
 
+    internal class DesktopOnboardingActionKindConverter : JsonConverter<DesktopOnboardingActionKind>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DesktopOnboardingActionKind);
+
+        public override DesktopOnboardingActionKind Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "discardPendingPairing":
+                    return DesktopOnboardingActionKind.DiscardPendingPairing;
+                case "openPairing":
+                    return DesktopOnboardingActionKind.OpenPairing;
+                case "pair":
+                    return DesktopOnboardingActionKind.Pair;
+                case "state":
+                    return DesktopOnboardingActionKind.State;
+            }
+            throw new Exception("Cannot unmarshal type DesktopOnboardingActionKind");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DesktopOnboardingActionKind value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DesktopOnboardingActionKind.DiscardPendingPairing:
+                    JsonSerializer.Serialize(writer, "discardPendingPairing", options);
+                    return;
+                case DesktopOnboardingActionKind.OpenPairing:
+                    JsonSerializer.Serialize(writer, "openPairing", options);
+                    return;
+                case DesktopOnboardingActionKind.Pair:
+                    JsonSerializer.Serialize(writer, "pair", options);
+                    return;
+                case DesktopOnboardingActionKind.State:
+                    JsonSerializer.Serialize(writer, "state", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DesktopOnboardingActionKind");
+        }
+
+        public static readonly DesktopOnboardingActionKindConverter Singleton = new DesktopOnboardingActionKindConverter();
+    }
+
     internal class PeerKindConverter : JsonConverter<PeerKind>
     {
         public override bool CanConvert(Type t) => t == typeof(PeerKind);
@@ -6999,6 +7551,75 @@ namespace Eitmad.Contracts
         public static readonly HandshakeOutcomeStatusConverter Singleton = new HandshakeOutcomeStatusConverter();
     }
 
+    internal class DiscoveryStatusConverter : JsonConverter<DiscoveryStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(DiscoveryStatus);
+
+        public override DiscoveryStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "authenticationRequired":
+                    return DiscoveryStatus.AuthenticationRequired;
+                case "busy":
+                    return DiscoveryStatus.Busy;
+                case "cancelled":
+                    return DiscoveryStatus.Cancelled;
+                case "complete":
+                    return DiscoveryStatus.Complete;
+                case "identityConflict":
+                    return DiscoveryStatus.IdentityConflict;
+                case "limitReached":
+                    return DiscoveryStatus.LimitReached;
+                case "networkChanged":
+                    return DiscoveryStatus.NetworkChanged;
+                case "serverMissing":
+                    return DiscoveryStatus.ServerMissing;
+                case "unavailable":
+                    return DiscoveryStatus.Unavailable;
+            }
+            throw new Exception("Cannot unmarshal type DiscoveryStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DiscoveryStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case DiscoveryStatus.AuthenticationRequired:
+                    JsonSerializer.Serialize(writer, "authenticationRequired", options);
+                    return;
+                case DiscoveryStatus.Busy:
+                    JsonSerializer.Serialize(writer, "busy", options);
+                    return;
+                case DiscoveryStatus.Cancelled:
+                    JsonSerializer.Serialize(writer, "cancelled", options);
+                    return;
+                case DiscoveryStatus.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case DiscoveryStatus.IdentityConflict:
+                    JsonSerializer.Serialize(writer, "identityConflict", options);
+                    return;
+                case DiscoveryStatus.LimitReached:
+                    JsonSerializer.Serialize(writer, "limitReached", options);
+                    return;
+                case DiscoveryStatus.NetworkChanged:
+                    JsonSerializer.Serialize(writer, "networkChanged", options);
+                    return;
+                case DiscoveryStatus.ServerMissing:
+                    JsonSerializer.Serialize(writer, "serverMissing", options);
+                    return;
+                case DiscoveryStatus.Unavailable:
+                    JsonSerializer.Serialize(writer, "unavailable", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type DiscoveryStatus");
+        }
+
+        public static readonly DiscoveryStatusConverter Singleton = new DiscoveryStatusConverter();
+    }
+
     internal class SubscriptionCloseReasonConverter : JsonConverter<SubscriptionCloseReason>
     {
         public override bool CanConvert(Type t) => t == typeof(SubscriptionCloseReason);
@@ -7163,6 +7784,188 @@ namespace Eitmad.Contracts
         }
 
         public static readonly HomeDestinationConverter Singleton = new HomeDestinationConverter();
+    }
+
+    internal class WindowsInstallStageConverter : JsonConverter<WindowsInstallStage>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsInstallStage);
+
+        public override WindowsInstallStage Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "applyMigrations":
+                    return WindowsInstallStage.ApplyMigrations;
+                case "complete":
+                    return WindowsInstallStage.Complete;
+                case "configureBackups":
+                    return WindowsInstallStage.ConfigureBackups;
+                case "configureFirewall":
+                    return WindowsInstallStage.ConfigureFirewall;
+                case "elevation":
+                    return WindowsInstallStage.Elevation;
+                case "enrollDesktop":
+                    return WindowsInstallStage.EnrollDesktop;
+                case "initializeOwner":
+                    return WindowsInstallStage.InitializeOwner;
+                case "installServices":
+                    return WindowsInstallStage.InstallServices;
+                case "preflight":
+                    return WindowsInstallStage.Preflight;
+                case "prepareWorkshop":
+                    return WindowsInstallStage.PrepareWorkshop;
+                case "registerDesktop":
+                    return WindowsInstallStage.RegisterDesktop;
+                case "stopPreparedDatabase":
+                    return WindowsInstallStage.StopPreparedDatabase;
+                case "verifyHttps":
+                    return WindowsInstallStage.VerifyHttps;
+            }
+            throw new Exception("Cannot unmarshal type WindowsInstallStage");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsInstallStage value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsInstallStage.ApplyMigrations:
+                    JsonSerializer.Serialize(writer, "applyMigrations", options);
+                    return;
+                case WindowsInstallStage.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case WindowsInstallStage.ConfigureBackups:
+                    JsonSerializer.Serialize(writer, "configureBackups", options);
+                    return;
+                case WindowsInstallStage.ConfigureFirewall:
+                    JsonSerializer.Serialize(writer, "configureFirewall", options);
+                    return;
+                case WindowsInstallStage.Elevation:
+                    JsonSerializer.Serialize(writer, "elevation", options);
+                    return;
+                case WindowsInstallStage.EnrollDesktop:
+                    JsonSerializer.Serialize(writer, "enrollDesktop", options);
+                    return;
+                case WindowsInstallStage.InitializeOwner:
+                    JsonSerializer.Serialize(writer, "initializeOwner", options);
+                    return;
+                case WindowsInstallStage.InstallServices:
+                    JsonSerializer.Serialize(writer, "installServices", options);
+                    return;
+                case WindowsInstallStage.Preflight:
+                    JsonSerializer.Serialize(writer, "preflight", options);
+                    return;
+                case WindowsInstallStage.PrepareWorkshop:
+                    JsonSerializer.Serialize(writer, "prepareWorkshop", options);
+                    return;
+                case WindowsInstallStage.RegisterDesktop:
+                    JsonSerializer.Serialize(writer, "registerDesktop", options);
+                    return;
+                case WindowsInstallStage.StopPreparedDatabase:
+                    JsonSerializer.Serialize(writer, "stopPreparedDatabase", options);
+                    return;
+                case WindowsInstallStage.VerifyHttps:
+                    JsonSerializer.Serialize(writer, "verifyHttps", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsInstallStage");
+        }
+
+        public static readonly WindowsInstallStageConverter Singleton = new WindowsInstallStageConverter();
+    }
+
+    internal class WindowsInstallStatusConverter : JsonConverter<WindowsInstallStatus>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsInstallStatus);
+
+        public override WindowsInstallStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "blocked":
+                    return WindowsInstallStatus.Blocked;
+                case "failed":
+                    return WindowsInstallStatus.Failed;
+                case "running":
+                    return WindowsInstallStatus.Running;
+                case "succeeded":
+                    return WindowsInstallStatus.Succeeded;
+            }
+            throw new Exception("Cannot unmarshal type WindowsInstallStatus");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsInstallStatus value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsInstallStatus.Blocked:
+                    JsonSerializer.Serialize(writer, "blocked", options);
+                    return;
+                case WindowsInstallStatus.Failed:
+                    JsonSerializer.Serialize(writer, "failed", options);
+                    return;
+                case WindowsInstallStatus.Running:
+                    JsonSerializer.Serialize(writer, "running", options);
+                    return;
+                case WindowsInstallStatus.Succeeded:
+                    JsonSerializer.Serialize(writer, "succeeded", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsInstallStatus");
+        }
+
+        public static readonly WindowsInstallStatusConverter Singleton = new WindowsInstallStatusConverter();
+    }
+
+    internal class WindowsSetupRecoveryConverter : JsonConverter<WindowsSetupRecovery>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsSetupRecovery);
+
+        public override WindowsSetupRecovery Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "complete":
+                    return WindowsSetupRecovery.Complete;
+                case "inspectManually":
+                    return WindowsSetupRecovery.InspectManually;
+                case "ownerPassword":
+                    return WindowsSetupRecovery.OwnerPassword;
+                case "retry":
+                    return WindowsSetupRecovery.Retry;
+                case "wait":
+                    return WindowsSetupRecovery.Wait;
+            }
+            throw new Exception("Cannot unmarshal type WindowsSetupRecovery");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsSetupRecovery value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsSetupRecovery.Complete:
+                    JsonSerializer.Serialize(writer, "complete", options);
+                    return;
+                case WindowsSetupRecovery.InspectManually:
+                    JsonSerializer.Serialize(writer, "inspectManually", options);
+                    return;
+                case WindowsSetupRecovery.OwnerPassword:
+                    JsonSerializer.Serialize(writer, "ownerPassword", options);
+                    return;
+                case WindowsSetupRecovery.Retry:
+                    JsonSerializer.Serialize(writer, "retry", options);
+                    return;
+                case WindowsSetupRecovery.Wait:
+                    JsonSerializer.Serialize(writer, "wait", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsSetupRecovery");
+        }
+
+        public static readonly WindowsSetupRecoveryConverter Singleton = new WindowsSetupRecoveryConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

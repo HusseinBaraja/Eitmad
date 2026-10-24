@@ -88,12 +88,13 @@ impl DirectDiscountApprovalClient {
     }
 }
 fn budget(deadline: UnixMillis) -> Result<Instant, E> {
-    let ms = deadline.0 - eitmad_authorization::now().0;
+    let ms = deadline.0.saturating_sub(eitmad_authorization::now().0);
     if ms <= 0 {
         return Err(E::Unavailable);
     }
     Ok(Instant::now()
-        + Duration::from_millis(u64::try_from(ms.min(10_000)).map_err(|_| E::Unavailable)?))
+        + Duration::from_millis(u64::try_from(ms).map_err(|_| E::Unavailable)?)
+            .min(super::REQUEST_TIMEOUT))
 }
 fn error(e: &HttpError) -> E {
     match e {
@@ -329,7 +330,7 @@ impl DirectDiscountApprovalClient {
             minor,
         );
         let mut driver = http.driver;
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + crate::REQUEST_TIMEOUT;
         let (_, credential) = driver
             .account_credential(&self.credential, actor, deadline)
             .map_err(|failure| match failure.kind {
@@ -419,7 +420,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                         .map_err(|_| eitmad_customer::CustomerError::Denied)?,
                     query,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|e| customer_resolution_error(&e))?;
         if actor.scope.kind.as_str() == "branch" {
@@ -449,7 +450,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                     original_user: recovery.original_user,
                     request: input,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| customer_resolution_error(&error))?;
         if let Some(change) = &mut receipt {
@@ -471,7 +472,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                 actor,
                 "/v1/customers/resolve",
                 &input,
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|e| customer_resolution_error(&e))?;
         if actor.scope.kind.as_str() == "branch" {
@@ -494,7 +495,7 @@ impl eitmad_customer::CustomerDirectory for DirectDiscountApprovalClient {
                         .map_err(|_| eitmad_customer::CustomerError::Denied)?,
                     query: query.clone(),
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|e| match e {
                 HttpError::Denied => eitmad_customer::CustomerError::Denied,

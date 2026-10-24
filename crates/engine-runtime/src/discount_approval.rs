@@ -244,7 +244,7 @@ impl ProductDispatcher {
         };
         let result = self.drafts.recover_pending(
             server.as_ref(),
-            eitmad_contracts::transport::UnixMillis(now().0.saturating_add(10_000)),
+            eitmad_contracts::transport::UnixMillis(now().0.saturating_add(30_000)),
         );
         self.drain_pending_publications()
             .map_err(|_| ApprovalError::Unavailable)?;

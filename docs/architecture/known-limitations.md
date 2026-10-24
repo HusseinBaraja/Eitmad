@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-24"
 review_triggers:
   - "a listed limitation is implemented, removed, split, or becomes release-critical"
 keywords:
@@ -20,10 +20,10 @@ The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products,
 
 ## Identity and synchronization
 
-- Password sign-in and durable desktop sessions exist, but the engine does not import accounts from the server control plane. Debug seeding provisions synthetic local accounts only.
-- Customer synchronization libraries and the registered server handler exist. The desktop executable has no production connector or background reconciliation coordinator.
-- Other product domains do not synchronize. LAN discovery and WAN relay payload routing are not implemented; relay routes coordinate metadata and lifecycle only.
-- The server has no later-account invitation creation or delivery, license service, channel-assignment mutation, server-authoritative command submission, or history compaction entry point. Existing database rows and immutable migrations remain intact.
+- Desktop password sign-in uses [live server authority](../decisions/0029-require-live-server-authority-for-protected-access.md). Retained local records and credentials do not authorize disconnected access. Debug seeding is a synthetic development path, not workshop installation.
+- The [direct server connection](../developer/subsystems/server-authority.md#retained-desktop-connection) supports enrolled desktops and synchronized customer work. Isolated engine tests do not establish clean-PC or physical-LAN deployment acceptance.
+- [LAN discovery](../developer/subsystems/server-discovery.md) and [Owner-code device pairing](../operations/install-windows.md#3-install-and-pair-each-employee-pc) are implemented. Clean-machine, multi-PC, effective firewall, and physical DHCP acceptance remain required. WAN relay payload routing is not implemented; relay routes coordinate metadata and lifecycle only. Consult each product subsystem for its synchronization boundary.
+- Shared account administration supports invitation creation and activation through authenticated Rust routes; email delivery remains unimplemented. The server has no license service, channel-assignment mutation, generic synchronization command-submission route, or history compaction entry point. Pricing and commercial transitions use their own server-confirmed routes. Existing database rows and immutable migrations remain intact.
 
 ## Updates and platforms
 
@@ -34,8 +34,8 @@ The Windows app has Rust-owned Customers, Materials, Parts, Furniture, Products,
 ## Deployment and recovery
 
 - [Windows package authoring and manual lifecycle tools](../operations/package-windows-desktop.md) produce versioned server ZIPs and self-contained desktop MSIX bundles. Azure Artifact Signing integration is supplied, but the verified publisher/profile, signing-node authorization, signed clean-host install/repair/removal/upgrade, and coordinated restore acceptance remain external prerequisites. Unsigned artifacts are validation-only. Notarization and signed automatic promotion remain unimplemented.
-- The combined server has no billing, MFA, email, package CDN, relay payload router, backup scheduler, or operator UI.
-- SQLite backup, restore, migration artifacts, and tenant export are Rust APIs and runbooks. There is no recovery UI, scheduled retention, or remote backup destination.
+- [Guided Windows setup](../operations/install-windows.md) composes server preparation, services, first-desktop enrollment, backups, renewal, and per-user MSIX registration. The complete trusted signed offline bundle and clean-PC Server/Client installation remain **Needs verification**. The combined server has no billing, MFA, email, package CDN, or relay payload router.
+- [Windows server backup administration](../operations/backup-lan-installation.md#manage-backups-after-installation) supplies native configuration/status, scheduled local capture, retention, and an optional separate encrypted disk copy. Whole-installation recovery still requires Windows profile/credential dependencies and replacement-machine acceptance. SQLite backup, restore, migration artifacts, and tenant export remain Rust APIs and runbooks; they have no general recovery UI.
 - PostgreSQL backup, WAL retention, and restore depend on deployment infrastructure. Live role, RLS, migration, backup, and restore evidence is required before deployment.
 
 ## Evidence limits

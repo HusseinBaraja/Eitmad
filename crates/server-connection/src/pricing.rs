@@ -204,10 +204,8 @@ fn request_budget(deadline: UnixMillis) -> Result<Instant, PricingError> {
         .checked_sub(now().0)
         .filter(|v| *v > 0)
         .ok_or(PricingError::Unconfirmed)?;
-    let millis = u64::try_from(remaining)
-        .map_err(|_| PricingError::Unconfirmed)?
-        .min(10_000);
-    Ok(Instant::now() + Duration::from_millis(millis))
+    let millis = u64::try_from(remaining).map_err(|_| PricingError::Unconfirmed)?;
+    Ok(Instant::now() + Duration::from_millis(millis).min(super::REQUEST_TIMEOUT))
 }
 
 fn now() -> UnixMillis {

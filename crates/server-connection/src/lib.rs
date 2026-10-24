@@ -12,11 +12,13 @@ mod customer_sync;
 mod desktop_connection;
 mod desktop_enrollment;
 mod diagnostics;
+mod recovery;
 mod request_admission;
 pub use catalog_sync::DirectCatalogSyncClient;
 pub use customer_sync::DirectCustomerSyncClient;
 pub use desktop_connection::DesktopConnectionSettings;
 pub use desktop_enrollment::DesktopEnrollment;
+pub use recovery::ConnectionRecovery;
 mod pricing;
 mod quotation_approval;
 pub use catalog_image::DirectCatalogImageClient;
@@ -66,6 +68,11 @@ use zeroize::{Zeroize, Zeroizing};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const IO_TIMEOUT: Duration = Duration::from_secs(5);
+// One saved-address probe, the full discovery bound, then TLS, identity and operation I/O.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(1)
+    .saturating_add(eitmad_server_discovery::DISCOVERY_TIMEOUT)
+    .saturating_add(CONNECT_TIMEOUT)
+    .saturating_add(IO_TIMEOUT);
 const POLL_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_WIRE_BYTES: usize = 1024 * 1024;
 const MAX_AUTH_RESPONSE_BYTES: usize = 16 * 1024;
@@ -96,21 +103,46 @@ type TlsStream = StreamOwned<ClientConnection, DeadlineSocket>;
 struct DeadlineSocket {
     socket: TcpStream,
     deadline: Option<Instant>,
+    cancellation: Option<(ConnectionRecovery, u64)>,
+    _cancellation_socket: Option<Arc<TcpStream>>,
 }
 
 impl DeadlineSocket {
     fn remaining(&self) -> std::io::Result<Option<Duration>> {
+        if self
+            .cancellation
+            .as_ref()
+            .is_some_and(|(control, generation)| control.cancelled(*generation))
+        {
+            return Err(std::io::ErrorKind::ConnectionAborted.into());
+        }
         self.deadline.map(remaining_io).transpose()
     }
 }
 
 impl Read for DeadlineSocket {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        if let Some(remaining) = self.remaining()? {
-            self.socket
-                .set_read_timeout(Some(remaining.min(IO_TIMEOUT)))?;
+        loop {
+            if let Some(remaining) = self.remaining()? {
+                let interval = if self.cancellation.is_some() {
+                    POLL_TIMEOUT
+                } else {
+                    IO_TIMEOUT
+                };
+                self.socket
+                    .set_read_timeout(Some(remaining.min(interval)))?;
+            }
+            match self.socket.read(bytes) {
+                Err(error)
+                    if self.cancellation.is_some()
+                        && self.deadline.is_some()
+                        && matches!(
+                            error.kind(),
+                            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                        ) => {}
+                result => return result,
+            }
         }
-        self.socket.read(bytes)
     }
 }
 
@@ -212,6 +244,7 @@ pub struct DirectServerConfig {
     schema_id: SchemaId,
     schema_version: u32,
     tls: Arc<ClientConfig>,
+    recovery: Option<Arc<recovery::RetainedServer>>,
 }
 
 impl DirectServerConfig {
@@ -227,20 +260,24 @@ impl DirectServerConfig {
         schema_version: u32,
         trusted_certificate: &Path,
     ) -> Result<Self, TransportFailure> {
-        let endpoint = Url::parse(endpoint).map_err(|_| encryption_failure())?;
-        if endpoint.scheme() != "https"
-            || endpoint.host_str().is_none()
-            || endpoint.username() != ""
-            || endpoint.password().is_some()
-            || endpoint.query().is_some()
-            || endpoint.fragment().is_some()
-            || endpoint.path() != "/"
-            || schema_version == 0
-        {
+        let pem = desktop_enrollment::read_trust(trusted_certificate)?;
+        let mut config = Self::from_ca_pem(endpoint, scope, schema_id, schema_version, &pem)?;
+        config.recovery = recovery::RetainedServer::load(trusted_certificate, &config, &pem)?;
+        Ok(config)
+    }
+
+    pub(crate) fn from_ca_pem(
+        endpoint: &str,
+        scope: ScopeRef,
+        schema_id: SchemaId,
+        schema_version: u32,
+        pem: &[u8],
+    ) -> Result<Self, TransportFailure> {
+        let endpoint = Self::parse_endpoint(endpoint)?;
+        if schema_version == 0 {
             return Err(encryption_failure());
         }
-        let certificates = CertificateDer::pem_file_iter(trusted_certificate)
-            .map_err(|_| encryption_failure())?
+        let certificates = CertificateDer::pem_slice_iter(pem)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| encryption_failure())?;
         if certificates.is_empty() {
@@ -250,19 +287,53 @@ impl DirectServerConfig {
         for certificate in certificates {
             roots.add(certificate).map_err(|_| encryption_failure())?;
         }
-        let tls =
+        let mut tls =
             ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
                 .with_safe_default_protocol_versions()
                 .map_err(|_| encryption_failure())?
                 .with_root_certificates(roots)
                 .with_no_client_auth();
+        // A resumed TLS session can omit the certificate. Revalidate it on every socket.
+        tls.resumption = rustls::client::Resumption::disabled();
         Ok(Self {
             endpoint,
             scope,
             schema_id,
             schema_version,
             tls: Arc::new(tls),
+            recovery: None,
         })
+    }
+
+    // Retained trust and live connections must use the same validated URL representation.
+    fn parse_endpoint(endpoint: &str) -> Result<Url, TransportFailure> {
+        let endpoint = Url::parse(endpoint).map_err(|_| encryption_failure())?;
+        if endpoint.scheme() != "https"
+            || endpoint.host_str().is_none()
+            || endpoint.username() != ""
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+            || endpoint.path() != "/"
+        {
+            return Err(encryption_failure());
+        }
+        Ok(endpoint)
+    }
+
+    /// Cancels current connection work without changing enrollment.
+    #[must_use]
+    pub fn recovery(&self) -> Option<ConnectionRecovery> {
+        self.recovery
+            .as_ref()
+            .map(|retained| retained.control.clone())
+    }
+
+    fn connect(&self, url: &Url, deadline: Instant) -> Result<TlsStream, TransportFailure> {
+        self.recovery.as_ref().map_or_else(
+            || connect_tls(url, &self.tls, deadline),
+            |retained| retained.connect(self, url, deadline),
+        )
     }
 
     #[must_use]
@@ -509,7 +580,7 @@ impl DirectServerDriver {
         deadline: Instant,
     ) -> Result<AuthenticationResult, TransportFailure> {
         let url = self.config.refresh_url();
-        let mut stream = connect_tls(&url, &self.config.tls, deadline)?;
+        let mut stream = self.config.connect(&url, deadline)?;
         let host = host_header(&url)?;
         let header = format!(
             "POST /v1/auth/refresh HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
@@ -557,7 +628,7 @@ impl DirectServerDriver {
         deadline: Instant,
     ) -> Result<PeerHello, TransportFailure> {
         let url = self.config.websocket_url();
-        let stream = connect_tls(&url, &self.config.tls, deadline)?;
+        let stream = self.config.connect(&url, deadline)?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(credential)).map_err(|_| authentication_failure())?,
         );
@@ -679,11 +750,7 @@ impl ConnectionDriver for DirectServerDriver {
         target: &ConnectionTarget,
         authentication: &TransportAuthentication,
     ) -> Result<EstablishedConnection, TransportFailure> {
-        self.establish_before(
-            target,
-            authentication,
-            Instant::now() + CONNECT_TIMEOUT + IO_TIMEOUT,
-        )
+        self.establish_before(target, authentication, Instant::now() + REQUEST_TIMEOUT)
     }
 
     fn send(&mut self, frame: &SyncTransportFrame) -> Result<(), TransportFailure> {
@@ -851,24 +918,43 @@ fn connect_tls(
     config: &Arc<ClientConfig>,
     deadline: Instant,
 ) -> Result<TlsStream, TransportFailure> {
+    connect_tls_at(url, config, deadline, None, None)
+}
+
+fn connect_tls_at(
+    url: &Url,
+    config: &Arc<ClientConfig>,
+    deadline: Instant,
+    destination: Option<SocketAddr>,
+    cancellation: Option<&(ConnectionRecovery, u64)>,
+) -> Result<TlsStream, TransportFailure> {
     let host = url.host_str().ok_or_else(encryption_failure)?;
     let port = url.port_or_known_default().ok_or_else(encryption_failure)?;
-    let addresses = match url.host().ok_or_else(encryption_failure)? {
-        url::Host::Ipv4(ip) => vec![SocketAddr::new(ip.into(), port)],
-        url::Host::Ipv6(ip) => vec![SocketAddr::new(ip.into(), port)],
-        url::Host::Domain(host) => {
-            let host = host.to_owned();
-            resolve_before(
-                move || {
-                    (host.as_str(), port)
-                        .to_socket_addrs()
-                        .map(|addresses| addresses.take(16).collect())
-                },
-                deadline,
-            )?
+    let addresses = if let Some(address) = destination {
+        vec![address]
+    } else {
+        match url.host().ok_or_else(encryption_failure)? {
+            url::Host::Ipv4(ip) => vec![SocketAddr::new(ip.into(), port)],
+            url::Host::Ipv6(ip) => vec![SocketAddr::new(ip.into(), port)],
+            url::Host::Domain(host) => {
+                let host = host.to_owned();
+                resolve_before(
+                    move || {
+                        (host.as_str(), port)
+                            .to_socket_addrs()
+                            .map(|addresses| addresses.take(16).collect())
+                    },
+                    deadline,
+                )?
+            }
         }
     };
     for address in addresses {
+        if let Some((control, generation)) = cancellation {
+            if control.cancelled(*generation) {
+                return Err(unavailable(FailurePhase::Cancellation));
+            }
+        }
         let connection = diagnostics::measure_io(
             DiagnosticPhase::Connect,
             FailurePhase::Connect,
@@ -887,6 +973,11 @@ fn connect_tls(
             let mut connection = ClientConnection::new(Arc::clone(config), name)
                 .map_err(|_| encryption_failure())?;
             let mut stream = DeadlineSocket {
+                _cancellation_socket: cancellation
+                    .as_ref()
+                    .map(|(control, generation)| control.register(&stream, *generation))
+                    .transpose()?,
+                cancellation: cancellation.cloned(),
                 socket: stream,
                 deadline: Some(deadline),
             };
@@ -1188,6 +1279,8 @@ mod tests {
         });
         let start = Instant::now();
         let mut socket = DeadlineSocket {
+            cancellation: None,
+            _cancellation_socket: None,
             socket,
             deadline: Some(start + Duration::from_millis(120)),
         };

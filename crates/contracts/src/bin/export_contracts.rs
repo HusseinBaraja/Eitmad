@@ -45,6 +45,28 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
+    windows_setup_bundle: eitmad_contracts::setup::WindowsSetupBundle,
+    server_backup_configuration: eitmad_contracts::backup::ServerBackupConfiguration,
+    server_backup_status: eitmad_contracts::backup::ServerBackupStatus,
+    manage_server_backup: eitmad_contracts::backup::ManageServerBackup,
+    server_backup_management: eitmad_contracts::backup::ServerBackupManagement,
+    open_pairing: eitmad_contracts::pairing::OpenPairing,
+    opened_pairing: eitmad_contracts::pairing::OpenedPairing,
+    start_pairing: eitmad_contracts::pairing::StartPairing,
+    pairing_challenge: eitmad_contracts::pairing::PairingChallenge,
+    complete_pairing: eitmad_contracts::pairing::CompletePairing,
+    pairing_receipt: eitmad_contracts::pairing::PairingReceipt,
+    install_windows: eitmad_contracts::setup::InstallWindows,
+    install_windows_server: eitmad_contracts::setup::InstallWindowsServer,
+    install_windows_client: eitmad_contracts::setup::InstallWindowsClient,
+    windows_install_progress: eitmad_contracts::setup::WindowsInstallProgress,
+    read_windows_installation: eitmad_contracts::setup::ReadWindowsInstallation,
+    windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
+    prepare_windows_workshop: eitmad_contracts::setup::PrepareWindowsWorkshop,
+    prepared_windows_workshop: eitmad_contracts::setup::PreparedWindowsWorkshop,
+    initialize_workshop: eitmad_contracts::setup::InitializeWorkshop,
+    initialized_workshop: eitmad_contracts::setup::InitializedWorkshop,
     reconcile_customer_resolution: eitmad_contracts::sync::ReconcileResolution<
         eitmad_contracts::customer::ConfirmCustomerResolution,
     >,
@@ -123,6 +145,10 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
+    manage_server_backup: eitmad_contracts::backup::ManageServerBackup,
+    server_backup_management: eitmad_contracts::backup::ServerBackupManagement,
+    windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
     ipc_client_message: IpcClientMessage,
     ipc_server_message: IpcServerMessage,
     lifecycle_snapshot: LifecycleSnapshot,

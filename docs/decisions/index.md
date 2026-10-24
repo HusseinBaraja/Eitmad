@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "reference"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-20"
 review_triggers:
   - "an ADR is proposed, accepted, rejected, or superseded"
 keywords:
@@ -66,3 +66,4 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0027](0027-mandatory-release-evidence.md) | Require one mandatory release evidence chain | Accepted | 2026-08-26 | None |
 | [ADR-0028](0028-manager-receptionist-sales-workflows.md) | Define Manager and Receptionist sales workflows | Accepted | 2026-09-19 | None |
 | [ADR-0029](0029-require-live-server-authority-for-protected-access.md) | Require live server authority for protected access | Accepted | 2026-10-18 | ADR-0022, offline access only |
+| [ADR-0030](0030-offline-guided-windows-setup.md) | Provide offline guided Windows setup | Accepted | 2026-10-20 | None |

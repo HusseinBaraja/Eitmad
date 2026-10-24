@@ -123,6 +123,33 @@ public sealed class EngineSupervisor : IAsyncDisposable
     public Task<DesktopSessionState?> GetSessionStateAsync(CancellationToken cancellationToken = default) =>
         GetConnectedClient().GetSessionStateAsync(cancellationToken);
 
+    public async Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default) =>
+        await (await AwaitOnboardingClientAsync(cancellationToken).ConfigureAwait(false)).OnboardingAsync(action, cancellationToken).ConfigureAwait(false);
+    public async Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default, Guid? selectedServerId = null) =>
+        await (await AwaitOnboardingClientAsync(cancellationToken).ConfigureAwait(false)).DiscoverServersAsync(cancellationToken, selectedServerId).ConfigureAwait(false);
+
+    private async Task<EngineIpcClient> AwaitOnboardingClientAsync(CancellationToken cancellationToken)
+    {
+        var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Observe(EngineSupervisionSnapshot state)
+        {
+            if (state.IpcHealth == EngineIpcHealthState.Connected && state.LastLifecycle?.Ready == true) connected.TrySetResult();
+            else if (state.State is EngineSupervisionState.Stopped or EngineSupervisionState.Stopping or EngineSupervisionState.Faulted or EngineSupervisionState.RestartExhausted
+                || state.IpcHealth == EngineIpcHealthState.ReconnectExhausted)
+                connected.TrySetException(new EngineIpcException(EngineIpcFailureKind.EngineUnavailable, "The engine is unavailable for onboarding."));
+        }
+        StateChanged += Observe;
+        try
+        {
+            Observe(Snapshot);
+            await connected.Task.WaitAsync(TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
+            return GetConnectedClient();
+        }
+        catch (TimeoutException error)
+        { throw new EngineIpcException(EngineIpcFailureKind.Timeout, "The engine did not become ready for onboarding.", innerException: error); }
+        finally { StateChanged -= Observe; }
+    }
+
     public async Task<bool> AuthenticateServerAsync(string username, string password, DesktopEnrollmentSettings? connection,
         CancellationToken cancellationToken = default)
     {
@@ -759,6 +786,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
                 ProtocolIds.Capabilities.EitmadCapabilityCatalogImageV1,
                 ProtocolIds.Capabilities.EitmadCapabilityDesktopAccountManagementV1,
                 ProtocolIds.Capabilities.EitmadCapabilitySharedAccountsV1,
+                ProtocolIds.Capabilities.EitmadCapabilityDesktopOnboardingV1,
             ],
             RequiredCapabilities =
             [

@@ -714,6 +714,30 @@ public partial class IpcClientMessage
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
 
+    public const string IpcDesktopOnboardingKind = "eitmad.ipc.desktop-onboarding.v1";
+
+    public static IpcClientMessage ForIpcDesktopOnboarding(DesktopOnboardingRequest payload) =>
+        new() { Kind = IpcDesktopOnboardingKind, Payload = payload };
+
+    public DesktopOnboardingRequest? AsIpcDesktopOnboarding() =>
+        Kind == IpcDesktopOnboardingKind ? PayloadAs<DesktopOnboardingRequest>() : null;
+
+    public const string IpcDiscoverServersKind = "eitmad.ipc.discover-servers.v1";
+
+    public static IpcClientMessage ForIpcDiscoverServers(DiscoverServers payload) =>
+        new() { Kind = IpcDiscoverServersKind, Payload = payload };
+
+    public DiscoverServers? AsIpcDiscoverServers() =>
+        Kind == IpcDiscoverServersKind ? PayloadAs<DiscoverServers>() : null;
+
+    public const string IpcCancelServerDiscoveryKind = "eitmad.ipc.cancel-server-discovery.v1";
+
+    public static IpcClientMessage ForIpcCancelServerDiscovery(DiscoverServers payload) =>
+        new() { Kind = IpcCancelServerDiscoveryKind, Payload = payload };
+
+    public DiscoverServers? AsIpcCancelServerDiscovery() =>
+        Kind == IpcCancelServerDiscoveryKind ? PayloadAs<DiscoverServers>() : null;
+
     public const string IpcHandshakeKind = "eitmad.ipc.handshake.v1";
 
     public static IpcClientMessage ForIpcHandshake(HandshakeRequest payload) =>
@@ -802,6 +826,22 @@ public partial class IpcServerMessage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("payload")]
     public object? Payload { get; set; }
+
+    public const string IpcDesktopOnboardingResponseKind = "eitmad.ipc.desktop-onboarding-response.v1";
+
+    public static IpcServerMessage ForIpcDesktopOnboardingResponse(DesktopOnboardingResponse payload) =>
+        new() { Kind = IpcDesktopOnboardingResponseKind, Payload = payload };
+
+    public DesktopOnboardingResponse? AsIpcDesktopOnboardingResponse() =>
+        Kind == IpcDesktopOnboardingResponseKind ? PayloadAs<DesktopOnboardingResponse>() : null;
+
+    public const string IpcServerDiscoveryKind = "eitmad.ipc.server-discovery.v1";
+
+    public static IpcServerMessage ForIpcServerDiscovery(ServerDiscoveryResult payload) =>
+        new() { Kind = IpcServerDiscoveryKind, Payload = payload };
+
+    public ServerDiscoveryResult? AsIpcServerDiscovery() =>
+        Kind == IpcServerDiscoveryKind ? PayloadAs<ServerDiscoveryResult>() : null;
 
     public const string IpcHandshakeResponseKind = "eitmad.ipc.handshake-response.v1";
 

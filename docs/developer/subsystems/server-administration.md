@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "operations tooling maintainers"
-last_verified: "2026-08-27"
+last_verified: "2026-10-24"
 review_triggers:
   - "administrative permissions, diagnostics, backup, migration, audit, visibility, support, or operational storage changes"
 keywords:
@@ -37,7 +37,7 @@ Migration `3` creates `operations.backup_status` and `operations.support_workflo
 
 The `/v1/admin` routes expose diagnostics, component health, backup status, migration status, a bounded audit page, current-tenant visibility, current-tenant device visibility, support workflow start, and signed update publication. The authenticated tenant is always the scope; callers cannot select another tenant through a query parameter.
 
-Backup status distinguishes `Current`, `Stale`, `Running`, `Failed`, and `NotConfigured`. A missing row returns `NotConfigured`; it does not invent a successful backup. Migration status compares the durable migration registry with required version `4`. Audit access returns at most 500 records. Its external administration projection is intentionally smaller than the stored canonical envelope and includes only stable operation, outcome, target kind, correlation, time, principal, tenant, and redacted failure code.
+Backup status distinguishes `Current`, `Stale`, `Running`, `Failed`, and `NotConfigured`. A missing row returns `NotConfigured`; it does not invent a successful backup. Migration status compares the highest durable registry version with the administration foundation's required version `3`; `Current` alone does not prove that every later product migration is present. Startup and `migrate` validate the complete registered migration set. Audit access returns at most 500 records. Its external administration projection is intentionally smaller than the stored canonical envelope and includes only stable operation, outcome, target kind, correlation, time, principal, tenant, and redacted failure code.
 
 Tenant visibility reports enabled state, active-device count, active-session count, and last-seen time. Device visibility reports tenant, device, label, revoked state, and last-seen time. It does not expose public keys, tokens, nonces, passwords, domain payloads, or another tenant's devices.
 
@@ -67,7 +67,7 @@ Use [server-plane troubleshooting](../../troubleshooting/server-plane-failures.m
 
 ## Arabic behavior, tests, and safe extension
 
-No operator UI is present. Stable identifiers and timestamps are locale independent. A future Arabic interface must localize status labels, render UUIDs and error IDs as isolated LTR runs, and never combine device labels from different tenants in one view.
+The server-plane interfaces have no general operator UI. The separate [Windows backup administration](../../operations/backup-lan-installation.md#manage-backups-after-installation) surface configures the local backup backend; it does not expose these tenant administration routes. Stable identifiers and timestamps are locale independent. Any added Arabic interface must localize status labels, isolate UUIDs and error IDs as LTR values, and keep device labels within the authorized tenant.
 
 Tests cover backup status completeness, invalid audit limits, administrative denial before data access, audit outcomes, cross-tenant device and support denial, forced-RLS migration text, and unauthenticated host routes. PostgreSQL projections use fallible row decoding so schema or type drift returns `AdministrativeError::Unavailable` instead of terminating the process. Add a provider only through `AdministrationDataSource` or `SupportWorkflowExecutor`; keep permissions narrow, queries bounded, failures redacted, and storage tenant scoped.
 

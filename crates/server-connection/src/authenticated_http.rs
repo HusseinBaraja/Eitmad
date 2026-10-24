@@ -1,7 +1,7 @@
 use super::diagnostics::failure_result;
 use super::{
-    DirectServerDriver, URL_SAFE_NO_PAD, connect_tls, device_proof, host_header,
-    parse_http_response, remaining_io,
+    DirectServerDriver, URL_SAFE_NO_PAD, device_proof, host_header, parse_http_response,
+    remaining_io,
 };
 use base64::Engine as _;
 use eitmad_contracts::{
@@ -142,8 +142,10 @@ impl AuthenticatedHttpClient {
             .map_err(|_| HttpError::Unavailable(super::unavailable(FailurePhase::Cancellation)))?;
         let mut url = driver.config.endpoint.clone();
         url.set_path(route);
-        let mut stream =
-            connect_tls(&url, &driver.config.tls, budget).map_err(HttpError::Unavailable)?;
+        let mut stream = driver
+            .config
+            .connect(&url, budget)
+            .map_err(HttpError::Unavailable)?;
         let host = host_header(&url).map_err(HttpError::Unavailable)?;
         let proof = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&device_proof(&credential)).map_err(|_| HttpError::Invalid)?,

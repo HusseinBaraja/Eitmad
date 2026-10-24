@@ -261,7 +261,7 @@ function Invoke-EitmadBackup {
     [CmdletBinding()]
     param([ValidateSet('Run', 'Status', 'Install')][string]$Action = 'Status', [Parameter(Mandatory)][string]$PlanPath)
     $plan = Read-BackupPlan $PlanPath
-    foreach ($file in '', 'backup.psm1', 'backup-worker.ps1', 'run-backup.ps1', 'host.psm1') {
+    foreach ($file in '', 'backup.psm1', 'backup-worker.ps1', 'backup-tools.psm1', 'run-backup.ps1', 'host.psm1') {
         Assert-BackupControl $(if ($file) { Join-Path $PSScriptRoot $file } else { $PSScriptRoot })
     }
     if ($Action -eq 'Install') {

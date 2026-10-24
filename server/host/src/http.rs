@@ -54,11 +54,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::ServerConfig;
+mod pairing;
 
 type QuotationExpiryScope = (Uuid, String, Uuid);
 
 #[derive(Clone)]
 pub struct ServerState {
+    pairing_identity: Option<eitmad_contracts::pairing::PairingIdentity>,
     control: ControlPlane,
     sync: SyncCoordinator,
     server_hello: PeerHello,
@@ -88,6 +90,7 @@ impl ServerState {
             })
             .collect();
         Self {
+            pairing_identity: None,
             control,
             sync,
             server_hello: server_hello(schemas),
@@ -181,6 +184,13 @@ impl ServerState {
     pub fn set_ready(&self, value: bool) {
         self.ready.store(value, Ordering::Release);
     }
+
+    /// Configures only public server-owned trust material, never discovery input.
+    #[must_use]
+    pub fn with_pairing(mut self, identity: eitmad_contracts::pairing::PairingIdentity) -> Self {
+        self.pairing_identity = Some(identity);
+        self
+    }
 }
 
 struct DatabaseNotifications {
@@ -228,6 +238,11 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/desktop-profile", post(desktop_profile))
         .route("/v1/auth/refresh", post(refresh))
+        .route("/v1/pairing/open", post(pairing::open))
+        .route("/v1/pairing/offer", get(pairing::offer))
+        .route("/v1/pairing/start", post(pairing::start))
+        .route("/v1/pairing/complete", post(pairing::complete))
+        .route("/v1/server-identity", get(pairing::server_identity))
         .route("/v1/accounts/list", post(list_accounts))
         .route("/v1/accounts/watch", post(watch_accounts))
         .route("/v1/accounts/transition", post(change_account))
@@ -321,10 +336,14 @@ pub fn router(state: ServerState) -> Router {
 /// Returns an I/O or TLS configuration error after graceful shutdown is requested.
 pub async fn run(
     config: &ServerConfig,
-    state: ServerState,
+    mut state: ServerState,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(identity) = pairing::configured_identity(config)? {
+        state = state.with_pairing(identity);
+    }
     let application = router(state.clone());
-    let address = config.listen;
+    let address =
+        crate::discovery::listener_address(config.listen, state.pairing_identity.is_some());
     if let (Some(certificate), Some(private_key)) =
         (&config.tls_certificate, &config.tls_private_key)
     {
@@ -332,6 +351,14 @@ pub async fn run(
         let _ = rustls::crypto::ring::default_provider().install_default();
         let tls =
             axum_server::tls_rustls::RustlsConfig::from_pem_file(certificate, private_key).await?;
+        let listener = std::net::TcpListener::bind(address)?;
+        listener.set_nonblocking(true)?;
+        let _advertisement = crate::discovery::Advertisement::start(
+            &config.update_manifest_directory,
+            listener.local_addr()?,
+            true,
+        )
+        .await?;
         let handle = axum_server::Handle::new();
         let shutdown_handle = handle.clone();
         let shutdown_state = state.clone();
@@ -339,7 +366,7 @@ pub async fn run(
             shutdown_signal(shutdown_state).await;
             shutdown_handle.graceful_shutdown(Some(std::time::Duration::from_secs(30)));
         });
-        axum_server::bind_rustls(address, tls)
+        axum_server::from_tcp_rustls(listener, tls)?
             .handle(handle)
             .serve(application.into_make_service())
             .await?;
@@ -1883,6 +1910,7 @@ fn server_hello(schemas: Vec<SchemaSupport>) -> PeerHello {
                 !matches!(
                     c.as_str(),
                     "eitmad.capability.orders.v1"
+                        | "eitmad.capability.server-pairing.v1"
                         | "eitmad.capability.customer.v1"
                         | "eitmad.capability.work-orders.v1"
                         | "eitmad.capability.quotation-lifecycle.v1"

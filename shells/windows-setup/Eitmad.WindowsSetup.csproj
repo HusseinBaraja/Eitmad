@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF>
+  <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers><AssemblyName>EitmadSetup</AssemblyName><RootNamespace>Eitmad.WindowsSetup</RootNamespace>
+ </PropertyGroup>
+ <ItemGroup><ProjectReference Include="../windows/Eitmad.WindowsShell.csproj"/></ItemGroup>
+</Project>

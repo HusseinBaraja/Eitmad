@@ -5,7 +5,7 @@ audience: "api"
 page_type: "task"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-08-22"
+last_verified: "2026-10-24"
 review_triggers:
   - "the protocol version, supported release window, capability negotiation, generator, or rollout process changes"
 keywords:
@@ -21,7 +21,7 @@ Change the Rust authority and its direct callers together, then regenerate every
 
 ## Current desktop boundary
 
-Engine and Windows shell negotiate protocol `1.14` only. Older beta peers fail at handshake. Capability and schema negotiation remain required. A command, query, or subscription envelope must match the negotiated version and authenticated scope.
+Engine and Windows shell negotiate protocol `1.31` only, as declared by `PROTOCOL_VERSION` in `crates/contracts/src/transport.rs`. Older beta peers fail at handshake. Capability and schema negotiation remain required. A command, query, or subscription envelope must match the negotiated version and authenticated scope.
 
 Keep the protocol and schema identifiers versioned. If a supported release or external consumer is introduced, declare its supported ranges and apply [ADR-0015](../decisions/0015-contract-compatibility-window.md) to that real release boundary. Preserve durable local data and immutable migration history regardless of protocol compatibility.
 

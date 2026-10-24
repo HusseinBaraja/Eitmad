@@ -12,5 +12,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="4.3.3" />
     <PackageReference Include="MSTest.TestFramework" Version="4.3.3" />
     <ProjectReference Include="../Eitmad.LanCertificate.csproj" />
+    <None Include="../../../deploy/windows/tls-renewal.psm1;../../../deploy/windows/host.psm1;../../../deploy/windows/backup.psm1"
+          Link="deploy/windows/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

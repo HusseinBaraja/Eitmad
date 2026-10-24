@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "customer capability maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-23"
 review_triggers:
   - "customer contracts, search normalization, permissions, storage, sync, or lifecycle rules change"
 keywords:
@@ -156,7 +156,21 @@ On download, Rust projects each confirmed contact before advancing the shared en
 
 Do not inspect or repair contact rows manually. Follow [local storage recovery](../../operations/recover-local-storage.md) for database failure.
 
+### Diagnose a customer confirmation timeout
+
+Inspect the query outcome before treating a timeout as failed synchronization. A Manager customer detail read uses organization authority and must include `GetCustomer.branchId` from `Customer.scope.id`. A missing branch makes that read invalid even if the customer upload succeeded. A verification loop must report rejected reads immediately. It can wait for `eitmad.error.customer-not-found.v1` while the initial upload is pending; it must not turn every query failure into a sync timeout.
+
+A successful Manager directory read proves that the server has the customer. It does not prove that another installation has completed its background branch download. An edit on that installation can return `eitmad.error.customer-not-found.v1` until its local customer row arrives. A bounded integration check can retry that specific result with the same frozen command and idempotency key. Other mutation errors must fail the check. Preserve state for diagnosis; do not reset the database or weaken scope authorization.
+
 ## Verification and extension
+
+`CustomerSyncLiveTests.PairedDesktopsConfirmCustomerChangesInBothDirectionsAfterRestart` uses two packaged engines through native IPC. It discovers and pairs a fresh device, creates a synthetic customer, edits it on the other device after download, checks server confirmation in both directions, then restarts the client and checks its retained device identity and confirmed customer. Manager reads include the exact owning branch, and rejected reads fail immediately. This is a same-PC integration check; it does not replace a second physical PC or DHCP-change acceptance test.
+
+Use a running isolated Private-LAN test server with an enrolled Owner desktop at `manager/` and private `secrets.json` containing that environment's `manager_password` and `endpoint`. Close other shells that use that desktop directory. Run as the same Windows user so the Rust engines can access their OS-held device credentials. Set `EITMAD_E2E_ROOT` to the absolute test-state directory and `EITMAD_E2E_ENGINE` to the absolute packaged `eitmad-engine-cli.exe` path. The test creates a new `customer-sync-client-*` directory and retains its enrollment and synthetic work. It skips when those environment variables are absent.
+
+```powershell
+dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo -m:1 --filter FullyQualifiedName~CustomerSyncLiveTests
+```
 
 `customer_resolution_converges_after_restart_and_lost_reply_without_replaying_dependents` in `crates/server-connection/tests/direct_route/customer_resolution.rs` uses two SQLite clients, the application dispatcher, authenticated TLS HTTP, and PostgreSQL. It covers conflict/restart, stale decisions, lost success replies, exact and changed retries, separate dependent review, scope and Receptionist denial, audit rollback, and convergence. Use the [direct-route prerequisites](../../operations/run-server-authority.md#run-the-direct-desktop-connection-test) with a fresh disposable database, then run:
 

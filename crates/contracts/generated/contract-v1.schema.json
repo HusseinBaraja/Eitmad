@@ -36,6 +36,9 @@
     "command_response": {
       "$ref": "#/definitions/CommandResponseEnvelope"
     },
+    "complete_pairing": {
+      "$ref": "#/definitions/CompletePairing"
+    },
     "confirm_customer_resolution": {
       "$ref": "#/definitions/ConfirmCustomerResolution"
     },
@@ -69,6 +72,24 @@
     "event": {
       "$ref": "#/definitions/EventEnvelope"
     },
+    "guided_windows_setup": {
+      "$ref": "#/definitions/GuidedWindowsSetup"
+    },
+    "initialize_workshop": {
+      "$ref": "#/definitions/InitializeWorkshop"
+    },
+    "initialized_workshop": {
+      "$ref": "#/definitions/InitializedWorkshop"
+    },
+    "install_windows": {
+      "$ref": "#/definitions/InstallWindows"
+    },
+    "install_windows_client": {
+      "$ref": "#/definitions/InstallWindowsClient"
+    },
+    "install_windows_server": {
+      "$ref": "#/definitions/InstallWindowsServer"
+    },
     "ipc_client_message": {
       "$ref": "#/definitions/IpcClientMessage"
     },
@@ -80,6 +101,9 @@
     },
     "list_server_accounts": {
       "$ref": "#/definitions/ListServerAccounts"
+    },
+    "manage_server_backup": {
+      "$ref": "#/definitions/ManageServerBackup"
     },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
@@ -102,8 +126,26 @@
     "observation_value_kind": {
       "$ref": "#/definitions/ObservationValueKind"
     },
+    "open_pairing": {
+      "$ref": "#/definitions/OpenPairing"
+    },
+    "opened_pairing": {
+      "$ref": "#/definitions/OpenedPairing"
+    },
+    "pairing_challenge": {
+      "$ref": "#/definitions/PairingChallenge"
+    },
+    "pairing_receipt": {
+      "$ref": "#/definitions/PairingReceipt"
+    },
     "peer_hello": {
       "$ref": "#/definitions/PeerHello"
+    },
+    "prepare_windows_workshop": {
+      "$ref": "#/definitions/PrepareWindowsWorkshop"
+    },
+    "prepared_windows_workshop": {
+      "$ref": "#/definitions/PreparedWindowsWorkshop"
     },
     "published_price_page": {
       "$ref": "#/definitions/PublishedPricePage"
@@ -138,6 +180,9 @@
     "read_quotations": {
       "$ref": "#/definitions/ReadQuotations"
     },
+    "read_windows_installation": {
+      "$ref": "#/definitions/ReadWindowsInstallation"
+    },
     "read_work_orders": {
       "$ref": "#/definitions/ReadWorkOrders"
     },
@@ -171,6 +216,15 @@
     "server_account_watch": {
       "$ref": "#/definitions/ServerAccountWatch"
     },
+    "server_backup_configuration": {
+      "$ref": "#/definitions/ServerBackupConfiguration"
+    },
+    "server_backup_management": {
+      "$ref": "#/definitions/ServerBackupManagement"
+    },
+    "server_backup_status": {
+      "$ref": "#/definitions/ServerBackupStatus"
+    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
@@ -179,6 +233,9 @@
     },
     "signed_update_manifest": {
       "$ref": "#/definitions/SignedUpdateManifest"
+    },
+    "start_pairing": {
+      "$ref": "#/definitions/StartPairing"
     },
     "subscription_request": {
       "$ref": "#/definitions/SubscriptionEnvelope"
@@ -206,9 +263,40 @@
     },
     "watch_server_accounts": {
       "$ref": "#/definitions/WatchServerAccounts"
+    },
+    "windows_install_progress": {
+      "$ref": "#/definitions/WindowsInstallProgress"
+    },
+    "windows_installation_state": {
+      "$ref": "#/definitions/WindowsInstallationState"
+    },
+    "windows_setup_bundle": {
+      "$ref": "#/definitions/WindowsSetupBundle"
     }
   },
   "required": [
+    "guided_windows_setup",
+    "windows_setup_bundle",
+    "server_backup_configuration",
+    "server_backup_status",
+    "manage_server_backup",
+    "server_backup_management",
+    "open_pairing",
+    "opened_pairing",
+    "start_pairing",
+    "pairing_challenge",
+    "complete_pairing",
+    "pairing_receipt",
+    "install_windows",
+    "install_windows_server",
+    "install_windows_client",
+    "windows_install_progress",
+    "read_windows_installation",
+    "windows_installation_state",
+    "prepare_windows_workshop",
+    "prepared_windows_workshop",
+    "initialize_workshop",
+    "initialized_workshop",
     "reconcile_customer_resolution",
     "reconcile_quotation_draft_resolution",
     "read_quotation_draft_recovery",
@@ -2361,6 +2449,26 @@
         "disposition"
       ]
     },
+    "CompletePairing": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialFinalization": {
+          "type": "string"
+        },
+        "deviceSignature": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialFinalization",
+        "deviceSignature"
+      ]
+    },
     "CompositionReference": {
       "type": "object",
       "properties": {
@@ -3868,6 +3976,173 @@
         "branch"
       ]
     },
+    "DesktopOnboardingAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "state"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pair"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "candidate": {
+                  "$ref": "#/definitions/DiscoveredServer"
+                },
+                "code": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "candidate",
+                "code"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "description": "Explicitly abandon only the pending exchange; retain identity, trust, and data.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "discardPendingPairing"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "openPairing"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "DesktopOnboardingRequest": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/DesktopOnboardingAction"
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId",
+        "action"
+      ]
+    },
+    "DesktopOnboardingResponse": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContractError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DesktopOnboardingState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "DesktopOnboardingState": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expiresAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "paired": {
+          "type": "boolean"
+        },
+        "pendingPairingServer": {
+          "description": "The saved completion must be retried against this server until explicitly discarded.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "paired"
+      ]
+    },
     "DesktopSessionRequest": {
       "type": "object",
       "properties": {
@@ -4012,6 +4287,31 @@
         "correlationId",
         "username",
         "password"
+      ]
+    },
+    "DeviceProof": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "issuedAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "nonce": {
+          "type": "string"
+        },
+        "signatureBase64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "nonce",
+        "issuedAt",
+        "signatureBase64"
       ]
     },
     "DevicePublicKey": {
@@ -4333,6 +4633,81 @@
         "discountYer",
         "totalYer",
         "approvalRequired"
+      ]
+    },
+    "DiscoverServers": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "selectedServerId": {
+          "description": "Revalidate this untrusted identity before pairing; never substitute another server.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId"
+      ]
+    },
+    "DiscoveredServer": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "description": "A hint only. Pairing must authenticate the server identity and TLS name separately.",
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "identityConflict": {
+          "description": "More than one running installation claims this identity. Never select it automatically.",
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "serverId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverId",
+        "address",
+        "port",
+        "expiresAt",
+        "identityConflict"
+      ]
+    },
+    "DiscoveryStatus": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "cancelled",
+        "networkChanged",
+        "unavailable",
+        "busy",
+        "authenticationRequired",
+        "limitReached",
+        "serverMissing",
+        "identityConflict"
       ]
     },
     "DownloadCatalogImage": {
@@ -5766,6 +6141,72 @@
         "relation"
       ]
     },
+    "GuidedSetupAction": {
+      "type": "string",
+      "enum": [
+        "inspect",
+        "retry",
+        "client",
+        "server"
+      ]
+    },
+    "GuidedWindowsSetup": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/GuidedSetupAction"
+        },
+        "backup": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bundleDirectory": {
+          "type": "string"
+        },
+        "intendedUserSid": {
+          "type": "string"
+        },
+        "ownerPassword": {
+          "description": "Retry credentials are transient and are never written to the recovery journal.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AccountPassword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/InitializeWorkshop"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "action",
+        "bundleDirectory",
+        "intendedUserSid"
+      ]
+    },
     "HandshakeAccepted": {
       "type": "object",
       "properties": {
@@ -6150,8 +6591,254 @@
         "sourcePath"
       ]
     },
+    "InitializeWorkshop": {
+      "type": "object",
+      "properties": {
+        "ownerPassword": {
+          "$ref": "#/definitions/AccountPassword"
+        },
+        "ownerUsername": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshopName": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "workshopName",
+        "ownerUsername",
+        "ownerPassword"
+      ]
+    },
+    "InitializedWorkshop": {
+      "description": "Public enrollment coordinates, without credentials or an activation token.",
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "ownerAccountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "tenantCode",
+        "tenantId",
+        "organizationId",
+        "branchId",
+        "ownerAccountId"
+      ]
+    },
+    "InstallWindows": {
+      "description": "Private local installer input. Never persist or log this request.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "server"
+            },
+            "payload": {
+              "$ref": "#/definitions/InstallWindowsServer"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "client"
+            },
+            "payload": {
+              "$ref": "#/definitions/InstallWindowsClient"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "payload"
+          ]
+        }
+      ]
+    },
+    "InstallWindowsClient": {
+      "type": "object",
+      "properties": {
+        "desktop": {
+          "$ref": "#/definitions/WindowsInstallPackage"
+        },
+        "intendedUserSid": {
+          "description": "The initiating Windows user's SID, checked again immediately before registration.",
+          "type": "string"
+        },
+        "progressDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progressDirectory",
+        "intendedUserSid",
+        "desktop"
+      ]
+    },
+    "InstallWindowsServer": {
+      "type": "object",
+      "properties": {
+        "backup": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "client": {
+          "$ref": "#/definitions/InstallWindowsClient"
+        },
+        "firstDesktop": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LoginRequest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparation": {
+          "$ref": "#/definitions/PrepareWindowsWorkshop"
+        },
+        "server": {
+          "$ref": "#/definitions/WindowsInstallPackage"
+        },
+        "serverProgressDirectory": {
+          "type": "string"
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "serviceStateDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "winswExecutable": {
+          "type": "string"
+        },
+        "winswSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "client",
+        "preparation",
+        "server",
+        "serviceStateDirectory",
+        "serviceName",
+        "serverProgressDirectory",
+        "winswExecutable",
+        "winswSha256"
+      ]
+    },
     "IpcClientMessage": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-onboarding.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopOnboardingRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.discover-servers.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscoverServers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "description": "Uses the request and correlation IDs of the scan to cancel on this connection.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.cancel-server-discovery.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DiscoverServers"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -6318,6 +7005,38 @@
     },
     "IpcServerMessage": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.desktop-onboarding-response.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/DesktopOnboardingResponse"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "eitmad.ipc.server-discovery.v1"
+            },
+            "payload": {
+              "$ref": "#/definitions/ServerDiscoveryResult"
+            }
+          },
+          "required": [
+            "kind",
+            "payload"
+          ]
+        },
         {
           "type": "object",
           "properties": {
@@ -7114,6 +7833,78 @@
         "change"
       ]
     },
+    "LoginRequest": {
+      "description": "Secret-bearing login request. It intentionally has no `Debug` implementation.",
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceLabel": {
+          "type": "string"
+        },
+        "deviceProof": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DeviceProof"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "password": {
+          "type": "string"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenantCode",
+        "username",
+        "password",
+        "deviceId",
+        "deviceLabel",
+        "devicePublicKey"
+      ]
+    },
+    "ManageServerBackup": {
+      "description": "Local Windows administration only. No application account can authorize this request.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/ServerBackupAction"
+        },
+        "destinations": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SetupBackupDestinations"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "action"
+      ]
+    },
     "Material": {
       "type": "object",
       "properties": {
@@ -7593,6 +8384,48 @@
         "text"
       ]
     },
+    "OpenPairing": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "organizationId",
+        "branchId"
+      ]
+    },
+    "OpenedPairing": {
+      "description": "Transient Owner-only secret. Do not log or persist the code.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "offer": {
+          "$ref": "#/definitions/PairingOffer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "offer",
+        "code"
+      ]
+    },
     "OrderAction": {
       "oneOf": [
         {
@@ -7966,6 +8799,133 @@
         "lineIds"
       ]
     },
+    "PairingBinding": {
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "deviceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "devicePublicKey": {
+          "$ref": "#/definitions/DevicePublicKey"
+        },
+        "offer": {
+          "$ref": "#/definitions/PairingOffer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "offer",
+        "attemptId",
+        "deviceId",
+        "devicePublicKey"
+      ]
+    },
+    "PairingChallenge": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialResponse": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialResponse"
+      ]
+    },
+    "PairingIdentity": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "publicCaPem": {
+          "type": "string"
+        },
+        "serverId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverId",
+        "endpoint",
+        "publicCaPem"
+      ]
+    },
+    "PairingOffer": {
+      "type": "object",
+      "properties": {
+        "branchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "identity": {
+          "$ref": "#/definitions/PairingIdentity"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "tenantCode": {
+          "$ref": "#/definitions/TenantCode"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sessionId",
+        "identity",
+        "tenantId",
+        "tenantCode",
+        "organizationId",
+        "branchId",
+        "expiresAt"
+      ]
+    },
+    "PairingReceipt": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "confirmation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "confirmation"
+      ]
+    },
     "Part": {
       "type": "object",
       "properties": {
@@ -8310,6 +9270,85 @@
       "enum": [
         "granted",
         "denied"
+      ]
+    },
+    "PrepareWindowsWorkshop": {
+      "description": "Local deployment input. Paths identify reviewed offline installation tools.",
+      "type": "object",
+      "properties": {
+        "certificateExecutable": {
+          "type": "string"
+        },
+        "databasePort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "listenAddress": {
+          "type": "string"
+        },
+        "platformScript": {
+          "type": "string"
+        },
+        "postgresBin": {
+          "type": "string"
+        },
+        "serverName": {
+          "type": "string"
+        },
+        "serverPort": {
+          "type": "integer",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "stateDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "$ref": "#/definitions/InitializeWorkshop"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "stateDirectory",
+        "platformScript",
+        "postgresBin",
+        "certificateExecutable",
+        "serverName",
+        "listenAddress",
+        "serverPort",
+        "databasePort",
+        "workshop"
+      ]
+    },
+    "PreparedWindowsWorkshop": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "workshop": {
+          "$ref": "#/definitions/InitializedWorkshop"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "endpoint",
+        "workshop"
       ]
     },
     "PriceAdjustment": {
@@ -11445,6 +12484,24 @@
         "query"
       ]
     },
+    "ReadWindowsInstallation": {
+      "type": "object",
+      "properties": {
+        "progressDirectory": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progressDirectory"
+      ]
+    },
     "ReadWorkOrders": {
       "type": "object",
       "properties": {
@@ -13115,6 +14172,202 @@
         "revision"
       ]
     },
+    "ServerBackupAction": {
+      "type": "string",
+      "enum": [
+        "inspect",
+        "capture",
+        "saveDestinations",
+        "repairSchedule"
+      ]
+    },
+    "ServerBackupConfiguration": {
+      "type": "object",
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "externalDestination": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hostRoot": {
+          "type": "string"
+        },
+        "intervalHours": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 24,
+          "minimum": 0
+        },
+        "localDestination": {
+          "type": "string"
+        },
+        "recoveryDirectory": {
+          "type": "string"
+        },
+        "reserveBytes": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 1073741824,
+          "minimum": 0
+        },
+        "retentionCount": {
+          "type": "integer",
+          "format": "uint",
+          "default": 7,
+          "minimum": 0
+        },
+        "serviceName": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "deploymentId",
+        "hostRoot",
+        "serviceName",
+        "recoveryDirectory",
+        "localDestination"
+      ]
+    },
+    "ServerBackupManagement": {
+      "description": "Sanitized management projection; source paths and private configuration stay in Rust.",
+      "type": "object",
+      "properties": {
+        "actionOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "destinations": {
+          "$ref": "#/definitions/SetupBackupDestinations"
+        },
+        "intervalHours": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "retentionCount": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "status": {
+          "$ref": "#/definitions/ServerBackupStatus"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "destinations",
+        "intervalHours",
+        "retentionCount",
+        "status",
+        "actionOutcome"
+      ]
+    },
+    "ServerBackupOutcome": {
+      "type": "string",
+      "enum": [
+        "neverRun",
+        "running",
+        "succeeded",
+        "destinationUnavailable",
+        "insufficientSpace",
+        "captureFailed",
+        "interrupted",
+        "retentionFailed",
+        "scheduleFailed"
+      ]
+    },
+    "ServerBackupStatus": {
+      "description": "Safe for later onboarding UI. Paths, credentials, and tool output are excluded.",
+      "type": "object",
+      "properties": {
+        "deploymentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "diskLossProtected": {
+          "description": "Only a copy verified on a different physical disk can set this value.",
+          "type": "boolean"
+        },
+        "externalConfigured": {
+          "type": "boolean"
+        },
+        "externalOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "lastAttemptAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lastExternalSuccessAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "lastLocalSuccessAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "localOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "nextDueAt": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "overdue": {
+          "type": "boolean"
+        },
+        "scheduleOutcome": {
+          "$ref": "#/definitions/ServerBackupOutcome"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "deploymentId",
+        "localOutcome",
+        "externalOutcome",
+        "nextDueAt",
+        "overdue",
+        "externalConfigured",
+        "diskLossProtected",
+        "scheduleOutcome"
+      ]
+    },
     "ServerClientMessage": {
       "oneOf": [
         {
@@ -13206,6 +14459,35 @@
       "required": [
         "apiVersion",
         "peer"
+      ]
+    },
+    "ServerDiscoveryResult": {
+      "type": "object",
+      "properties": {
+        "correlationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "servers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiscoveredServer"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/DiscoveryStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "correlationId",
+        "status",
+        "servers"
       ]
     },
     "ServerFailure": {
@@ -13435,6 +14717,24 @@
         "validityDays"
       ]
     },
+    "SetupBackupDestinations": {
+      "type": "object",
+      "properties": {
+        "external": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "local": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "local"
+      ]
+    },
     "ShutdownRequest": {
       "type": "object",
       "properties": {
@@ -13622,6 +14922,22 @@
         "cohortSeed",
         "startsAt",
         "paused"
+      ]
+    },
+    "StartPairing": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "$ref": "#/definitions/PairingBinding"
+        },
+        "credentialRequest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "credentialRequest"
       ]
     },
     "Subscription": {
@@ -15309,6 +16625,158 @@
       "required": [
         "registration",
         "revision"
+      ]
+    },
+    "WindowsInstallPackage": {
+      "type": "object",
+      "properties": {
+        "directory": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "releaseSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "releaseSha256",
+        "publisher"
+      ]
+    },
+    "WindowsInstallProgress": {
+      "description": "Public, ordered progress. Contains no user input, credentials, paths, or OS error text.",
+      "type": "object",
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "stage": {
+          "$ref": "#/definitions/WindowsInstallStage"
+        },
+        "status": {
+          "$ref": "#/definitions/WindowsInstallStatus"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sequence",
+        "stage",
+        "status"
+      ]
+    },
+    "WindowsInstallStage": {
+      "type": "string",
+      "enum": [
+        "preflight",
+        "elevation",
+        "prepareWorkshop",
+        "applyMigrations",
+        "initializeOwner",
+        "stopPreparedDatabase",
+        "installServices",
+        "configureFirewall",
+        "verifyHttps",
+        "registerDesktop",
+        "enrollDesktop",
+        "configureBackups",
+        "complete"
+      ]
+    },
+    "WindowsInstallStatus": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "running",
+            "succeeded",
+            "failed"
+          ]
+        },
+        {
+          "description": "State cannot be proved safe. Preserve it for an operator inspection.",
+          "type": "string",
+          "const": "blocked"
+        }
+      ]
+    },
+    "WindowsInstallationState": {
+      "type": "object",
+      "properties": {
+        "interrupted": {
+          "type": "boolean"
+        },
+        "progress": {
+          "$ref": "#/definitions/WindowsInstallProgress"
+        },
+        "recovery": {
+          "$ref": "#/definitions/WindowsSetupRecovery"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "progress",
+        "interrupted",
+        "recovery"
+      ]
+    },
+    "WindowsSetupBundle": {
+      "description": "Release metadata, emitted by offline bundle assembly. It contains no machine settings.",
+      "type": "object",
+      "properties": {
+        "desktopReleaseSha256": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "serverReleaseSha256": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "winswSha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "publisher",
+        "desktopReleaseSha256",
+        "serverReleaseSha256",
+        "winswSha256"
+      ]
+    },
+    "WindowsSetupRecovery": {
+      "description": "Rust decides which action is available; the native shell supplies localized copy.",
+      "type": "string",
+      "enum": [
+        "retry",
+        "ownerPassword",
+        "wait",
+        "inspectManually",
+        "complete"
       ]
     },
     "WorkOrderFurniture": {

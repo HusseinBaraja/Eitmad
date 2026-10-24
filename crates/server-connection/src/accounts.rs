@@ -15,7 +15,7 @@ use eitmad_contracts::{
 };
 use eitmad_engine_runtime::{DesktopAccountAuthority, DesktopAccountError};
 use eitmad_secret_storage::SecretStore;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct DirectAccountClient {
     http: AuthenticatedHttpClient,
@@ -25,6 +25,26 @@ pub struct DirectAccountClient {
 }
 
 impl DirectAccountClient {
+    /// Opens a short-lived code only after the server verifies live Owner authority and audit.
+    /// # Errors
+    /// Rejects non-Owners, stale sessions, and unavailable authority.
+    pub fn open_pairing(
+        &self,
+        actor: &AuthorizationContext,
+    ) -> Result<eitmad_contracts::pairing::OpenedPairing, DesktopAccountError> {
+        self.http
+            .request(
+                actor,
+                "/v1/pairing/open",
+                &eitmad_contracts::pairing::OpenPairing {
+                    version: 1,
+                    organization_id: self.organization,
+                    branch_id: self.branch,
+                },
+                Instant::now() + crate::REQUEST_TIMEOUT,
+            )
+            .map_err(|error| map_error(&error))
+    }
     #[must_use]
     pub fn from_config(
         config: crate::DirectServerConfig,
@@ -98,7 +118,7 @@ impl DirectAccountClient {
                     },
                     revision,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| map_error(&error))
     }
@@ -114,7 +134,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
                     after: None,
                     limit: 1,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map(|_| ())
             .map_err(|error| map_error(&error))
@@ -126,7 +146,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
     ) -> Result<DesktopAccountPage, DesktopAccountError> {
         let mut after = None;
         let mut accounts = Vec::new();
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + crate::REQUEST_TIMEOUT;
         loop {
             let page: ServerAccountPage = self
                 .http
@@ -185,7 +205,7 @@ impl DesktopAccountAuthority for DirectAccountClient {
                     idempotency_key: context.idempotency_key,
                     change,
                 },
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|error| map_error(&error))?;
         self.summary(result.receipt.account)

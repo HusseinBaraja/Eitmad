@@ -10,6 +10,9 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+eitmad-pairing = { path = "../pairing" }
+eitmad-server-discovery = { path = "../server-discovery" }
+tokio = { version = "=1.49.0", features = ["rt", "time", "sync"] }
 eitmad-engine-runtime = { path = "../engine-runtime" }
 argon2 = "=0.5.3"
 rand = "=0.9.3"
@@ -37,6 +40,7 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
+eitmad-server-discovery = { path = "../server-discovery", features = ["test-support"] }
 eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }
 eitmad-furniture = { path = "../furniture" }
@@ -51,4 +55,4 @@ eitmad-server = { path = "../../server/host" }
 eitmad-server-audit = { path = "../../server/audit" }
 eitmad-sync-plane = { path = "../../server/sync-plane" }
 tempfile = "=3.24.0"
-tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "=1.49.0", features = ["macros", "rt-multi-thread", "time", "test-util"] }

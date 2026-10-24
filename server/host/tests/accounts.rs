@@ -63,16 +63,18 @@ fn assignment(role: DesktopAccountRole, branch: ScopeId) -> Vec<ServerRoleAssign
 
 impl Client {
     fn proof(&self) -> DeviceProof {
-        let issued_at = unix_millis_now();
-        let nonce = Uuid::new_v4().to_string();
-        let device = self.auth.session.device_id;
-        let bytes = format!("{}\n{}\n{nonce}", device.value(), issued_at.0);
-        DeviceProof {
-            device_id: device,
-            nonce,
-            issued_at,
-            signature_base64: URL_SAFE_NO_PAD.encode(self.key.sign(bytes.as_bytes()).to_bytes()),
-        }
+        device_proof(&self.key, self.auth.session.device_id)
+    }
+}
+fn device_proof(key: &SigningKey, device: DeviceId) -> DeviceProof {
+    let issued_at = unix_millis_now();
+    let nonce = Uuid::new_v4().to_string();
+    let bytes = format!("{}\n{}\n{nonce}", device.value(), issued_at.0);
+    DeviceProof {
+        device_id: device,
+        nonce,
+        issued_at,
+        signature_base64: URL_SAFE_NO_PAD.encode(key.sign(bytes.as_bytes()).to_bytes()),
     }
 }
 
@@ -92,11 +94,15 @@ async fn post<T: Serialize>(
             protocols: vec![SupportedProtocol {
                 major: 1,
                 minimum_minor: 5,
-                maximum_minor: 24,
+                maximum_minor: eitmad_contracts::PROTOCOL_VERSION.minor,
             }],
             capabilities: vec![
                 eitmad_contracts::transport::CapabilityId::parse(
                     "eitmad.capability.server-administration.v1",
+                )
+                .unwrap(),
+                eitmad_contracts::transport::CapabilityId::parse(
+                    "eitmad.capability.shared-accounts.v1",
                 )
                 .unwrap(),
             ],
@@ -228,6 +234,196 @@ async fn fixture() -> Fixture {
         organization,
         branches,
     }
+}
+
+#[tokio::test]
+#[ignore = "requires a fresh disposable PostgreSQL database with enforced RLS"]
+async fn workshop_setup_is_atomic_and_creates_a_usable_owner() {
+    use eitmad_contracts::{accounts::AccountPassword, setup::InitializeWorkshop};
+    use eitmad_control_plane::IdentityError;
+    let url = std::env::var("EITMAD_DIRECT_TEST_DATABASE_URL").unwrap();
+    let db = ControlDatabase::connect(&url, 6).await.unwrap();
+    db.migrate().await.unwrap();
+    let pool = db.pool();
+    let elevated: bool = sqlx::query_scalar(
+        "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!elevated, "setup proof must enforce RLS");
+    let sync = SyncDatabase::connect(&url, 2).await.unwrap();
+    sync.migrate().await.unwrap();
+    eitmad_admin_plane::AdminDatabase::connect(&url, 2)
+        .await
+        .unwrap()
+        .migrate()
+        .await
+        .unwrap();
+    AuditDatabase::from_pool(pool.clone())
+        .migrate()
+        .await
+        .unwrap();
+    let control = ControlPlane::new(pool.clone(), TokenKey::new([42; 32]));
+    let request = InitializeWorkshop {
+        version: 1,
+        workshop_name: "ورشة اختبار الإعداد".into(),
+        owner_username: "workshop-owner".into(),
+        owner_password: AccountPassword::new("synthetic-setup-owner-password"),
+    };
+    assert_setup_rollback(&control, &pool, &request).await;
+    let (one, two) = tokio::join!(
+        control
+            .identity
+            .initialize_workshop(&request, correlation(), unix_millis_now()),
+        control
+            .identity
+            .initialize_workshop(&request, correlation(), unix_millis_now()),
+    );
+    let ((Ok(initialized), Err(IdentityError::AlreadyBootstrapped))
+    | (Err(IdentityError::AlreadyBootstrapped), Ok(initialized))) = (one, two)
+    else {
+        panic!("only one competing initialization may commit");
+    };
+    assert_initialized_owner(sync, control, pool, request, initialized).await;
+}
+
+async fn assert_initialized_owner(
+    sync: SyncDatabase,
+    control: ControlPlane,
+    pool: sqlx::PgPool,
+    request: eitmad_contracts::setup::InitializeWorkshop,
+    initialized: eitmad_contracts::setup::InitializedWorkshop,
+) {
+    use eitmad_contracts::accounts::AccountPassword;
+    let app = router(ServerState::new(
+        control.clone(),
+        SyncCoordinator::new(&sync, DomainRegistry::new(std::iter::empty()).unwrap()),
+    ));
+    let (activation, key) = activation(String::new(), 61);
+    let login = LoginRequest {
+        tenant_code: initialized.tenant_code.clone(),
+        username: request.owner_username.clone(),
+        password: request.owner_password.expose_secret().into(),
+        device_id: activation.device_id,
+        device_label: activation.device_label,
+        device_public_key: activation.device_public_key,
+        device_proof: Some(device_proof(&key, activation.device_id)),
+    };
+    control
+        .pairing
+        .enroll_first_desktop(&login, correlation(), unix_millis_now())
+        .await
+        .unwrap();
+    let (status, body) = post(&app, "/v1/auth/login", &login, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let owner = Client {
+        auth: serde_json::from_value(body).unwrap(),
+        key,
+    };
+    assert_eq!(owner.auth.session.account_id, initialized.owner_account_id);
+    let f = Fixture {
+        app,
+        control,
+        pool,
+        owner,
+        organization: initialized.organization_id,
+        branches: [initialized.branch_id, initialized.branch_id],
+    };
+    let accounts = list(&f).await.accounts;
+    assert_eq!(accounts.len(), 1);
+    assert!(accounts[0].organizations[0].owner);
+    assert_eq!(
+        accounts[0].organizations[0].assignments[0].role,
+        DesktopAccountRole::Manager
+    );
+    let (status, profile) = post(
+        &f.app,
+        "/v1/auth/desktop-profile",
+        &json!({
+            "organizationId": initialized.organization_id, "branchId": initialized.branch_id,
+        }),
+        Some(&f.owner),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(profile["role"], "manager");
+    let staff = change(
+        &f,
+        &command(ServerAccountChange::CreateDesktop {
+            organization_id: f.organization,
+            branch_id: initialized.branch_id,
+            account: eitmad_contracts::accounts::CreateDesktopAccount {
+                display_name: "موظف اختبار".into(),
+                username: "setup-receptionist".into(),
+                password: AccountPassword::new("synthetic-staff-password"),
+                role: DesktopAccountRole::Receptionist,
+            },
+        }),
+    )
+    .await;
+    assert_eq!(
+        staff.receipt.account.organizations[0].assignments[0].role,
+        DesktopAccountRole::Receptionist
+    );
+    assert!(
+        f.control
+            .identity
+            .initialize_workshop(&request, correlation(), unix_millis_now())
+            .await
+            .is_err()
+    );
+    assert_eq!(list(&f).await.accounts.len(), 2);
+}
+
+async fn assert_setup_rollback(
+    control: &ControlPlane,
+    pool: &sqlx::PgPool,
+    request: &eitmad_contracts::setup::InitializeWorkshop,
+) {
+    use eitmad_contracts::accounts::AccountPassword;
+    use eitmad_control_plane::IdentityError;
+    for invalid in [
+        eitmad_contracts::setup::InitializeWorkshop {
+            version: 2,
+            ..request.clone()
+        },
+        eitmad_contracts::setup::InitializeWorkshop {
+            workshop_name: "\n".into(),
+            ..request.clone()
+        },
+        eitmad_contracts::setup::InitializeWorkshop {
+            owner_password: AccountPassword::new("short"),
+            ..request.clone()
+        },
+    ] {
+        assert!(matches!(
+            control
+                .identity
+                .initialize_workshop(&invalid, correlation(), unix_millis_now())
+                .await,
+            Err(IdentityError::InvalidInput)
+        ));
+    }
+    sqlx::raw_sql("CREATE FUNCTION audit.reject_setup_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic setup audit failure'; END $$; CREATE TRIGGER setup_test_failure BEFORE INSERT ON audit.server_records FOR EACH ROW EXECUTE FUNCTION audit.reject_setup_test();")
+        .execute(pool).await.unwrap();
+    assert!(matches!(
+        control
+            .identity
+            .initialize_workshop(request, correlation(), unix_millis_now())
+            .await,
+        Err(IdentityError::Unavailable)
+    ));
+    sqlx::raw_sql("DROP TRIGGER setup_test_failure ON audit.server_records; DROP FUNCTION audit.reject_setup_test();")
+        .execute(pool).await.unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM control.tenants")
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        count, 0,
+        "failed initialization must leave no tenant or partial owner"
+    );
 }
 
 async fn change(f: &Fixture, request: &ChangeServerAccount) -> ServerAccountResult {
@@ -447,14 +643,13 @@ async fn assert_recovered_login(f: &Fixture) {
         tenant_code: TenantCode::parse("accounts-test").unwrap(),
         username: "administrator".into(),
         password: password.into(),
-        device_id: DeviceId::new(Uuid::new_v4()),
+        device_id: f.owner.auth.session.device_id,
         device_label: "Synthetic recovery device".into(),
         device_public_key: DevicePublicKey {
             algorithm: "ed25519".into(),
-            base64: URL_SAFE_NO_PAD
-                .encode(SigningKey::from_bytes(&[80; 32]).verifying_key().as_bytes()),
+            base64: URL_SAFE_NO_PAD.encode(f.owner.key.verifying_key().as_bytes()),
         },
-        device_proof: None,
+        device_proof: Some(f.owner.proof()),
     };
     assert_eq!(
         post(

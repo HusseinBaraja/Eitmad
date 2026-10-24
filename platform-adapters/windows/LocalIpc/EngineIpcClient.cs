@@ -211,6 +211,62 @@ public sealed class EngineIpcClient : IAsyncDisposable
         return result.State;
     }
 
+    public async Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default)
+    {
+        var id = Guid.NewGuid();
+        var response = await SendFrameAsync(IpcClientMessage.IpcDesktopOnboardingKind,
+            new DesktopOnboardingRequest { RequestId = id, CorrelationId = Guid.NewGuid(), Action = action },
+            id, TimeSpan.FromSeconds(45), cancellationToken, commandOutcomeUnknown: true).ConfigureAwait(false);
+        EnsureKind(response, IpcServerMessage.IpcDesktopOnboardingResponseKind);
+        var result = response.AsIpcDesktopOnboardingResponse();
+        if (result?.State is null || result.Error is not null)
+            throw new EngineIpcException(EngineIpcFailureKind.AuthenticationRejected, "Onboarding was not confirmed.", result?.Error);
+        return result.State;
+    }
+
+    public async Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default, Guid? selectedServerId = null)
+    {
+        var id = Guid.NewGuid();
+        var request = new DiscoverServers { RequestId = id, CorrelationId = Guid.NewGuid(), SelectedServerId = selectedServerId };
+        try
+        {
+            var response = await SendFrameAsync(IpcClientMessage.IpcDiscoverServersKind, request, id,
+                TimeSpan.FromSeconds(20), cancellationToken, commandOutcomeUnknown: false).ConfigureAwait(false);
+            EnsureKind(response, IpcServerMessage.IpcServerDiscoveryKind);
+            return response.AsIpcServerDiscovery() ?? throw ProtocolViolation("Invalid discovery response.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await CancelDiscoveryAsync(request).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private async Task CancelDiscoveryAsync(DiscoverServers request)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(2));
+        var locked = false;
+        try
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(new IpcClientMessage {
+                Kind = IpcClientMessage.IpcCancelServerDiscoveryKind, Payload = request }, Converter.Settings);
+            var header = new byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(header, (uint)bytes.Length);
+            await writeLock.WaitAsync(deadline.Token).ConfigureAwait(false);
+            locked = true;
+            await pipe.WriteAsync(header, deadline.Token).ConfigureAwait(false);
+            await pipe.WriteAsync(bytes, deadline.Token).ConfigureAwait(false);
+            await pipe.FlushAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException)
+        {
+            InvalidateTransport(new EngineIpcException(EngineIpcFailureKind.ConnectionLost,
+                "The discovery cancellation frame could not finish.", innerException: error));
+        }
+        finally { if (locked) writeLock.Release(); }
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         await sessionChangeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -726,6 +782,8 @@ public sealed class EngineIpcClient : IAsyncDisposable
     {
         IpcServerMessage.IpcHandshakeResponseKind => message.AsIpcHandshakeResponse()?.RequestId,
         IpcServerMessage.IpcDesktopSessionResponseKind => message.AsIpcDesktopSessionResponse()?.RequestId,
+        IpcServerMessage.IpcDesktopOnboardingResponseKind => message.AsIpcDesktopOnboardingResponse()?.RequestId,
+        IpcServerMessage.IpcServerDiscoveryKind => message.AsIpcServerDiscovery()?.RequestId,
         IpcServerMessage.IpcCommandResponseKind => message.AsIpcCommandResponse()?.RequestId,
         IpcServerMessage.IpcQueryResponseKind => message.AsIpcQueryResponse()?.RequestId,
         IpcServerMessage.IpcSubscribeResponseKind => message.AsIpcSubscribeResponse()?.RequestId,

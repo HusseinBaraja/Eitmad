@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust engine maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-10-24"
 review_triggers:
   - "engine lifecycle states, health semantics, process modes, authority locking, or shutdown behavior changes"
 keywords:
@@ -90,118 +90,9 @@ Public snapshots and stderr output exclude raw I/O errors, component errors, pat
 
 ## Arabic-first completion record
 
-This records every item in the [Arabic-first feature checklist](../contributing/arabic-first-feature-checklist.md) for this non-UI runtime foundation. “Not applicable” does not approve a global product decision; it means this change neither consumes nor implements that surface.
+Lifecycle and diagnostic output is locale-independent machine JSON. Runtime failures carry stable message IDs, retry metadata, correlation IDs, and safe lifecycle details; diagnostics exclude product text and secrets. The Windows shell owns Arabic failure presentation, RTL, focus, and accessibility. See [Windows shell behavior](windows-native-shell.md) and the [Arabic-first feature checklist](../contributing/arabic-first-feature-checklist.md) for presentation verification.
 
-### Pre-shell product decisions
-
-| Checklist item | Result |
-| --- | --- |
-| Default locale and fallback | Not applicable: machine JSON is locale-independent; no shell starts |
-| Calendar, time zone, date precision, relative dates | Not applicable: timestamps are canonical Unix milliseconds |
-| Input and display digits | Not applicable: no human input or formatted display |
-| Currency and rounding | Not applicable: no monetary values |
-| UI/document fonts | Not applicable: no UI or document rendering |
-| Localization contracts | Pass: every runtime failure has a stable `messageId`, typed retry metadata, and safe lifecycle detail |
-| Search normalization | Not applicable: no searchable domain |
-| Shared Arabic/Latin/bidi fixtures | Pass: protocol UTF-8 and mixed-direction round-trip contract tests remain active |
-| Accessibility verification platforms | Not applicable: no presentation surface |
-| PDF/print baselines | Not applicable: no generated documents |
-
-### Feature design and ownership
-
-| Checklist item | Result |
-| --- | --- |
-| Designed first in Arabic and RTL | Not applicable: no visible workflow or layout |
-| Rust vertical owns meaning and outcomes | Pass: `eitmad-engine-runtime` owns lifecycle behavior and Rust contracts own external shapes |
-| Shell owns presentation only | Pass: CLI adapts arguments, pipes, and signals without business authority |
-| Feature document records Arabic behavior and gaps | Pass: this record states applicability and unavailable platform evidence |
-
-### RTL layout and interaction
-
-| Checklist item | Result |
-| --- | --- |
-| Logical layout properties | Not applicable: no layout |
-| RTL navigation, focus, and dialogs | Not applicable: no interactive UI |
-| Icon and media mirroring | Not applicable: no visual assets |
-| RTL tables | Not applicable: no rendered tables in the product |
-| Visual loading, failure, scaling, offline, and conflict states | Not applicable: states are machine JSON only |
-
-### Bidirectional text and input
-
-| Checklist item | Result |
-| --- | --- |
-| Isolate mixed-direction visible values | Not applicable: no visible labels or values |
-| Prevent user text from reordering UI/security identifiers | Not applicable: diagnostics exclude user-controlled product text |
-| Mixed-direction editing and copy/paste | Not applicable: no text editor |
-| Arabic/Latin keyboard switching | Not applicable: no input controls |
-| Exclude presentation bidi controls from canonical values | Pass: existing contract tests verify mixed Arabic/Latin UTF-8 without injected bidi controls |
-
-### Typography and localization
-
-| Checklist item | Result |
-| --- | --- |
-| Arabic shaping, glyphs, and clipping | Not applicable: no rendering |
-| Arabic typography under visual states | Not applicable: no rendering |
-| Complete localized messages | Not applicable to the CLI: it emits stable IDs for future shell localization, not human fragments |
-| Missing-translation diagnostics | Not applicable: no translation catalog is loaded |
-| Arabic accessible names and announcements | Not applicable: no accessibility tree |
-
-### Validation and errors
-
-| Checklist item | Result |
-| --- | --- |
-| Stable message ID, parameters, target, and recovery metadata | Pass: `ContractError` supplies message ID, retry disposition, correlation ID, and lifecycle stage; field targeting is not applicable to process failures |
-| Validation explains correction without data loss | Not applicable: no user data entry; operations guidance maps each code to recovery |
-| Command failure states preservation, retry, and next action | Not applicable: command dispatch is not implemented; lifecycle failures provide retry metadata and documented recovery |
-| Field errors remain accessible | Not applicable: no fields or UI |
-| Security errors avoid sensitive policy and data disclosure | Pass: public failures exclude raw I/O/component errors, paths, secrets, payloads, and authorization graphs |
-
-### Dates, numbers, units, and currency
-
-| Checklist item | Result |
-| --- | --- |
-| Locale-aware formatters and parsers | Not applicable: machine values are not localized |
-| Identifiers are not parsed as numbers | Pass: instance and correlation IDs are UUID types; PID is explicitly numeric correlation metadata |
-| Ambiguous date/number input | Not applicable: no human date or number input |
-| Currency precision and symbols | Not applicable: no currency |
-| RTL dimensions | Not applicable: no dimensions |
-| Canonical machine values | Pass: timestamps use Unix milliseconds and versions use typed protocol/product versions |
-
-### Search and sorting
-
-| Checklist item | Result |
-| --- | --- |
-| Normalization and ranking policy | Not applicable: no searchable domain |
-| Preserve original values beside normalized indexes | Not applicable: no search index |
-| Avoid collapsing distinct names/identifiers | Not applicable: no name normalization |
-| Grapheme-correct highlighting | Not applicable: no highlighting |
-| Locale sorting and tie-breakers | Not applicable: no sorting |
-| Scope filtering before search disclosure | Not applicable: no search counts, suggestions, or results |
-
-### Reports, PDF, print, and exports
-
-| Checklist item | Result |
-| --- | --- |
-| Arabic document rendering | Not applicable: no document generation |
-| Paper, margin, scaling, and pagination policy | Not applicable: no paged output |
-| Monochrome usability | Not applicable: no visual output |
-| Platform print preview and printer verification | Not applicable: no printing |
-| CSV/spreadsheet behavior | Not applicable: no tabular export |
-| Accessibility or archival conformance | Not applicable: no retained document artifact |
-
-JSON lifecycle and diagnostic streams are protocol output, not localized reports.
-
-### Test evidence and completion
-
-| Checklist item | Result |
-| --- | --- |
-| Unit validation/parsing/formatting/search tests | Not applicable to domain behavior; lifecycle unit tests cover this feature's Rust invariants |
-| Contract Unicode, message, version, and capability tests | Pass: Rust contract tests, generated drift checks, and .NET conformance pass |
-| Shell RTL/accessibility conformance | Not applicable: no shell implementation |
-| End-to-end Arabic workflow and recovery | Not applicable: no product workflow; subprocess tests cover lifecycle failure recovery |
-| Rendered generated documents | Not applicable: no documents |
-| Clean build and run on affected available platforms | Pass on Windows: format, check, Clippy, workspace tests, diagnostics, and supervised shutdown pass without warnings; macOS/Linux execution remains CI evidence when available |
-| Documentation links evidence and gaps | Pass: tests, operations, troubleshooting, and this platform limitation are linked here |
+The runtime also composes product dispatch, storage, and background synchronization. Those capabilities have their own Arabic search, data, and recovery requirements; this lifecycle guide does not mark them as unimplemented or exempt them from verification. Use the [repository ownership map](../repository-layout.md) to find their canonical guides.
 
 ## Tests and verification
 

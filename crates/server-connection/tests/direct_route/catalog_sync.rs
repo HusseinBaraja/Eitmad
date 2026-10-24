@@ -86,6 +86,17 @@ async fn receptionist(database: &str, server: &ProvisionedServer) -> Authenticat
         .bind(server.authentication.session.tenant_id.value()).bind(user.value()).bind(server.scope.id.value()).execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
     let signing = SigningKey::from_bytes(&[19; 32]);
+    let device = DeviceId::new(Uuid::new_v4());
+    approve_test_device(
+        &server.control,
+        &server.authentication.session,
+        &server.pairing_identity,
+        OrganizationId::new(server.scope.id.value()),
+        server.branch_scope.id,
+        device,
+        &signing,
+    )
+    .await;
     ControlPlane::new(pool, TokenKey::new([9; 32]))
         .authentication
         .login(
@@ -93,13 +104,13 @@ async fn receptionist(database: &str, server: &ProvisionedServer) -> Authenticat
                 tenant_code: TenantCode::parse("direct-test").unwrap(),
                 username: "reception".into(),
                 password: "synthetic-test-password-123".into(),
-                device_id: DeviceId::new(Uuid::new_v4()),
+                device_id: device,
                 device_label: "استقبال الاختبار".into(),
                 device_public_key: DevicePublicKey {
                     algorithm: "ed25519".into(),
                     base64: URL_SAFE_NO_PAD.encode(signing.verifying_key().as_bytes()),
                 },
-                device_proof: None,
+                device_proof: Some(test_device_proof(device, &signing)),
             },
             CorrelationId::new(Uuid::new_v4()),
             eitmad_authorization::now(),

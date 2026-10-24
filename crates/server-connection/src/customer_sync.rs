@@ -23,7 +23,7 @@ use eitmad_storage::AuthorityStore;
 use eitmad_sync::{
     RetryPolicy, SyncAuthorization, SyncEngine, TransportAuthentication, WanAdapter,
 };
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use uuid::Uuid;
 
 pub struct DirectCustomerSyncClient {
@@ -285,7 +285,7 @@ impl DirectCustomerSyncClient {
             .account_credential(
                 &self.credential,
                 actor,
-                Instant::now() + Duration::from_secs(10),
+                Instant::now() + crate::REQUEST_TIMEOUT,
             )
             .map_err(|failure| match failure.kind {
                 eitmad_sync::TransportFailureKind::AuthenticationFailed => CustomerError::Denied,
@@ -345,6 +345,7 @@ mod tests {
             },
         };
         let config = DirectServerConfig {
+            recovery: None,
             endpoint: url::Url::parse("https://127.0.0.1:443").unwrap(),
             scope: actor.scope.clone(),
             schema_id: SchemaId::parse(CUSTOMER_SCHEMA_ID).unwrap(),

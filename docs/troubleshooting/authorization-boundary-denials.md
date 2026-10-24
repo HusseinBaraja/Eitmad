@@ -5,7 +5,7 @@ audience: "support"
 page_type: "troubleshooting"
 status: "active"
 owner: "authorization, security, and audit maintainers"
-last_verified: "2026-10-11"
+last_verified: "2026-10-24"
 review_triggers:
   - "authorization decisions, scope context, boundary gates, error identifiers, or audit persistence changes"
 keywords:
@@ -27,7 +27,7 @@ keywords:
 - An external provider adapter is not invoked.
 - A plugin capability callback is not invoked.
 - A query response is withheld with `eitmad.error.authorization-unavailable.v1` because mandatory audit persistence failed.
-- Future Arabic UI may show a localized equivalent of `رفض الصلاحية`; no native denial UI exists yet.
+- Windows feature pages show Arabic denial guidance. Stable error identifiers remain the diagnostic authority; see [Windows shell recovery](windows-shell-state-recovery.md).
 
 ## Fast checks
 
@@ -38,7 +38,7 @@ keywords:
 5. Confirm a direct principal relation or role-membership path grants one registered rule relation.
 6. For inherited access, confirm every explicit parent edge stays in the same tenant/workspace and the graph is no deeper than 16 edges.
 7. Confirm required condition attributes use canonical keys and exact values.
-8. If audit failed, check storage readiness, migration version 6, disk state, and schema drift before retrying.
+8. If audit failed, check storage readiness, the current migration registry, disk state, and schema drift before retrying. Migration `6` introduced the authorization audit envelope; it is not the current storage version.
 
 ## Causes and resolutions
 

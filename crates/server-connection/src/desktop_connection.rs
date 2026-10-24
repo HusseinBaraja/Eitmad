@@ -22,6 +22,8 @@ pub struct DesktopConnectionSettings {
     pub branch: ScopeId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tenant_code: Option<eitmad_contracts::server::TenantCode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_id: Option<eitmad_contracts::discovery::ServerInstallationId>,
 }
 
 impl DesktopConnectionSettings {
@@ -52,6 +54,22 @@ impl DesktopConnectionSettings {
         }
         if settings.trusted_certificate.is_relative() {
             settings.trusted_certificate = directory.join(settings.trusted_certificate);
+        }
+        if let Some(id) = settings.server_id {
+            settings.endpoint =
+                super::DirectServerConfig::parse_endpoint(&settings.endpoint)?.into();
+            let saved = super::desktop_enrollment::retained::RetainedEnrollment::load(directory)?
+                .ok_or_else(super::encryption_failure)?;
+            if id != saved.identity.server_id
+                || settings.endpoint != saved.identity.endpoint
+                || settings.organization != saved.organization
+                || settings.branch != saved.branch
+                || settings.tenant_code.as_ref() != Some(&saved.tenant_code)
+                || super::desktop_enrollment::read_trust(&settings.trusted_certificate)?
+                    != saved.identity.public_ca_pem.as_bytes()
+            {
+                return Err(super::encryption_failure());
+            }
         }
         Ok(Some(settings))
     }

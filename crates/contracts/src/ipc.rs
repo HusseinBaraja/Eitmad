@@ -155,6 +155,13 @@ pub struct IpcFailureResponse {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload")]
 pub enum IpcClientMessage {
+    #[serde(rename = "eitmad.ipc.desktop-onboarding.v1")]
+    DesktopOnboarding(crate::onboarding::DesktopOnboardingRequest),
+    #[serde(rename = "eitmad.ipc.discover-servers.v1")]
+    DiscoverServers(crate::discovery::DiscoverServers),
+    /// Uses the request and correlation IDs of the scan to cancel on this connection.
+    #[serde(rename = "eitmad.ipc.cancel-server-discovery.v1")]
+    CancelServerDiscovery(crate::discovery::DiscoverServers),
     #[serde(rename = "eitmad.ipc.handshake.v1")]
     Handshake(HandshakeRequest),
     #[serde(rename = "eitmad.ipc.desktop-sign-in.v1")]
@@ -178,6 +185,10 @@ pub enum IpcClientMessage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "payload")]
 pub enum IpcServerMessage {
+    #[serde(rename = "eitmad.ipc.desktop-onboarding-response.v1")]
+    DesktopOnboarding(crate::onboarding::DesktopOnboardingResponse),
+    #[serde(rename = "eitmad.ipc.server-discovery.v1")]
+    ServerDiscovery(crate::discovery::ServerDiscoveryResult),
     #[serde(rename = "eitmad.ipc.handshake-response.v1")]
     Handshake(HandshakeResponse),
     #[serde(rename = "eitmad.ipc.desktop-session-response.v1")]
@@ -206,6 +217,12 @@ impl IpcServerMessage {
     pub fn redacted_for_external_boundary(&self) -> Self {
         let mut message = self.clone();
         match &mut message {
+            Self::DesktopOnboarding(crate::onboarding::DesktopOnboardingResponse {
+                error: Some(error),
+                ..
+            }) => {
+                *error = error.redacted_for_external_boundary();
+            }
             Self::DesktopSession(response) => {
                 if let Some(error) = &mut response.error {
                     *error = error.redacted_for_external_boundary();
@@ -229,7 +246,9 @@ impl IpcServerMessage {
             Self::Failure(response) => {
                 response.error = response.error.redacted_for_external_boundary();
             }
-            Self::Event(_)
+            Self::DesktopOnboarding(_)
+            | Self::ServerDiscovery(_)
+            | Self::Event(_)
             | Self::Handshake(_)
             | Self::Unsubscribe(_)
             | Self::SubscriptionClosed(_)

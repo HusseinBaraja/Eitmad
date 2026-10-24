@@ -9,6 +9,7 @@ const FOUNDATION_SQL: &str = include_str!("../migrations/0001_control_foundation
 const CUSTOMER_BRANCHES_SQL: &str = include_str!("../migrations/0005_customer_branches.sql");
 const DESKTOP_ACCOUNTS_SQL: &str = include_str!("../migrations/0017_desktop_accounts.sql");
 const ACCOUNTS_SQL: &str = include_str!("../migrations/0016_server_accounts.sql");
+const PAIRING_SQL: &str = include_str!("../migrations/0018_pairing.sql");
 
 #[derive(Clone)]
 pub struct ControlDatabase {
@@ -74,6 +75,7 @@ impl ControlDatabase {
             (5, "server.customer-branches.v1", CUSTOMER_BRANCHES_SQL),
             (16, "server.accounts.v1", ACCOUNTS_SQL),
             (17, "server.desktop-accounts.v1", DESKTOP_ACCOUNTS_SQL),
+            (18, "server.pairing.v1", PAIRING_SQL),
         ] {
             let checksum = format!("{:x}", Sha256::digest(sql.as_bytes()));
             let existing: Option<String> = sqlx::query_scalar(

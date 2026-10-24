@@ -17,9 +17,16 @@ use eitmad_sync_plane::{
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 use zeroize::Zeroizing;
 
+#[cfg(windows)]
+mod windows_backup;
+mod windows_setup;
+#[cfg(windows)]
+mod windows_tls;
+
 #[tokio::main]
 async fn main() -> ExitCode {
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
@@ -27,7 +34,14 @@ async fn main() -> ExitCode {
         .without_time()
         .with_target(false)
         .init();
-    match execute().await {
+    let result = if std::env::args().len() == 2
+        && std::env::args().nth(1).as_deref() == Some("guided-windows-setup")
+    {
+        windows_setup::guided().await
+    } else {
+        execute().await
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!(error = error.code(), "server command failed");
@@ -38,6 +52,14 @@ async fn main() -> ExitCode {
 
 async fn execute() -> Result<(), MainError> {
     let arguments = std::env::args().collect::<Vec<_>>();
+    #[cfg(windows)]
+    if let Some(result) = dispatch_windows(&arguments) {
+        return result;
+    }
+    #[cfg(not(windows))]
+    if arguments.get(1).is_some_and(|arg| arg == "windows-backup") {
+        return Err(MainError::Input);
+    }
     if arguments.len() == 2 && arguments[1] == "--version" {
         println!(
             "eitmad-server {}",
@@ -54,6 +76,17 @@ async fn execute() -> Result<(), MainError> {
         print_help();
         return Err(MainError::Input);
     }
+    if command == ServerCommand::PrepareWindowsWorkshop {
+        return windows_setup::prepare().await;
+    }
+    if matches!(
+        command,
+        ServerCommand::InstallWindows
+            | ServerCommand::InstallWindowsServer
+            | ServerCommand::WindowsInstallStatus
+    ) {
+        return windows_setup::install(command).await;
+    }
     if let ServerCommand::RecoverOwner {
         tenant_code,
         owner_username,
@@ -66,6 +99,9 @@ async fn execute() -> Result<(), MainError> {
         migrated_databases(&config.database_url, config.maximum_database_connections).await?;
         println!("server migrations are current");
         return Ok(());
+    }
+    if command == ServerCommand::EnrollFirstDesktop {
+        return enroll_first_desktop().await;
     }
     let config = ServerConfig::from_environment().map_err(|_| MainError::Configuration)?;
     if command == ServerCommand::CheckConfig {
@@ -81,6 +117,9 @@ async fn execute() -> Result<(), MainError> {
         migrated_databases(&config.database_url, config.maximum_database_connections).await?
     };
     let control = ControlPlane::new(control_database.pool(), config.token_key.clone());
+    if command == ServerCommand::InitializeWorkshop {
+        return initialize_workshop(&control).await;
+    }
     if let ServerCommand::Bootstrap {
         tenant_code,
         tenant_name,
@@ -109,6 +148,20 @@ async fn execute() -> Result<(), MainError> {
         println!("expiresAt={}", result.expires_at.0);
         return Ok(());
     }
+    serve(config, control, sync_database, admin_database).await
+}
+
+#[cfg(windows)]
+fn dispatch_windows(arguments: &[String]) -> Option<Result<(), MainError>> {
+    windows_tls::dispatch(arguments).or_else(|| windows_backup::dispatch(arguments))
+}
+
+async fn serve(
+    config: ServerConfig,
+    control: ControlPlane,
+    sync_database: SyncDatabase,
+    admin_database: AdminDatabase,
+) -> Result<(), MainError> {
     let mut handlers = eitmad_sync_plane::CatalogSyncHandler::handlers(&sync_database.pool());
     handlers.push(
         Arc::new(CustomerSyncHandler::new(sync_database.pool())) as Arc<dyn DomainSyncHandler>
@@ -135,6 +188,33 @@ async fn execute() -> Result<(), MainError> {
     eitmad_server::run(&config, state)
         .await
         .map_err(|_| MainError::Runtime)
+}
+
+async fn initialize_workshop(control: &ControlPlane) -> Result<(), MainError> {
+    let mut bytes = Zeroizing::new(Vec::new());
+    std::io::stdin()
+        .take(8193)
+        .read_to_end(&mut bytes)
+        .map_err(|_| MainError::Input)?;
+    if bytes.len() > 8192 {
+        return Err(MainError::Input);
+    }
+    let input: eitmad_contracts::setup::InitializeWorkshop =
+        serde_json::from_slice(&bytes).map_err(|_| MainError::Input)?;
+    let result = control
+        .identity
+        .initialize_workshop(
+            &input,
+            CorrelationId::new(uuid::Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await
+        .map_err(|_| MainError::Bootstrap)?;
+    println!(
+        "{}",
+        serde_json::to_string(&result).map_err(|_| MainError::Input)?
+    );
+    Ok(())
 }
 
 async fn recover_owner(tenant_code: &str, owner_username: &str) -> Result<(), MainError> {
@@ -254,11 +334,49 @@ fn compose_server_state(
 }
 
 fn print_help() {
+    println!("eitmad-server windows-tls <configure|tick|status> <installed-host-directory>");
+    println!(
+        "eitmad-server windows-backup <configure|configuration|schedule|run|tick|status> <private-state-directory>"
+    );
+    println!("eitmad-server enroll-first-desktop (private local LoginRequest JSON on stdin)");
     println!("eitmad-server [serve|migrate|check-config]");
     println!(
         "eitmad-server bootstrap <tenant-code> <tenant-name> <organization-name> <owner-username>"
     );
     println!("eitmad-server recover-owner <tenant-code> <owner-username> (password on stdin)");
+    println!("eitmad-server initialize-workshop (version-one setup JSON on stdin)");
+    println!("eitmad-server prepare-windows-workshop (private local setup JSON on stdin)");
+    println!("eitmad-server install-windows (private Server or Client JSON on stdin)");
+    println!("eitmad-server windows-install-status (version-one progress directory JSON on stdin)");
+}
+
+async fn enroll_first_desktop() -> Result<(), MainError> {
+    let config = MigrationConfig::from_environment().map_err(|_| MainError::Configuration)?;
+    let mut bytes = Zeroizing::new(Vec::new());
+    std::io::stdin()
+        .take(16_385)
+        .read_to_end(&mut bytes)
+        .map_err(|_| MainError::Input)?;
+    if bytes.len() > 16_384 {
+        return Err(MainError::Input);
+    }
+    let mut request: eitmad_contracts::server::LoginRequest =
+        serde_json::from_slice(&bytes).map_err(|_| MainError::Input)?;
+    let database = ControlDatabase::connect(&config.database_url, 1)
+        .await
+        .map_err(|_| MainError::Database)?;
+    // This private command does not run migrations or start or change host services.
+    let result = eitmad_control_plane::PairingService::new(database.pool())
+        .enroll_first_desktop(
+            &request,
+            CorrelationId::new(uuid::Uuid::new_v4()),
+            eitmad_control_plane::unix_millis_now(),
+        )
+        .await;
+    zeroize::Zeroize::zeroize(&mut request.password);
+    result.map_err(|_| MainError::Bootstrap)?;
+    println!("first desktop approved");
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -270,6 +388,11 @@ enum MainError {
     Bootstrap,
     Recovery,
     Runtime,
+    Setup,
+    #[cfg(windows)]
+    Backup,
+    #[cfg(windows)]
+    Tls,
 }
 
 impl MainError {
@@ -282,6 +405,11 @@ impl MainError {
             Self::Bootstrap => "eitmad.error.server-bootstrap-failed.v1",
             Self::Recovery => "eitmad.error.server-owner-recovery-failed.v1",
             Self::Runtime => "eitmad.error.server-runtime-failed.v1",
+            Self::Setup => "eitmad.error.windows-workshop-setup-failed.v1",
+            #[cfg(windows)]
+            Self::Backup => "eitmad.error.server-backup-failed.v1",
+            #[cfg(windows)]
+            Self::Tls => "eitmad.error.server-tls-renewal-failed.v1",
         }
     }
 }

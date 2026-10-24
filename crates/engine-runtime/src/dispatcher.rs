@@ -175,7 +175,7 @@ impl ProductDispatcher {
         for actor in self.store.pending_catalog_actors()? {
             match replication.synchronize(
                 &actor,
-                eitmad_contracts::transport::UnixMillis(now().0.saturating_add(10_000)),
+                eitmad_contracts::transport::UnixMillis(now().0.saturating_add(30_000)),
             ) {
                 Ok(transferred) => count += transferred,
                 Err(
@@ -231,7 +231,7 @@ impl ProductDispatcher {
                 .deadline
                 .0
                 .saturating_sub(1_000)
-                .min(now().0.saturating_add(10_000)),
+                .min(now().0.saturating_add(30_000)),
         );
         diagnostic_blocking(context.correlation_id, Source::Catalog, move || {
             // Validate and authorize before network work. Recheck after replication.
@@ -295,7 +295,7 @@ impl ProductDispatcher {
                         .deadline
                         .0
                         .saturating_sub(1000)
-                        .min(now().0.saturating_add(10_000)),
+                        .min(now().0.saturating_add(30_000)),
                 );
                 diagnostic_blocking(context.correlation_id, Source::Catalog, move || {
                     let catalog_actor = pricing.authorize_quotation(&actor)?;
@@ -332,7 +332,7 @@ impl ProductDispatcher {
                                         deadline
                                             .0
                                             .saturating_sub(1_000)
-                                            .min(now().0.saturating_add(10_000)),
+                                            .min(now().0.saturating_add(30_000)),
                                     ),
                                 )
                                 .is_ok();

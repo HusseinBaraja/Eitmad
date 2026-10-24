@@ -9,6 +9,8 @@ namespace Eitmad.WindowsShell.Features.Users;
 
 public partial class UsersView : UserControl, IAsyncDisposable
 {
+    public event EventHandler? PairDeviceRequested;
+    private void PairDeviceClick(object sender, RoutedEventArgs e) => PairDeviceRequested?.Invoke(this, EventArgs.Empty);
     private EngineChangeFeed? changes;
     public UsersView()
     {

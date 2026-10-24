@@ -5,7 +5,7 @@ audience: "architecture"
 page_type: "explanation"
 status: "active"
 owner: "architecture maintainers"
-last_verified: "2026-08-24"
+last_verified: "2026-10-24"
 review_triggers:
   - "an authority, process, trust, storage, sync, update, or performance boundary changes"
 keywords:
@@ -18,7 +18,7 @@ keywords:
 
 ## Purpose and status
 
-This document defines the target architecture for the Eitmad desktop system. It establishes authority and trust boundaries before production implementation begins. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
+This document defines the target architecture for the Eitmad desktop system. It establishes the authority and trust boundaries for implemented and future capabilities. It is normative: implementations MUST conform to it or record an approved architectural decision explaining a deliberate exception.
 
 ## System shape
 
@@ -40,7 +40,7 @@ The same Rust engine MUST support:
 - headless operation for supported unattended workflows;
 - diagnostic operation for health checks, compatibility inspection, and support tooling.
 
-Implemented authority foundations now include protocol `1.5`, a runtime-owned SQLite local database, a modular PostgreSQL server with control, sync, relay, update, and administration planes, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, signed manifests, and one shared sync semantic. Native settings UI, production MFA and invitation providers, package CDN, production relay payload routing, database encryption, and the first production business vertical remain future work. Separate privileged [Windows backup administration](../operations/backup-lan-installation.md) uses OS scheduling and PostgreSQL tools; product background-job authority remains in Rust. Replacement-machine credential recovery still needs operational acceptance.
+Implemented capabilities include a runtime-owned SQLite database, a modular PostgreSQL server with control, sync, relay, update, and administration planes, organization configuration with `ar-YE` default, scoped relationship policy, mandatory redacted audit, durable idempotency, snapshot-backed history, resumable subscriptions, signed manifests, and one shared sync semantic. Customers, Materials, Parts, Furniture, Products, Pricing, quotations, orders, and work orders have Rust-owned behavior and native Windows surfaces. The [contract reference](../api/index.md) records the current protocol. Native configuration settings UI, production MFA and invitation delivery providers, package CDN, relay payload routing, and database encryption remain absent. Privileged [Windows backup administration](../operations/backup-lan-installation.md) includes Rust-owned local server backup configuration, retention, orchestration, and reported state; Windows adapters supply OS scheduling, protection observations, copying, and PostgreSQL tool invocation. Coordinated Windows-image recovery remains a separate privileged procedure. Replacement-machine credential recovery still needs operational acceptance.
 
 ## Ownership rules
 
@@ -148,7 +148,7 @@ The product supports two modes:
 
 Both modes MUST use one versioned sync protocol across local IPC concepts, LAN, and WAN transports. Transport differences MUST NOT produce different domain semantics.
 
-The implemented `eitmad-sync` foundation persists either mode per scope. Local-first state remains readable offline and reconciles pending changes after negotiation. Server-authoritative state separates confirmed cache from pending commands, labels optimistic projections, rolls denied commands back to confirmed state plus remaining projections, and withholds stale confirmed cache. One `SyncTransport` interface and `SyncTransportFrame` now define authentication/encryption expectations, version/capability/schema negotiation, ordered streams, cancellation, duplicate safety, reconnect/backoff, health, LAN partial discovery, and WAN direct/relay routing without creating route-specific sync messages. Production discovery and encrypted network drivers are not implemented. See [synchronization and shared transports](../developer/subsystems/synchronization.md).
+The implemented `eitmad-sync` foundation persists either mode per scope. Its local-first library behavior preserves offline state and pending changes for reconciliation after negotiation. Desktop protected access requires live server confirmation under [ADR-0029](../decisions/0029-require-live-server-authority-for-protected-access.md); retained data does not authorize offline use. Server-authoritative state separates confirmed cache from pending commands, labels optimistic projections, rolls denied commands back to confirmed state plus remaining projections, and withholds stale confirmed cache. One `SyncTransport` interface and `SyncTransportFrame` define authentication/encryption expectations, version/capability/schema negotiation, ordered streams, cancellation, duplicate safety, reconnect/backoff, health, LAN partial discovery, and WAN direct/relay routing without route-specific sync messages. Rust Private-LAN discovery returns untrusted candidates; [authenticated pairing](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) binds the retained direct connection. Relay payload routing remains unimplemented. See [synchronization and shared transports](../developer/subsystems/synchronization.md).
 
 The protocol MUST define:
 
@@ -232,7 +232,7 @@ Performance budgets MUST be defined with the first production vertical slice, th
 
 Every completed feature MUST run the documentation-maintenance workflow and document its Rust authority, contracts, invariants, failure modes, tests, and safe extension points using the [feature documentation template](../developer/contributing/templates/feature-documentation.md). The same logical change MUST update all affected canonical pages, indexes, glossary entries, decisions, and troubleshooting knowledge. See the [documentation standard](../developer/contributing/documentation-standard.md).
 
-CI MUST eventually reject contract drift, broken migrations, unsafe logging, direct shell access to config or databases, and missing required documentation. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
+Mandatory CI rejects contract drift, migration checksum changes, unsafe logging, direct shell access to config or databases, and missing required documentation through contract verification, tests, repository policy, and the documentation audit. These checks do not replace behavior review. Production changes are complete only when builds and tests pass without warnings and the application has been run cleanly on the affected path.
 
 After shell implementation, feature completion also requires shell-conformance evidence for the applicable Arabic-first checklist items, including RTL and bidirectional interaction, keyboard and focus behavior, accessibility, localization fallbacks, and platform differences.
 
@@ -263,9 +263,9 @@ The following designs are prohibited unless an approved architectural decision r
 
 ## Initial implementation gates
 
-Protocol `1.6`, Rust-owned configuration, scoped relationship authorization/audit, privacy-preserving observability, cross-platform secret storage, SQLite local authority, local IPC, the dual-mode sync engine, shared sync transport policy, and the modular PostgreSQL server foundation are implemented and documented in the [contract reference](../api/index.md). No production business vertical or registered server domain exists. Before the first production vertical slice, the team MUST define and review:
+Rust authority, local IPC, the dual-mode sync engine, and registered server domains are implemented. See the [contract reference](../api/index.md) and [repository ownership map](../developer/repository-layout.md) for current boundaries. Before adding a product capability, define and review:
 
-1. the first bounded domain and its Arabic terminology;
+1. the bounded domain and its Arabic terminology;
 2. command, query, subscription, error, version, and capability contracts;
 3. identity, scope, relationship authorization, and audit behavior;
 4. storage mode, migrations, backup, and sync semantics;

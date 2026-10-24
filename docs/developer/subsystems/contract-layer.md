@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust contract maintainers"
-last_verified: "2026-10-07"
+last_verified: "2026-10-24"
 review_triggers:
   - "protocol ownership, wire format, generation, compatibility, or platform binding changes"
 keywords:
@@ -68,7 +68,7 @@ JSON is Unicode and preserves Arabic or mixed Arabic/Latin values unchanged. Can
 | Pass | Unicode IPC, canonical values, stable message IDs, typed parameters, and exclusion of bidi controls | Rust serialization and compatibility tests |
 | Pass | Shared Arabic, Latin, numerals, filename, and mixed-direction fixtures | Generated protocol fixture and .NET conformance runner |
 | Not applicable | RTL layout, focus, keyboard input, typography, accessibility, search, reports, PDF, and printing | This capability has no UI, search behavior, or document renderer; shells remain blocked on their full pre-shell gate |
-| Not applicable | Default locale, calendar, time zone, digits, currency, fonts, and fallback policy | Protocol v1 can transport canonical values but does not select product presentation policy; the registered locale key defines no default |
+| Not applicable | Default locale, calendar, time zone, digits, currency, fonts, and fallback policy | Protocol v1 transports canonical values without selecting presentation policy; the configuration authority supplies the `ar-YE` default for `eitmad.config.locale.primary.v1` |
 | Not applicable | Local Swift compiler execution | The current Windows environment has no Swift toolchain; mandatory macOS CI owns compilation and fixture execution before merge |
 
 The missing local Swift toolchain does not authorize shell implementation or bypass CI. Its review trigger is any Swift generator, schema, or macOS toolchain change.

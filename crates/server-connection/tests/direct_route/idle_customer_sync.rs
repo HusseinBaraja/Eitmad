@@ -129,7 +129,9 @@ async fn clean_installation_receives_customers_in_the_ordinary_runtime() {
     )
     .await;
     let first = Installation::new();
+    first.pair(&server).await;
     let second = Installation::new();
+    second.pair(&server).await;
     let inputs = inputs_for_shell(&server);
     assert!(first.sign_in(request(Some(inputs.clone()))).await.unwrap());
     assert!(second.sign_in(request(Some(inputs))).await.unwrap());

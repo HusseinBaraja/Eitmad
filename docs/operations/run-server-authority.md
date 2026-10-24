@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-24"
 review_triggers:
   - "server configuration, CLI, migrations, health routes, TLS, backup, or recovery changes"
 keywords:
@@ -19,7 +19,7 @@ keywords:
 
 Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
 
-For two Windows PCs on a private network, use [stable LAN setup](setup-lan-server.md). It retains a matching DNS/IP certificate, server settings, and CA across restart and leaf renewal, with explicit client trust and a narrowly scoped firewall rule.
+For a new Windows workshop, follow [guided server and client installation](install-windows.md). It provisions PostgreSQL, TLS, the first Owner, services, backups, and the first desktop. The commands on this page are for advanced manual deployment, account administration, and recovery; they are not extra installation steps after guided setup. Use [manual stable LAN setup](setup-lan-server.md) only when you need to provision a fixed endpoint separately.
 
 ## Before you start
 
@@ -65,9 +65,50 @@ Take a PostgreSQL backup, then run:
 cargo run -q -p eitmad-server -- migrate
 ```
 
-Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, including control migration `16` for shared accounts, before it exits. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
+Expected output is `server migrations are current`. This command reads only `EITMAD_SERVER_DATABASE_URL` and the optional `EITMAD_SERVER_MAX_CONNECTIONS`; it does not require token, listener, TLS, or update runtime settings. It applies the current control, sync, administration, and canonical audit migration sets, currently `1–18`, before it exits. See [schema ownership](../developer/subsystems/server-authority.md#storage-scope-and-audit-invariants) for the capability migrations. Migration files are immutable after release. Stop if the process emits `eitmad.error.server-database-unavailable.v1` or `eitmad.error.server-migration-failed.v1`; preserve the database and diagnose the PostgreSQL service, permissions, RLS, and schema history.
 
 ## Bootstrap the first owner
+
+For an empty Windows host, [guided setup](install-windows.md#1-install-the-server-pc) creates the PostgreSQL cluster, runtime settings, and active Owner/Manager. The separate [preparation backend](prepare-windows-workshop.md) creates the same initial workshop state without installing the services or desktop. Neither path needs another bootstrap or activation step. Use the commands below only for a separately provisioned empty database.
+
+For a new workshop installation, use `eitmad-server initialize-workshop`. This local deployment command accepts version-one JSON on standard input, creates an active Owner with the Manager role and a first branch, and returns only public enrollment coordinates. It creates no activation invitation. Rust commits the tenant, organization, account, password verifier, branch, relationships, publication event, and mandatory audit together. It does not install PostgreSQL, configure Windows services, enroll a desktop, or provide the combined installer UI.
+
+Use the dedicated application database and full runtime configuration above. The command applies normal migrations before initialization. Run it as the local deployment operator with access to those protected settings. It is not a network endpoint, and an application account or discovered server cannot invoke it remotely. Do not use a superuser or a role with `BYPASSRLS`.
+
+From the extracted server package in PowerShell 7.4 or later:
+
+```powershell
+$setupPassword = Read-Host 'Owner password (at least 12 characters)' -AsSecureString
+$setupEncoding = $OutputEncoding
+$setupRequest = $null
+try {
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
+    $setupRequest = @{
+        version = 1
+        workshopName = Read-Host 'Workshop name'
+        ownerUsername = Read-Host 'Owner username'
+        ownerPassword = [Net.NetworkCredential]::new('', $setupPassword).Password
+    }
+    $setupRequest | ConvertTo-Json -Compress | & .\eitmad-server.exe initialize-workshop
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Workshop initialization failed. Preserve state and inspect the error identifier.'
+    }
+} finally {
+    if ($setupRequest) {
+        $setupRequest.ownerPassword = $null
+    }
+    $setupPassword.Dispose()
+    $OutputEncoding = $setupEncoding
+}
+```
+
+Do not print or save `$setupRequest`, enable transcripts, or put the password in command arguments. UTF-8 preserves Arabic names in the native input pipe. The bounded request has `version`, `workshopName`, `ownerUsername`, and `ownerPassword`; its Rust authority is `crates/contracts/src/setup.rs`. Unknown fields, unsupported versions, invalid names, and invalid passwords fail closed. The public result has `tenantCode`, `tenantId`, `organizationId`, `branchId`, and `ownerAccountId`, plus `version`. Use those coordinates for [desktop enrollment](#enroll-or-recover-a-windows-desktop), then use the [native Users screen](#use-the-native-users-screen) to add staff.
+
+Any existing tenant blocks initialization, including one created by the invitation bootstrap below. Concurrent initializations share the same advisory lock as invitation bootstrap; only one can create the first tenant. After an uncertain result, inspect retained tenant and audit state through the deployment operator. Do not rerun setup as a password reset, change a tenant code, or replace the database. Use the existing owner recovery procedure for an active Owner.
+
+### Invitation bootstrap
+
+Use the separate invitation flow only when an operator needs to activate the initial account separately.
 
 Run this once for a new tenant. Quote display names that contain spaces:
 
@@ -85,7 +126,7 @@ Do not repeat bootstrap after an uncertain result. First check the tenant and au
 
 Use the supported Rust contracts in `crates/contracts/src/server_accounts.rs` and the normal TLS host. No provisioning example or direct SQL is required. The [identity guide](../developer/subsystems/identity-foundation.md#shared-server-account-lifecycle) defines authorization, revision, receipt, and secret-handling rules.
 
-1. Bootstrap and activate the initial Owner as described above, or sign in an existing Owner through `POST /v1/auth/login`.
+1. Initialize the first active Owner as described above, use the invitation bootstrap, or sign in an existing Owner through `POST /v1/auth/login`.
 2. For each administrative request, send a current bearer token, a fresh signed device proof in `x-eitmad-device-proof`, and a base64url `PeerHello` in `x-eitmad-peer-hello`. Negotiate protocol 1.5 or newer and `eitmad.capability.server-administration.v1`. A UI role name is not authorization evidence.
 3. Register each needed branch with `POST /v1/customer-branches` using `RegisterBranchRequest`.
 4. Call `POST /v1/accounts/list` with `ListServerAccounts`, initially `after: null` and `limit: 100`. Continue from `nextAfter` until it is null. Use the returned account revision for changes.
@@ -140,12 +181,24 @@ rustup run 1.85.1 cargo test --locked -p eitmad-server --test accounts local_own
 
 ## Enroll or recover a Windows desktop
 
-Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role. The TLS server and PostgreSQL must be running.
+Approve a new device through [Rust pairing](../developer/subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) before ordinary sign-in. The [native pairing and recovery controls](prepare-windows-workshop.md#use-native-arabic-setup) use the same Rust authority. Existing registered devices and high-entropy invitation activation remain supported. Manual connection entry alone cannot approve an unknown device.
 
-1. Start the Windows app with `run.ps1` on the new PC. Use its own default runtime directory, or a new installation directory supplied with `-RuntimeDirectory`.
+For the first server desktop, guided setup uses `DesktopEnrollment::first_desktop_request` to create the client key and signed public request locally. It passes that secret-bearing `LoginRequest` JSON to `eitmad-server enroll-first-desktop` through private stdin on the server, with its protected local database connection. The authenticated elevation channel returns `SetupDesktopHandoff`, including the running service's retained server UUID. `DesktopEnrollment::retain_first_desktop` retains the original endpoint, public CA, workshop scope, and device binding before ordinary sign-in. Keep `desktop-first-server.json`, `connection.json`, the CA files, `desktop-device.json`, and the original user's secret store. The Server PC desktop then uses the same discovery-based recovery as independent clients after app or service restart and supported Private IPv4 address changes. Do not replace its URL with a discovered IP or regenerate its device key. The local approval command permits only the original first device, requires the active Owner password, and fails closed on audit failure. Do not expose it over HTTP or place its input in command arguments, logs, or chat.
+
+The focused `first_desktop_retains_recovery_through_restart_and_revocation` direct-route scenario uses the disposable PostgreSQL and TLS setup below. It checks private first-desktop approval, HTTPS sign-in, settings reload, server restart, substituted installation identity, and revoked approval. Run it with `rustup run 1.85.1 cargo test --locked -p eitmad-server-connection --test direct_route first_desktop_retains_recovery_through_restart_and_revocation -- --ignored`. The certificate-backed `recovery::tests::` library tests also exercise first-desktop retention through discovered loopback address changes, unchanged TLS name and CA, changed trust, and credential rejection. They inject candidate results into the existing connection path; they do not prove Windows Private-network broadcast or firewall behavior. Two-PC acceptance remains required for that network boundary.
+
+For a discovered client, an authenticated Owner opens a code with `POST /v1/pairing/open`. The Rust client calls `DesktopEnrollment::pair`, then uses its returned connection settings for account sign-in. A code expires after three minutes or five starts and approves only one device. The exact pending completion can recover a lost receipt after expiry. Retry it first. Use **ترك الطلب واستخدام رمز جديد** (`DiscardPendingPairing`) only for explicit abandonment, then request a fresh Owner code. Abandonment removes only the pending exchange; it does not revoke server approval, replace committed trust, or change the device key. If approval already committed and its receipt was abandoned, another exchange is denied for that device. Preserve the runtime directory and all keys instead of replacing the identity.
+
+### Manual connection entry for an approved device
+
+For a new employee PC, use [discovery and Owner-code pairing](install-windows.md#3-install-and-pair-each-employee-pc). The steps below are a diagnostic or recovery path for an already approved device, or the supported high-entropy invitation flow. Entering connection settings cannot approve a new device.
+
+Use an existing active server account with one explicit Manager assignment or a Receptionist assignment for the selected branch. The administrator supplies the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and existing branch ID. Owner status alone is not an operational desktop role; guided setup creates the first Owner with Manager duties. The TLS server and PostgreSQL must be running.
+
+1. Open the installed **الاعتماد** app from Start under its original Windows user. For a source checkout, use `run.ps1` with the approved device's runtime directory supplied through `-RuntimeDirectory`. Keep that device's original runtime and key.
 2. Enter the server account name and password. Sign-in and protected work require a server connection.
 3. Expand **ربط هذا الجهاز بالمنشأة**. Enter **عنوان الخادم**, **ملف شهادة الثقة**, **رمز المنشأة**, **معرّف المنشأة**, and **معرّف الفرع** from the administrator. Identifiers and paths use LTR input within the Arabic screen.
-4. Select **دخول**. Rust validates server trust, registers this installation's device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
+4. Select **دخول**. Rust validates server trust, verifies this installation's approved device, and confirms the account assignment. After settings commit, the supervisor reopens the engine and enters the Rust-selected role.
 5. Close and reopen the application under the same Windows user and runtime directory. Leave the setup section closed and sign in. Rust uses the retained connection references and renews server access with password login.
 
 For expired or missing account credentials, use the same normal online sign-in. The installation key is separate from account tokens. The flow preserves local records, pending changes, and device identity. After a failed or interrupted attempt, correct the input and retry; the password box is cleared, while connection inputs remain available. An initial settings commit can require one supervised engine restart. Cancellation or process interruption does not require deleting or recreating the database.
@@ -176,7 +229,7 @@ Start the foreground server:
 cargo run -q -p eitmad-server -- serve
 ```
 
-The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The base server can start with no registered sync domain. In that state, negotiation advertises an empty schema list and domain traffic fails closed. A product deployment must register its domain handler and verify its required schema before it accepts product traffic.
+The process applies migrations before it starts listening. Keep migration privileges separate in a hardened deployment even though the combined development binary supports this convenience. The executable registers its customer, catalog, quotation, order, and work-order handlers before listening. Verify that negotiation includes the required schema and capability before accepting product traffic. Library tests can compose an empty registry; that is not the normal executable configuration.
 
 Verify:
 
@@ -186,7 +239,7 @@ Verify:
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
-7. Backup status does not claim success when no reporter row exists, unimplemented support actions fail as invalid, and migration status reports version `4` current.
+7. Backup status does not claim success when no reporter row exists and unimplemented support actions fail as invalid. The administration migration projection uses foundation version `3` as its minimum; verify the complete migration registry separately through `migrate`, not only its `Current` status.
 8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.
@@ -207,7 +260,7 @@ Do not delete operation history until a complete snapshot covers it and retained
 
 ## Current verification limit
 
-On 2026-08-24, `check-config` passed with synthetic loopback, manifest-directory, and trusted-public-key configuration. Rust tests, strict Clippy, and generated contract verification passed. Live `migrate`, `bootstrap`, `serve`, RLS, backup/restore, and HTTP/WebSocket integration still require a deployment environment with PostgreSQL.
+The repository provides real TLS/PostgreSQL scenarios for desktop authentication, catalog delivery, quotations, orders, and revocation below. The [isolated restore drill](recover-local-storage.md#recorded-drill-2026-10-11) records local recovery evidence. These checks do not establish production deployment, clean-machine installation, physical-LAN access, or replacement-machine credential recovery. Use [offline setup verification](verify-offline-windows-setup.md) for those remaining acceptance checks.
 
 For failures, use [server authentication and sync failures](../troubleshooting/server-authentication-and-sync.md) or [relay, update, and administration failures](../troubleshooting/server-plane-failures.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).
 

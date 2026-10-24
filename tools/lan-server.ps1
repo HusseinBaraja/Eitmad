@@ -1,12 +1,13 @@
 #Requires -Version 7.4
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [Parameter(Mandatory)][ValidateSet('Save', 'Check', 'Start', 'Firewall')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Save', 'Check', 'Start', 'Firewall', 'EnableRenewal')][string]$Action,
     [Parameter(Mandatory)][string]$StateDirectory,
     [string]$ServerExecutable,
     [string]$ListenAddress,
     [ValidateRange(1024, 65535)][int]$Port = 8443,
-    [string[]]$ClientAddress
+    [string[]]$ClientAddress,
+    [string]$HostDirectory = "$env:ProgramData\EitmadHost"
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,27 @@ $certificateAssembly = Join-Path $PSScriptRoot 'lan-certificate/bin/Release/net8
 if (-not (Test-Path -LiteralPath $certificateAssembly)) { throw 'Build Eitmad.LanCertificate in Release first.' }
 Add-Type -Path $certificateAssembly
 [Eitmad.LanCertificate.Certificates]::RequirePrivateDirectory($root)
+if ($Action -eq 'EnableRenewal') {
+    if (-not $PSCmdlet.ShouldProcess($HostDirectory, 'Retain protected CA material and schedule Rust TLS renewal')) { return }
+    $backend = (Get-Content -LiteralPath (Join-Path $root 'server.json') -Raw | ConvertFrom-Json).executable
+    # Private stdin only. Neither the scheduler nor process arguments receive the unlock credential.
+    $secure = Read-Host 'Retained CA password' -AsSecureString
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    $password = $null
+    $previousEncoding = $OutputEncoding
+    $OutputEncoding = [Text.UTF8Encoding]::new($false, $true)
+    try {
+        $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+        @{lanDirectory=$root; certificateExecutable=(Join-Path (Split-Path $certificateAssembly -Parent) 'Eitmad.LanCertificate.exe')
+            password=$password} | ConvertTo-Json -Compress | & $backend windows-tls configure $HostDirectory
+        if ($LASTEXITCODE -ne 0) { throw 'Renewal configuration failed. Check elevation, retained CA, tool deployment, and protected host state.' }
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)
+        $secure.Dispose(); $password = $null
+        $OutputEncoding = $previousEncoding
+    }
+    return
+}
 $settingsFile = Join-Path $root 'server.json'
 $identity = Get-Content -LiteralPath (Join-Path $root 'identity.json') -Raw | ConvertFrom-Json
 if ($identity.Version -ne 1) { throw 'Unsupported LAN identity version.' }

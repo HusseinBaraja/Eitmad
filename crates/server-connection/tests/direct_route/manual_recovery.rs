@@ -255,13 +255,25 @@ fn restore_client(directory: &Path, actor: &AuthorizationContext, backup: &Path)
 }
 
 async fn restart_recovered_server(scenario: &mut CatalogScenario) -> SyncDatabase {
+    let local_backup = env::var_os("EITMAD_RECOVERY_LOCAL_BACKUP_SCRIPT").is_some();
+    let token = if local_backup {
+        let root = required_path("EITMAD_RECOVERY_ARTIFACT_DIRECTORY");
+        scenario.certificate = root.join("staged-recovery/host/private/server-cert.pem");
+        scenario.key = root.join("staged-recovery/host/private/server-key.pem");
+        TokenKey::from_base64(
+            &std::fs::read_to_string(root.join("staged-recovery/host/private/token-key")).unwrap(),
+        )
+        .unwrap()
+    } else {
+        TokenKey::new([9; 32])
+    };
     let database = SyncDatabase::connect(&scenario.database, 4).await.unwrap();
     let control = ControlPlane::new(
         ControlDatabase::connect(&scenario.database, 4)
             .await
             .unwrap()
             .pool(),
-        TokenKey::new([9; 32]),
+        token,
     );
     scenario.server.state = ServerState::new(
         control,

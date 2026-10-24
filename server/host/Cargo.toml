@@ -10,6 +10,8 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+url = "=2.5.4"
+eitmad-server-discovery = { path = "../../crates/server-discovery" }
 eitmad-customer = { path = "../../crates/customer" }
 eitmad-postgres-support = { path = "../postgres-support" }
 eitmad-orders = { path = "../../crates/orders" }
@@ -20,6 +22,7 @@ axum-server = { version = "=0.8.0", features = ["tls-rustls"] }
 rustls = { version = "=0.23.43", features = ["ring"] }
 async-trait = "=0.1.89"
 base64 = "=0.22.1"
+rand = "=0.9.3"
 ed25519-dalek = "=2.2.0"
 eitmad-admin-plane = { path = "../admin-plane" }
 eitmad-contracts = { path = "../../crates/contracts" }
@@ -39,10 +42,16 @@ thiserror = "=2.0.18"
 uuid = { version = "=1.23.4", features = ["serde", "v4"] }
 zeroize = "=1.8.1"
 
+[target.'cfg(windows)'.dependencies]
+eitmad-server-connection = { path = "../../crates/server-connection" }
+eitmad-secret-storage = { path = "../../crates/secret-storage" }
+eitmad-storage = { path = "../../crates/storage" }
+
 [dev-dependencies]
+eitmad-pairing = { path = "../../crates/pairing" }
 tower = { version = "=0.5.3", features = ["util"] }
 
 [[bin]]
 name = "eitmad-server"
 path = "src/main.rs"
-test = false
+test = true

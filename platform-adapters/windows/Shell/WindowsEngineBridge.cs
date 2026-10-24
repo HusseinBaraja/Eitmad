@@ -13,6 +13,8 @@ public interface IEngineSubscription : IAsyncDisposable
 
 public interface IEngineShellBridge : IAsyncDisposable
 {
+    Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default);
+    Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default, Guid? selectedServerId = null);
     event Action<EngineSupervisionSnapshot>? StateChanged;
     EngineSupervisionSnapshot Snapshot { get; }
     bool SupportsCapability(string capability);
@@ -29,6 +31,10 @@ public interface IEngineShellBridge : IAsyncDisposable
 
 public sealed class WindowsEngineBridge : IEngineShellBridge
 {
+    public Task<DesktopOnboardingState> OnboardingAsync(DesktopOnboardingAction action, CancellationToken cancellationToken = default) =>
+        supervisor.OnboardingAsync(action, cancellationToken);
+    public Task<ServerDiscoveryResult> DiscoverServersAsync(CancellationToken cancellationToken = default, Guid? selectedServerId = null) =>
+        supervisor.DiscoverServersAsync(cancellationToken, selectedServerId);
     private readonly EngineSupervisor supervisor;
     private readonly EngineLaunchRequest launchRequest;
 

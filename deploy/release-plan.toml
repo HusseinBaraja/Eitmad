@@ -25,6 +25,21 @@ rust_package = "eitmad-server"
 postgres_major = 17
 service_wrapper = "WinSW 2.12.0 (external prerequisite)"
 
+[artifacts.windows_setup]
+enabled = true
+format = "zip"
+runtime = "win-x64"
+shell_project = "shells/windows-setup/Eitmad.WindowsSetup.csproj"
+self_contained = true
+
+[artifacts.windows_offline]
+enabled = true
+format = "zip"
+runtime = "win-x64"
+launcher = "setup/EitmadSetup.exe"
+authenticated_inventory = "offline.cat (SHA-256, trusted publisher, RFC3161 timestamp)"
+client_installer = "per-user MSIX Eitmad.Desktop"
+
 [artifacts.macos_desktop]
 enabled = false
 format = "pkg"

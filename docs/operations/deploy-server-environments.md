@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-08-26"
+last_verified: "2026-10-21"
 review_triggers:
   - "server topology, reverse proxy, TLS, backup, migration, channel, or rollback changes"
 keywords:
@@ -19,7 +19,7 @@ keywords:
 
 Deploy one immutable `eitmad-server` artifact per release. Keep staging and production in separate trust, data, credentials, update channels, and network boundaries. The combined binary composes control, sync, relay, update, and administration planes, but their privileges and future split points remain separate.
 
-For a single Windows LAN host, use the [installed service procedure](run-windows-host-services.md) for unattended startup, service identities, readiness, power requirements, and preserved uninstall data.
+For a new single-workshop Windows LAN host, use [guided server and client installation](install-windows.md). Use the [installed service procedure](run-windows-host-services.md) for advanced import, unattended startup, service identities, readiness, power requirements, and preserved uninstall data. The environment deployment procedure below is a separate operator path.
 
 ## Profiles
 

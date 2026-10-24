@@ -69,6 +69,12 @@ pub enum ServerCommand {
     Serve,
     Migrate,
     CheckConfig,
+    InitializeWorkshop,
+    EnrollFirstDesktop,
+    PrepareWindowsWorkshop,
+    InstallWindows,
+    InstallWindowsServer,
+    WindowsInstallStatus,
     RecoverOwner {
         tenant_code: String,
         owner_username: String,
@@ -224,6 +230,14 @@ impl ServerCommand {
             None | Some("serve") => Self::Serve,
             Some("migrate") => Self::Migrate,
             Some("check-config") => Self::CheckConfig,
+            Some("initialize-workshop") if arguments.len() == 2 => Self::InitializeWorkshop,
+            Some("enroll-first-desktop") if arguments.len() == 2 => Self::EnrollFirstDesktop,
+            Some("prepare-windows-workshop") if arguments.len() == 2 => {
+                Self::PrepareWindowsWorkshop
+            }
+            Some("install-windows") if arguments.len() == 2 => Self::InstallWindows,
+            Some("install-windows-server") if arguments.len() == 2 => Self::InstallWindowsServer,
+            Some("windows-install-status") if arguments.len() == 2 => Self::WindowsInstallStatus,
             Some("recover-owner") if arguments.len() == 4 => Self::RecoverOwner {
                 tenant_code: arguments[2].clone(),
                 owner_username: arguments[3].clone(),
@@ -234,7 +248,16 @@ impl ServerCommand {
                 organization_name: arguments[4].clone(),
                 owner_username: arguments[5].clone(),
             },
-            Some("bootstrap" | "recover-owner") => Self::Usage,
+            Some(
+                "bootstrap"
+                | "recover-owner"
+                | "initialize-workshop"
+                | "enroll-first-desktop"
+                | "prepare-windows-workshop"
+                | "install-windows"
+                | "install-windows-server"
+                | "windows-install-status",
+            ) => Self::Usage,
             _ => Self::Help,
         }
     }

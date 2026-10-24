@@ -3,6 +3,10 @@
 param([string]$Action, $Node, [string]$Target, [pscredential]$StorageCredential, [pscredential]$PostgresCredential)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($Action -eq 'Capture' -and $Node.kind -eq 'server') {
+    # WinRM -FilePath does not transfer sibling modules. Use the participant's installed tools.
+    Import-Module (Join-Path (Split-Path $Node.hostModule -Parent) 'backup-tools.psm1') -Force -DisableNameChecking
+}
 
 function Assert-LocalTree([string]$Path) {
     if ($Path -notmatch '^[A-Za-z]:\\' -or $Path -match '[,\r\n"]') { throw 'Invalid local backup input.' }
@@ -85,23 +89,7 @@ if ($Action -eq 'Prepare') {
         $global:EitmadBackup.Server.Refresh()
         if ($global:EitmadBackup.Server.Status -ne 'Stopped') { throw 'Server write barrier was lost.' }
         $bin = Join-Path $Node.hostRoot 'postgres/bin'
-        $previous = $env:PGPASSWORD
-        $pgEnvironment = @{}
-        try {
-            $env:PGPASSWORD = $PostgresCredential.GetNetworkCredential().Password
-            # Ignore ambient libpq routing, service, SSL, and password-file settings.
-            foreach ($key in @(Get-ChildItem Env: | Where-Object Name -like 'PG*')) {
-                if ($key.Name -ne 'PGPASSWORD') { $pgEnvironment[$key.Name] = $key.Value; Remove-Item ('Env:' + $key.Name) }
-            }
-            Invoke-BackupTool (Join-Path $bin 'pg_basebackup.exe') @('--host=127.0.0.1',
-                ('--port=' + $global:EitmadBackup.Settings.databasePort), ('--username=' + $PostgresCredential.UserName),
-                '--no-password', '--format=plain', '--wal-method=stream', '--checkpoint=fast', '--manifest-checksums=SHA256',
-                ('--pgdata=' + (Join-Path $Target 'cluster')))
-        } finally {
-            foreach ($key in $pgEnvironment.Keys) { Set-Item ('Env:' + $key) $pgEnvironment[$key] }
-            $env:PGPASSWORD = $previous
-        }
-        Invoke-BackupTool (Join-Path $bin 'pg_verifybackup.exe') @('--exit-on-error', (Join-Path $Target 'cluster'))
+        Backup-Postgres $bin $global:EitmadBackup.Settings.databasePort $PostgresCredential (Join-Path $Target 'cluster')
     }
     # A unique target prevents wbadmin from overwriting an earlier network generation.
     $image = Join-Path $Target 'image'

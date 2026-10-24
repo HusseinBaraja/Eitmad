@@ -21,6 +21,11 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## IPC messages
 
+- `eitmad.ipc.discover-servers.v1`
+- `eitmad.ipc.desktop-onboarding.v1`
+- `eitmad.ipc.desktop-onboarding-response.v1`
+- `eitmad.ipc.cancel-server-discovery.v1`
+- `eitmad.ipc.server-discovery.v1`
 - `eitmad.ipc.desktop-session-response.v1`
 - `eitmad.ipc.desktop-session-state.v1`
 - `eitmad.ipc.desktop-sign-in.v1`
@@ -190,6 +195,9 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Capabilities
 
+- `eitmad.capability.server-pairing.v1`
+- `eitmad.capability.server-discovery.v1`
+- `eitmad.capability.desktop-onboarding.v1`
 - `eitmad.capability.shared-accounts.v1`
 - `eitmad.capability.home.v1`
 - `eitmad.capability.work-orders.v1`
@@ -328,6 +336,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Error codes
 
+- `eitmad.error.pairing-denied.v1`
 - `eitmad.error.order-unavailable.v1`
 - `eitmad.error.order-conflict.v1`
 - `eitmad.error.order-invalid.v1`
@@ -423,6 +432,7 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 
 ## Localization message identifiers
 
+- `eitmad.message.pairing-denied.v1`
 - `eitmad.message.order-unavailable.v1`
 - `eitmad.message.order-conflict.v1`
 - `eitmad.message.order-invalid.v1`

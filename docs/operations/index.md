@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-19"
+last_verified: "2026-10-24"
 review_triggers:
   - "workspace verification, executable behavior, deployment, backup, or recovery changes"
 keywords:
@@ -17,17 +17,18 @@ keywords:
 
 # Operate and release Eitmad
 
-Use this collection to verify the current foundation and prepare controlled releases. Rust owns local SQLite authority through storage version 11 and separate process, user authentication, and Manager account administration under local protocol `1.8`. The modular PostgreSQL server accepts protocol `1.4–1.6`. Package CDN delivery, production signing, native desktop updater adapters, LAN discovery, production relay payload routing, MFA/email providers, diagnostic retention, and production operator UI are not implemented. Windows scheduled backup tooling is supplied; off-device installation and replacement-machine credential recovery still require acceptance.
+For a new Windows workshop, start with [Install Eitmad on the server and employee PCs](install-windows.md). Use the other tasks for release preparation, advanced deployment, maintenance, and recovery. Guided Windows setup, device pairing, scheduled local backups, backup administration, and unattended TLS renewal are implemented. Trusted signed offline distribution and clean-machine acceptance still need the evidence listed in [offline setup verification](verify-offline-windows-setup.md).
 
 ## Release and deployment tasks
 
 - [Validate a release candidate](validate-release-candidate.md): run mandatory code, contract, security, Arabic/RTL, packaging, desktop, server, restore, and rollback gates.
-- [Install and maintain Windows server and desktop packages](package-windows-desktop.md): build versioned server and MSIX client packages; sign, enroll, repair, remove, and upgrade with retained data.
-- [Prepare future macOS signing and notarization](prepare-macos-distribution.md): keep packaging blocked until the native shell and updater exist.
-- [Prepare future Linux packages and updates](prepare-linux-distribution.md): choose managed formats and preserve package-manager authority.
+- [Install Eitmad on the server and employee PCs](install-windows.md): follow the normal guided setup, create staff accounts, pair clients, and check the result.
+- [Build and maintain Windows installation packages](package-windows-desktop.md): assemble and sign offline bundles; use advanced manual import, repair, removal, and upgrades with retained data.
+- [Verify offline Windows Server and Client setup](verify-offline-windows-setup.md): repeat isolated proofs and record clean-PC, standard-user, pairing, firewall, reboot, DHCP, interruption, and restore acceptance.
+- [Use the Windows setup backend and recover installation stages](prepare-windows-workshop.md): inspect Rust setup internals, private CLI requests, retained progress, and standalone preparation.
 - [Deploy staging and production server environments](deploy-server-environments.md): isolate profiles, terminate TLS, migrate, restore, promote, and roll back.
 - [Run and recover the modular server authority](run-server-authority.md): configure and exercise the current combined binary.
-- [Set up a stable Windows LAN server with TLS](setup-lan-server.md): retain a matching endpoint and client trust, protect server keys, scope the firewall, and renew certificates.
+- [Set up a stable Windows LAN server with TLS](setup-lan-server.md): manually provision a separate fixed endpoint or inspect retained trust and unattended certificate renewal.
 - [Run the Windows host without an interactive login](run-windows-host-services.md): install persistent PostgreSQL and Rust services, inspect readiness, recover failures, and preserve data during uninstall.
 - [Run the Manager and Receptionist test environment](run-workflow-test-environment.md): start one real WPF client with role-based sign-in, isolated PostgreSQL, authenticated TLS, synthetic Arabic workflows, and retained work across restart.
 - [Run and diagnose the engine runtime](run-engine-runtime.md): start headless or supervised modes and interpret readiness.
@@ -36,12 +37,14 @@ Use this collection to verify the current foundation and prepare controlled rele
 
 ## Run the local foundation checks
 
+Use these broad checks for release preparation or a workspace-wide change. For routine work, select the [smallest normal proof](../developer/index.md#choose-the-smallest-normal-proof). The [release guide](validate-release-candidate.md) owns the complete publication and platform gates.
+
 ## Prerequisites
 
 - rustup with Rust `1.85.1` installed for minimum-supported-version checks;
-- the current stable Rust toolchain for daily development;
+- PowerShell 7 for local Windows commands;
 - Python 3 for the Markdown audit;
-- Node.js and npm for pinned contract generation;
+- Node.js 22 and npm for pinned contract generation;
 - .NET 8 for local Windows binding and process-supervision conformance;
 - commands run from the repository root without real customer data.
 
@@ -50,37 +53,41 @@ Use this collection to verify the current foundation and prepare controlled rele
 1. Check formatting:
 
    ```powershell
-   cargo fmt --all -- --check
+   rustup run 1.85.1 cargo fmt --all -- --check
    ```
 
 2. Check all targets with the minimum supported Rust version used by CI:
 
    ```powershell
-   rustup run 1.85.1 cargo check --workspace --all-targets
+   rustup run 1.85.1 cargo check --locked --workspace --all-targets
    ```
 
 3. Reject Clippy warnings:
 
    ```powershell
-   cargo clippy --workspace --all-targets -- -D warnings
+   rustup run 1.85.1 cargo clippy --locked --workspace --all-targets -- -D warnings
    ```
 
 4. Run workspace tests:
 
    ```powershell
-   cargo test --workspace
+   rustup run 1.85.1 cargo test --locked --workspace
    ```
 
 5. Run non-mutating engine diagnostics:
 
    ```powershell
-   cargo run -q -p eitmad-engine-cli -- diagnose
+   rustup run 1.85.1 cargo run --locked -q -p eitmad-engine-cli -- diagnose
    ```
 
 6. Install and validate generated contracts:
 
    ```powershell
    npm ci --ignore-scripts --prefix crates/contracts/codegen
+   ```
+
+   ```powershell
+   npm audit --audit-level=high --prefix crates/contracts/codegen
    ```
 
    ```powershell
@@ -96,7 +103,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 8. Build the Rust CLI and run Windows process supervision scenarios on Windows:
 
    ```powershell
-   cargo build -p eitmad-engine-cli
+   rustup run 1.85.1 cargo build --locked -p eitmad-engine-cli
    ```
 
    ```powershell
@@ -112,7 +119,7 @@ Use this collection to verify the current foundation and prepare controlled rele
 10. On each release platform, run the synthetic native secret lifecycle through that platform's protected credential store. This test is ignored during routine hermetic runs because it mutates OS credential state and then cleans it up:
 
    ```powershell
-   cargo test -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
+   rustup run 1.85.1 cargo test --locked -p eitmad-secret-storage tests::os_native_backend_supports_secret_lifecycle -- --ignored --exact
    ```
 
 11. Enforce repository ownership, migration checksum, secret/logging, direct shell authority, release plan, and Arabic root-direction rules:
@@ -131,7 +138,7 @@ Use this collection to verify the current foundation and prepare controlled rele
    python scripts/release/build_artifacts.py server --version 0.0.0-ci --output dist
    ```
 
-13. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify migrations `1–3`, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
+13. In an environment with PostgreSQL, follow the [server runbook](run-server-authority.md) and verify the complete current migration registry, bootstrap, authentication, tenant isolation, relay denial/lifecycle, signed update selection, administration, sync pull, snapshot fallback, subscription resume, readiness, backup, and restore.
 
 ## Verify
 

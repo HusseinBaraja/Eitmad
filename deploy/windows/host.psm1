@@ -355,9 +355,11 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
     $environment = @{
         EITMAD_SERVER_DATABASE_URL_FILE = Join-Path $Root 'private/database-url'
         EITMAD_SERVER_TOKEN_KEY_FILE = Join-Path $Root 'private/token-key'
-        EITMAD_SERVER_LISTEN = "$($source.address):$($source.port)"
+        EITMAD_SERVER_LISTEN = "0.0.0.0:$($source.port)"
         EITMAD_SERVER_TLS_CERTIFICATE = Join-Path $Root 'private/server-cert.pem'
         EITMAD_SERVER_TLS_PRIVATE_KEY = Join-Path $Root 'private/server-key.pem'
+        EITMAD_SERVER_PAIRING_ENDPOINT = $source.endpoint
+        EITMAD_SERVER_PUBLIC_CA = Join-Path $Root 'private/trusted-ca.pem'
         EITMAD_SERVER_UPDATE_MANIFEST_DIRECTORY = Join-Path $Root 'manifests'
     }
     foreach ($key in 'EITMAD_SERVER_UPDATE_OPERATOR_TENANT_ID', 'EITMAD_SERVER_UPDATE_KEY_ID', 'EITMAD_SERVER_UPDATE_PUBLIC_KEY', 'EITMAD_SERVER_MAX_CONNECTIONS') {
@@ -382,15 +384,23 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
     return $settings
 }
 
-function Install-Host($Settings) {
+function Install-Host($Settings, [switch]$ResumeExisting) {
     $root = $Settings.root; $serverId = $Settings.name + 'Server'; $databaseId = $Settings.name + 'Postgres'
     Test-RustConfiguration $root
     foreach ($kind in 'Postgres', 'Server') {
-        if (Get-Service -Name ($Settings.name + $kind) -ErrorAction SilentlyContinue) { throw 'A host service is already installed. Use Start or Uninstall first.' }
+        $service = Get-OwnedService $Settings $kind
+        if ($service) {
+            Close-Service $service
+            if (-not $ResumeExisting) { throw 'A host service is already installed. Use Start or Uninstall first.' }
+        }
     }
     # Demand-start avoids booting a partly configured service.
     foreach ($kind in 'Postgres', 'Server') {
         $id = $Settings.name + $kind
+        if ($ResumeExisting) {
+            $service = Get-OwnedService $Settings $kind
+            if ($service) { Close-Service $service; continue }
+        }
         Ensure-EventSource $id
         $directory = if ($kind -eq 'Postgres') { 'postgres' } else { 'app' }
         $arguments = @('create', $id, 'binPath=', ('"' + (Join-Path $root "$directory/host-service.exe") + '"'),
@@ -439,8 +449,9 @@ function Get-ClientFirewallRule($Settings) {
 
 function Set-ClientFirewall {
     [CmdletBinding(SupportsShouldProcess)]
-    param($Settings, [string]$ClientAddress)
-    if (-not $ClientAddress) {
+    param($Settings, [string]$ClientAddress, [switch]$PrivateLan)
+    if ($PrivateLan -and $ClientAddress) { throw 'Choose PrivateLan or ClientAddress, not both.' }
+    if (-not $PrivateLan -and -not $ClientAddress) {
         do {
             $ClientAddress = (Read-Host 'Second PC IPv4 address (for example 192.168.1.20; Enter to cancel)').Trim()
             if (-not $ClientAddress) { Write-Host 'Cancelled. No firewall rule was changed.'; return }
@@ -448,23 +459,48 @@ function Set-ClientFirewall {
             Write-Host 'Enter one private IPv4 address. Address ranges and subnets are not accepted.'
         } while ($true)
     }
-    if (-not (Test-ClientAddress $ClientAddress)) { throw 'Use one exact private IPv4 client address.' }
+    if (-not $PrivateLan -and -not (Test-ClientAddress $ClientAddress)) { throw 'Use one exact private IPv4 client address.' }
     if (-not (Test-ClientAddress $Settings.address)) { throw 'The installed host requires a private IPv4 listener before client access can be configured.' }
     $rule = Get-ClientFirewallRule $Settings
+    $discoveryRule = Get-DiscoveryFirewallRule $Settings
+    $remote = if ($PrivateLan) { 'LocalSubnet' } else { $ClientAddress }
     $arguments = @{
         PolicyStore = 'PersistentStore'; Name = $Settings.name + '-Host-Client'
         Enabled = 'True'; Direction = 'Inbound'; Action = 'Allow'; Profile = 'Private'
-        Protocol = 'TCP'; LocalAddress = $Settings.address; LocalPort = $Settings.serverPort
-        RemoteAddress = $ClientAddress; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
+        Protocol = 'TCP'; LocalAddress = $(if ($PrivateLan) { 'Any' } else { $Settings.address }); LocalPort = $Settings.serverPort
+        RemoteAddress = $remote; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
         EdgeTraversalPolicy = 'Block'
     }
-    if ($PSCmdlet.ShouldProcess($ClientAddress, 'Allow this client only in the installed host HTTPS rule (replace the previous client)')) {
+    if ($PSCmdlet.ShouldProcess($remote, 'Set the installed host HTTPS rule on Private networks (replace its previous scope)')) {
         if ($rule) { Set-NetFirewallRule @arguments | Out-Null }
         else { New-NetFirewallRule @arguments -DisplayName 'Eitmad host client HTTPS' -Group ('Eitmad host: ' + $Settings.root) | Out-Null }
-        Write-Host "Client firewall rule saved for $ClientAddress on Private networks. Other firewall rules still apply."
+        if ($PrivateLan) {
+            $discovery = @{
+                PolicyStore = 'PersistentStore'; Name = $Settings.name + '-Host-Discovery'
+                Enabled = 'True'; Direction = 'Inbound'; Action = 'Allow'; Profile = 'Private'
+                Protocol = 'UDP'; LocalAddress = 'Any'; LocalPort = 58444
+                RemoteAddress = 'LocalSubnet'; Program = Join-Path $Settings.root 'app/eitmad-server.exe'
+                EdgeTraversalPolicy = 'Block'
+            }
+            if ($discoveryRule) { Set-NetFirewallRule @discovery | Out-Null }
+            else { New-NetFirewallRule @discovery -DisplayName 'Eitmad server discovery' -Group ('Eitmad host: ' + $Settings.root) | Out-Null }
+        } elseif ($discoveryRule) { $discoveryRule | Remove-NetFirewallRule }
+        Write-Host "Client firewall rule saved for $remote on Private networks. Other firewall rules still apply."
         Write-Host "Server URL for the second PC: $($Settings.endpoint)"
         Write-Host 'Use the public CA and your own account in the app connection setup. See docs/operations/run-windows-host-services.md.'
     }
+}
+
+function Get-DiscoveryFirewallRule($Settings) {
+    $rule = Get-NetFirewallRule -PolicyStore PersistentStore -Name ($Settings.name + '-Host-Discovery') -ErrorAction SilentlyContinue
+    if ($rule) {
+        $application = $rule | Get-NetFirewallApplicationFilter
+        if ($rule.Group -cne ('Eitmad host: ' + $Settings.root) -or
+            $application.Program -ine (Join-Path $Settings.root 'app/eitmad-server.exe')) {
+            throw 'The discovery firewall rule belongs to another installation. No rule was changed.'
+        }
+    }
+    return $rule
 }
 
 function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Action,
@@ -594,6 +630,7 @@ function Invoke-EitmadHost {
         [string]$StateDirectory = "$env:ProgramData\EitmadHost",
         [ValidatePattern('^[A-Za-z][A-Za-z0-9]{0,31}$')][string]$Name = 'Eitmad',
         [string]$ClientAddress,
+        [switch]$PrivateLan,
         [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
         [string]$WinSwExecutable, [string]$WinSwSha256,
@@ -602,6 +639,8 @@ function Invoke-EitmadHost {
     )
     if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
     if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
+    if ($PrivateLan -and $Action -ne 'Firewall') { throw 'PrivateLan is supported only for the Firewall action.' }
+    if ($PrivateLan -and $ClientAddress) { throw 'Choose PrivateLan or ClientAddress, not both.' }
     $root = Get-SafePath $StateDirectory
     Assert-Administrator
     Assert-ProtectedParents $root
@@ -626,7 +665,7 @@ function Invoke-EitmadHost {
             if (-not $release) { throw 'Use install-server.ps1 with the verified release inventory.' }
             Set-HostRelease $settings $release $ReleaseDirectory $Action $BackupGeneration $RestoreVerified
         } elseif ($Action -eq 'Firewall') {
-            Set-ClientFirewall $settings $ClientAddress -WhatIf:$WhatIf
+            Set-ClientFirewall $settings $ClientAddress -PrivateLan:$PrivateLan -WhatIf:$WhatIf
         } elseif ($Action -eq 'Install') {
             if ($release) {
                 $digest = (Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe') -Algorithm SHA256).Hash
@@ -652,9 +691,20 @@ function Invoke-EitmadHost {
             Stop-Host $settings
             Write-Host 'Services stopped in dependency order. Data is retained.'
         } elseif ($Action -eq 'Uninstall') {
+            if (Test-Path -LiteralPath (Join-Path $root 'renewal')) {
+                $task = Get-ScheduledTask -TaskName ($settings.name + '-TlsRenewal') -ErrorAction SilentlyContinue
+                if ($task) {
+                    if (@($task.Actions).Count -ne 1 -or $task.Actions.Execute -cne (Join-Path $root 'app/eitmad-server.exe') -or
+                        $task.Actions.Arguments -cne ('windows-tls tick "' + $root + '"') -or
+                        $task.Principal.UserId -notin 'SYSTEM','S-1-5-18') { throw 'The renewal task belongs to another configuration.' }
+                    Unregister-ScheduledTask -TaskName ($settings.name + '-TlsRenewal') -Confirm:$false
+                }
+            }
             $clientRule = Get-ClientFirewallRule $settings
+            $discoveryRule = Get-DiscoveryFirewallRule $settings
             Stop-Host $settings
             if ($clientRule) { $clientRule | Remove-NetFirewallRule }
+            if ($discoveryRule) { $discoveryRule | Remove-NetFirewallRule }
             foreach ($kind in 'Server', 'Postgres') {
                 $service = Get-OwnedService $settings $kind
                 if ($service) {

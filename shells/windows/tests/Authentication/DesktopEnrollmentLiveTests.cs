@@ -12,6 +12,28 @@ public sealed class DesktopEnrollmentLiveTests
 {
     [TestMethod]
     [TestCategory("DesktopEnrollmentEnvironment")]
+    public async Task PendingPairingCanBeRetriedAndExplicitlyAbandoned()
+    {
+        var candidateJson = Environment.GetEnvironmentVariable("EITMAD_PAIRING_RECOVERY_CANDIDATE");
+        if (string.IsNullOrEmpty(candidateJson)) Assert.Inconclusive("Run the Rust pairing recovery integration test with EITMAD_DESKTOP_ENROLLMENT_ENGINE set.");
+        var candidate = JsonSerializer.Deserialize<DiscoveredServer>(candidateJson!)!;
+        var bridge = WindowsEngineBridge.Create(["--engine", Environment.GetEnvironmentVariable("EITMAD_DESKTOP_ENROLLMENT_ENGINE")!,
+            "--runtime-directory", Environment.GetEnvironmentVariable("EITMAD_DESKTOP_ENROLLMENT_DIRECTORY")!]);
+        await using var sessions = new DesktopSessionController(bridge);
+        await sessions.StartAsync();
+        var state = await bridge.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.State });
+        Assert.IsFalse(state.Paired); Assert.AreEqual(candidate.ServerId, state.PendingPairingServer);
+        await Assert.ThrowsAsync<EngineIpcException>(() => bridge.OnboardingAsync(new DesktopOnboardingAction {
+            Kind = DesktopOnboardingActionKind.Pair, Payload = new DesktopOnboardingActionPayload { Candidate = candidate, Code = "" } }));
+        Assert.AreEqual(candidate.ServerId, (await bridge.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.State })).PendingPairingServer);
+        state = await bridge.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.DiscardPendingPairing });
+        Assert.IsFalse(state.Paired); Assert.IsNull(state.PendingPairingServer);
+        Assert.IsNull(await bridge.GetSessionStateAsync());
+        await sessions.StopAsync();
+    }
+
+    [TestMethod]
+    [TestCategory("DesktopEnrollmentEnvironment")]
     public async Task FreshDesktopEnrollsReopensAndReauthenticates()
     {
         var input = Environment.GetEnvironmentVariable("EITMAD_DESKTOP_ENROLLMENT_INPUT");
@@ -21,11 +43,20 @@ public sealed class DesktopEnrollmentLiveTests
             "--runtime-directory", Environment.GetEnvironmentVariable("EITMAD_DESKTOP_ENROLLMENT_DIRECTORY")! };
         Guid? device;
         Guid tenant;
-        await using (var sessions = new DesktopSessionController(WindowsEngineBridge.Create(arguments)))
+        var fresh = WindowsEngineBridge.Create(arguments);
+        await using (var sessions = new DesktopSessionController(fresh))
         {
             await sessions.StartAsync();
-            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.SignInAsync("owner", "synthetic-test-password-123", connection));
+            Assert.IsTrue((await fresh.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.State })).Paired);
+            await Assert.ThrowsAsync<EngineIpcException>(() => fresh.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.DiscardPendingPairing }));
+            await Assert.ThrowsAsync<EngineIpcException>(() => fresh.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.OpenPairing }));
+            Assert.AreEqual(AuthenticatedSurface.Manager, await sessions.SignInAsync("owner", "synthetic-test-password-123", null));
+            var opened = await fresh.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.OpenPairing });
+            Assert.AreEqual(8, opened.Code?.Length);
+            Assert.IsTrue(opened.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            opened.Code = "";
             await sessions.SignOutAsync();
+            await Assert.ThrowsAsync<EngineIpcException>(() => fresh.OnboardingAsync(new DesktopOnboardingAction { Kind = DesktopOnboardingActionKind.OpenPairing }));
             await sessions.StopAsync();
         }
         var reopened = WindowsEngineBridge.Create(arguments);

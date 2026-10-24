@@ -82,6 +82,11 @@ impl IdentityService {
     ) -> Result<eitmad_contracts::server::DesktopEnrollmentProfile, ServerAccountError> {
         use eitmad_contracts::server_accounts::ServerAccountStatus;
         let mut tx = crate::database::tenant_transaction(&self.pool, actor.tenant_id).await?;
+        let paired_scope: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM control.paired_devices WHERE tenant_id=$1 AND device_id=$2) OR EXISTS(SELECT 1 FROM control.paired_devices WHERE tenant_id=$1 AND device_id=$2 AND organization_id=$3 AND branch_id=$4 AND revoked_at IS NULL)")
+            .bind(actor.tenant_id.value()).bind(actor.device_id.value()).bind(request.organization_id.value()).bind(request.branch_id.value()).fetch_one(&mut *tx).await?;
+        if !paired_scope {
+            return Err(ServerAccountError::Denied);
+        }
         let account = account_projection::read(&mut tx, actor.tenant_id, actor.account_id).await?;
         if account.user_id != actor.user_id || account.status != ServerAccountStatus::Active {
             return Err(ServerAccountError::Denied);

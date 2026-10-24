@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "reference"
 status: "active"
 owner: "engineering maintainers"
-last_verified: "2026-10-04"
+last_verified: "2026-10-24"
 review_triggers:
   - "a workspace member, platform, server plane, test suite, or ownership boundary changes"
 keywords:
@@ -17,7 +17,7 @@ keywords:
 
 # Find the owner of each repository area
 
-Place behavior that changes together in the nearest vertical product capability. Contracts, engine lifecycle, configuration, authorization, and authority storage are implemented foundations; most business capability boundaries remain empty.
+Place behavior that changes together in the nearest vertical product capability. Rust owns the implemented customer, catalog, pricing, quotation, order, and work-order behavior as well as engine lifecycle, configuration, authorization, storage, and synchronization.
 
 ## Ownership map
 
@@ -38,12 +38,18 @@ Place behavior that changes together in the nearest vertical product capability.
 | `crates/storage/` | SQLite setup, feature migrations, drift checks, transactions, scoped repositories, and recovery hooks | [Local storage guide](subsystems/local-storage.md) |
 | `crates/sync/` | Unified synchronization protocol | `crates/sync/OWNERSHIP.md` |
 | `crates/server-connection/` | Rust desktop engine direct TLS/WebSocket connection, device proof, and token lifecycle | `crates/server-connection/OWNERSHIP.md` |
+| `crates/pairing/` | Shared OPAQUE pairing suite, authenticated trust binding, client key proof, and completion receipts | [Server pairing](subsystems/server-authority.md#pair-a-discovered-server-and-approve-its-device) |
+| `crates/server-discovery/` | Stable installation identity and bounded, untrusted Private-LAN candidate discovery | [Server discovery](subsystems/server-discovery.md) |
 | `crates/authorization/` | Direct principal-to-scope relationships and compiled ReBAC policy v1 | [Authorization guide](subsystems/authorization.md) |
 | `crates/update-policy/` | Update eligibility, compatibility, and migration safety | `crates/update-policy/OWNERSHIP.md` |
 | `crates/observability-audit/` | Redacted diagnostics and mutation audit | `crates/observability-audit/OWNERSHIP.md` |
+| `crates/secret-storage/` | Native credential lifecycle and authenticated encrypted fallback | [Secret storage](subsystems/secret-storage.md) |
 | `shells/` | Thin native shells; Windows uses C# | `shells/OWNERSHIP.md` |
 | `platform-adapters/` | Replaceable OS mechanics; Windows engine process supervision is implemented | [Windows process supervision](subsystems/windows-process-supervision.md) |
 | `server/*-plane/` | Separate control, sync, relay, update, and admin boundaries | `server/OWNERSHIP.md` |
+| `server/host/` | Combined server executable, authenticated routes, and Windows setup composition | [Server authority](subsystems/server-authority.md) and [Windows setup backend](../operations/prepare-windows-workshop.md) |
+| `server/audit/` | Canonical append-only server audit envelope | [Authorization and audit](subsystems/authorization.md#mandatory-audit-envelope) |
+| `server/postgres-support/` | PostgreSQL-only SQLx facade that avoids linking its optional SQLite driver | `server/OWNERSHIP.md` |
 | `tests/` | Cross-boundary tests; unit tests remain near capabilities | `tests/OWNERSHIP.md` |
 | `deploy/` | Executable packaging and deployment assets | `deploy/OWNERSHIP.md` |
 | `docs/` | Knowledge graph organized by audience and task | [Documentation index](../index.md) |
@@ -58,6 +64,6 @@ Place behavior that changes together in the nearest vertical product capability.
 
 ## Verification
 
-This map matches the current `Cargo.toml` members, runtime composition, and ownership files as of 2026-09-17. External providers and extension hosts have no implementation crate yet. Add a named Rust capability when a concrete integration needs it; apply the [target architecture](../architecture/target-architecture.md) and [authorization gate](subsystems/authorization.md#boundary-enforcement).
+This map was checked against `Cargo.toml`, runtime/server composition, and ownership files on 2026-10-24. External providers and extension hosts have no implementation crate yet. Add a named Rust capability when a concrete integration needs it; apply the [target architecture](../architecture/target-architecture.md) and [authorization gate](subsystems/authorization.md#boundary-enforcement).
 
 Next, [run the foundation checks](../operations/index.md).

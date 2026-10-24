@@ -13,57 +13,28 @@ Start with:
 - [Repository layout and ownership](docs/developer/repository-layout.md)
 - [Documentation index](docs/index.md)
 
-## Run the admin dashboard on Windows
+## Install on Windows
 
-To use a fresh Windows installation, first complete the [server setup](docs/operations/run-server-authority.md): configure PostgreSQL, TLS, and the required server settings, run `check-config` and `migrate`, bootstrap and activate the first Owner, and start the TLS server with `serve`. Follow [shared server account setup](docs/operations/run-server-authority.md#manage-shared-server-accounts) to register the branch and prepare an active account with a Manager assignment or a Receptionist assignment for that branch. Owner status alone is not an operational desktop role. Keep the server and PostgreSQL running.
+Follow [Install Eitmad on the server and employee PCs](docs/operations/install-windows.md). Use the complete reviewed offline bundle and open `setup\EitmadSetup.exe` as the intended normal Windows user.
 
-Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root, build the debug Rust engine and start the native Windows dashboard:
+- **Server:** select **خادم الورشة ومعه تطبيق الموظف**. Enter the workshop name and Owner credentials, choose backup destinations, and approve UAC. Setup creates the workshop and installs the services and this user's desktop.
+- **Client:** select **جهاز موظف**. After installation, open **الاعتماد**, discover the server, pair with an Owner code, and sign in with an individual employee account. Client installation needs no administrator rights.
+
+The guide covers prerequisites, first sign-in, pairing, verification, and interrupted setup. Installation uses local offline payloads; protected work still requires the live workshop server. A complete trusted signed bundle and clean-PC acceptance remain **Needs verification**. Unsigned build artifacts are for engineering validation. See [package building and maintenance](docs/operations/package-windows-desktop.md) for signing, repair, removal, and upgrade.
+
+## Run from source on Windows
+
+Install the .NET 8 SDK and Rust 1.85.1 with rustup. From the repository root:
 
 ```powershell
 .\run.ps1
 ```
 
-On the sign-in screen, enter the server account name and password. Expand **ربط هذا الجهاز بالمنشأة** and provide the HTTPS endpoint, trusted CA PEM file, tenant code, organization ID, and registered branch ID from the administrator, then select **دخول**. See [enroll or recover a Windows desktop](docs/operations/run-server-authority.md#enroll-or-recover-a-windows-desktop) for the full enrollment steps. The launcher does not create accounts. Sign-in and protected work require the live server; a retained local verifier does not authorize disconnected access under [ADR-0029](docs/decisions/0029-require-live-server-authority-for-protected-access.md).
+This development launcher builds the Rust engine and starts the native shell. It does not install the server or create accounts. Use a running workshop and independently pair the device, or use the [isolated workflow test environment](docs/operations/run-workflow-test-environment.md) for synthetic development data. Follow the [developer guide](docs/developer/index.md#1-run-the-local-windows-app) for runtime selection and focused checks.
 
-To check the installation, sign in and save one synthetic customer or draft with a permitted account. Use **إنهاء الاعتماد** in the tray menu to stop the shell and engine; closing the window keeps the app in the tray. Start the app again under the same Windows user and runtime directory, leave enrollment closed, sign in online, and check that the saved work remains. For design and ownership details, see the [Windows operations shell guide](docs/developer/subsystems/windows-native-shell.md).
+For an existing connected runtime, pass `-RuntimeDirectory <installation-directory>`. Rust reads the retained connection settings. Use `-SkipBuild` only when source and dependencies are unchanged. Never copy another PC's runtime. Use **إنهاء الاعتماد** in the tray menu to exit the shell and engine; closing the window keeps the app in the tray.
 
-For an existing connected installation, use the same launcher with `-RuntimeDirectory <installation-directory>`. Rust reads its retained `connection.json`. Keep its server running. Use `-SkipBuild` only when source and dependencies are unchanged. See the [connected workflow test setup](docs/operations/run-workflow-test-environment.md) for an isolated setup with synthetic test records.
-
-### Run an unattended Windows host
-
-Use the [Windows host service guide](docs/operations/run-windows-host-services.md) to install PostgreSQL and the Rust server with separate service identities and retained data. After installation, run these commands in an elevated PowerShell window:
-
-```powershell
-.\run-services.ps1 Start
-```
-
-Start waits for verified HTTPS readiness. Windows also starts the installed services after reboot without an interactive login. Closing or exiting the Manager app leaves the host running. The command does not build binaries, open WPF, seed records, or change power settings.
-
-For a local synthetic development environment, keep using its explicit owner:
-
-```powershell
-pwsh -File tools/workflow-environment.ps1 Start -ServicesOnly
-```
-
-For a new PC, start `run.ps1` with its own installation directory and use [desktop enrollment](docs/operations/run-server-authority.md#enroll-or-recover-a-windows-desktop). The launcher accepts a fresh directory and does not seed local accounts. Never copy another PC's runtime directory.
-
-The development tool supports `-StateDirectory` and `-SkipBuild` for retained test state. It does not install Windows services. Use `run.ps1 -RuntimeDirectory <client-installation>` to open a client independently.
-
-On Windows, another local server can lock the shared build executable. If a build reports `Access is denied` for `eitmad-server.exe`, stop that server through the command that started it, then retry. Use `-SkipBuild` only if the existing outputs match the current source and dependencies.
-
-Inspect the services:
-
-```powershell
-.\run-services.ps1 Status
-```
-
-Stop the installed host explicitly when maintenance requires it:
-
-```powershell
-.\run-services.ps1 Stop
-```
-
-`Stop` retains work. `Uninstall` removes service registrations and preserves the database and all installed files. Use the same `-StateDirectory` and `-Name` for a non-default host. See the service guide for install inputs, least-privilege access, recovery, sleep requirements, and the live reboot acceptance checks.
+Installed PostgreSQL and Rust services run separately from the desktop and start without Windows sign-in. Use the [Windows host service guide](docs/operations/run-windows-host-services.md) for status and maintenance. Use the [manual LAN guide](docs/operations/setup-lan-server.md) only for a separately provisioned endpoint; it is not a prerequisite for guided setup.
 
 ## Furniture editor flow
 

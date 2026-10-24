@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust synchronization maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-10-22"
 review_triggers:
   - "sync contracts, reconciliation, transport, persistence, authorization, cache, or conflict behavior changes"
 keywords:
@@ -41,9 +41,11 @@ keywords:
 
 Native shells display returned state and localized recovery choices. They must not open SQLite, alter queues, merge payloads, retry denied work, infer freshness, or reproduce these contracts. LAN and WAN transports carry the same typed records; transport choice cannot change reconciliation semantics.
 
-The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers Customer, Material, Part, Product, Furniture, public catalog, and Pricing handlers. `eitmad-server-connection` supplies the direct WAN route. `DirectCustomerSyncClient` connects `CustomerSyncCycle`, the customer outbox, and the shared engine to enrolled account credentials. The configured desktop engine retries pending changes on a Rust worker and publishes committed customer notifications. It recovers each original author from the mutation audit committed with the outbox, checks current branch permission, and transfers only that author's changes. Earlier pending revisions of the same customer are delivered first. Sign-out does not reassign pending work; revoked authority leaves it unsent. Transport failure retains pending work and the last durable checkpoint. See the [workflow environment configuration](../../operations/run-workflow-test-environment.md#seeded-work-and-authority). LAN discovery and relay payload routing remain separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
+The PostgreSQL server sync plane implements registered domain handlers, durable operations, idempotency, conflicts, checkpoints, snapshot-backed history, and resumable subscriptions. The combined host supplies HTTPS, one WebSocket boundary, and authenticated relay coordination. Its domain registry registers Customer, Material, Part, Product, Furniture, public catalog, and Pricing handlers. `eitmad-server-connection` supplies the direct WAN route. `DirectCustomerSyncClient` connects `CustomerSyncCycle`, the customer outbox, and the shared engine to enrolled account credentials. The configured desktop engine retries pending changes on a Rust worker and publishes committed customer notifications. It recovers each original author from the mutation audit committed with the outbox, checks current branch permission, and transfers only that author's changes. Earlier pending revisions of the same customer are delivered first. Sign-out does not reassign pending work; revoked authority leaves it unsent. Transport failure retains pending work and the last durable checkpoint. See the [workflow environment configuration](../../operations/run-workflow-test-environment.md#seeded-work-and-authority). Private-LAN discovery and authenticated pairing configure the retained direct route; relay payload routing remains separate work. A production driver must not move authentication, secret access, authorization, or sync semantics into a native shell. See [WAN relay coordination](wan-relay-coordination.md).
 
 ## Catalog replication
+
+Rust [server discovery](server-discovery.md) now supplies untrusted Private-LAN candidates through local IPC. Discovery alone does not create a sync route or save connection settings. The [pairing backend](server-authority.md#pair-a-discovered-server-and-approve-its-device) authenticates the candidate before it saves a retained connection.
 
 `DirectCatalogSyncClient` connects durable catalog work to the existing authenticated WAN adapter and `SubmitLocal`, `Pull`, and `Acknowledge` messages. It requires protocol 1.17. It uses the Pricing server endpoint, trust, and native credential settings; it adds no wire protocol or shell-owned networking. See [Pricing configuration](pricing.md#configure-and-recover).
 
