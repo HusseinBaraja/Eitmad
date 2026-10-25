@@ -68,11 +68,11 @@ pub(super) fn run() -> Result<()> {
         return Err("demo server identity mismatch");
     }
     let manager = connected(&request, &request.owner_username, &request.owner_password)?;
+    admit(&request, &manager)?;
     receptionist(&request, &settings, &manager)?;
     let reception = connected(&request, "receptionist", &request.receptionist_password)?;
     request.owner_password.zeroize();
     request.receptionist_password.zeroize();
-    admit(&request, &manager, &reception)?;
     let targets = catalog::run(&manager)?;
     checked(
         reception
@@ -89,9 +89,12 @@ pub(super) fn run() -> Result<()> {
     Ok(())
 }
 
-fn admit(request: &Request, manager: &Client, reception: &Client) -> Result<()> {
-    use eitmad_contracts::{pricing::ListPrices, quotation_lifecycle::ListQuotations};
-    use eitmad_pricing::{PricingService, QuotationServer as _};
+fn admit(request: &Request, manager: &Client) -> Result<()> {
+    use eitmad_contracts::{
+        furniture::ListFurnitures, material::ListMaterials, part::ListParts, product::ListProducts,
+        quotation_lifecycle::ListQuotations,
+    };
+    use eitmad_pricing::QuotationServer as _;
     let marker = request.directory.join("hadramout-demo-v1");
     let identity = request.expected_server_id.value().to_string();
     if marker.exists() {
@@ -107,25 +110,51 @@ fn admit(request: &Request, manager: &Client, reception: &Client) -> Result<()> 
             .synchronize(&manager.actor, super::deadline()),
         "demo existing catalog check",
     )?;
-    super::customers::synchronize(reception)?;
-    let prices = checked(
-        PricingService::new(
-            manager.store.clone(),
-            eitmad_authorization::AuthorizationService::new(manager.store.clone()),
-        )
-        .list(
+    super::customers::synchronize(manager)?;
+    let authorization = eitmad_authorization::AuthorizationService::new(manager.store.clone());
+    let materials = checked(
+        eitmad_material::MaterialService::new(manager.store.clone(), authorization.clone())
+            .list(&manager.actor, &ListMaterials::new(String::new(), None, 1)?),
+        "demo empty materials check",
+    )?;
+    let parts = checked(
+        eitmad_part::PartService::new(manager.store.clone(), authorization.clone()).list(
             &manager.actor,
-            &ListPrices {
+            &ListParts {
                 term: String::new(),
                 after: None,
                 limit: 1,
             },
         ),
-        "demo empty catalog check",
+        "demo empty parts check",
+    )?;
+    let furniture = checked(
+        eitmad_furniture::FurnitureService::new(manager.store.clone(), authorization.clone()).list(
+            &manager.actor,
+            &ListFurnitures {
+                term: String::new(),
+                after: None,
+                limit: 1,
+                selectable_only: false,
+            },
+        ),
+        "demo empty furniture check",
+    )?;
+    let products = checked(
+        eitmad_product::ProductService::new(manager.store.clone(), authorization).list(
+            &manager.actor,
+            &ListProducts {
+                term: String::new(),
+                after: None,
+                limit: 1,
+                selectable_only: false,
+            },
+        ),
+        "demo empty products check",
     )?;
     let quotes = checked(
-        reception.workflow.quotations(
-            &reception.branch,
+        manager.workflow.quotations(
+            &manager.branch,
             &ListQuotations {
                 after: None,
                 limit: 1,
@@ -134,9 +163,12 @@ fn admit(request: &Request, manager: &Client, reception: &Client) -> Result<()> 
         ),
         "demo empty workflow check",
     )?;
-    if !prices.items.is_empty()
+    if !materials.items.is_empty()
+        || !parts.items.is_empty()
+        || !furniture.items.is_empty()
+        || !products.items.is_empty()
         || !quotes.items.is_empty()
-        || sales::customer_count(reception)? != 0
+        || sales::customer_count(manager)? != 0
     {
         return Err("demo requires an empty test workshop");
     }

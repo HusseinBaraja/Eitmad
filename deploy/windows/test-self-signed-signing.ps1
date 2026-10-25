@@ -81,6 +81,11 @@ try {
     $payload = Join-Path $root 'payload'
     [void][IO.Directory]::CreateDirectory($payload)
     Copy-Item -LiteralPath $executable -Destination (Join-Path $payload 'EitmadSetup.exe')
+    # Bind the signed payload's raw bytes before the catalog authenticates the inventory.
+    $inventory = @{schemaVersion=1; files=@{
+        'EitmadSetup.exe'=(Get-FileHash -LiteralPath (Join-Path $payload 'EitmadSetup.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+    }}
+    $inventory | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $payload 'release.json') -Encoding UTF8
     $catalog = Join-Path $payload 'offline.cat'
     New-FileCatalog -Path $payload -CatalogFilePath $catalog -CatalogVersion 2.0 | Out-Null
     & (Join-Path $PSScriptRoot 'sign-windows.ps1') -Path $catalog -Publisher $subject -SigningHook $hook
