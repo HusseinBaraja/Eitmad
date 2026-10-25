@@ -3,12 +3,22 @@ $ErrorActionPreference = 'Stop'
 
 function Assert-PackageSignature([string]$Path, [string]$Publisher) {
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
-    if ($signature.Status -ne 'Valid' -or -not $signature.TimeStamperCertificate) {
-        throw 'A trusted, timestamped signature is required. Unsigned artifacts are validation-only.'
+    if ($signature.Status -ne 'Valid') {
+        throw 'A trusted signature is required. Unsigned artifacts are validation-only.'
     }
     $file = Get-Item -LiteralPath $Path
-    if (($file.Name -like 'Eitmad*' -or $file.Extension -in '.ps1', '.psm1', '.msix') -and
-        $signature.SignerCertificate.Subject -cne $Publisher) { throw 'Package publisher does not match the approved identity.' }
+    if ($file.Name -like 'Eitmad*' -or $file.Extension -in '.ps1', '.psm1', '.msix', '.cat') {
+        $certificate = $signature.SignerCertificate
+        $eku = @($certificate.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.37' })
+        $constraints = @($certificate.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.19' })
+        if ($certificate.Subject -cne $Publisher -or $certificate.Subject -cne $certificate.Issuer -or
+            $certificate.NotBefore -gt (Get-Date) -or $certificate.NotAfter -le (Get-Date) -or
+            $eku.Count -ne 1 -or $eku[0].EnhancedKeyUsages.Count -ne 1 -or
+            $eku[0].EnhancedKeyUsages[0].Value -cne '1.3.6.1.5.5.7.3.3' -or
+            $constraints.Count -ne 1 -or $constraints[0].CertificateAuthority) {
+            throw 'Package publisher must match a valid self-signed code-signing-only leaf certificate.'
+        }
+    }
 }
 
 function Read-EitmadPackage {

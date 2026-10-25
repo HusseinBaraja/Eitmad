@@ -44,7 +44,7 @@ That base comparison makes existing server migration paths and bytes immutable. 
 CI cannot hold production signing keys or prove a live restore. Before promotion:
 
 1. Verify the reviewed commit, source tag, artifact SHA-256, SBOM when available, and signing identities.
-2. Verify production signatures and timestamps on clean target systems.
+2. Verify self-signed publisher signatures, certificate validity, explicit machine trust, and tamper refusal on clean target systems. No timestamp is required.
 3. Run the native protected-secret lifecycle on each release platform.
 4. Deploy the exact digest to staging and run migration, authentication, denial, tenant-isolation, redaction, sync, update, backup, and restore checks.
 5. Exercise an interrupted update and rollback or forward-recovery path.

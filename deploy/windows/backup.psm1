@@ -64,7 +64,12 @@ function Get-BackupRetention($Plan, [string]$Root) {
             ((Get-Item -LiteralPath $marker -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
         try {
             $generation = Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
-            $cut = [DateTimeOffset]::ParseExact($generation.cutUtc, 'o', [Globalization.CultureInfo]::InvariantCulture)
+            # PowerShell 7.5+ converts JSON ISO timestamps to DateTime automatically.
+            $cut = if ($generation.cutUtc -is [DateTime]) {
+                [DateTimeOffset]::new($generation.cutUtc)
+            } else {
+                [DateTimeOffset]::ParseExact($generation.cutUtc, 'o', [Globalization.CultureInfo]::InvariantCulture)
+            }
             if ($generation.version -ne 1 -or $generation.deploymentId -cne $Plan.deploymentId -or
                 $generation.id -cne $directory.Name -or $generation.status -cne 'complete' -or
                 (($generation.nodes.id | Sort-Object) -join ',') -cne (($Plan.nodes.id | Sort-Object) -join ',')) { continue }
@@ -115,8 +120,8 @@ function Test-BackupStorage($Plan, $Credential) {
             for ($part = $smb.Path; $part; $part = Split-Path $part -Parent) {
                 if ((Get-Item -LiteralPath $part -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Redirected storage path.' }
             }
-            if (-not $smb.EncryptData -or (Get-BitLockerVolume -MountPoint ([IO.Path]::GetPathRoot($smb.Path))).ProtectionStatus -ne 'On') {
-                throw 'Backup share requires SMB encryption and BitLocker protection.'
+            if (-not $smb.EncryptData) {
+                throw 'Backup share requires SMB encryption.'
             }
             if ($Share -ine ('\\' + $env:COMPUTERNAME + '\' + $Name)) { throw 'Use the storage computer name in the UNC share.' }
             $sid = (New-Object Security.Principal.NTAccount($User)).Translate([Security.Principal.SecurityIdentifier]).Value

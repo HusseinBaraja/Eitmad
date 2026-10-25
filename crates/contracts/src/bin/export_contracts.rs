@@ -145,6 +145,7 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    windows_setup_role: eitmad_contracts::setup::WindowsSetupRole,
     guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
     manage_server_backup: eitmad_contracts::backup::ManageServerBackup,
     server_backup_management: eitmad_contracts::backup::ServerBackupManagement,

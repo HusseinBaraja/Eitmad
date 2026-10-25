@@ -37,6 +37,8 @@ use std::{
 use uuid::Uuid;
 #[path = "workflow_environment/customers.rs"]
 mod customers;
+#[path = "workflow_environment/hadramout.rs"]
+mod hadramout;
 #[path = "workflow_environment/seed.rs"]
 mod seed;
 #[cfg(test)]
@@ -118,6 +120,12 @@ async fn main() -> std::process::ExitCode {
     }
 }
 async fn prepare() -> Result<()> {
+    if env::args().nth(1).as_deref() == Some("--hadramout-demo") {
+        return checked(
+            tokio::task::spawn_blocking(hadramout::run).await,
+            "demo worker",
+        )?;
+    }
     let (root, settings) = load_settings()?;
     let database = checked(
         ControlDatabase::connect(&settings.database_url, 4).await,

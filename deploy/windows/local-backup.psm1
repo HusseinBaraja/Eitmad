@@ -47,9 +47,6 @@ function New-LocalBackupDirectory([string]$Path) {
 function Get-BackupDisk([string]$Path) {
     $volume = Get-Volume -FilePath $Path
     if ($volume.FileSystem -ne 'NTFS' -or -not $volume.DriveLetter) { throw 'DestinationUnavailable' }
-    $bitlocker = Get-BitLockerVolume -MountPoint ($volume.DriveLetter + ':')
-    if ($bitlocker.ProtectionStatus -ne 'On' -or $bitlocker.VolumeStatus -ne 'FullyEncrypted' -or
-        $bitlocker.LockStatus -ne 'Unlocked') { throw 'DestinationUnavailable' }
     $partition = Get-Partition -DriveLetter $volume.DriveLetter
     [pscustomobject]@{ disk = $partition.DiskNumber; free = [uint64]$volume.SizeRemaining }
 }

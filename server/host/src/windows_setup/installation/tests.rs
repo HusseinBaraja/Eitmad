@@ -81,8 +81,9 @@ fn elevated_bundle_rebinds_only_authenticated_tools_and_release_pins() {
         "server/application/tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
     );
     request.winsw_executable = original_path("server/winsw/WinSW.NET461.exe");
-    let metadata = eitmad_contracts::setup::WindowsSetupBundle {
-        version: 1,
+    let mut metadata = eitmad_contracts::setup::WindowsSetupBundle {
+        version: 2,
+        role: eitmad_contracts::setup::WindowsSetupRole::Server,
         publisher: "CN=Synthetic".into(),
         desktop_release_sha256: "a".repeat(64),
         server_release_sha256: "a".repeat(64),
@@ -113,6 +114,13 @@ fn elevated_bundle_rebinds_only_authenticated_tools_and_release_pins() {
         "S-1-5-21-123-456-789-1001"
     );
     assert_eq!(request.service_state_directory, root.path("host"));
+    metadata.role = eitmad_contracts::setup::WindowsSetupRole::Client;
+    fs::write(
+        protected.join("setup-bundle.json"),
+        serde_json::to_vec(&metadata).unwrap(),
+    )
+    .unwrap();
+    assert!(super::super::payload::bind_server(&mut request, &protected).is_err());
 }
 
 #[derive(Default)]

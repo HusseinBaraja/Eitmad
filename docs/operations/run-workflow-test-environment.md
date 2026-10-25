@@ -24,6 +24,16 @@ This localhost harness regenerates test trust material. Do not change only its b
 
 For a fresh PC that joins an existing organization, use [desktop enrollment](run-server-authority.md#enroll-or-recover-a-windows-desktop). It generates an independent device identity through the normal Arabic sign-in screen. Do not copy this harness's runtime directory to another PC. Its direct account import remains synthetic environment preparation.
 
+## Seed a fresh installed LAN test workshop
+
+The Rust `workflow_environment --hadramout-demo` example attaches to a normally installed, already enrolled server desktop. It keeps that installation's certificate, device key, endpoint, and connection references. Use it only for an explicitly selected fresh synthetic workshop; it does not start the localhost harness.
+
+Build the example with Rust `1.85.1`. Run it as the enrolled desktop's normal Windows user, with the desktop and engine closed. Send one bounded JSON request through standard input. Its fields are `directory`, `expectedServerId`, `ownerUsername`, `ownerPassword`, `receptionistPassword`, and `acknowledgeSyntheticData: true`. Obtain passwords through hidden prompts or protected local secret input; never use command arguments, transcripts, or logs. The expected installation UUID must match the retained enrolled connection. Rust refuses an unconfigured or different server and checks that the workshop has no catalog, customers, or quotations before its first run.
+
+The loader signs in through normal desktop enrollment and creates an individual `receptionist` account through live Owner authority when absent. It uses existing Rust domain services, mandatory authorization and audit, and authenticated TLS publication and synchronization. It creates 96 synthetic customers, 24 materials, 16 parts, 16 furniture designs with three sizes each, 12 ready-made products with two variants each, and 72 quotations, including 24 converted orders. Quotations and fulfillment cover different accepted workflow states. Addresses, workshop instructions, acceptance, and delivery notes use synthetic Yemeni/Hadramout content. Phone numbers start with `000` and are not contact numbers.
+
+The credential-free `hadramout-demo-v1` marker pins retries to the selected server. Stable idempotency keys preserve committed records after interruption. A failure stops the loader; preserve the marker, runtime, server data, and credentials, resolve the reported stage, and retry the same request. Do not remove the marker to target an occupied workshop. The final check reads 96 customers, 72 quotations, and 24 orders through the existing scoped queries and requires successful synchronization. Build and focused account-restart tests do not establish installed-server or independent-PC acceptance; verify those on the selected LAN deployment.
+
 ## Prerequisites
 
 - Windows with an interactive desktop and access to Windows Credential Manager. Run all commands as the same Windows user.

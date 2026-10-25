@@ -45,6 +45,9 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("windows_installation_state")]
         public WindowsInstallationState WindowsInstallationState { get; set; }
+
+        [JsonPropertyName("windows_setup_role")]
+        public WindowsSetupRole WindowsSetupRole { get; set; }
     }
 
     public partial class GuidedWindowsSetup
@@ -5372,6 +5375,11 @@ namespace Eitmad.Contracts
     /// </summary>
     public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Wait };
 
+    /// <summary>
+    /// Fixed installation capability of an authenticated offline payload.
+    /// </summary>
+    public enum WindowsSetupRole { Client, Server };
+
     public partial struct ErrorParameterValueValue
     {
         public long? Integer;
@@ -5465,6 +5473,7 @@ namespace Eitmad.Contracts
                 WindowsInstallStageConverter.Singleton,
                 WindowsInstallStatusConverter.Singleton,
                 WindowsSetupRecoveryConverter.Singleton,
+                WindowsSetupRoleConverter.Singleton,
                 new DateOnlyConverter(),
                 new TimeOnlyConverter(),
                 IsoDateTimeOffsetConverter.Singleton
@@ -7966,6 +7975,40 @@ namespace Eitmad.Contracts
         }
 
         public static readonly WindowsSetupRecoveryConverter Singleton = new WindowsSetupRecoveryConverter();
+    }
+
+    internal class WindowsSetupRoleConverter : JsonConverter<WindowsSetupRole>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsSetupRole);
+
+        public override WindowsSetupRole Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "client":
+                    return WindowsSetupRole.Client;
+                case "server":
+                    return WindowsSetupRole.Server;
+            }
+            throw new Exception("Cannot unmarshal type WindowsSetupRole");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsSetupRole value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsSetupRole.Client:
+                    JsonSerializer.Serialize(writer, "client", options);
+                    return;
+                case WindowsSetupRole.Server:
+                    JsonSerializer.Serialize(writer, "server", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsSetupRole");
+        }
+
+        public static readonly WindowsSetupRoleConverter Singleton = new WindowsSetupRoleConverter();
     }
 
     public class DateOnlyConverter : JsonConverter<DateOnly>

@@ -16747,6 +16747,9 @@
         "publisher": {
           "type": "string"
         },
+        "role": {
+          "$ref": "#/definitions/WindowsSetupRole"
+        },
         "serverReleaseSha256": {
           "type": "string"
         },
@@ -16762,6 +16765,7 @@
       "additionalProperties": false,
       "required": [
         "version",
+        "role",
         "publisher",
         "desktopReleaseSha256",
         "serverReleaseSha256",
@@ -16777,6 +16781,14 @@
         "wait",
         "inspectManually",
         "complete"
+      ]
+    },
+    "WindowsSetupRole": {
+      "description": "Fixed installation capability of an authenticated offline payload.",
+      "type": "string",
+      "enum": [
+        "server",
+        "client"
       ]
     },
     "WorkOrderFurniture": {

@@ -13,6 +13,14 @@ namespace Eitmad.Platform.Windows.Installation;
 public sealed class OfflinePayloadLease : IDisposable
 {
     private readonly List<SafeFileHandle> handles = [];
+    public string RootDirectory { get; private init; } = "";
+
+    internal static OfflinePayloadLease RetainForLaunch(string root)
+    {
+        var lease = new OfflinePayloadLease { RootDirectory = Path.GetFullPath(root) };
+        try { lease.RetainTree(lease.RootDirectory); return lease; }
+        catch { lease.Dispose(); throw; }
+    }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(string path, uint access, uint share, IntPtr security, uint mode, uint flags, IntPtr template);

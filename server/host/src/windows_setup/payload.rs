@@ -1,7 +1,7 @@
 //! Windows catalog verification precedes setup composition and elevated payload execution.
 use super::preparation::native::plain_path;
 use crate::MainError;
-use eitmad_contracts::setup::{InstallWindowsServer, WindowsSetupBundle};
+use eitmad_contracts::setup::{InstallWindowsServer, WindowsSetupBundle, WindowsSetupRole};
 use std::{
     fs::{File, OpenOptions},
     io::Write as _,
@@ -107,7 +107,8 @@ pub(super) fn bind_server(
         File::open(root.join("setup-bundle.json")).map_err(|_| MainError::Setup)?,
     )
     .map_err(|_| MainError::Input)?;
-    if metadata.version != 1
+    if metadata.version != 2
+        || metadata.role != WindowsSetupRole::Server
         || request.server.publisher != metadata.publisher
         || request.client.desktop.publisher != metadata.publisher
         || request.server.release_sha256 != metadata.server_release_sha256

@@ -17,7 +17,7 @@ keywords:
 
 # Operate and release Eitmad
 
-For a new Windows workshop, start with [Install Eitmad on the server and employee PCs](install-windows.md). Use the other tasks for release preparation, advanced deployment, maintenance, and recovery. Guided Windows setup, device pairing, scheduled local backups, backup administration, and unattended TLS renewal are implemented. Trusted signed offline distribution and clean-machine acceptance still need the evidence listed in [offline setup verification](verify-offline-windows-setup.md).
+For a new Windows workshop, start with [Install Eitmad on the server and employee PCs](install-windows.md). Use the other tasks for release preparation, advanced deployment, maintenance, and recovery. Guided Windows setup, device pairing, scheduled local backups, backup administration, and unattended TLS renewal are implemented. A reviewed self-signed Server and Client pair has passed build-host assembly and signature checks. Clean-machine, company LAN, reboot, and recovery acceptance still need the evidence listed in [offline setup verification](verify-offline-windows-setup.md#current-verification-status).
 
 ## Release and deployment tasks
 

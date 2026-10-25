@@ -147,11 +147,20 @@ pub struct GuidedWindowsSetup {
     pub owner_password: Option<AccountPassword>,
 }
 
+/// Fixed installation capability of an authenticated offline payload.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowsSetupRole {
+    Server,
+    Client,
+}
+
 /// Release metadata, emitted by offline bundle assembly. It contains no machine settings.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WindowsSetupBundle {
     pub version: u32,
+    pub role: WindowsSetupRole,
     pub publisher: String,
     pub desktop_release_sha256: String,
     pub server_release_sha256: String,

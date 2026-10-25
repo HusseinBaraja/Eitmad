@@ -141,6 +141,57 @@ class OfflinePayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "new directory"):
             self.prepare()
 
+    def test_role_payloads_keep_authenticated_components_and_omit_client_host_dependencies(self) -> None:
+        with patch.object(artifacts, "verify_payload_signatures"):
+            self.prepare()
+        for role in ("server", "client"):
+            with self.subTest(role=role):
+                stage = self.root / role
+                scoped = artifacts.prepare_installer_role(self.output, stage, self.review, role)
+                metadata = artifacts.read_json(stage / "setup-bundle.json")
+                self.assertEqual((metadata["version"], metadata["role"]), (2, role))
+                inventory = artifacts.read_json(stage / "payload.json")
+                self.assertEqual(inventory["components"], scoped["components"])
+                expected = set(artifacts.OFFLINE_COMPONENTS) if role == "server" else {"setup", "desktop", "application"}
+                self.assertEqual(set(scoped["components"]), expected)
+                for component in expected:
+                    relative = artifacts.OFFLINE_COMPONENTS[component][0]
+                    for name, path in artifacts.tree_files(self.output / relative).items():
+                        self.assertEqual(artifacts.sha256(stage / relative / name), artifacts.sha256(path))
+                for component in set(artifacts.OFFLINE_COMPONENTS) - expected:
+                    self.assertFalse((stage / artifacts.OFFLINE_COMPONENTS[component][0]).exists())
+                for name, digest in inventory["files"].items():
+                    self.assertEqual(artifacts.sha256(stage / name), digest)
+        with self.assertRaisesRegex(ValueError, "role"):
+            artifacts.prepare_installer_role(self.output, self.root / "unknown", self.review, "unknown")
+
+    def test_standalone_installers_cannot_be_published_without_signing(self) -> None:
+        with self.assertRaisesRegex(ValueError, "signing hook"):
+            artifacts.build_windows_installers(self.root / "installers", self.version, self.source,
+                                               self.review_path, self.digest, "CN=Synthetic", None)
+        self.assertFalse((self.root / "installers").exists())
+
+    def test_x64_runtime_installer_accepts_its_x86_bootstrapper_but_not_arm(self) -> None:
+        relative = "vc_redist.x64.exe"
+        component = self.review["components"]["vc-redist"]
+        executable = self.source / "server/vc-redist" / relative
+        executable.write_bytes(pe(0x14c))
+        component["files"][relative].update(sha256=artifacts.sha256(executable), architecture="x86")
+        self.save_review()
+        with patch.object(artifacts, "verify_payload_signatures"):
+            self.prepare()
+        component["files"][relative]["architecture"] = "arm64"
+        self.save_review()
+        with self.assertRaisesRegex(ValueError, "supported reviewed PE architecture"):
+            artifacts.load_payload_review(self.review_path, self.digest, self.version)
+
+    def test_role_copy_rechecks_bytes_against_the_independent_review(self) -> None:
+        with patch.object(artifacts, "verify_payload_signatures"):
+            self.prepare()
+        (self.output / "setup/EitmadSetup.exe").write_bytes(b"changed after source verification")
+        with self.assertRaisesRegex(ValueError, "differs from its authenticated"):
+            artifacts.prepare_installer_role(self.output, self.root / "client", self.review, "client")
+
     def test_missing_tampered_and_unexpected_inputs_never_publish(self) -> None:
         path = self.source / "server/postgresql/bin/postgres.exe"
         original = path.read_bytes()
@@ -383,16 +434,41 @@ class OfflinePayloadTests(unittest.TestCase):
         stage.mkdir()
         content = stage / "synthetic.txt"
         content.write_bytes(b"synthetic payload")
+        # Native PE catalog hashes differ from raw SHA256; cover both formats.
+        native = Path(os.environ["SystemRoot"]) / "System32/whoami.exe"
+        (stage / "signed-native.exe").write_bytes(native.read_bytes())
+        self.release(stage, "windows-offline")
         artifacts.create_offline_catalog(stage, "CN=Synthetic", None)
         # Mock only signature approval; Windows computes and compares the real catalog hashes.
         script = (artifacts.ROOT / "deploy/windows/verify-offline.ps1").read_text()
         script = script.replace("Microsoft.PowerShell.Security\\Get-AuthenticodeSignature", "Get-SyntheticSignature")
-        script = "function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; TimeStamperCertificate='synthetic'; SignerCertificate=[pscustomobject]@{Subject='CN=Synthetic'}} };\n" + script
+        script = """
+$rsa = [Security.Cryptography.RSA]::Create(2048)
+$request = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
+    'CN=Synthetic', $rsa, [Security.Cryptography.HashAlgorithmName]::SHA256,
+    [Security.Cryptography.RSASignaturePadding]::Pkcs1)
+$usages = [Security.Cryptography.OidCollection]::new()
+[void]$usages.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3'))
+$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($usages, $true))
+$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true))
+$syntheticCertificate = $request.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-1),[DateTimeOffset]::UtcNow.AddHours(1))
+function Get-SyntheticSignature { param($LiteralPath) [pscustomobject]@{Status='Valid'; SignerCertificate=$syntheticCertificate} }
+# Match the launcher's immutable file leases, including the catalog itself.
+$heldFiles = @(Get-ChildItem -LiteralPath $env:EITMAD_CATALOG_TEST_ROOT -File -Recurse | ForEach-Object {
+    [IO.FileStream]::new($_.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+})
+""" + script
         def check() -> subprocess.CompletedProcess:
             return subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                                   input=json.dumps({"root": str(stage), "anchor": str(content), "publisher": "CN=Synthetic"}),
-                                  text=True, capture_output=True)
+                                  text=True, capture_output=True,
+                                  env={**os.environ, "EITMAD_CATALOG_TEST_ROOT": str(stage)})
         self.assertEqual(check().returncode, 0)
+        manifest = stage / "release.json"
+        original_manifest = manifest.read_bytes()
+        manifest.write_text(original_manifest.decode().replace(artifacts.sha256(content), "0" * 64))
+        self.assertNotEqual(check().returncode, 0)
+        manifest.write_bytes(original_manifest)
         content.write_bytes(b"tampered payload")
         self.assertNotEqual(check().returncode, 0)
         content.unlink()

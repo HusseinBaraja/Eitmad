@@ -37,8 +37,18 @@ enabled = true
 format = "zip"
 runtime = "win-x64"
 launcher = "setup/EitmadSetup.exe"
-authenticated_inventory = "offline.cat (SHA-256, trusted publisher, RFC3161 timestamp)"
+authenticated_inventory = "offline.cat (SHA-256, trusted self-signed publisher certificate shared with setup)"
 client_installer = "per-user MSIX Eitmad.Desktop"
+
+[artifacts.windows_installers]
+enabled = true
+format = "exe"
+runtime = "win-x64"
+server = "EitmadServerSetup.exe"
+client = "EitmadClientSetup.exe"
+self_contained = true
+embedded_payload = "authenticated role-specific offline archive"
+signing_required = true
 
 [artifacts.macos_desktop]
 enabled = false
