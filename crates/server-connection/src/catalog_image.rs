@@ -428,7 +428,7 @@ mod tests {
         let (release, waiting) = mpsc::channel();
         listener.set_nonblocking(true).unwrap();
         let peer = std::thread::spawn(move || {
-            let end = Instant::now() + Duration::from_secs(10);
+            let end = Instant::now() + Duration::from_secs(30);
             let _socket = loop {
                 if !matches!(waiting.try_recv(), Err(mpsc::TryRecvError::Empty)) {
                     return;
@@ -516,7 +516,9 @@ mod tests {
                 .send(worker.download(&worker_actor, &worker_image, deadline))
                 .unwrap();
         });
-        accepted.recv_timeout(Duration::from_secs(5)).unwrap();
+        // Allow worker scheduling before its five-second operation budget starts.
+        // This harness wait must not race the request's own deadline.
+        accepted.recv_timeout(Duration::from_secs(30)).unwrap();
         let admission_start = Instant::now();
         assert_eq!(
             client.remote_scope(),
