@@ -24,5 +24,16 @@ node_modules/
 .idea/
 .vscode/
 
+# Keep locally installed TStack skills out of Git.
+/.agents/skills/babysit-pr/
+/.agents/skills/council/
+/.agents/skills/file-pr/
+/.agents/skills/full-send/
+/.agents/skills/full-stop/
+/.agents/skills/leaving-pr-comments/
+/.agents/skills/modernize/
+/.agents/skills/sol-loop/
+/.agents/skills/takeover/
+
 # Keep local audit evidence, reports, and capture outputs out of Git.
 /artifacts/
