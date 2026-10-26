@@ -3,7 +3,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'local-backup.psm1') -Force -DisableNameChecking
 $module = Get-Module local-backup
-$root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString('N'))
+# CI's TEMP can contain an 8.3 alias; backup destinations deliberately reject aliases.
+$temporary = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
+$root = Join-Path $temporary ('eitmad-local-backup-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($root)
 & $module {
     param($Root)
