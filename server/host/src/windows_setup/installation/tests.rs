@@ -100,6 +100,18 @@ fn elevated_bundle_rebinds_only_authenticated_tools_and_release_pins() {
     changed = request.clone();
     changed.server.release_sha256 = "c".repeat(64);
     assert!(super::super::payload::bind_server(&mut changed, &protected).is_err());
+    let mut windows_paths = request.clone();
+    for path in [
+        &mut windows_paths.server.directory,
+        &mut windows_paths.client.desktop.directory,
+        &mut windows_paths.preparation.postgres_bin,
+        &mut windows_paths.preparation.platform_script,
+        &mut windows_paths.preparation.certificate_executable,
+        &mut windows_paths.winsw_executable,
+    ] {
+        *path = path.replace('/', "\\");
+    }
+    super::super::payload::bind_server(&mut windows_paths, &protected).unwrap();
     super::super::payload::bind_server(&mut request, &protected).unwrap();
     assert_eq!(
         Path::new(&request.server.directory),

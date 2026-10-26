@@ -98,7 +98,10 @@ $root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString
     function New-ScheduledTaskAction { param($Execute,$Argument) [pscustomobject]@{Execute=$Execute;Arguments=$Argument} }
     function New-ScheduledTaskTrigger { param([switch]$Once,$At,$RepetitionInterval)
         Assert ($Once -and $At -gt (Get-Date) -and $RepetitionInterval.TotalHours -eq 1) 'Missing bounded catch-up tick.'
-        return (New-ScheduleFixture).Triggers[0] }
+        $trigger = (New-ScheduleFixture).Triggers[0]
+        # Windows defaults this to true, even with no repetition duration.
+        $trigger.Repetition.StopAtDurationEnd = $true
+        return $trigger }
     function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit)
         Assert ($StartWhenAvailable -and $MultipleInstances -eq 'IgnoreNew' -and $ExecutionTimeLimit.TotalHours -eq 3) 'Unsafe scheduler settings.'
         return (New-ScheduleFixture).Settings }
@@ -127,6 +130,7 @@ $root = Join-Path $env:TEMP ('eitmad-local-backup-' + [Guid]::NewGuid().ToString
         @{name='incorrect cadence'; change={param($t) $t.Triggers[0].Repetition.Interval='PT2H'}},
         @{name='malformed cadence'; change={param($t) $t.Triggers[0].Repetition.Interval='invalid'}},
         @{name='finite repetition'; change={param($t) $t.Triggers[0].Repetition.Duration='P1D'}},
+        @{name='stop at duration end'; change={param($t) $t.Triggers[0].Repetition.StopAtDurationEnd=$true}},
         @{name='expiring trigger'; change={param($t) $t.Triggers[0].EndBoundary='2026-10-22T12:00:00'}},
         @{name='incorrect trigger kind'; change={param($t) $t.Triggers[0].CimClass.CimClassName='MSFT_TaskLogonTrigger'}},
         @{name='extra trigger'; change={param($t) $t.Triggers += $t.Triggers[0]}},

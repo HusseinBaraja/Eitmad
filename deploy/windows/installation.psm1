@@ -1,7 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
-$script:HostAdapter = Get-Module host
+$script:HostAdapter = Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force -PassThru
 
 function Get-InstallationIdentity {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -108,6 +107,15 @@ function Install-OfflineServerPrerequisites([string]$Backend) {
     }
 }
 
+function Assert-InstallationPreparationTools($Request) {
+    $expectedScript = [IO.Path]::GetFullPath((Join-Path $Request.server.directory 'deploy/windows/prepare-workshop.ps1'))
+    $expectedCertificate = [IO.Path]::GetFullPath((Join-Path $Request.server.directory 'tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe'))
+    if ([IO.Path]::GetFullPath($Request.preparation.platformScript) -ine $expectedScript -or
+        [IO.Path]::GetFullPath($Request.preparation.certificateExecutable) -ine $expectedCertificate) {
+        throw 'Preparation tools must come from the verified server package.'
+    }
+}
+
 function Invoke-EitmadInstallationAction {
     param([string]$Action, [string]$Backend, $Request)
     if ($Action -in 'ClientPreflight', 'Desktop') {
@@ -142,11 +150,7 @@ function Invoke-EitmadInstallationAction {
         if ((Get-FileHash -LiteralPath $Backend).Hash -cne (Get-FileHash -LiteralPath $packagedBackend).Hash) {
             throw 'The running installer must match the verified server package.'
         }
-        $expectedScript = [IO.Path]::GetFullPath((Join-Path $Request.server.directory 'deploy/windows/prepare-workshop.ps1'))
-        $expectedCertificate = [IO.Path]::GetFullPath((Join-Path $Request.server.directory 'tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe'))
-        if ($Request.preparation.platformScript -ine $expectedScript -or $Request.preparation.certificateExecutable -ine $expectedCertificate) {
-            throw 'Preparation tools must come from the verified server package.'
-        }
+        Assert-InstallationPreparationTools $Request
         if ((Get-FileHash -LiteralPath $Request.winswExecutable -Algorithm SHA256).Hash -ine $Request.winswSha256) {
             throw 'WinSW digest differs.'
         }
@@ -191,11 +195,48 @@ function Initialize-InstallationChannel {
     }
 }
 
+function Grant-PostgresToolReadAccess([string]$Bundle) {
+    # initdb drops the Administrators group in its child token. Keep its tool DLLs
+    # readable through the launching user's SID, without exposing server controls.
+    $postgres = Join-Path $Bundle 'server/postgresql'
+    if (-not (Test-Path -LiteralPath $postgres -PathType Container)) { return }
+    $acl = Get-Acl -LiteralPath $postgres
+    $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+        [Security.Principal.WindowsIdentity]::GetCurrent().User, 'ReadAndExecute',
+        'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+    Set-Acl -LiteralPath $postgres -AclObject $acl
+}
+
 function Test-InstallationProofRequest([string]$Line) {
     $event = $Line | ConvertFrom-Json
     # Route private input only; Rust validates the ordered progress and proof.
     return ($event.version -eq 1 -and $event.PSObject.Properties['stage'] -and
         $event.stage -ceq 'enrollDesktop' -and $event.status -ceq 'running')
+}
+
+function New-ProtectedInstallationPayload([string]$Source, [string]$Stage) {
+    if (Test-Path -LiteralPath $Stage) { throw 'Protected payload requires a new directory.' }
+    & $script:HostAdapter { param($p) [void](Get-SafePath $p); Assert-ProtectedParents $p } $Stage
+    $acl = New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+    foreach ($sid in 'S-1-5-18', 'S-1-5-32-544') {
+        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+            (New-Object Security.Principal.SecurityIdentifier($sid)), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+    }
+    # .NET Framework creates the directory with the protected DACL atomically.
+    [void][IO.Directory]::CreateDirectory($Stage, $acl)
+    Get-ChildItem -LiteralPath $Source -Force | Copy-Item -Destination $Stage -Recurse -Force
+    # Match the service adapter's copy policy: discard any source ACLs and
+    # inherit only the protected staging root, including on copied directories.
+    foreach ($item in Get-ChildItem -LiteralPath $Stage -Force -Recurse) {
+        $inherited = if ($item.PSIsContainer) { New-Object Security.AccessControl.DirectorySecurity }
+            else { New-Object Security.AccessControl.FileSecurity }
+        $inherited.SetAccessRuleProtection($false, $false)
+        $inherited.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
+        Set-Acl -LiteralPath $item.FullName -AclObject $inherited
+    }
+    Grant-PostgresToolReadAccess $Stage
 }
 
 function Invoke-EitmadInstallationWorker {
@@ -215,26 +256,7 @@ function Invoke-EitmadInstallationWorker {
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Offline source authentication failed after elevation.' }
         $stage = Join-Path $env:ProgramData ('EitmadSetupPayload-' + [Guid]::NewGuid().ToString('N'))
-        & $script:HostAdapter { param($p) [void](Get-SafePath $p); Assert-ProtectedParents $p } $stage
-        $acl = New-Object Security.AccessControl.DirectorySecurity
-        $acl.SetAccessRuleProtection($true, $false)
-        $acl.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
-        foreach ($sid in 'S-1-5-18', 'S-1-5-32-544') {
-            $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
-                (New-Object Security.Principal.SecurityIdentifier($sid)), 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
-        }
-        # .NET Framework creates the directory with the protected DACL atomically.
-        [void][IO.Directory]::CreateDirectory($stage, $acl)
-        Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $stage -Recurse -Force
-        # Match the service adapter's copy policy: discard any source ACLs and
-        # inherit only the protected staging root, including on copied directories.
-        foreach ($item in Get-ChildItem -LiteralPath $stage -Force -Recurse) {
-            $inherited = if ($item.PSIsContainer) { New-Object Security.AccessControl.DirectorySecurity }
-                else { New-Object Security.AccessControl.FileSecurity }
-            $inherited.SetAccessRuleProtection($false, $false)
-            $inherited.SetOwner((New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')))
-            Set-Acl -LiteralPath $item.FullName -AclObject $inherited
-        }
+        New-ProtectedInstallationPayload $source $stage
         $protectedBackend = Join-Path $stage 'server/application/eitmad-server.exe'
         @{root=$stage; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null

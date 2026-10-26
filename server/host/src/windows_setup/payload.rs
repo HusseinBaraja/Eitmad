@@ -89,17 +89,17 @@ pub(super) fn bind_server(
         .and_then(Path::parent)
         .ok_or(MainError::Input)?
         .to_path_buf();
-    let expected = |relative: &str| original.join(relative).to_string_lossy().into_owned();
-    if request.server.directory != expected("server/application")
-        || request.client.desktop.directory != expected("client/desktop")
-        || request.preparation.postgres_bin != expected("server/postgresql/bin")
-        || request.preparation.platform_script
+    let expected = |relative: &str| original.join(relative);
+    if Path::new(&request.server.directory) != expected("server/application")
+        || Path::new(&request.client.desktop.directory) != expected("client/desktop")
+        || Path::new(&request.preparation.postgres_bin) != expected("server/postgresql/bin")
+        || Path::new(&request.preparation.platform_script)
             != expected("server/application/deploy/windows/prepare-workshop.ps1")
-        || request.preparation.certificate_executable
+        || Path::new(&request.preparation.certificate_executable)
             != expected(
                 "server/application/tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
             )
-        || request.winsw_executable != expected("server/winsw/WinSW.NET461.exe")
+        || Path::new(&request.winsw_executable) != expected("server/winsw/WinSW.NET461.exe")
     {
         return Err(MainError::Input);
     }

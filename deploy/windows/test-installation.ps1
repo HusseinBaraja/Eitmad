@@ -67,6 +67,15 @@ Write-Host 'Synthetic native output must not enter the progress stream.'
 
     # Host actions use the existing service adapter. All OS effects are synthetic.
     & $script:HostAdapter { function script:Assert-Administrator {} }
+    $tools = [pscustomobject]@{server=@{directory=$Root}; preparation=@{
+        platformScript=$Root+'\deploy/windows/prepare-workshop.ps1'
+        certificateExecutable=$Root+'\tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe'}}
+    Assert-InstallationPreparationTools $tools
+    $tools.preparation.platformScript = [IO.Path]::GetFullPath($tools.preparation.platformScript)
+    $tools.preparation.certificateExecutable = [IO.Path]::GetFullPath($tools.preparation.certificateExecutable)
+    Assert-InstallationPreparationTools $tools
+    $tools.preparation.platformScript = Join-Path $Root 'unreviewed/prepare-workshop.ps1'
+    Reject { Assert-InstallationPreparationTools $tools }
     $hostScript = @'
 param($Action, $StateDirectory, $Name, $ExpectedReleaseSha256, $Publisher, $LanDirectory,
     $ClusterDirectory, $PostgresBin, $WinSwExecutable, $WinSwSha256, [switch]$PrivateLan)
