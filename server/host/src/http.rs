@@ -18,8 +18,8 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use eitmad_admin_plane::{AdministrationService, AdministrativeError};
 use eitmad_contracts::{
     administration::{
-        BackupStatus, DeviceVisibility, DiagnosticSummary, MigrationStatus, ServiceHealth,
-        StartSupportWorkflow, SupportWorkflow, TenantVisibility,
+        DeviceVisibility, DiagnosticSummary, MigrationStatus, ServiceHealth, StartSupportWorkflow,
+        SupportWorkflow, TenantVisibility,
     },
     identity::{ScopeId, ScopeKind, ScopeRef},
     relay::{
@@ -319,7 +319,6 @@ pub fn router(state: ServerState) -> Router {
         .route("/v1/relay/health", get(relay_health))
         .route("/v1/admin/diagnostics", get(admin_diagnostics))
         .route("/v1/admin/health", get(admin_health))
-        .route("/v1/admin/backup-status", get(admin_backup_status))
         .route("/v1/admin/migration-status", get(admin_migration_status))
         .route("/v1/admin/audit", get(admin_audit))
         .route("/v1/admin/tenant", get(admin_tenant))
@@ -1056,28 +1055,6 @@ async fn admin_health(
     .await?;
     administration(&state)?
         .health(
-            &session,
-            session.tenant_id,
-            new_correlation_id(),
-            unix_millis_now(),
-        )
-        .await
-        .map(Json)
-        .map_err(map_admin)
-}
-
-async fn admin_backup_status(
-    State(state): State<ServerState>,
-    headers: HeaderMap,
-) -> Result<Json<BackupStatus>, ApiError> {
-    let session = authenticate_negotiated(
-        &state,
-        &headers,
-        "eitmad.capability.server-administration.v1",
-    )
-    .await?;
-    administration(&state)?
-        .backup_status(
             &session,
             session.tenant_id,
             new_correlation_id(),

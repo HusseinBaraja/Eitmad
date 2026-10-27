@@ -1,6 +1,6 @@
 ---
 title: "Deploy staging and production server environments"
-description: "Use repeatable server profiles, TLS boundaries, migrations, backups, restore drills, channel separation, and rollback controls."
+description: "Use repeatable server profiles, TLS boundaries, migrations, channel separation, and rollback controls."
 audience: "operations"
 page_type: "task"
 status: "active"
@@ -43,28 +43,20 @@ Use TLS 1.2 or newer with reviewed ciphers, automatic certificate renewal, expir
 
 1. Build the server validation artifact with `python scripts/release/build_artifacts.py server --version VERSION --output dist` and verify its manifest digest.
 2. Sign and publish the immutable production artifact through the release service. CI artifacts remain `productionEligible: false`.
-3. Back up PostgreSQL and the signed-manifest directory. Record restore verification, migration version, binary digest, protocol window, and rollback decision point.
+3. Preserve PostgreSQL and the signed-manifest directory. Record migration version, binary digest, and protocol window. Current source has no backup or restore workflow.
 4. Drain traffic. Run `eitmad-server migrate` once with the migration role. Migration files and checksums in `deploy/migrations.sha256` are immutable.
 5. Start one new instance with the runtime role. Verify `/livez`, `/readyz`, authentication, authorization denial, tenant isolation, redaction, sync resume, update selection, and administration status.
 6. Add instances and restore traffic in bounded steps. Observe error rate, database connections, sync backlog, and readiness before each step.
 
 The runtime currently also applies migrations during `serve`; production must still run the explicit migration step first and remove schema-change privilege from the normal runtime role where PostgreSQL permits it.
 
-## Back up and prove restore
+## Backup support
 
-Use one consistent PostgreSQL recovery point for control, sync, audit, and administration state. Use encrypted physical backups plus WAL archiving for point-in-time recovery, or an approved logical backup when its recovery-time objective is sufficient. Back up the immutable signed-manifest directory and its object-version metadata separately. Protect backup keys and access logs as production secrets.
-
-Run a staging restore drill on the defined schedule and before a migration that changes recovery risk:
-
-1. Restore into an isolated database with no production egress.
-2. Restore the matching manifest directory snapshot.
-3. Start the exact matching server binary with staging-only secrets.
-4. Verify migration version, tenant counts without exposing records, audit continuity, tenant isolation, authentication, sync checkpoints, snapshot fallback, and manifest signatures.
-5. Record recovery point, duration, checks passed, and sanitized failure evidence. A completed backup without this restore proof is not a verified recovery path.
+Backup and restore support is deferred by [ADR-0033](../decisions/0033-defer-backup-support.md). No setup or upgrade backup gate remains. A separate accepted recovery design and deployment evidence are required before production acceptance.
 
 ## Roll back
 
-Stop rollout when readiness, isolation, authorization, redaction, migration, or sync checks fail. Drain the new instances. If the prior binary supports the applied schema and protocol, redeploy it against the preserved database. Otherwise stop all writers and restore the complete pre-migration PostgreSQL recovery point plus the matching manifest directory. Never run reverse SQL by hand.
+Stop rollout when readiness, isolation, authorization, redaction, migration, or sync checks fail. Drain the new instances. If the prior binary supports the applied schema and protocol, redeploy it against the preserved database. Otherwise stop all writers, preserve the database and matching manifest directory, and correct the cause for forward repair with the same release. Never run reverse SQL by hand.
 
 Start one prior-version instance and repeat the full smoke suite before adding replicas. Preserve the failed artifact, database recovery point, migration inventory, correlation IDs, and redacted logs. Update the release incident record and troubleshooting path before another attempt.
 

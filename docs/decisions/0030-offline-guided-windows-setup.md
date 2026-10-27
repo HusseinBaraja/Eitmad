@@ -17,11 +17,11 @@ keywords:
 
 # ADR-0030: Provide offline guided Windows setup
 
-> - Status: Partially superseded by ADR-0031 (distribution and roles) and ADR-0032 (publisher signing and first-use Client certificate elevation)
+> - Status: Partially superseded by ADR-0031 (distribution and roles) and ADR-0032 (publisher signing and first-use Client certificate elevation); backup and restore requirements partially superseded by ADR-0033
 > - Date: 2026-10-20
 > - Decision owners: Product developer
 > - Supersedes: None
-> - Superseded by: [ADR-0031](0031-two-self-contained-windows-installers.md), distribution format and installer role selection; [ADR-0032](0032-self-signed-windows-publisher.md), publisher signing and first-use Client certificate elevation
+> - Superseded by: [ADR-0031](0031-two-self-contained-windows-installers.md), distribution format and installer role selection; [ADR-0032](0032-self-signed-windows-publisher.md), publisher signing and first-use Client certificate elevation; [ADR-0033](0033-defer-backup-support.md), backup and restore requirements only
 
 ## Context
 

@@ -17,11 +17,11 @@ keywords:
 
 # ADR-0021: Use checksummed feature-owned storage migrations
 
-> - Status: Accepted
+> - Status: Accepted; backup and restore requirements partially superseded by ADR-0033
 > - Date: 2026-07-18
 > - Decision owners: Architecture, storage, and security maintainers
 > - Supersedes: None
-> - Superseded by: None
+> - Superseded by: [ADR-0033](0033-defer-backup-support.md), backup and restore requirements only
 
 ## Context
 

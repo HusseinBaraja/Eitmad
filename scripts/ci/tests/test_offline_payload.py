@@ -303,8 +303,8 @@ class OfflinePayloadTests(unittest.TestCase):
                 self.assertFalse((self.root / "escaped").exists())
                 artifacts.deterministic_zip(self.root / "msix", package)
 
-    def test_review_cannot_omit_required_postgresql_backup_tools(self) -> None:
-        relative = "bin/pg_verifybackup.exe"
+    def test_review_cannot_omit_required_postgresql_tools(self) -> None:
+        relative = "bin/psql.exe"
         (self.source / "server/postgresql" / relative).unlink()
         del self.review["components"]["postgresql"]["files"][relative]
         self.save_review()
@@ -398,7 +398,7 @@ class OfflinePayloadTests(unittest.TestCase):
                                                        "CN=Synthetic Test Publisher", None)
         with zipfile.ZipFile(archive) as package:
             self.assertIn("setup/EitmadSetup.exe", package.namelist())
-            self.assertIn("server/postgresql/bin/pg_verifybackup.exe", package.namelist())
+            self.assertIn("server/postgresql/bin/psql.exe", package.namelist())
             inventory = json.loads(package.read("release.json"))
             for relative, digest in inventory["files"].items():
                 self.assertEqual(artifacts.hashlib.sha256(package.read(relative)).hexdigest(), digest)

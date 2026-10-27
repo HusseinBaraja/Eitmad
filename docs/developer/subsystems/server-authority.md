@@ -27,7 +27,7 @@ Use the [shared server account lifecycle](identity-foundation.md#shared-server-a
 
 The server provides tenant and organization identity, shared account administration, registered devices and pairing, invitation activation, authentication tokens, session policy, relationship authorization, update-channel assignment, sync coordination, snapshots, operation history, resumable subscriptions, conflict records, WAN relay coordination, signed update distribution, operational status, fleet visibility, audit access, support workflows, and client compatibility negotiation.
 
-The host registers Customer, private catalog, public catalog, Pricing, quotation draft, approval, lifecycle, Order, and Work Order schemas. Customer and quotation-draft conflict resolution use authenticated Rust routes. It does not provide billing, email delivery, MFA challenge, package CDN, relay payload routing, or a general server-plane administration UI. Privileged local server backup policy, scheduling decisions, and typed status are implemented in the host CLI; see [server backup and recovery](../../operations/backup-lan-installation.md#automatic-local-server-backups). The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
+The host registers Customer, private catalog, public catalog, Pricing, quotation draft, approval, lifecycle, Order, and Work Order schemas. Customer and quotation-draft conflict resolution use authenticated Rust routes. It does not provide billing, email delivery, MFA challenge, package CDN, relay payload routing, or a general server-plane administration UI. Backup support is deferred; see [backup availability](../../operations/backup-lan-installation.md). The pricing boundary also stores immutable catalog dependencies for server cost validation; see [Pricing authority](pricing.md#authorization-and-durable-publication).
 
 ## Ownership and module boundaries
 
@@ -152,7 +152,7 @@ The PostgreSQL registry currently contains migrations `1–18`. Control, sync, a
 
 Every accepted state change adds a redacted audit record in the same transaction. `server/audit` is the only PostgreSQL audit contract. It records actor kind, optional session and principal, tenant and optional workspace, exact scope, target kind and target ID, operation, outcome, correlation, optional causation and idempotency, stable redacted failure ID, and time. Each control-plane and sync-plane entry point receives a caller-supplied correlation identifier, so records from one request remain joinable. Invalid and denied sync boundaries are recorded in a separate mandatory transaction before the operation returns; if that append fails, the boundary fails closed as unavailable. Successful mutations, conflicts, snapshots, and acknowledgements append in the authoritative state transaction. Token plaintext, password input, device private keys, domain payloads, and customer content must not enter logs or audit metadata.
 
-Migration files are append-only after release. Back up PostgreSQL before migration and restore the complete cluster or database by the approved PostgreSQL recovery process. Do not edit rows, RLS policies, checkpoints, operation history, or conflict records as a repair shortcut.
+Migration files are append-only after release. Preserve PostgreSQL state before migration and use the same release for forward repair. Do not edit rows, RLS policies, checkpoints, operation history, or conflict records as a repair shortcut.
 
 ## Sync modes and flows
 
@@ -230,7 +230,7 @@ Use [server troubleshooting](../../troubleshooting/server-authentication-and-syn
 
 ## Tests and verification
 
-Focused unit tests cover password hashing, Arabic identifiers, device-proof time bounds, server audit envelopes, sync fingerprints and snapshot chunks, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, backup status, administration authorization, router authentication, and the three-pool connection budget. Contract checks verify generated bindings. The repository policy check verifies the migration inventory and immutable SQL bytes. SQL text scans do not prove table creation, append-only enforcement, or tenant RLS; these require the live PostgreSQL exercise below. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
+Focused unit tests cover password hashing, Arabic identifiers, device-proof time bounds, server audit envelopes, sync fingerprints and snapshot chunks, relay lifecycle and denial, signed manifest changes, channels, incompatible clients, administration authorization, router authentication, and the three-pool connection budget. Contract checks verify generated bindings. The repository policy check verifies the migration inventory and immutable SQL bytes. SQL text scans do not prove table creation, append-only enforcement, or tenant RLS; these require the live PostgreSQL exercise below. Existing `eitmad-sync` tests cover complete local-first and server-authoritative flows, duplicate delivery, conflicts, unauthorized remote changes, compatibility, and WAN relay fallback.
 
 Run:
 
@@ -240,7 +240,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 npm run contracts:verify --prefix crates/contracts/codegen
 ```
 
-`eitmad-server check-config` requires synthetic loopback transport plus the manifest directory and trusted Ed25519 public-key configuration. A live PostgreSQL migration, bootstrap, login, RLS, snapshot, relay, administration, backup, restore, and readiness exercise remains a deployment-environment requirement.
+`eitmad-server check-config` requires synthetic loopback transport plus the manifest directory and trusted Ed25519 public-key configuration. A live PostgreSQL migration, bootstrap, login, RLS, snapshot, relay, administration and readiness exercise remains a deployment-environment requirement.
 
 ## Tradeoffs and extension points
 

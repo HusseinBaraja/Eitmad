@@ -92,29 +92,18 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     $one = New-Release '1.0.0' 'release one'
     Copy-Item -LiteralPath (Join-Path $Evidence '1.0.0/release.json') -Destination (Join-Path $root 'app/release.json')
     [IO.File]::WriteAllText((Join-Path $root 'app/eitmad-server.exe'), 'damaged binary')
-    Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false
+    Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair
     Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release one') 'Repair did not restore original binary.'
     Assert (($script:events -join ',').Contains('rust:migrate,start:Server,ready')) 'Repair bypassed Rust migration or readiness.'
     Stop-Host $settings
     [IO.File]::Delete((Join-Path $root 'app/eitmad-server.exe'))
-    Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false
+    Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair
     Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release one') 'Repair did not restore a missing binary.'
     Stop-Host $settings
     $two = New-Release '1.1.0' 'release two'
-    Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade '' $false } 'requires BackupGeneration'
-    Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release one') 'Missing backup changed installed bytes.'
-    $generation = Join-Path $Evidence 'generation'
-    [void][IO.Directory]::CreateDirectory($generation)
-    [pscustomobject]@{nodes=@([pscustomobject]@{kind='server'; computer=$env:COMPUTERNAME; requiredPaths=@($root)})} |
-        ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $generation 'complete.json')
-    # Backup format/content verification has its own suite. This test covers the
-    # release gate and failure recovery, without running wbadmin or machine services.
-    $backupTools = Join-Path $Evidence '1.1.0/deploy/windows'
-    [void][IO.Directory]::CreateDirectory($backupTools)
-    'param($Generation,$PostgresBin)' | Set-Content -LiteralPath (Join-Path $backupTools 'restore-backup.ps1')
     $script:failMigration = $true
     $script:events.Clear()
-    Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade $generation $true } 'Release failed'
+    Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade } 'Release failed'
     Assert (Test-Path -LiteralPath (Join-Path $root 'release-pending.json')) 'Failed upgrade lost recovery marker.'
     Assert ($script:services.Server.Status -eq 'Stopped' -and $script:services.Postgres.Status -eq 'Stopped') 'Failed migration left a writer running.'
     Assert ($script:startupModes.EitmadReleaseProofServer -eq 'demand' -and $script:startupModes.EitmadReleaseProofPostgres -eq 'demand') 'Failed migration left automatic startup enabled.'
@@ -123,7 +112,7 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     $eventCount = $script:events.Count
     Reject { Invoke-EitmadHost Start -StateDirectory $root -Name EitmadReleaseProof } 'interrupted release is pending'
     Assert ($script:events.Count -eq $eventCount) 'A pending release started a service.'
-    Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false } 'exact interrupted release'
+    Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair } 'exact interrupted release'
     [IO.File]::WriteAllText((Join-Path $root 'app/release.json'), 'interrupted inventory write')
     $script:failMigration = $false
     Invoke-EitmadHost Repair -StateDirectory $root -Name EitmadReleaseProof `
@@ -146,7 +135,7 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
         $script:finalizationFailure = [IO.IOException]::new('synthetic finalization failure: ' + $scenario.name)
         $script:finalizationFailed = $false
         $failure = $null
-        try { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false } catch { $failure = $_ }
+        try { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair } catch { $failure = $_ }
         Assert ($null -ne $failure) ('Finalization did not fail: ' + $scenario.name)
         Assert ([object]::ReferenceEquals($failure.Exception.InnerException, $script:finalizationFailure)) 'Cleanup lost the original finalization exception.'
         Assert ($failure.Exception.Message.Contains($script:finalizationFailure.Message)) 'Release error omitted the original failure.'
@@ -176,11 +165,11 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
             Assert ($failure.Exception.Message.Contains('Services are stopped with demand-start.')) 'Successful cleanup did not report its result.'
         }
         $eventCount = $script:events.Count
-        Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair '' $false } 'exact interrupted release'
+        Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair } 'exact interrupted release'
         Assert ($script:events.Count -eq $eventCount -and [IO.File]::ReadAllText($pendingFile) -ceq $pendingBytes) 'Wrong-release repair changed pending recovery state.'
         $script:failServerAuto = $false; $script:failMarkerRemoval = $false; $script:failDemand = ''; $script:failStop = ''
         Stop-Host $settings
-        Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair '' $false
+        Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Repair
         Assert (-not (Test-Path -LiteralPath $pendingFile)) 'Successful finalization retained the pending marker.'
         Assert ($script:startupModes.EitmadReleaseProofPostgres -eq 'auto' -and
             $script:startupModes.EitmadReleaseProofServer -eq 'delayed-auto') 'Successful finalization changed intended automatic startup modes.'
@@ -192,6 +181,6 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Assert ([IO.File]::ReadAllText((Join-Path $root 'data/retained')) -ceq 'committed and pending work') 'Release changed durable work.'
     Assert ([IO.File]::ReadAllText((Join-Path $root 'private/retained')) -ceq 'synthetic credential dependency') 'Release replaced credential dependencies.'
 } $evidence
-Write-Host 'PASS: real file replacement; mocked services; repair, backup gate, failed migration, exact-release recovery, and retained work/credentials.'
+Write-Host 'PASS: real file replacement; mocked services; repair, failed migration, exact-release recovery, and retained work/credentials.'
 Write-Host 'PASS: finalization failures restore demand-start and stop both services; cleanup failures retain the original error, report unsafe state, and allow remaining cleanup; success retains automatic startup.'
 Write-Host "Synthetic evidence: $evidence"

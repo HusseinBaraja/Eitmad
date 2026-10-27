@@ -19,7 +19,7 @@ keywords:
 
 Run the combined control, sync, relay, update, and administration server only with a dedicated PostgreSQL database, protected token key, trusted update public key, dedicated manifest directory, and TLS. Development plaintext is permitted only on an explicit loopback bind.
 
-For a new Windows workshop, follow [guided server and client installation](install-windows.md). It provisions PostgreSQL, TLS, the first Owner, services, backups, and the first desktop. The commands on this page are for advanced manual deployment, account administration, and recovery; they are not extra installation steps after guided setup. Use [manual stable LAN setup](setup-lan-server.md) only when you need to provision a fixed endpoint separately.
+For a new Windows workshop, follow [guided server and client installation](install-windows.md). It provisions PostgreSQL, TLS, the first Owner, services, and the first desktop. The commands on this page are for advanced manual deployment, account administration, and recovery; they are not extra installation steps after guided setup. Use [manual stable LAN setup](setup-lan-server.md) only when you need to provision a fixed endpoint separately.
 
 ## Before you start
 
@@ -59,7 +59,7 @@ For unattended Windows hosting, use [installed services](run-windows-host-servic
 
 ## Migrate before bootstrap or serve
 
-Take a PostgreSQL backup, then run:
+Stop new work and preserve the existing database, then run:
 
 ```powershell
 cargo run -q -p eitmad-server -- migrate
@@ -239,28 +239,20 @@ Verify:
 4. A synthetic tenant cannot read another tenant's scoped records.
 5. Relay and administration routes reject unauthenticated and unauthorized requests and produce redacted audit rows.
 6. A changed manifest byte fails Ed25519 verification; the assigned channel selects only an exact compatible platform package.
-7. Backup status does not claim success when no reporter row exists and unimplemented support actions fail as invalid. The administration migration projection uses foundation version `3` as its minimum; verify the complete migration registry separately through `migrate`, not only its `Current` status.
+7. The administration migration projection uses foundation version `3` as its minimum; verify the complete migration registry separately through `migrate`, not only its `Current` status.
 8. Logs contain stable error identifiers and no URL credentials, token values, passwords, private keys, proof signatures, relay frames, or domain payloads.
 
 Do not route traffic from the load balancer until readiness and tenant-isolation checks pass.
 
-## Backup, restore, and rollback
+## Interrupted changes and recovery
 
-Use the approved PostgreSQL physical or logical backup procedure and verify the backup can be restored. Include control, sync, audit, publication, and operations schemas in one recovery point so identity, audit, workflows, operation positions, snapshots, and checkpoints remain consistent. Preserve the signed manifest directory with its own integrity-protected backup.
-
-For application rollback:
-
-1. Stop inbound traffic and the server process.
-2. Confirm whether the older binary supports the applied migration set and protocol `1.5` data.
-3. If it does not, restore the complete pre-migration backup. Do not reverse migration SQL by hand.
-4. Start one server replica, wait for readiness, then verify authentication, tenant isolation, relay authorization, signed updates, administration, update assignment, sync pull, snapshot fallback, and subscription resume.
-5. Add replicas only after the first replica is healthy.
+Backup and restore commands are deferred by [ADR-0033](../decisions/0033-defer-backup-support.md). Do not discard database files or replace a migrated database with older binaries. Stop inbound traffic, preserve the database and release records, correct the failure, and use the same release for forward repair. Never reverse migration SQL by hand.
 
 Do not delete operation history until a complete snapshot covers it and retained client checkpoints no longer need it. Keep at least the configured 90-day history floor.
 
 ## Current verification limit
 
-The repository provides real TLS/PostgreSQL scenarios for desktop authentication, catalog delivery, quotations, orders, and revocation below. The [isolated restore drill](recover-local-storage.md#recorded-drill-2026-10-11) records local recovery evidence. These checks do not establish production deployment, clean-machine installation, physical-LAN access, or replacement-machine credential recovery. Use [offline setup verification](verify-offline-windows-setup.md) for those remaining acceptance checks.
+The repository provides real TLS/PostgreSQL scenarios for desktop authentication, catalog delivery, quotations, orders, and revocation below. Use [local storage inspection](recover-local-storage.md) to check retained desktop state. These checks do not establish production deployment, clean-machine installation, physical-LAN access, or replacement-machine credential recovery. Use [offline setup verification](verify-offline-windows-setup.md) for those remaining acceptance checks.
 
 For failures, use [server authentication and sync failures](../troubleshooting/server-authentication-and-sync.md) or [relay, update, and administration failures](../troubleshooting/server-plane-failures.md). For design ownership, use [the modular server authority](../developer/subsystems/server-authority.md).
 

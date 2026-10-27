@@ -60,7 +60,7 @@ if ($Stage -eq 'Baseline') {
     Assert (-not @($state.services | Where-Object { $_ -match 'Eitmad|postgres' }).Count) 'A server component already exists.'
     foreach ($path in (Join-Path $env:LOCALAPPDATA 'Eitmad'), (Join-Path $env:LOCALAPPDATA 'EitmadSetupProgress'),
         (Join-Path $env:ProgramData 'EitmadHost'), (Join-Path $env:ProgramData 'EitmadPreparedWorkshop'),
-        (Join-Path $env:ProgramData 'EitmadServerSetupProgress'), (Join-Path $env:ProgramData 'EitmadBackupState')) {
+        (Join-Path $env:ProgramData 'EitmadServerSetupProgress')) {
         Assert (-not (Test-Path -LiteralPath $path)) 'Existing product state found. Preserve it and use a clean lab image.'
     }
     $state | Add-Member NoteProperty catalogSha256 $ExpectedCatalogSha256.ToLowerInvariant()

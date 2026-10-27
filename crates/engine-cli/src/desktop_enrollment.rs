@@ -24,45 +24,6 @@ pub(super) fn authenticator(
     )
 }
 
-pub(super) fn check_recovery_access(
-    directory: &std::path::Path,
-    actor: &eitmad_contracts::identity::AuthorizationContext,
-) -> Result<(), eitmad_engine_runtime::RecoveryError> {
-    use eitmad_engine_runtime::{DesktopAuthenticator, RecoveryError};
-    let store = AuthorityStore::open_existing(directory).map_err(|_| RecoveryError::Unavailable)?;
-    let check = || {
-        let settings = eitmad_server_connection::DesktopConnectionSettings::load(directory)
-            .map_err(|_| DesktopAuthenticationError::Unavailable)?;
-        // Only unconnected debug fixtures retain local maintenance authentication.
-        if cfg!(debug_assertions)
-            && settings.is_none()
-            && !directory
-                .join("desktop-device.json")
-                .try_exists()
-                .map_err(|_| DesktopAuthenticationError::Unavailable)?
-        {
-            return Ok(());
-        }
-        DesktopOnlineAuthentication {
-            directory: directory.into(),
-            store: store.clone(),
-            routes_configured: true,
-        }
-        .check_access(actor)
-    };
-    check().map_err(|error| {
-        let _ = DesktopAuthenticator::new(store).sign_out(
-            actor,
-            eitmad_contracts::transport::CorrelationId::new(uuid::Uuid::new_v4()),
-            crate::current_time(),
-        );
-        match error {
-            DesktopAuthenticationError::Failed => RecoveryError::Denied,
-            DesktopAuthenticationError::Unavailable => RecoveryError::Unavailable,
-        }
-    })
-}
-
 impl DesktopServerAuthentication for DesktopOnlineAuthentication {
     fn onboarding(
         &self,

@@ -30,27 +30,6 @@ pub struct ServiceHealth {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum BackupState {
-    Current,
-    Stale,
-    Running,
-    Failed,
-    NotConfigured,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct BackupStatus {
-    pub state: BackupState,
-    pub last_success_at: Option<UnixMillis>,
-    pub last_verified_at: Option<UnixMillis>,
-    pub next_scheduled_at: Option<UnixMillis>,
-    pub recovery_point_age_ms: Option<u64>,
-    pub failure_code: Option<AdministrativeFailureCode>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub enum MigrationState {
     Current,
     Pending,
@@ -116,7 +95,6 @@ pub struct AdministrativeAuditRecord {
 #[serde(rename_all = "camelCase")]
 pub enum SupportAction {
     CollectDiagnostics,
-    VerifyBackup,
     RetryMigration,
     DisconnectRelaySession {
         #[serde(rename = "relaySessionId")]

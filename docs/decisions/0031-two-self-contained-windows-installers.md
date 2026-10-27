@@ -17,11 +17,11 @@ keywords:
 
 # ADR-0031: Distribute two self-contained Windows installers
 
-> - Status: Partially superseded by ADR-0032 (publisher signing and first-use Client certificate elevation only)
+> - Status: Partially superseded by ADR-0032 (publisher signing and first-use Client certificate elevation only); backup and restore requirements partially superseded by ADR-0033
 > - Date: 2026-10-24
 > - Decision owners: Product developer
 > - Supersedes: ADR-0030, distribution format and installer role selection only
-> - Superseded by: [ADR-0032](0032-self-signed-windows-publisher.md), publisher signing and first-use Client certificate elevation only
+> - Superseded by: [ADR-0032](0032-self-signed-windows-publisher.md), publisher signing and first-use Client certificate elevation only; [ADR-0033](0033-defer-backup-support.md), backup and restore requirements only
 
 ## Context
 

@@ -262,7 +262,6 @@ public enum ProtocolIds {
         public static let eitmadPermissionServerUpdateManifestPublishV1 = "eitmad.permission.server.update-manifest.publish.v1"
         public static let eitmadPermissionServerAdminDiagnosticsReadV1 = "eitmad.permission.server.admin.diagnostics.read.v1"
         public static let eitmadPermissionServerAdminHealthReadV1 = "eitmad.permission.server.admin.health.read.v1"
-        public static let eitmadPermissionServerAdminBackupReadV1 = "eitmad.permission.server.admin.backup.read.v1"
         public static let eitmadPermissionServerAdminMigrationReadV1 = "eitmad.permission.server.admin.migration.read.v1"
         public static let eitmadPermissionServerAdminAuditReadV1 = "eitmad.permission.server.admin.audit.read.v1"
         public static let eitmadPermissionServerAdminTenantReadV1 = "eitmad.permission.server.admin.tenant.read.v1"

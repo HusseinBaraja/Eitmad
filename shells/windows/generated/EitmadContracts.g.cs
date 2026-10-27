@@ -34,12 +34,6 @@ namespace Eitmad.Contracts
         [JsonPropertyName("lifecycle_snapshot")]
         public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
-        [JsonPropertyName("manage_server_backup")]
-        public ManageServerBackup ManageServerBackup { get; set; }
-
-        [JsonPropertyName("server_backup_management")]
-        public ServerBackupManagement ServerBackupManagement { get; set; }
-
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
 
@@ -54,9 +48,6 @@ namespace Eitmad.Contracts
     {
         [JsonPropertyName("action")]
         public GuidedSetupAction Action { get; set; }
-
-        [JsonPropertyName("backup")]
-        public SetupBackupDestinations Backup { get; set; }
 
         [JsonPropertyName("bundleDirectory")]
         public string BundleDirectory { get; set; }
@@ -75,15 +66,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("workshop")]
         public InitializeWorkshop Workshop { get; set; }
-    }
-
-    public partial class SetupBackupDestinations
-    {
-        [JsonPropertyName("external")]
-        public string External { get; set; }
-
-        [JsonPropertyName("local")]
-        public string Local { get; set; }
     }
 
     public partial class InitializeWorkshop
@@ -282,90 +264,6 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("minor")]
         public long Minor { get; set; }
-    }
-
-    /// <summary>
-    /// Local Windows administration only. No application account can authorize this request.
-    /// </summary>
-    public partial class ManageServerBackup
-    {
-        [JsonPropertyName("action")]
-        public ServerBackupAction Action { get; set; }
-
-        [JsonPropertyName("destinations")]
-        public SetupBackupDestinations Destinations { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    /// <summary>
-    /// Sanitized management projection; source paths and private configuration stay in Rust.
-    /// </summary>
-    public partial class ServerBackupManagement
-    {
-        [JsonPropertyName("actionOutcome")]
-        public ServerBackupOutcome ActionOutcome { get; set; }
-
-        [JsonPropertyName("destinations")]
-        public SetupBackupDestinations Destinations { get; set; }
-
-        [JsonPropertyName("intervalHours")]
-        public long IntervalHours { get; set; }
-
-        [JsonPropertyName("retentionCount")]
-        public long RetentionCount { get; set; }
-
-        [JsonPropertyName("status")]
-        public ServerBackupStatus Status { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
-    }
-
-    /// <summary>
-    /// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
-    /// </summary>
-    public partial class ServerBackupStatus
-    {
-        [JsonPropertyName("deploymentId")]
-        public Guid DeploymentId { get; set; }
-
-        /// <summary>
-        /// Only a copy verified on a different physical disk can set this value.
-        /// </summary>
-        [JsonPropertyName("diskLossProtected")]
-        public bool DiskLossProtected { get; set; }
-
-        [JsonPropertyName("externalConfigured")]
-        public bool ExternalConfigured { get; set; }
-
-        [JsonPropertyName("externalOutcome")]
-        public ServerBackupOutcome ExternalOutcome { get; set; }
-
-        [JsonPropertyName("lastAttemptAt")]
-        public long? LastAttemptAt { get; set; }
-
-        [JsonPropertyName("lastExternalSuccessAt")]
-        public long? LastExternalSuccessAt { get; set; }
-
-        [JsonPropertyName("lastLocalSuccessAt")]
-        public long? LastLocalSuccessAt { get; set; }
-
-        [JsonPropertyName("localOutcome")]
-        public ServerBackupOutcome LocalOutcome { get; set; }
-
-        [JsonPropertyName("nextDueAt")]
-        public long NextDueAt { get; set; }
-
-        [JsonPropertyName("overdue")]
-        public bool Overdue { get; set; }
-
-        [JsonPropertyName("scheduleOutcome")]
-        public ServerBackupOutcome ScheduleOutcome { get; set; }
-
-        [JsonPropertyName("version")]
-        public long Version { get; set; }
     }
 
     public partial class UnionPayloadKeepAlive
@@ -5237,10 +5135,17 @@ namespace Eitmad.Contracts
     }
 
     /// <summary>
-    /// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
+    /// Ordered progress and bounded native failure details. Requests and credentials are
+    /// excluded.
     /// </summary>
     public partial class WindowsInstallProgress
     {
+        [JsonPropertyName("details")]
+        public string Details { get; set; }
+
+        [JsonPropertyName("failure")]
+        public WindowsSetupFailure? Failure { get; set; }
+
         [JsonPropertyName("sequence")]
         public long Sequence { get; set; }
 
@@ -5275,10 +5180,6 @@ namespace Eitmad.Contracts
     public enum EngineMode { Diagnostic, Headless, SupervisedDesktop };
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
-
-    public enum ServerBackupAction { Capture, Inspect, RepairSchedule, SaveDestinations };
-
-    public enum ServerBackupOutcome { CaptureFailed, DestinationUnavailable, InsufficientSpace, Interrupted, NeverRun, RetentionFailed, Running, ScheduleFailed, Succeeded };
 
     public enum PrincipalKind { Device, Service, User };
 
@@ -5363,7 +5264,12 @@ namespace Eitmad.Contracts
 
     public enum HomeDestination { Catalog, Customer, Order, Quotation };
 
-    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureBackups, ConfigureFirewall, Elevation, EnrollDesktop, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
+    /// <summary>
+    /// Safe diagnostic categories. Never includes OS exception text or user input.
+    /// </summary>
+    public enum WindowsSetupFailure { DesktopPackage, DesktopUser, Prerequisites, ProtectedPaths, RetainedState, ServerPackage };
+
+    public enum WindowsInstallStage { ApplyMigrations, Complete, ConfigureFirewall, Elevation, EnrollDesktop, InitializeOwner, InstallServices, Preflight, PrepareWorkshop, RegisterDesktop, StopPreparedDatabase, VerifyHttps };
 
     /// <summary>
     /// State cannot be proved safe. Preserve it for an operator inspection.
@@ -5430,8 +5336,6 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
-                ServerBackupActionConverter.Singleton,
-                ServerBackupOutcomeConverter.Singleton,
                 CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
@@ -5470,6 +5374,7 @@ namespace Eitmad.Contracts
                 ConflictStatusConverter.Singleton,
                 HomeAvailabilityConverter.Singleton,
                 HomeDestinationConverter.Singleton,
+                WindowsSetupFailureConverter.Singleton,
                 WindowsInstallStageConverter.Singleton,
                 WindowsInstallStatusConverter.Singleton,
                 WindowsSetupRecoveryConverter.Singleton,
@@ -6044,119 +5949,6 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
-    }
-
-    internal class ServerBackupActionConverter : JsonConverter<ServerBackupAction>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ServerBackupAction);
-
-        public override ServerBackupAction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "capture":
-                    return ServerBackupAction.Capture;
-                case "inspect":
-                    return ServerBackupAction.Inspect;
-                case "repairSchedule":
-                    return ServerBackupAction.RepairSchedule;
-                case "saveDestinations":
-                    return ServerBackupAction.SaveDestinations;
-            }
-            throw new Exception("Cannot unmarshal type ServerBackupAction");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ServerBackupAction value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case ServerBackupAction.Capture:
-                    JsonSerializer.Serialize(writer, "capture", options);
-                    return;
-                case ServerBackupAction.Inspect:
-                    JsonSerializer.Serialize(writer, "inspect", options);
-                    return;
-                case ServerBackupAction.RepairSchedule:
-                    JsonSerializer.Serialize(writer, "repairSchedule", options);
-                    return;
-                case ServerBackupAction.SaveDestinations:
-                    JsonSerializer.Serialize(writer, "saveDestinations", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type ServerBackupAction");
-        }
-
-        public static readonly ServerBackupActionConverter Singleton = new ServerBackupActionConverter();
-    }
-
-    internal class ServerBackupOutcomeConverter : JsonConverter<ServerBackupOutcome>
-    {
-        public override bool CanConvert(Type t) => t == typeof(ServerBackupOutcome);
-
-        public override ServerBackupOutcome Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            var value = reader.GetString();
-            switch (value)
-            {
-                case "captureFailed":
-                    return ServerBackupOutcome.CaptureFailed;
-                case "destinationUnavailable":
-                    return ServerBackupOutcome.DestinationUnavailable;
-                case "insufficientSpace":
-                    return ServerBackupOutcome.InsufficientSpace;
-                case "interrupted":
-                    return ServerBackupOutcome.Interrupted;
-                case "neverRun":
-                    return ServerBackupOutcome.NeverRun;
-                case "retentionFailed":
-                    return ServerBackupOutcome.RetentionFailed;
-                case "running":
-                    return ServerBackupOutcome.Running;
-                case "scheduleFailed":
-                    return ServerBackupOutcome.ScheduleFailed;
-                case "succeeded":
-                    return ServerBackupOutcome.Succeeded;
-            }
-            throw new Exception("Cannot unmarshal type ServerBackupOutcome");
-        }
-
-        public override void Write(Utf8JsonWriter writer, ServerBackupOutcome value, JsonSerializerOptions options)
-        {
-            switch (value)
-            {
-                case ServerBackupOutcome.CaptureFailed:
-                    JsonSerializer.Serialize(writer, "captureFailed", options);
-                    return;
-                case ServerBackupOutcome.DestinationUnavailable:
-                    JsonSerializer.Serialize(writer, "destinationUnavailable", options);
-                    return;
-                case ServerBackupOutcome.InsufficientSpace:
-                    JsonSerializer.Serialize(writer, "insufficientSpace", options);
-                    return;
-                case ServerBackupOutcome.Interrupted:
-                    JsonSerializer.Serialize(writer, "interrupted", options);
-                    return;
-                case ServerBackupOutcome.NeverRun:
-                    JsonSerializer.Serialize(writer, "neverRun", options);
-                    return;
-                case ServerBackupOutcome.RetentionFailed:
-                    JsonSerializer.Serialize(writer, "retentionFailed", options);
-                    return;
-                case ServerBackupOutcome.Running:
-                    JsonSerializer.Serialize(writer, "running", options);
-                    return;
-                case ServerBackupOutcome.ScheduleFailed:
-                    JsonSerializer.Serialize(writer, "scheduleFailed", options);
-                    return;
-                case ServerBackupOutcome.Succeeded:
-                    JsonSerializer.Serialize(writer, "succeeded", options);
-                    return;
-            }
-            throw new Exception("Cannot marshal type ServerBackupOutcome");
-        }
-
-        public static readonly ServerBackupOutcomeConverter Singleton = new ServerBackupOutcomeConverter();
     }
 
     internal class CatalogImageKindConverter : JsonConverter<CatalogImageKind>
@@ -7795,6 +7587,60 @@ namespace Eitmad.Contracts
         public static readonly HomeDestinationConverter Singleton = new HomeDestinationConverter();
     }
 
+    internal class WindowsSetupFailureConverter : JsonConverter<WindowsSetupFailure>
+    {
+        public override bool CanConvert(Type t) => t == typeof(WindowsSetupFailure);
+
+        public override WindowsSetupFailure Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "desktopPackage":
+                    return WindowsSetupFailure.DesktopPackage;
+                case "desktopUser":
+                    return WindowsSetupFailure.DesktopUser;
+                case "prerequisites":
+                    return WindowsSetupFailure.Prerequisites;
+                case "protectedPaths":
+                    return WindowsSetupFailure.ProtectedPaths;
+                case "retainedState":
+                    return WindowsSetupFailure.RetainedState;
+                case "serverPackage":
+                    return WindowsSetupFailure.ServerPackage;
+            }
+            throw new Exception("Cannot unmarshal type WindowsSetupFailure");
+        }
+
+        public override void Write(Utf8JsonWriter writer, WindowsSetupFailure value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case WindowsSetupFailure.DesktopPackage:
+                    JsonSerializer.Serialize(writer, "desktopPackage", options);
+                    return;
+                case WindowsSetupFailure.DesktopUser:
+                    JsonSerializer.Serialize(writer, "desktopUser", options);
+                    return;
+                case WindowsSetupFailure.Prerequisites:
+                    JsonSerializer.Serialize(writer, "prerequisites", options);
+                    return;
+                case WindowsSetupFailure.ProtectedPaths:
+                    JsonSerializer.Serialize(writer, "protectedPaths", options);
+                    return;
+                case WindowsSetupFailure.RetainedState:
+                    JsonSerializer.Serialize(writer, "retainedState", options);
+                    return;
+                case WindowsSetupFailure.ServerPackage:
+                    JsonSerializer.Serialize(writer, "serverPackage", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type WindowsSetupFailure");
+        }
+
+        public static readonly WindowsSetupFailureConverter Singleton = new WindowsSetupFailureConverter();
+    }
+
     internal class WindowsInstallStageConverter : JsonConverter<WindowsInstallStage>
     {
         public override bool CanConvert(Type t) => t == typeof(WindowsInstallStage);
@@ -7808,8 +7654,6 @@ namespace Eitmad.Contracts
                     return WindowsInstallStage.ApplyMigrations;
                 case "complete":
                     return WindowsInstallStage.Complete;
-                case "configureBackups":
-                    return WindowsInstallStage.ConfigureBackups;
                 case "configureFirewall":
                     return WindowsInstallStage.ConfigureFirewall;
                 case "elevation":
@@ -7843,9 +7687,6 @@ namespace Eitmad.Contracts
                     return;
                 case WindowsInstallStage.Complete:
                     JsonSerializer.Serialize(writer, "complete", options);
-                    return;
-                case WindowsInstallStage.ConfigureBackups:
-                    JsonSerializer.Serialize(writer, "configureBackups", options);
                     return;
                 case WindowsInstallStage.ConfigureFirewall:
                     JsonSerializer.Serialize(writer, "configureFirewall", options);

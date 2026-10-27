@@ -20,33 +20,36 @@
       <controls:FormField Label="اسم مستخدم المالك" IsRequired="True" Margin="0,12,0,0"><TextBox x:Name="OwnerUsername" Style="{StaticResource TextInput}" MaxLength="128" AutomationProperties.Name="اسم مستخدم مالك المنشأة"/></controls:FormField>
       <controls:FormField Label="كلمة مرور المالك" IsRequired="True" Margin="0,12,0,0"><PasswordBox x:Name="OwnerPassword" Padding="12,8" MaxLength="256" AutomationProperties.Name="كلمة مرور مالك المنشأة"/></controls:FormField>
       <TextBlock Text="استخدم كلمة مرور من 12 حرفًا على الأقل. ينشئ المالك حسابًا مستقلًا لكل موظف من المستخدمون." Margin="0,8,0,18"/>
-      <Expander Header="وجهات النسخ الاحتياطي" IsExpanded="True" AutomationProperties.Name="اختيار وجهات النسخ الاحتياطي">
-       <StackPanel Margin="0,12,0,0">
-        <TextBlock Text="نسخة محلية تلقائية كل يوم. النسخة على القرص نفسه لا تحمي من تلف القرص. استخدم قرصًا خارجيًا مشفّرًا لحماية إضافية." Margin="0,0,0,12"/>
-        <controls:FormField Label="وجهة النسخة المحلية">
-         <DockPanel><Button DockPanel.Dock="Left" Content="اختيار مجلد" Style="{StaticResource SecondaryButton}" Click="LocalFolderClick" Margin="8,0,0,0" AutomationProperties.Name="اختيار مجلد النسخة المحلية"/>
-          <TextBox x:Name="LocalDestination" Style="{StaticResource TextInput}" IsReadOnly="True" FlowDirection="LeftToRight" AutomationProperties.Name="مجلد النسخة المحلية" ToolTip="اتركه فارغًا لاستخدام المجلد المحلي التلقائي"/>
-         </DockPanel>
-        </controls:FormField>
-        <TextBlock Text="اترك الوجهة المحلية فارغة لاستخدام مجلد الاعتماد التلقائي. يلزم قرص NTFS مشفّر ومجلد محمي." FontSize="12" Margin="0,6,0,12"/>
-        <controls:FormField Label="وجهة خارجية اختيارية">
-         <DockPanel><Button DockPanel.Dock="Left" Content="اختيار قرص خارجي" Style="{StaticResource SecondaryButton}" Click="ExternalFolderClick" Margin="8,0,0,0" AutomationProperties.Name="اختيار مجلد على قرص خارجي"/>
-          <TextBox x:Name="ExternalDestination" Style="{StaticResource TextInput}" IsReadOnly="True" FlowDirection="LeftToRight" AutomationProperties.Name="مجلد النسخة الخارجية"/>
-         </DockPanel>
-        </controls:FormField>
-        <Button Content="إلغاء الوجهة الخارجية" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Click="ClearExternalClick" Margin="0,8,0,0" AutomationProperties.Name="إلغاء اختيار وجهة النسخ الخارجية"/>
-       </StackPanel>
-      </Expander>
+
      </StackPanel>
     </StackPanel>
     <StackPanel x:Name="ProgressPanel" Visibility="Collapsed">
-     <TextBlock Text="حالة الإعداد" FontSize="27" FontWeight="Bold"/>
-     <TextBlock Text="تظهر المراحل التي أبلغ عنها برنامج التثبيت. لا توقف الخادم أو تحذف ملفاته إذا انقطع الإعداد." Margin="0,8,0,16"/>
+     <TextBlock x:Name="ProgressTitle" Text="جارٍ إعداد الاعتماد" FontSize="27" FontWeight="Bold" TextWrapping="Wrap"/>
+     <TextBlock x:Name="ProgressDescription" Text="اترك النافذة مفتوحة حتى ينتهي التحقق من التثبيت." TextWrapping="Wrap" Margin="0,8,0,16"/>
      <ProgressBar x:Name="BusyProgress" Height="5" IsIndeterminate="True" AutomationProperties.Name="تنفيذ مرحلة الإعداد الحالية" Margin="0,0,0,16"/>
-     <ItemsControl x:Name="StageList"><ItemsControl.ItemTemplate><DataTemplate>
-      <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,12"><TextBlock Text="{Binding}" FontSize="15"/></Border>
-     </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
     </StackPanel>
+    <Border x:Name="FailurePanel" Visibility="Collapsed" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,16">
+     <StackPanel>
+      <TextBlock Text="ما الذي حدث؟" Style="{StaticResource SectionTitle}"/>
+      <TextBlock x:Name="FailureSummary" TextWrapping="Wrap" Margin="0,8,0,18" AutomationProperties.LiveSetting="Assertive"/>
+      <TextBlock Text="ما الخطوة التالية؟" Style="{StaticResource SectionTitle}"/>
+      <TextBlock x:Name="NextAction" TextWrapping="Wrap" Margin="0,8,0,12"/>
+      <TextBlock Text="إذا استمرت المشكلة، انسخ السجل أو احفظه وأرسله لفحص السبب. لا تحذف ملفات الإعداد أو بيانات الورشة." TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <WrapPanel>
+       <Button x:Name="CopyLogButton" Content="نسخ السجل" Style="{StaticResource SecondaryButton}" Click="CopyLogClick" Margin="0,0,8,8" AutomationProperties.Name="نسخ سجل الإعداد إلى الحافظة"/>
+       <Button x:Name="SaveLogButton" Content="حفظ ملف السجل" Style="{StaticResource SecondaryButton}" Click="SaveLogClick" Margin="0,0,8,8" AutomationProperties.Name="حفظ سجل الإعداد في ملف نصي"/>
+      </WrapPanel>
+      <TextBlock x:Name="LogNotice" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+      <Expander Header="تفاصيل السجل" Margin="0,12,0,0" AutomationProperties.Name="عرض التفاصيل الفنية لسجل الإعداد">
+       <TextBox x:Name="LogDetails" IsReadOnly="True" TextWrapping="Wrap" FlowDirection="LeftToRight" TextAlignment="Left" MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0" Padding="8" AutomationProperties.Name="التفاصيل الفنية لسجل الإعداد"/>
+      </Expander>
+     </StackPanel>
+    </Border>
+    <Expander x:Name="StageHistory" Header="مراحل الإعداد" Visibility="Collapsed" AutomationProperties.Name="عرض مراحل الإعداد التي أبلغ عنها المثبت">
+     <ItemsControl x:Name="StageList"><ItemsControl.ItemTemplate><DataTemplate>
+      <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,10"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="15"/></Border>
+     </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    </Expander>
     <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed" Margin="0,18,0,0">
      <TextBlock Text="استكمال الإعداد المحفوظ" Style="{StaticResource SectionTitle}"/>
      <TextBlock Text="سيُفحص التثبيت قبل المتابعة. تبقى الورشة وهوية الجهاز والبيانات المحفوظة كما هي." Margin="0,8,0,12"/>
@@ -54,14 +57,13 @@
       <PasswordBox x:Name="RecoveryPassword" Padding="12,8" MaxLength="256" AutomationProperties.Name="كلمة مرور المالك لاستكمال الإعداد"/>
      </controls:FormField>
     </StackPanel>
-    <TextBlock x:Name="SetupNotice" Text="جارٍ فحص وجود إعداد سابق…" FontSize="14" Margin="0,18,0,0" AutomationProperties.LiveSetting="Assertive"/>
+    <TextBlock x:Name="SetupNotice" Text="جارٍ فحص وجود إعداد سابق…" TextWrapping="Wrap" FontSize="14" Margin="0,18,0,0" AutomationProperties.LiveSetting="Assertive"/>
    </StackPanel>
   </ScrollViewer>
   <WrapPanel Grid.Row="2" HorizontalAlignment="Left" Margin="0,12,0,0">
    <Button x:Name="InstallButton" Content="بدء التثبيت" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="InstallClick" AutomationProperties.Name="بدء تثبيت الاعتماد"/>
    <Button x:Name="RetryButton" Content="فحص واستكمال الإعداد" Style="{StaticResource PrimaryButton}" Visibility="Collapsed" Click="RetryClick" AutomationProperties.Name="فحص التثبيت واستكمال الإعداد المحفوظ"/>
    <Button x:Name="InspectButton" Content="فحص حالة الإعداد" Style="{StaticResource SecondaryButton}" Click="InspectClick" Margin="10,0,0,0" AutomationProperties.Name="فحص حالة الإعداد المحفوظة"/>
-   <Button x:Name="ManageBackupButton" Content="إدارة النسخ الاحتياطي" Style="{StaticResource SecondaryButton}" Click="ManageBackupClick" Margin="10,0,0,0" AutomationProperties.Name="إدارة النسخ الاحتياطي لخادم هذا الجهاز بموافقة مسؤول Windows"/>
    <Button x:Name="OpenDesktopButton" Content="فتح الاعتماد" Style="{StaticResource PrimaryButton}" Click="OpenDesktopClick" Visibility="Collapsed" Margin="10,0,0,0" AutomationProperties.Name="فتح تطبيق الاعتماد وتسجيل الدخول"/>
   </WrapPanel>
  </Grid>

@@ -5,7 +5,6 @@ param([Parameter(Mandatory)][string]$SourceBundle, [Parameter(Mandatory)][string
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $adapter = Import-Module (Join-Path $PSScriptRoot 'installation.psm1') -Force -PassThru
-$backup = Import-Module (Join-Path $PSScriptRoot 'local-backup.psm1') -Force -PassThru -DisableNameChecking
 & $adapter { & $script:HostAdapter { Assert-Administrator } }
 $evidence = [IO.Path]::GetFullPath($EvidenceDirectory)
 if (Test-Path -LiteralPath $evidence) { throw 'Use a new evidence directory.' }
@@ -56,16 +55,8 @@ try {
             throw 'PostgreSQL read access exposed installation controls.'
         }
     }
-    foreach ($path in ($prefix+'-Backups'), ($prefix+'-State')) {
-        & $backup { param($target) New-LocalBackupDirectory $target; Assert-LocalBackupControl $target } $path
-    }
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Hours 1)
-    $trigger.Repetition.StopAtDurationEnd = $false
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 3)
-    $task = New-ScheduledTask -Action (New-ScheduledTaskAction -Execute $anchor) -Trigger $trigger -Settings $settings
-    if (-not (& $backup { param($value) Test-LocalBackupSchedule $value } $task)) { throw 'Windows rejected the backup trigger policy.' }
     $result.complete=$true
 } catch { $result.error=$_.Exception.Message }
 $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $evidence 'protection-result.json') -Encoding UTF8
 if (-not $result.complete) { throw $result.error }
-Write-Host 'PASS: restricted PostgreSQL token, private backup creation under ProgramData, and native indefinite trigger. Synthetic payload retained.'
+Write-Host 'PASS: restricted PostgreSQL token and protected installation controls. Synthetic payload retained.'

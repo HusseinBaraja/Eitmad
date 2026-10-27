@@ -7,7 +7,7 @@ use std::{
 
 use eitmad_contracts::{
     PROTOCOL_VERSION,
-    administration::{BackupStatus, DiagnosticSummary, MigrationStatus, SupportWorkflow},
+    administration::{DiagnosticSummary, MigrationStatus, SupportWorkflow},
     catalog::ProtocolCatalog,
     config::{ConfigReadValue, ConfigSnapshot},
     errors::{
@@ -47,10 +47,6 @@ use uuid::Uuid;
 struct ContractSchemaRoot {
     guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
     windows_setup_bundle: eitmad_contracts::setup::WindowsSetupBundle,
-    server_backup_configuration: eitmad_contracts::backup::ServerBackupConfiguration,
-    server_backup_status: eitmad_contracts::backup::ServerBackupStatus,
-    manage_server_backup: eitmad_contracts::backup::ManageServerBackup,
-    server_backup_management: eitmad_contracts::backup::ServerBackupManagement,
     open_pairing: eitmad_contracts::pairing::OpenPairing,
     opened_pairing: eitmad_contracts::pairing::OpenedPairing,
     start_pairing: eitmad_contracts::pairing::StartPairing,
@@ -126,7 +122,6 @@ struct ContractSchemaRoot {
     update_client_profile: UpdateClientProfile,
     update_check_outcome: UpdateCheckOutcome,
     administration_diagnostics: DiagnosticSummary,
-    administration_backup_status: BackupStatus,
     administration_migration_status: MigrationStatus,
     administration_support_workflow: SupportWorkflow,
     sync_status: SyncStatus,
@@ -147,8 +142,6 @@ struct ContractSchemaRoot {
 struct NativeShellSchemaRoot {
     windows_setup_role: eitmad_contracts::setup::WindowsSetupRole,
     guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
-    manage_server_backup: eitmad_contracts::backup::ManageServerBackup,
-    server_backup_management: eitmad_contracts::backup::ServerBackupManagement,
     windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
     ipc_client_message: IpcClientMessage,
     ipc_server_message: IpcServerMessage,

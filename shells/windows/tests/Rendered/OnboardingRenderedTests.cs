@@ -16,6 +16,58 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 [TestClass]
 public sealed class OnboardingRenderedTests
 {
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Failed_setup_explains_the_check_and_exports_the_diagnostic(int width, int height)
+    {
+        var backend = new SetupBackend { Install = progress => {
+            progress.Report(new WindowsInstallProgress { Version = 1, Sequence = 1,
+                Stage = WindowsInstallStage.Preflight, Status = WindowsInstallStatus.Failed,
+                Failure = WindowsSetupFailure.DesktopUser, Details = "Synthetic access denied at installation.psm1:24" });
+            return Task.FromException(new IOException("Synthetic backend exit code: 10"));
+        } };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            var view = (SetupWindow)window;
+            WpfTestHost.FindByName<PasswordBox>(window, "OwnerPassword").Password = "Synthetic-owner-secret";
+            _ = view.InstallAsync(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "FailurePanel").Visibility);
+            Assert.IsTrue(WpfTestHost.FindByName<TextBlock>(window, "NextAction").Text.Contains("دون تشغيل كمسؤول", StringComparison.Ordinal));
+            Assert.IsTrue(view.DiagnosticLog.Contains("installation.psm1:24", StringComparison.Ordinal));
+            Assert.IsTrue(view.DiagnosticLog.Contains("exit code: 10", StringComparison.Ordinal));
+            Assert.IsFalse(view.DiagnosticLog.Contains("Synthetic-owner-secret", StringComparison.Ordinal));
+            var copy = WpfTestHost.FindByName<Button>(window, "CopyLogButton");
+            copy.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(copy.Focus()); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(copy)));
+            Assert.IsTrue(copy.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            var save = WpfTestHost.FindByName<Button>(window, "SaveLogButton");
+            Assert.IsTrue(save.IsKeyboardFocused); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(save)));
+            WpfTestHost.FindByName<ScrollViewer>(window, "SetupScroll").ScrollToTop();
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"setup-failed-preflight-{width}");
+            if (width == 720) {
+                foreach (var control in WpfTestHost.Descendants<Control>(window)) Eitmad.WindowsShell.Controls.ControlOptions.SetHighContrast(control, true);
+                WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "setup-failed-system-colors-720");
+            }
+        });
+    }
+
+    [TestMethod]
+    public async Task Setup_log_export_preserves_Arabic_and_does_not_modify_installation_state()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "eitmad-log-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "setup.log");
+        try {
+            const string text = "Synthetic preflight failure\nتعذر إكمال الإعداد\nscript=installation.psm1; line=24";
+            await WindowsSetupLog.SaveAsync(path, text);
+            Assert.AreEqual(text, await File.ReadAllTextAsync(path));
+            Assert.AreEqual(1, Directory.GetFiles(directory).Length);
+            await Assert.ThrowsAsync<DirectoryNotFoundException>(() => WindowsSetupLog.SaveAsync(Path.Combine(directory, "missing", "setup.log"), text));
+            Assert.AreEqual(text, await File.ReadAllTextAsync(path));
+        } finally { File.Delete(path); Directory.Delete(directory); }
+    }
+
     public TestContext TestContext { get; set; } = null!;
     private sealed class SetupBackend : IWindowsSetupBridge
     {
@@ -29,7 +81,7 @@ public sealed class OnboardingRenderedTests
         public string? RetryPassword { get; private set; }
         public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress)
         { Calls++; RetryPassword = ownerPassword; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic retry failure")); }
-        public Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, SetupBackupDestinations? backup, IProgress<WindowsInstallProgress> progress)
+        public Task InstallAsync(GuidedSetupAction action, InitializeWorkshop? workshop, IProgress<WindowsInstallProgress> progress)
         { Calls++; Action = action; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic failure")); }
     }
     private void Record(Window window, int width, int height)
@@ -102,18 +154,8 @@ public sealed class OnboardingRenderedTests
             WpfTestHost.FindByName<TextBox>(window, "OwnerUsername").Text = "مالك الاختبار";
             foreach (var button in WpfTestHost.Descendants<Button>(window).Where(b => b.IsVisible))
                 Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(button)));
-            Assert.AreEqual(FlowDirection.LeftToRight, WpfTestHost.FindByName<TextBox>(window, "LocalDestination").FlowDirection);
             WpfTestHost.CompleteLayout(window);
             WpfTestHost.Capture(window, $"onboarding-server-{width}");
-            var local = WpfTestHost.FindByName<TextBox>(window, "LocalDestination");
-            local.BringIntoView(); WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(local.Focus());
-            WpfTestHost.Capture(window, $"onboarding-backups-{width}");
-            if (width == 720)
-            {
-                foreach (var control in WpfTestHost.Descendants<Control>(window)) Eitmad.WindowsShell.Controls.ControlOptions.SetHighContrast(control, true);
-                WpfTestHost.CompleteLayout(window); WpfTestHost.Capture(window, "onboarding-backups-system-colors-720");
-            }
             backend.State = new WindowsInstallationState { Version = 1, Interrupted = true, Recovery = WindowsSetupRecovery.OwnerPassword,
                 Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.EnrollDesktop, Status = WindowsInstallStatus.Running } };
             _ = ((SetupWindow)window).InspectAsync(); WpfTestHost.CompleteLayout(window);
@@ -155,7 +197,7 @@ public sealed class OnboardingRenderedTests
     public void Recovery_uses_backend_action_clears_password_and_requires_confirmed_success()
     {
         var backend = new SetupBackend { State = new WindowsInstallationState { Version = 1, Recovery = WindowsSetupRecovery.OwnerPassword,
-            Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.ConfigureBackups, Status = WindowsInstallStatus.Failed } } };
+            Progress = new WindowsInstallProgress { Version = 1, Sequence = 8, Stage = WindowsInstallStage.VerifyHttps, Status = WindowsInstallStatus.Failed } } };
         WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server), window => {
             var password = WpfTestHost.FindByName<PasswordBox>(window, "RecoveryPassword"); password.Password = "Synthetic-password-123!";
             _ = ((SetupWindow)window).RetryAsync(); WpfTestHost.CompleteLayout(window);

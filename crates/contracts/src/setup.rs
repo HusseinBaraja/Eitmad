@@ -98,21 +98,12 @@ pub struct InstallWindowsServer {
     pub winsw_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_desktop: Option<crate::server::LoginRequest>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub backup: Option<SetupBackupDestinations>,
 }
 
 impl std::fmt::Debug for InstallWindowsServer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("InstallWindowsServer([redacted])")
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SetupBackupDestinations {
-    pub local: String,
-    pub external: Option<String>,
 }
 
 /// Public trust returned only over the original user's authenticated elevation channel.
@@ -142,7 +133,6 @@ pub struct GuidedWindowsSetup {
     pub bundle_directory: String,
     pub intended_user_sid: String,
     pub workshop: Option<InitializeWorkshop>,
-    pub backup: Option<SetupBackupDestinations>,
     /// Retry credentials are transient and are never written to the recovery journal.
     pub owner_password: Option<AccountPassword>,
 }
@@ -181,7 +171,6 @@ pub enum WindowsInstallStage {
     VerifyHttps,
     RegisterDesktop,
     EnrollDesktop,
-    ConfigureBackups,
     Complete,
 }
 
@@ -195,10 +184,26 @@ pub enum WindowsInstallStatus {
     Blocked,
 }
 
-/// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
+/// Safe diagnostic categories. Never includes OS exception text or user input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowsSetupFailure {
+    DesktopUser,
+    DesktopPackage,
+    ServerPackage,
+    ProtectedPaths,
+    Prerequisites,
+    RetainedState,
+}
+
+/// Ordered progress and bounded native failure details. Requests and credentials are excluded.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WindowsInstallProgress {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<WindowsSetupFailure>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
     pub version: u32,
     pub sequence: u32,
     pub stage: WindowsInstallStage,

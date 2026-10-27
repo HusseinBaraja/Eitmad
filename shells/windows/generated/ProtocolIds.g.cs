@@ -276,7 +276,6 @@ public static class ProtocolIds
         public const string EitmadPermissionServerUpdateManifestPublishV1 = "eitmad.permission.server.update-manifest.publish.v1";
         public const string EitmadPermissionServerAdminDiagnosticsReadV1 = "eitmad.permission.server.admin.diagnostics.read.v1";
         public const string EitmadPermissionServerAdminHealthReadV1 = "eitmad.permission.server.admin.health.read.v1";
-        public const string EitmadPermissionServerAdminBackupReadV1 = "eitmad.permission.server.admin.backup.read.v1";
         public const string EitmadPermissionServerAdminMigrationReadV1 = "eitmad.permission.server.admin.migration.read.v1";
         public const string EitmadPermissionServerAdminAuditReadV1 = "eitmad.permission.server.admin.audit.read.v1";
         public const string EitmadPermissionServerAdminTenantReadV1 = "eitmad.permission.server.admin.tenant.read.v1";

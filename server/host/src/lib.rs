@@ -1,4 +1,3 @@
-pub mod backup;
 mod config;
 mod discovery;
 mod http;

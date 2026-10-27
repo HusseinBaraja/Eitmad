@@ -9,7 +9,6 @@ mod authority_store;
 mod desktop_auth;
 mod dispatcher;
 pub mod local_ipc;
-mod recovery;
 
 pub use accounts::{DesktopAccountAuthority, DesktopAccountError};
 pub use authority_store::{
@@ -19,7 +18,6 @@ pub use desktop_auth::{
     DesktopAuthenticationError, DesktopAuthenticator, DesktopServerAuthentication,
 };
 pub use dispatcher::ProductDispatcher;
-pub use recovery::{ManualRecovery, RecoveryError};
 
 use std::{
     env,

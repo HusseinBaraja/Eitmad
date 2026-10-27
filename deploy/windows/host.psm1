@@ -503,8 +503,7 @@ function Get-DiscoveryFirewallRule($Settings) {
     return $rule
 }
 
-function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Action,
-    [string]$BackupGeneration, [bool]$RestoreVerified) {
+function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Action) {
     $root = $Settings.root
     $previousFile = Join-Path $root 'app/release.json'
     $pendingFile = Join-Path $root 'release-pending.json'
@@ -515,14 +514,14 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
     $previous = if ($pending) { $pending.previousRelease } else { Get-Content -LiteralPath $previousFile -Raw -Encoding UTF8 | ConvertFrom-Json }
     if ($pending) {
         if ($Release.version -cne $pending.version -or $Release.files.'eitmad-server.exe' -cne $pending.binarySha256) {
-            throw 'Repair requires the exact interrupted release. Preserve the pre-migration recovery point.'
+            throw 'Repair requires the exact interrupted release. Preserve the database and retained release files.'
         }
     } elseif ($Action -eq 'Repair') {
         if ($Release.version -cne $previous.version -or $Release.files.'eitmad-server.exe' -cne $previous.files.'eitmad-server.exe') {
             throw 'Repair requires the original release and digest. Use Upgrade for a different release.'
         }
     } elseif ([version]$Release.windowsVersion -le [version]$previous.windowsVersion) {
-        throw 'Upgrade requires a higher Windows package version. Downgrade requires explicit backup recovery.'
+        throw 'Upgrade requires a higher Windows package version. Downgrade is not supported.'
     }
     Assert-AppendOnlyMigrations $previous $Release
     if ($Action -eq 'Upgrade' -and -not $pending -and
@@ -534,16 +533,6 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         try {
             if (-not $service -or $service.Status -ne 'Stopped') { throw 'Stop both owned services before repair or upgrade.' }
         } finally { Close-Service $service }
-    }
-    if ($Action -eq 'Upgrade' -and -not $pending) {
-        if (-not $BackupGeneration -or -not $RestoreVerified) {
-            throw 'Upgrade requires BackupGeneration and RestoreVerified after a successful isolated restore drill.'
-        }
-        & (Join-Path $Directory 'deploy/windows/restore-backup.ps1') -Generation $BackupGeneration -PostgresBin (Join-Path $root 'postgres/bin')
-        if (-not $?) { throw 'Recovery generation validation failed.' }
-        $marker = Get-Content -LiteralPath (Join-Path $BackupGeneration 'complete.json') -Raw | ConvertFrom-Json
-        $hostNode = @($marker.nodes | Where-Object { $_.kind -eq 'server' -and $_.computer -ieq $env:COMPUTERNAME -and $root -in $_.requiredPaths })
-        if ($hostNode.Count -ne 1) { throw 'The recovery generation does not contain this installed host.' }
     }
     # Execute only an authenticated copy inside the administrator-owned app tree.
     $source = Join-Path $root 'app/eitmad-server.pending.exe'
@@ -567,7 +556,7 @@ function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Actio
         foreach ($kind in 'Server', 'Postgres') { Invoke-Native sc.exe @('config', ($Settings.name + $kind), 'start=', 'demand') }
         $markerStage = Join-Path $root 'release-pending.new.json'
         [pscustomobject]@{version = $Release.version; binarySha256 = $Release.files.'eitmad-server.exe';
-            previousRelease = $previous; backupGeneration = $BackupGeneration} |
+            previousRelease = $previous} |
             ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $markerStage -Encoding UTF8
         [IO.File]::Move($markerStage, $pendingFile)
     }
@@ -634,8 +623,7 @@ function Invoke-EitmadHost {
         [switch]$WhatIf,
         [string]$LanDirectory, [string]$ClusterDirectory, [string]$PostgresBin,
         [string]$WinSwExecutable, [string]$WinSwSha256,
-        [string]$ReleaseDirectory, [pscustomobject]$Release,
-        [string]$BackupGeneration, [switch]$RestoreVerified
+        [string]$ReleaseDirectory, [pscustomobject]$Release
     )
     if ($WhatIf -and $Action -ne 'Firewall') { throw 'WhatIf is supported only for the Firewall action.' }
     if ($ClientAddress -and $Action -ne 'Firewall') { throw 'ClientAddress is supported only for the Firewall action.' }
@@ -663,7 +651,7 @@ function Invoke-EitmadHost {
         }
         if ($Action -in 'Repair', 'Upgrade') {
             if (-not $release) { throw 'Use install-server.ps1 with the verified release inventory.' }
-            Set-HostRelease $settings $release $ReleaseDirectory $Action $BackupGeneration $RestoreVerified
+            Set-HostRelease $settings $release $ReleaseDirectory $Action
         } elseif ($Action -eq 'Firewall') {
             Set-ClientFirewall $settings $ClientAddress -PrivateLan:$PrivateLan -WhatIf:$WhatIf
         } elseif ($Action -eq 'Install') {

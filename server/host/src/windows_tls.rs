@@ -151,7 +151,7 @@ fn execute(action: &str, root: &str, configuration: Option<&Value>) -> Result<()
     platform
         .native("Guard", &json!({}))
         .map_err(|_| MainError::Tls)?;
-    // The host-wide lock also excludes installation, upgrades, stops, and backup write barriers.
+    // The host-wide lock also excludes installation, upgrades, stops, and maintenance write barriers.
     let _lock = OpenOptions::new()
         .read(true)
         .write(true)

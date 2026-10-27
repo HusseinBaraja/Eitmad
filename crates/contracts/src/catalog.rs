@@ -120,7 +120,6 @@ pub const PERMISSIONS: &[&str] = &[
     UPDATE_MANIFEST_PUBLISH_PERMISSION,
     "eitmad.permission.server.admin.diagnostics.read.v1",
     "eitmad.permission.server.admin.health.read.v1",
-    "eitmad.permission.server.admin.backup.read.v1",
     "eitmad.permission.server.admin.migration.read.v1",
     "eitmad.permission.server.admin.audit.read.v1",
     "eitmad.permission.server.admin.tenant.read.v1",

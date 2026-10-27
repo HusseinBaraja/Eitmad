@@ -133,7 +133,6 @@ public static class EitmadInstallationChannel
         {
             var errors = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
             WritePrivateInput(process, request);
-            if (command == "windows-backup-management-worker") process.StandardInput.Close();
             request = null;
             try
             {
@@ -160,7 +159,7 @@ public static class EitmadInstallationChannel
                 Send(pipe, process.ExitCode == 0 ? "success" : "failed");
                 return process.ExitCode;
             }
-            finally { if (command != "windows-backup-management-worker") process.StandardInput.Close(); }
+            finally { process.StandardInput.Close(); }
         }
     }
 }
