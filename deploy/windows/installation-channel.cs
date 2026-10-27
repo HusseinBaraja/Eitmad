@@ -121,9 +121,8 @@ public static class EitmadInstallationChannel
         finally { Array.Clear(input, 0, input.Length); }
     }
 
-    public static int RunWorker(Stream pipe, string backend, string command, Func<string, bool> requiresInput)
+    public static int RunWorker(Stream pipe, string backend, string command, string request, Func<string, bool> requiresInput)
     {
-        var request = Receive(pipe, 65536);
         var start = new ProcessStartInfo(backend, command) {
             UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,

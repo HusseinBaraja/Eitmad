@@ -180,6 +180,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-installation.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pwsh -NoProfile -File deploy/windows/test-setup-diagnostics.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-release-lifecycle.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build repeatable unsigned Windows installation bundles

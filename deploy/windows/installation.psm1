@@ -222,6 +222,27 @@ function Test-InstallationProofRequest([string]$Line) {
         $event.stage -ceq 'enrollDesktop' -and $event.status -ceq 'running')
 }
 
+function New-InstallationWorkerFailure([Management.Automation.ErrorRecord]$Failure) {
+    # Keep this OS transport frame separate from Rust's ordered progress events.
+    $diagnostic = [ordered]@{message=$Failure.Exception.Message; errorId=$Failure.FullyQualifiedErrorId;
+        exceptionType=$Failure.Exception.GetType().FullName; script=$Failure.InvocationInfo.ScriptName;
+        line=$Failure.InvocationInfo.ScriptLineNumber; stack=$Failure.ScriptStackTrace}
+    $details = $diagnostic | ConvertTo-Json -Compress
+    if ($details.Length -gt 4000) { $details = $details.Substring(0,4000) }
+    return (@{version=1; kind='adapterFailure'; details=$details} | ConvertTo-Json -Compress)
+}
+
+function Read-InstallationWorkerFailure([string]$Line) {
+    $event = $Line | ConvertFrom-Json
+    if (-not $event.PSObject.Properties['kind']) { return $null }
+    if ($event.version -ne 1 -or $event.kind -cne 'adapterFailure' -or
+        -not $event.PSObject.Properties['details'] -or $event.details -isnot [string] -or
+        $event.details.Length -eq 0 -or $event.details.Length -gt 4000) {
+        throw 'Invalid installation adapter failure.'
+    }
+    return $event.details
+}
+
 function New-ProtectedInstallationPayload([string]$Source, [string]$Stage) {
     if (Test-Path -LiteralPath $Stage) { throw 'Protected payload requires a new directory.' }
     & $script:HostAdapter { param($p) [void](Get-SafePath $p); Assert-ProtectedParents $p } $Stage
@@ -254,6 +275,8 @@ function Invoke-EitmadInstallationWorker {
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
     $stage = $null
     try {
+        # Drain the broker's request before staging: it can exceed the pipe buffer.
+        $privateInput = [EitmadInstallationChannel]::Receive($pipe, 65536)
         # The initiating process retains the source. Never execute elevated payloads
         # from a user-writable extraction directory, including DLL search paths.
         $source = Split-Path (Split-Path (Split-Path $Backend -Parent) -Parent) -Parent
@@ -269,13 +292,18 @@ function Invoke-EitmadInstallationWorker {
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
         # Retain the authenticated backend used by TLS renewal.
-        $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, 'install-windows-server',
+        $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, 'install-windows-server', $privateInput,
             [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
         return $code
+    } catch {
+        [EitmadInstallationChannel]::Send($pipe, (New-InstallationWorkerFailure $_))
+        [EitmadInstallationChannel]::Send($pipe, '')
+        [EitmadInstallationChannel]::Send($pipe, 'failed')
+        return 1
     }
     finally {
+        $privateInput = $null
         $pipe.Dispose()
-
     }
 }
 
@@ -301,6 +329,12 @@ function Invoke-EitmadInstallationElevation {
         while ($true) {
             $event = [EitmadInstallationChannel]::Receive($pipe, 32768)
             if (-not $event) { break }
+            $failure = Read-InstallationWorkerFailure $event
+            if ($null -ne $failure) {
+                [Console]::Error.WriteLine($failure)
+                [Console]::Error.Flush()
+                continue
+            }
             [Console]::Out.WriteLine($event)
             [Console]::Out.Flush()
             if (Test-InstallationProofRequest $event) {
