@@ -1,9 +1,10 @@
 use super::{MainError, PrepareWindowsWorkshop, Secrets};
 use std::os::windows::{fs::MetadataExt as _, process::CommandExt as _};
 use std::{
-    io::Write as _,
+    io::{BufRead as _, BufReader, Read, Write as _},
     path::Path,
     process::{Command, Stdio},
+    sync::mpsc::{self, Receiver},
     time::{Duration, Instant},
 };
 use zeroize::Zeroizing;
@@ -58,7 +59,7 @@ pub(super) fn invoke(
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .creation_flags(0x0800_0000);
     // Ambient libpq settings cannot redirect this setup's local database tools.
     for (name, _) in
@@ -67,6 +68,7 @@ pub(super) fn invoke(
         command.env_remove(name);
     }
     let mut child = command.spawn().map_err(|_| MainError::Setup)?;
+    let diagnostics = read_diagnostic(child.stderr.take().ok_or(MainError::Setup)?);
     let write = if let Some(secrets) = secrets {
         let bytes = Zeroizing::new(serde_json::to_vec(&serde_json::json!({
             "adminPassword": secrets.admin.as_str(), "certificatePassword": secrets.certificate.as_str(),
@@ -84,18 +86,71 @@ pub(super) fn invoke(
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
         if let Some(status) = child.try_wait().map_err(|_| MainError::Setup)? {
+            if !status.success() {
+                let details = diagnostics
+                    .recv_timeout(Duration::from_millis(250))
+                    .unwrap_or_default();
+                return Err(MainError::SetupDiagnostic(
+                    None,
+                    format!("Workshop preparation {action} exited with {status}. {details}"),
+                ));
+            }
             write?;
-            return if status.success() {
-                Ok(())
-            } else {
-                Err(MainError::Setup)
-            };
+            return Ok(());
         }
         if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(MainError::Setup);
+            return Err(MainError::SetupDiagnostic(
+                None,
+                format!("Workshop preparation {action} exceeded its 120-second limit."),
+            ));
         }
         std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn read_diagnostic(errors: impl Read + Send + 'static) -> Receiver<String> {
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        // pg_ctl can leave stderr open in PostgreSQL. A complete diagnostic line
+        // is sufficient; never join this reader or wait for EOF on success.
+        let _ = BufReader::new(errors)
+            .take(8192)
+            .read_until(b'\n', &mut bytes);
+        let _ = sender.send(String::from_utf8_lossy(&bytes).into_owned());
+    });
+    receiver
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_diagnostic;
+    use std::{io::Write as _, net::TcpListener, time::Duration};
+
+    #[test]
+    fn diagnostic_arrives_while_inherited_handle_remains_open() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut writer = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (reader, _) = listener.accept().unwrap();
+        let diagnostics = read_diagnostic(reader);
+        let message = "{\"message\":\"The database port is already used. ورشة اختبار\"}\n";
+        writer.write_all(message.as_bytes()).unwrap();
+        assert_eq!(
+            diagnostics.recv_timeout(Duration::from_secs(2)).unwrap(),
+            message
+        );
+        // The writer stays open through the assertion, as PostgreSQL's handle does.
+        drop(writer);
+    }
+
+    #[test]
+    fn native_diagnostic_is_bounded_without_a_line_ending() {
+        let diagnostics = read_diagnostic(std::io::Cursor::new(vec![b'x'; 10000]));
+        assert_eq!(
+            diagnostics.recv_timeout(Duration::from_secs(2)).unwrap(),
+            "x".repeat(8192)
+        );
     }
 }

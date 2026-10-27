@@ -158,6 +158,25 @@ fn registry() -> Vec<Migration> {
         .collect()
 }
 
+pub(crate) fn validate_existing(connection: &Connection) -> Result<(), StorageError> {
+    let migrations = registry();
+    let version = read_version(connection)?;
+    validate_compatibility_window(usize::try_from(version).map_err(|_| StorageError)?)?;
+    if version == 0 {
+        return Ok(());
+    }
+    if !history_has_column(connection, "migration_id")? {
+        validate_legacy_history(connection, version)?;
+        return verify_schema_with_history(
+            connection,
+            &migrations[..usize::try_from(version).map_err(|_| StorageError)?],
+            "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY);",
+        );
+    }
+    let applied = verify_history(connection, &migrations)?;
+    verify_schema(connection, &migrations[..applied])
+}
+
 pub(crate) fn apply(connection: &mut Connection) -> Result<(), StorageError> {
     let migrations = registry();
     if migrations.len() != usize::try_from(CURRENT_STORAGE_VERSION).map_err(|_| StorageError)? {
@@ -353,9 +372,17 @@ fn verify_history(
 }
 
 fn verify_schema(connection: &Connection, migrations: &[Migration]) -> Result<(), StorageError> {
+    verify_schema_with_history(connection, migrations, HISTORY_SCHEMA)
+}
+
+fn verify_schema_with_history(
+    connection: &Connection,
+    migrations: &[Migration],
+    history_schema: &str,
+) -> Result<(), StorageError> {
     let expected = Connection::open_in_memory().map_err(|_| StorageError)?;
     expected
-        .execute_batch(HISTORY_SCHEMA)
+        .execute_batch(history_schema)
         .map_err(|_| StorageError)?;
     for migration in migrations {
         expected
@@ -463,33 +490,6 @@ mod tests {
     use rusqlite::Connection;
 
     use super::*;
-
-    #[test]
-    fn pending_migration_creates_validated_recovery_artifact_first() {
-        use crate::{AuthorityStore, CorruptionCheck, DATABASE_FILE_NAME, RecoveryArtifactKind};
-        let directory = tempfile::TempDir::new().unwrap();
-        let path = directory.path().join(DATABASE_FILE_NAME);
-        let mut connection = Connection::open(&path).unwrap();
-        apply_registry(&mut connection, &registry()[..4]).unwrap();
-        drop(connection);
-        let store = AuthorityStore { path };
-        store.backup_before_pending_migration().unwrap();
-        store.backup_before_pending_migration().unwrap();
-        assert_eq!(
-            AuthorityStore::recovery_artifacts(directory.path())
-                .unwrap()
-                .len(),
-            1
-        );
-        drop(store);
-
-        let migrated = AuthorityStore::open(directory.path()).unwrap();
-        assert!(migrated.verify_integrity(CorruptionCheck::Full).is_ok());
-        let artifacts = AuthorityStore::recovery_artifacts(directory.path()).unwrap();
-        assert_eq!(artifacts.len(), 1);
-        assert_eq!(artifacts[0].kind, RecoveryArtifactKind::PreMigration);
-        AuthorityStore::validate_backup(&artifacts[0].path).unwrap();
-    }
 
     #[test]
     fn checksum_preserves_the_persisted_byte_format() {
@@ -628,6 +628,9 @@ mod tests {
              INSERT INTO configuration_values VALUES ('organization', 'scope-1', 'eitmad.config.locale.primary.v1', '{\"kind\":\"text\",\"value\":\"ar-YE\"}');",
         ).unwrap();
 
+        validate_existing(&connection).unwrap();
+        assert_eq!(read_version(&connection).unwrap(), 2);
+        assert!(!history_has_column(&connection, "migration_id").unwrap());
         apply(&mut connection).unwrap();
 
         assert_eq!(read_version(&connection).unwrap(), CURRENT_STORAGE_VERSION);
@@ -645,6 +648,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(feature, "configuration");
+    }
+
+    #[test]
+    fn read_only_validation_rejects_legacy_schema_drift_without_rewriting_history() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY);
+             INSERT INTO schema_migrations VALUES (1), (2);",
+            )
+            .unwrap();
+        connection
+            .execute_batch(configuration::MIGRATIONS[0].sql)
+            .unwrap();
+        connection
+            .execute_batch(authorization::MIGRATIONS[0].sql)
+            .unwrap();
+        connection
+            .execute_batch("ALTER TABLE authorization_scopes ADD COLUMN unexpected TEXT;")
+            .unwrap();
+        assert!(validate_existing(&connection).is_err());
+        assert_eq!(read_version(&connection).unwrap(), 2);
+        assert!(!history_has_column(&connection, "migration_id").unwrap());
     }
 
     #[test]

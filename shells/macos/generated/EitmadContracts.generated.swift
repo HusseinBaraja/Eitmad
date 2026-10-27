@@ -11,8 +11,6 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let guidedWindowsSetup: GuidedWindowsSetup
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
-    public let manageServerBackup: ManageServerBackup
-    public let serverBackupManagement: ServerBackupManagement
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
     public let windowsInstallationState: WindowsInstallationState
     public let windowsSetupRole: WindowsSetupRole
@@ -22,20 +20,16 @@ public struct EitmadContractSchema: Codable, Sendable {
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
-        case manageServerBackup = "manage_server_backup"
-        case serverBackupManagement = "server_backup_management"
         case unionPayloadKeepAlive
         case windowsInstallationState = "windows_installation_state"
         case windowsSetupRole = "windows_setup_role"
     }
 
-    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, manageServerBackup: ManageServerBackup, serverBackupManagement: ServerBackupManagement, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState, windowsSetupRole: WindowsSetupRole) {
+    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState, windowsSetupRole: WindowsSetupRole) {
         self.guidedWindowsSetup = guidedWindowsSetup
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
-        self.manageServerBackup = manageServerBackup
-        self.serverBackupManagement = serverBackupManagement
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
         self.windowsInstallationState = windowsInstallationState
         self.windowsSetupRole = windowsSetupRole
@@ -45,16 +39,14 @@ public struct EitmadContractSchema: Codable, Sendable {
 // MARK: - GuidedWindowsSetup
 public struct GuidedWindowsSetup: Codable, Sendable {
     public let action: GuidedSetupAction
-    public let backup: SetupBackupDestinations?
     public let bundleDirectory, intendedUserSid: String
     /// Retry credentials are transient and are never written to the recovery journal.
     public let ownerPassword: String?
     public let version: Int
     public let workshop: InitializeWorkshop?
 
-    public init(action: GuidedSetupAction, backup: SetupBackupDestinations?, bundleDirectory: String, intendedUserSid: String, ownerPassword: String?, version: Int, workshop: InitializeWorkshop?) {
+    public init(action: GuidedSetupAction, bundleDirectory: String, intendedUserSid: String, ownerPassword: String?, version: Int, workshop: InitializeWorkshop?) {
         self.action = action
-        self.backup = backup
         self.bundleDirectory = bundleDirectory
         self.intendedUserSid = intendedUserSid
         self.ownerPassword = ownerPassword
@@ -68,17 +60,6 @@ public enum GuidedSetupAction: String, Codable, Sendable {
     case inspect = "inspect"
     case retry = "retry"
     case server = "server"
-}
-
-// MARK: - SetupBackupDestinations
-public struct SetupBackupDestinations: Codable, Sendable {
-    public let external: String?
-    public let local: String
-
-    public init(external: String?, local: String) {
-        self.external = external
-        self.local = local
-    }
 }
 
 // MARK: - InitializeWorkshop
@@ -398,94 +379,6 @@ public enum LifecycleState: String, Codable, Sendable {
     case starting = "starting"
     case stopped = "stopped"
     case stopping = "stopping"
-}
-
-/// Local Windows administration only. No application account can authorize this request.
-// MARK: - ManageServerBackup
-public struct ManageServerBackup: Codable, Sendable {
-    public let action: ServerBackupAction
-    public let destinations: SetupBackupDestinations?
-    public let version: Int
-
-    public init(action: ServerBackupAction, destinations: SetupBackupDestinations?, version: Int) {
-        self.action = action
-        self.destinations = destinations
-        self.version = version
-    }
-}
-
-public enum ServerBackupAction: String, Codable, Sendable {
-    case capture = "capture"
-    case inspect = "inspect"
-    case repairSchedule = "repairSchedule"
-    case saveDestinations = "saveDestinations"
-}
-
-/// Sanitized management projection; source paths and private configuration stay in Rust.
-// MARK: - ServerBackupManagement
-public struct ServerBackupManagement: Codable, Sendable {
-    public let actionOutcome: ServerBackupOutcome
-    public let destinations: SetupBackupDestinations
-    public let intervalHours, retentionCount: Int
-    public let status: ServerBackupStatus
-    public let version: Int
-
-    public init(actionOutcome: ServerBackupOutcome, destinations: SetupBackupDestinations, intervalHours: Int, retentionCount: Int, status: ServerBackupStatus, version: Int) {
-        self.actionOutcome = actionOutcome
-        self.destinations = destinations
-        self.intervalHours = intervalHours
-        self.retentionCount = retentionCount
-        self.status = status
-        self.version = version
-    }
-}
-
-public enum ServerBackupOutcome: String, Codable, Sendable {
-    case captureFailed = "captureFailed"
-    case destinationUnavailable = "destinationUnavailable"
-    case insufficientSpace = "insufficientSpace"
-    case interrupted = "interrupted"
-    case neverRun = "neverRun"
-    case retentionFailed = "retentionFailed"
-    case running = "running"
-    case scheduleFailed = "scheduleFailed"
-    case succeeded = "succeeded"
-}
-
-/// Safe for later onboarding UI. Paths, credentials, and tool output are excluded.
-// MARK: - ServerBackupStatus
-public struct ServerBackupStatus: Codable, Sendable {
-    public let deploymentID: String
-    /// Only a copy verified on a different physical disk can set this value.
-    public let diskLossProtected: Bool
-    public let externalConfigured: Bool
-    public let externalOutcome: ServerBackupOutcome
-    public let lastAttemptAt, lastExternalSuccessAt, lastLocalSuccessAt: Int?
-    public let localOutcome: ServerBackupOutcome
-    public let nextDueAt: Int
-    public let overdue: Bool
-    public let scheduleOutcome: ServerBackupOutcome
-    public let version: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case deploymentID = "deploymentId"
-        case diskLossProtected, externalConfigured, externalOutcome, lastAttemptAt, lastExternalSuccessAt, lastLocalSuccessAt, localOutcome, nextDueAt, overdue, scheduleOutcome, version
-    }
-
-    public init(deploymentID: String, diskLossProtected: Bool, externalConfigured: Bool, externalOutcome: ServerBackupOutcome, lastAttemptAt: Int?, lastExternalSuccessAt: Int?, lastLocalSuccessAt: Int?, localOutcome: ServerBackupOutcome, nextDueAt: Int, overdue: Bool, scheduleOutcome: ServerBackupOutcome, version: Int) {
-        self.deploymentID = deploymentID
-        self.diskLossProtected = diskLossProtected
-        self.externalConfigured = externalConfigured
-        self.externalOutcome = externalOutcome
-        self.lastAttemptAt = lastAttemptAt
-        self.lastExternalSuccessAt = lastExternalSuccessAt
-        self.lastLocalSuccessAt = lastLocalSuccessAt
-        self.localOutcome = localOutcome
-        self.nextDueAt = nextDueAt
-        self.overdue = overdue
-        self.scheduleOutcome = scheduleOutcome
-        self.version = version
-    }
 }
 
 // MARK: - UnionPayloadKeepAlive
@@ -5631,15 +5524,20 @@ public struct WindowsInstallationState: Codable, Sendable {
     }
 }
 
-/// Public, ordered progress. Contains no user input, credentials, paths, or OS error text.
+/// Ordered progress and bounded native failure details. Requests and credentials are
+/// excluded.
 // MARK: - WindowsInstallProgress
 public struct WindowsInstallProgress: Codable, Sendable {
+    public let details: String?
+    public let failure: WindowsSetupFailure?
     public let sequence: Int
     public let stage: WindowsInstallStage
     public let status: WindowsInstallStatus
     public let version: Int
 
-    public init(sequence: Int, stage: WindowsInstallStage, status: WindowsInstallStatus, version: Int) {
+    public init(details: String?, failure: WindowsSetupFailure?, sequence: Int, stage: WindowsInstallStage, status: WindowsInstallStatus, version: Int) {
+        self.details = details
+        self.failure = failure
         self.sequence = sequence
         self.stage = stage
         self.status = status
@@ -5647,10 +5545,19 @@ public struct WindowsInstallProgress: Codable, Sendable {
     }
 }
 
+/// Safe diagnostic categories. Never includes OS exception text or user input.
+public enum WindowsSetupFailure: String, Codable, Sendable {
+    case desktopPackage = "desktopPackage"
+    case desktopUser = "desktopUser"
+    case prerequisites = "prerequisites"
+    case protectedPaths = "protectedPaths"
+    case retainedState = "retainedState"
+    case serverPackage = "serverPackage"
+}
+
 public enum WindowsInstallStage: String, Codable, Sendable {
     case applyMigrations = "applyMigrations"
     case complete = "complete"
-    case configureBackups = "configureBackups"
     case configureFirewall = "configureFirewall"
     case elevation = "elevation"
     case enrollDesktop = "enrollDesktop"

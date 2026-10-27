@@ -4,9 +4,6 @@ use eitmad_contracts::{order::*, quotation_lifecycle::*};
 use eitmad_orders::{OrderError as E, OrderServer};
 use eitmad_pricing::{DiscountApprovalServer, QuotationServer};
 
-#[path = "manual_recovery.rs"]
-mod manual_recovery;
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires disposable PostgreSQL and trusted development certificates"]
 async fn orders_cross_client_conversion_transitions_and_restart() {

@@ -275,7 +275,6 @@ Regenerate with `npm run contracts:generate --prefix crates/contracts/codegen`.
 - `eitmad.permission.server.update-manifest.publish.v1`
 - `eitmad.permission.server.admin.diagnostics.read.v1`
 - `eitmad.permission.server.admin.health.read.v1`
-- `eitmad.permission.server.admin.backup.read.v1`
 - `eitmad.permission.server.admin.migration.read.v1`
 - `eitmad.permission.server.admin.audit.read.v1`
 - `eitmad.permission.server.admin.tenant.read.v1`

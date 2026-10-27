@@ -10,9 +10,9 @@ import shutil
 import subprocess
 import sys
 
-CHECKS = ("offline-payload", "package", "installation", "host", "discovery-interfaces", "local-backup", "offline-machine-probes",
+CHECKS = ("offline-payload", "package", "installation", "host", "discovery-interfaces", "offline-machine-probes",
           "setup-journal", "discovery", "server-build", "dev-certificate", "lan-certificate",
-          "fresh-preparation", "tls-accounts-pairing-two-clients", "backup-restore")
+          "fresh-preparation", "tls-accounts-pairing-two-clients")
 
 
 def main():
@@ -26,12 +26,10 @@ def main():
         parser.error("Windows is required")
     workspace = Path(__file__).resolve().parents[2]
     pg = args.postgres_bin.resolve()
-    for name in ("initdb", "pg_ctl", "pg_basebackup", "pg_verifybackup", "psql", "createdb"):
+    for name in ("initdb", "pg_ctl", "psql", "createdb"):
         if not (pg / f"{name}.exe").is_file():
             parser.error(f"Missing PostgreSQL test tool: {name}")
     root = args.root.absolute()
-    if len(str(root / "restore/l" / ("server-v1-" + "0" * 36))) > 120:
-        parser.error("Use a shorter evidence root; the backup adapter reserves path space for PostgreSQL files (for example TEMP/eo-12345678)")
     if shutil.disk_usage(root.parent).free < 5 * 1024**3:
         parser.error("Keep at least 5 GiB free for isolated test clusters and the shared build cache")
     root.mkdir(exist_ok=False)
@@ -66,7 +64,7 @@ def main():
     cargo = ["rustup", "run", "1.85.1", "cargo"]
     try:
         check("offline-payload", [sys.executable, "-m", "unittest", "discover", "-s", "scripts/ci/tests", "-p", "test_offline_payload.py"])
-        for name in ("package", "installation", "host", "discovery-interfaces", "local-backup", "offline-machine-probes"):
+        for name in ("package", "installation", "host", "discovery-interfaces", "offline-machine-probes"):
             check(name, ["powershell", "-NoProfile", "-File", workspace / f"deploy/windows/test-{name}.ps1"])
         check("setup-journal", cargo + ["test", "--locked", "-p", "eitmad-server", "--bin", "eitmad-server", "windows_setup"])
         check("discovery", cargo + ["test", "--locked", "-p", "eitmad-server-discovery"])
@@ -82,8 +80,6 @@ def main():
               "--postgres-bin", pg, "--server", server, "--certificate-tool",
               workspace / "tools/dev-certificate/bin/Release/net8.0/Eitmad.DevCertificate.dll",
               "--root", root / "runtime", "--verify-workshop-setup", "--verify-client-reconnect", "--verify-setup-security"])
-        check("backup-restore", [sys.executable, workspace / "tools/run-lan-recovery-drill.py", "--postgres-bin", pg,
-              "--root", root / "restore", "--server-backup"])
     finally:
         (root / "results.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 

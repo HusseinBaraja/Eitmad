@@ -10,6 +10,17 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+trap {
+    # One bounded line can be read without waiting for inherited PostgreSQL handles.
+    $diagnostic = [ordered]@{message=$_.Exception.Message; errorId=$_.FullyQualifiedErrorId;
+        exceptionType=$_.Exception.GetType().FullName; script=$_.InvocationInfo.ScriptName;
+        line=$_.InvocationInfo.ScriptLineNumber; stack=$_.ScriptStackTrace}
+    $text = $diagnostic | ConvertTo-Json -Compress
+    if ($text.Length -gt 2500) { $text = $text.Substring(0,2500) }
+    [Console]::Error.WriteLine($text)
+    exit 1
+}
 Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
 
 function Invoke-PrivateTool([string]$File, [string[]]$Arguments, [string]$InputText) {
@@ -23,8 +34,8 @@ function Invoke-PrivateTool([string]$File, [string[]]$Arguments, [string]$InputT
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.RedirectStandardInput = $true
-    # The Rust caller supplies null output handles. Do not create pipes here:
-    # postmaster can inherit them, so waiting for EOF would hang a successful pg_ctl start.
+    # Do not wait for child output here. PostgreSQL can inherit these handles;
+    # Rust reads only the bounded failure line and never waits for stderr EOF.
     $start.RedirectStandardOutput = $false
     $start.RedirectStandardError = $false
     $process = [Diagnostics.Process]::Start($start)

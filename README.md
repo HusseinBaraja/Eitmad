@@ -17,7 +17,7 @@ Start with:
 
 Follow [Install Eitmad on the server and employee PCs](docs/operations/install-windows.md). Obtain the signed `EitmadServerSetup.exe` and `EitmadClientSetup.exe` from the same release. Each EXE contains its required offline files. Open it as the intended normal Windows user.
 
-- **Server:** open `EitmadServerSetup.exe`. Enter the workshop name and Owner credentials, choose protected backup destinations, and approve UAC. Setup creates the workshop and installs the services and this user's desktop.
+- **Server:** open `EitmadServerSetup.exe`. Enter the workshop name and Owner credentials and approve UAC. Setup creates the workshop and installs the services and this user's desktop.
 - **Client:** open `EitmadClientSetup.exe`. After installation, open **الاعتماد**, discover the server, pair with an Owner code, and sign in with an individual employee account.
 
 Both PCs need one-time administrator approval for the self-signed publisher certificate. Compare its fingerprint with the authenticated release handover before approving trust. Application installation then continues under the original user. Installation uses local offline payloads; protected work still requires the live workshop server. Signed installer assembly and build-host signature checks have passed. Clean-PC installation, company LAN, reboot, and recovery acceptance remain **Needs verification**. See [package building and maintenance](docs/operations/package-windows-desktop.md) for signing, repair, removal, and upgrade.

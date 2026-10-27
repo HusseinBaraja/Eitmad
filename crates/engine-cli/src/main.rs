@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Read as _, Write as _},
+    io::{self, Write as _},
     path::PathBuf,
     process::ExitCode,
     sync::Arc,
@@ -26,16 +26,16 @@ use eitmad_contracts::{
     transport::{CorrelationId, UnixMillis},
 };
 use eitmad_engine_runtime::{
-    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ManualRecovery,
-    ProductDispatcher, RecoveryError, RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure,
-    ShutdownReason, default_runtime_directory,
+    AuthorityStoreComponent, AuthorityStoreHandle, AuthorityStoreHealthCheck, ProductDispatcher,
+    RuntimeBuilder, RuntimeDirectoryHealthCheck, RuntimeFailure, ShutdownReason,
+    default_runtime_directory,
     local_ipc::{EventBroker, LocalIpcConfiguration, LocalIpcServer},
 };
 use eitmad_observability_audit::{ObservationContract, ObservationFieldContract, ObservationValue};
 use eitmad_storage::AuthorityStore;
 #[cfg(debug_assertions)]
 use eitmad_storage::{DesktopAccount, DesktopRole};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::{
     io::AsyncReadExt as _,
     sync::{broadcast, mpsc, watch},
@@ -60,20 +60,6 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Create a manual backup while the engine is stopped; read credentials as JSON on stdin.
-    Backup {
-        #[arg(long, value_name = "PATH")]
-        runtime_directory: PathBuf,
-        #[arg(long, value_name = "PATH")]
-        destination: PathBuf,
-    },
-    /// Restore the same installation while stopped; read credentials as JSON on stdin.
-    Restore {
-        #[arg(long, value_name = "PATH")]
-        runtime_directory: PathBuf,
-        #[arg(long, value_name = "PATH")]
-        source: PathBuf,
-    },
     /// Run the authoritative engine in the foreground.
     Run {
         #[arg(long, value_enum)]
@@ -115,14 +101,6 @@ enum RunMode {
 #[tokio::main]
 async fn main() -> ExitCode {
     match Cli::parse().command {
-        Command::Backup {
-            runtime_directory,
-            destination,
-        } => manual_recovery(&runtime_directory, &destination, false),
-        Command::Restore {
-            runtime_directory,
-            source,
-        } => manual_recovery(&runtime_directory, &source, true),
         Command::Run {
             mode,
             supervisor_pid,
@@ -143,64 +121,6 @@ async fn main() -> ExitCode {
         #[cfg(debug_assertions)]
         Command::SeedDevelopmentAccounts { runtime_directory } => {
             seed_development_accounts(runtime_directory)
-        }
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RecoveryCredentials {
-    username: String,
-    password: eitmad_contracts::accounts::AccountPassword,
-}
-
-fn manual_recovery(
-    directory: &std::path::Path,
-    artifact: &std::path::Path,
-    restore: bool,
-) -> ExitCode {
-    let started = std::time::Instant::now();
-    let result = (|| {
-        let mut recovery = ManualRecovery::acquire(directory)?;
-        let mut input = Vec::new();
-        io::stdin()
-            .take(4097)
-            .read_to_end(&mut input)
-            .map_err(|_| RecoveryError::Denied)?;
-        if input.len() > 4096 {
-            return Err(RecoveryError::Denied);
-        }
-        let credentials: RecoveryCredentials =
-            serde_json::from_slice(&input).map_err(|_| RecoveryError::Denied)?;
-        let actor = recovery.sign_in(
-            &credentials.username,
-            credentials.password.expose_secret(),
-            current_time(),
-        )?;
-        desktop_enrollment::check_recovery_access(directory, &actor)?;
-        if restore {
-            recovery.restore(&actor, artifact, current_time())
-        } else {
-            recovery.backup(&actor, artifact, current_time())
-        }
-    })();
-    match result {
-        Ok(()) => {
-            println!(
-                "{{\"status\":\"succeeded\",\"elapsedMillis\":{}}}",
-                started.elapsed().as_millis()
-            );
-            ExitCode::from(EXIT_SUCCESS)
-        }
-        Err(error) => {
-            let code = match error {
-                RecoveryError::AlreadyRunning => "eitmad.error.engine-already-running.v1",
-                RecoveryError::Denied => "eitmad.error.authorization-denied.v1",
-                RecoveryError::UnsafeSource => "eitmad.error.storage-recovery-unsafe-source.v1",
-                RecoveryError::Unavailable => "eitmad.error.storage-recovery-failed.v1",
-            };
-            eprintln!("{{\"code\":\"{code}\"}}");
-            ExitCode::from(EXIT_RUNTIME_FAILURE)
         }
     }
 }

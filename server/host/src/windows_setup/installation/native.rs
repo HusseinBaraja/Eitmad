@@ -36,10 +36,17 @@ fn invoke(
             .arg(executable)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .creation_flags(0x0800_0000)
             .spawn()
             .map_err(|_| MainError::Setup)?;
+    let mut errors = child.stderr.take().ok_or(MainError::Setup)?;
+    let diagnostics = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = errors.by_ref().take(8192).read_to_end(&mut bytes);
+        let _ = std::io::copy(&mut errors, &mut std::io::sink());
+        String::from_utf8_lossy(&bytes).into_owned()
+    });
     let result = (|| {
         let mut input = Some(child.stdin.take().ok_or(MainError::Setup)?);
         let stream = input.as_mut().ok_or(MainError::Setup)?;
@@ -56,7 +63,18 @@ fn invoke(
         let _ = child.kill();
         let _ = child.wait();
     }
-    result
+    let details = diagnostics.join().unwrap_or_default();
+    result.map_err(|error| {
+        if details.is_empty() {
+            return error;
+        }
+        let failure = if let MainError::SetupCheck(failure) = &error {
+            Some(*failure)
+        } else {
+            None
+        };
+        MainError::SetupDiagnostic(failure, details)
+    })
 }
 
 fn read_progress(
@@ -128,10 +146,25 @@ fn read_progress(
                 return Err(MainError::Setup);
             }
             ready |= event.stage == Stage::VerifyHttps && event.status == Status::Running;
+            target.failure = event.failure;
+            target.details = event.details;
             target.record(event.stage, event.status)?;
         }
     }
-    if !child.wait().map_err(|_| MainError::Setup)?.success() || (progress.is_some() && !complete) {
+    let status = child.wait().map_err(|_| MainError::Setup)?;
+    if !status.success() {
+        use eitmad_contracts::setup::WindowsSetupFailure as Failure;
+        return Err(match status.code() {
+            Some(10) => MainError::SetupCheck(Failure::DesktopUser),
+            Some(11) => MainError::SetupCheck(Failure::DesktopPackage),
+            Some(12) => MainError::SetupCheck(Failure::ServerPackage),
+            Some(13) => MainError::SetupCheck(Failure::ProtectedPaths),
+            Some(14) => MainError::SetupCheck(Failure::Prerequisites),
+            Some(15) => MainError::SetupCheck(Failure::RetainedState),
+            _ => MainError::Setup,
+        });
+    }
+    if progress.is_some() && !complete {
         return Err(MainError::Setup);
     }
     Ok(handoff)

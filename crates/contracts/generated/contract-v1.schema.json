@@ -6,9 +6,6 @@
     "activate_account_request": {
       "$ref": "#/definitions/ActivateAccountRequest"
     },
-    "administration_backup_status": {
-      "$ref": "#/definitions/BackupStatus"
-    },
     "administration_diagnostics": {
       "$ref": "#/definitions/DiagnosticSummary"
     },
@@ -101,9 +98,6 @@
     },
     "list_server_accounts": {
       "$ref": "#/definitions/ListServerAccounts"
-    },
-    "manage_server_backup": {
-      "$ref": "#/definitions/ManageServerBackup"
     },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
@@ -216,15 +210,6 @@
     "server_account_watch": {
       "$ref": "#/definitions/ServerAccountWatch"
     },
-    "server_backup_configuration": {
-      "$ref": "#/definitions/ServerBackupConfiguration"
-    },
-    "server_backup_management": {
-      "$ref": "#/definitions/ServerBackupManagement"
-    },
-    "server_backup_status": {
-      "$ref": "#/definitions/ServerBackupStatus"
-    },
     "server_client_message": {
       "$ref": "#/definitions/ServerClientMessage"
     },
@@ -277,10 +262,6 @@
   "required": [
     "guided_windows_setup",
     "windows_setup_bundle",
-    "server_backup_configuration",
-    "server_backup_status",
-    "manage_server_backup",
-    "server_backup_management",
     "open_pairing",
     "opened_pairing",
     "start_pairing",
@@ -351,7 +332,6 @@
     "update_client_profile",
     "update_check_outcome",
     "administration_diagnostics",
-    "administration_backup_status",
     "administration_migration_status",
     "administration_support_workflow",
     "sync_status",
@@ -575,62 +555,6 @@
     },
     "AuthorizationPolicyChanges": {
       "type": "object"
-    },
-    "BackupState": {
-      "type": "string",
-      "enum": [
-        "current",
-        "stale",
-        "running",
-        "failed",
-        "notConfigured"
-      ]
-    },
-    "BackupStatus": {
-      "type": "object",
-      "properties": {
-        "failureCode": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "lastSuccessAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "int64"
-        },
-        "lastVerifiedAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "int64"
-        },
-        "nextScheduledAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "int64"
-        },
-        "recoveryPointAgeMs": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "state": {
-          "$ref": "#/definitions/BackupState"
-        }
-      },
-      "required": [
-        "state"
-      ]
     },
     "BatchAcknowledgement": {
       "type": "object",
@@ -6156,16 +6080,6 @@
         "action": {
           "$ref": "#/definitions/GuidedSetupAction"
         },
-        "backup": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/SetupBackupDestinations"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "bundleDirectory": {
           "type": "string"
         },
@@ -6725,16 +6639,6 @@
     "InstallWindowsServer": {
       "type": "object",
       "properties": {
-        "backup": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/SetupBackupDestinations"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "client": {
           "$ref": "#/definitions/InstallWindowsClient"
         },
@@ -7874,35 +7778,6 @@
         "deviceId",
         "deviceLabel",
         "devicePublicKey"
-      ]
-    },
-    "ManageServerBackup": {
-      "description": "Local Windows administration only. No application account can authorize this request.",
-      "type": "object",
-      "properties": {
-        "action": {
-          "$ref": "#/definitions/ServerBackupAction"
-        },
-        "destinations": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/SetupBackupDestinations"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "version": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "action"
       ]
     },
     "Material": {
@@ -14172,202 +14047,6 @@
         "revision"
       ]
     },
-    "ServerBackupAction": {
-      "type": "string",
-      "enum": [
-        "inspect",
-        "capture",
-        "saveDestinations",
-        "repairSchedule"
-      ]
-    },
-    "ServerBackupConfiguration": {
-      "type": "object",
-      "properties": {
-        "deploymentId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "externalDestination": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "hostRoot": {
-          "type": "string"
-        },
-        "intervalHours": {
-          "type": "integer",
-          "format": "uint32",
-          "default": 24,
-          "minimum": 0
-        },
-        "localDestination": {
-          "type": "string"
-        },
-        "recoveryDirectory": {
-          "type": "string"
-        },
-        "reserveBytes": {
-          "type": "integer",
-          "format": "uint64",
-          "default": 1073741824,
-          "minimum": 0
-        },
-        "retentionCount": {
-          "type": "integer",
-          "format": "uint",
-          "default": 7,
-          "minimum": 0
-        },
-        "serviceName": {
-          "type": "string"
-        },
-        "version": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "deploymentId",
-        "hostRoot",
-        "serviceName",
-        "recoveryDirectory",
-        "localDestination"
-      ]
-    },
-    "ServerBackupManagement": {
-      "description": "Sanitized management projection; source paths and private configuration stay in Rust.",
-      "type": "object",
-      "properties": {
-        "actionOutcome": {
-          "$ref": "#/definitions/ServerBackupOutcome"
-        },
-        "destinations": {
-          "$ref": "#/definitions/SetupBackupDestinations"
-        },
-        "intervalHours": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        },
-        "retentionCount": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "status": {
-          "$ref": "#/definitions/ServerBackupStatus"
-        },
-        "version": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "destinations",
-        "intervalHours",
-        "retentionCount",
-        "status",
-        "actionOutcome"
-      ]
-    },
-    "ServerBackupOutcome": {
-      "type": "string",
-      "enum": [
-        "neverRun",
-        "running",
-        "succeeded",
-        "destinationUnavailable",
-        "insufficientSpace",
-        "captureFailed",
-        "interrupted",
-        "retentionFailed",
-        "scheduleFailed"
-      ]
-    },
-    "ServerBackupStatus": {
-      "description": "Safe for later onboarding UI. Paths, credentials, and tool output are excluded.",
-      "type": "object",
-      "properties": {
-        "deploymentId": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "diskLossProtected": {
-          "description": "Only a copy verified on a different physical disk can set this value.",
-          "type": "boolean"
-        },
-        "externalConfigured": {
-          "type": "boolean"
-        },
-        "externalOutcome": {
-          "$ref": "#/definitions/ServerBackupOutcome"
-        },
-        "lastAttemptAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "lastExternalSuccessAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "lastLocalSuccessAt": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "localOutcome": {
-          "$ref": "#/definitions/ServerBackupOutcome"
-        },
-        "nextDueAt": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "overdue": {
-          "type": "boolean"
-        },
-        "scheduleOutcome": {
-          "$ref": "#/definitions/ServerBackupOutcome"
-        },
-        "version": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "version",
-        "deploymentId",
-        "localOutcome",
-        "externalOutcome",
-        "nextDueAt",
-        "overdue",
-        "externalConfigured",
-        "diskLossProtected",
-        "scheduleOutcome"
-      ]
-    },
     "ServerClientMessage": {
       "oneOf": [
         {
@@ -14715,24 +14394,6 @@
         "draftId",
         "expectedRevision",
         "validityDays"
-      ]
-    },
-    "SetupBackupDestinations": {
-      "type": "object",
-      "properties": {
-        "external": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "local": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "local"
       ]
     },
     "ShutdownRequest": {
@@ -15334,7 +14995,6 @@
           "type": "string",
           "enum": [
             "collectDiagnostics",
-            "verifyBackup",
             "retryMigration"
           ]
         },
@@ -16648,9 +16308,25 @@
       ]
     },
     "WindowsInstallProgress": {
-      "description": "Public, ordered progress. Contains no user input, credentials, paths, or OS error text.",
+      "description": "Ordered progress and bounded native failure details. Requests and credentials are excluded.",
       "type": "object",
       "properties": {
+        "details": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WindowsSetupFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "sequence": {
           "type": "integer",
           "format": "uint32",
@@ -16690,7 +16366,6 @@
         "verifyHttps",
         "registerDesktop",
         "enrollDesktop",
-        "configureBackups",
         "complete"
       ]
     },
@@ -16770,6 +16445,18 @@
         "desktopReleaseSha256",
         "serverReleaseSha256",
         "winswSha256"
+      ]
+    },
+    "WindowsSetupFailure": {
+      "description": "Safe diagnostic categories. Never includes OS exception text or user input.",
+      "type": "string",
+      "enum": [
+        "desktopUser",
+        "desktopPackage",
+        "serverPackage",
+        "protectedPaths",
+        "prerequisites",
+        "retainedState"
       ]
     },
     "WindowsSetupRecovery": {

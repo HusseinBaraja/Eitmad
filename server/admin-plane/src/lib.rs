@@ -3,8 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use eitmad_contracts::{
     administration::{
-        AdministrativeAuditRecord, BackupStatus, DeviceVisibility, DiagnosticSummary,
-        MigrationStatus, ServiceHealth, StartSupportWorkflow, SupportWorkflow, SupportWorkflowId,
+        AdministrativeAuditRecord, DeviceVisibility, DiagnosticSummary, MigrationStatus,
+        ServiceHealth, StartSupportWorkflow, SupportWorkflow, SupportWorkflowId,
         SupportWorkflowState, TenantVisibility,
     },
     identity::TenantId,
@@ -23,7 +23,6 @@ pub use postgres::{PostgresAdministrationDataSource, SupportWorkflowExecutor};
 pub enum AdministrativeAction {
     ReadDiagnostics,
     ReadHealth,
-    ReadBackupStatus,
     ReadMigrationStatus,
     ReadAudit,
     ReadTenants,
@@ -37,7 +36,6 @@ impl AdministrativeAction {
         match self {
             Self::ReadDiagnostics => "eitmad.admin.diagnostics.read.v1",
             Self::ReadHealth => "eitmad.admin.health.read.v1",
-            Self::ReadBackupStatus => "eitmad.admin.backup-status.read.v1",
             Self::ReadMigrationStatus => "eitmad.admin.migration-status.read.v1",
             Self::ReadAudit => "eitmad.admin.audit.read.v1",
             Self::ReadTenants => "eitmad.admin.tenants.read.v1",
@@ -105,8 +103,6 @@ pub trait AdministrationDataSource: Send + Sync {
         now: UnixMillis,
     ) -> Result<DiagnosticSummary, AdministrativeError>;
     async fn health(&self, tenant_id: TenantId) -> Result<Vec<ServiceHealth>, AdministrativeError>;
-    async fn backup_status(&self, tenant_id: TenantId)
-    -> Result<BackupStatus, AdministrativeError>;
     async fn migration_status(
         &self,
         tenant_id: TenantId,
@@ -188,29 +184,6 @@ impl AdministrationService {
             correlation_id,
             now,
             || self.data.health(tenant_id),
-        )
-        .await
-    }
-
-    /// Returns the tenant backup status after authorization and audit.
-    ///
-    /// # Errors
-    ///
-    /// Returns a denial or a provider/audit availability error.
-    pub async fn backup_status(
-        &self,
-        actor: &AuthenticatedServerSession,
-        tenant_id: TenantId,
-        correlation_id: CorrelationId,
-        now: UnixMillis,
-    ) -> Result<BackupStatus, AdministrativeError> {
-        self.execute_read(
-            actor,
-            AdministrativeAction::ReadBackupStatus,
-            tenant_id,
-            correlation_id,
-            now,
-            || self.data.backup_status(tenant_id),
         )
         .await
     }
@@ -518,9 +491,7 @@ mod tests {
     };
 
     use eitmad_contracts::{
-        administration::{
-            BackupState, MigrationState, ServiceComponentId, ServiceHealthState, SupportAction,
-        },
+        administration::{MigrationState, ServiceComponentId, ServiceHealthState, SupportAction},
         identity::{AccountId, DeviceId, PrincipalId, SessionId, UserId},
     };
 
@@ -586,16 +557,7 @@ mod tests {
                 failure_code: None,
             }])
         }
-        async fn backup_status(&self, _: TenantId) -> Result<BackupStatus, AdministrativeError> {
-            Ok(BackupStatus {
-                state: BackupState::Current,
-                last_success_at: Some(UnixMillis(8)),
-                last_verified_at: Some(UnixMillis(9)),
-                next_scheduled_at: Some(UnixMillis(20)),
-                recovery_point_age_ms: Some(2),
-                failure_code: None,
-            })
-        }
+
         async fn migration_status(
             &self,
             _: TenantId,
@@ -681,30 +643,6 @@ mod tests {
             AdministrationService::new(security.clone(), Arc::new(TestData)),
             security,
         )
-    }
-
-    #[tokio::test]
-    async fn backup_status_is_authorized_audited_and_complete() {
-        let (service, security) = service(true);
-        let actor = actor(1);
-        let status = service
-            .backup_status(
-                &actor,
-                actor.tenant_id,
-                CorrelationId::new(Uuid::new_v4()),
-                UnixMillis(10),
-            )
-            .await
-            .unwrap();
-        assert_eq!(status.state, BackupState::Current);
-        assert_eq!(status.last_verified_at, Some(UnixMillis(9)));
-        assert_eq!(
-            security.audits.lock().unwrap().as_slice(),
-            &[(
-                AdministrativeAction::ReadBackupStatus,
-                AdministrativeAuditOutcome::Succeeded
-            )]
-        );
     }
 
     #[tokio::test]
@@ -798,8 +736,8 @@ mod tests {
         );
         let request = StartSupportWorkflow {
             tenant_id: other,
-            action: SupportAction::VerifyBackup,
-            reason_code: "incident.backup".to_owned(),
+            action: SupportAction::CollectDiagnostics,
+            reason_code: "incident.diagnostics".to_owned(),
             correlation_id: CorrelationId::new(Uuid::new_v4()),
         };
         assert_eq!(

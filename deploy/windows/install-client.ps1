@@ -3,7 +3,6 @@
 param(
     [ValidateSet('Verify', 'Install', 'Repair', 'Upgrade', 'Status', 'Diagnose', 'Uninstall')][string]$Action = 'Verify',
     [string]$ExpectedReleaseSha256, [string]$Publisher,
-    [string]$BackupGeneration, [switch]$RestoreVerified,
     [switch]$AllowUnsignedValidation
 )
 Set-StrictMode -Version Latest
@@ -57,15 +56,7 @@ if ($installed) {
     }
     if ($Action -eq 'Upgrade') {
         if ([version]$release.windowsVersion -le $installed[0].Version) { throw 'Upgrade requires a higher package version.' }
-        if (-not $BackupGeneration -or -not $RestoreVerified) { throw 'Upgrade requires a complete recovery generation and a verified isolated restore drill.' }
-        # A client also needs its Windows/DPAPI image, not just a copied SQLite file.
-        $marker = Get-Content -LiteralPath (Join-Path $BackupGeneration 'complete.json') -Raw | ConvertFrom-Json
-        if ($marker.version -ne 1 -or $marker.status -cne 'complete' -or
-            $marker.id -cne (Split-Path $BackupGeneration -Leaf)) { throw 'Recovery generation is incomplete.' }
-        $runtime = Join-Path $env:LOCALAPPDATA 'Eitmad/engine'
-        if (@($marker.nodes | Where-Object { $_.computer -ieq $env:COMPUTERNAME -and $runtime -in $_.runtimes }).Count -ne 1) {
-            throw 'The recovery generation does not contain this Windows user runtime and profile.'
-        }
+
     }
 } elseif ($Action -ne 'Install') { throw 'Desktop is not installed. Use Install for this user.' }
 if ($Action -eq 'Repair') { Add-AppxPackage -Path $package[0].FullName -ForceUpdateFromAnyVersion -ErrorAction Stop }

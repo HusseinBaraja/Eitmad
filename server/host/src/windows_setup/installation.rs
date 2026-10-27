@@ -193,6 +193,8 @@ pub(super) struct Progress {
     wire_sequence: u32,
     stage: Stage,
     blocked: bool,
+    failure: Option<eitmad_contracts::setup::WindowsSetupFailure>,
+    details: Option<String>,
 }
 
 impl Progress {
@@ -212,6 +214,8 @@ impl Progress {
             wire_sequence: 0,
             stage: Stage::Preflight,
             blocked: false,
+            failure: None,
+            details: None,
         })
     }
 
@@ -221,6 +225,16 @@ impl Progress {
         self.stage = stage;
         self.blocked = status == Status::Blocked;
         let event = WindowsInstallProgress {
+            failure: if matches!(status, Status::Failed | Status::Blocked) {
+                self.failure
+            } else {
+                None
+            },
+            details: if matches!(status, Status::Failed | Status::Blocked) {
+                self.details.clone()
+            } else {
+                None
+            },
             version: 1,
             sequence: self.sequence,
             stage,
@@ -243,6 +257,14 @@ impl Progress {
         match result {
             Ok(()) => self.record(Stage::Complete, Status::Succeeded),
             Err(error) => {
+                match &error {
+                    MainError::SetupCheck(failure) => self.failure = Some(*failure),
+                    MainError::SetupDiagnostic(failure, details) => {
+                        self.failure = *failure;
+                        self.details = Some(details.clone());
+                    }
+                    _ => (),
+                }
                 let _ = self.record(
                     self.stage,
                     if self.blocked {
@@ -270,6 +292,8 @@ pub(super) fn read_state(root: &Path) -> Result<WindowsInstallationState, MainEr
         Err(_) => return Err(MainError::Setup),
     };
     let progress = read_last(root)?.unwrap_or(WindowsInstallProgress {
+        failure: None,
+        details: None,
         version: 1,
         sequence: 0,
         stage: Stage::Preflight,
@@ -313,7 +337,7 @@ fn read_last(root: &Path) -> Result<Option<WindowsInstallProgress>, MainError> {
     Ok(record_paths(root)?.iter().rev().find_map(|path| {
         plain_path(path, true).ok()?;
         let bytes = fs::read(path).ok()?;
-        if bytes.len() > 1024 {
+        if bytes.len() > 32768 {
             return None;
         }
         serde_json::from_slice::<WindowsInstallProgress>(&bytes)
@@ -386,6 +410,8 @@ async fn install_server(
             });
         if !matches!(bound, Ok(true)) {
             publish(&WindowsInstallProgress {
+                failure: None,
+                details: None,
                 version: 1,
                 sequence: 1,
                 stage: Stage::Preflight,
@@ -397,6 +423,16 @@ async fn install_server(
     // Validate elevation and protected ancestors before creating any server-owned state.
     if let Err(error) = platform.server_preflight(request) {
         let _ = publish(&WindowsInstallProgress {
+            failure: match &error {
+                MainError::SetupCheck(failure) => Some(*failure),
+                MainError::SetupDiagnostic(failure, _) => *failure,
+                _ => None,
+            },
+            details: if let MainError::SetupDiagnostic(_, details) = &error {
+                Some(details.clone())
+            } else {
+                None
+            },
             version: 1,
             sequence: 1,
             stage: Stage::Preflight,
@@ -447,10 +483,7 @@ async fn install_server(
             let proof = read_private(proof_input)?;
             handoff = Some(super::guided::approve_first_desktop(request, proof).await?);
         }
-        if request.backup.is_some() {
-            progress.begin(Stage::ConfigureBackups)?;
-            super::guided::configure_backups(request)?;
-        }
+
         Ok(())
     }
     .await;

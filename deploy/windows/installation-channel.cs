@@ -121,9 +121,8 @@ public static class EitmadInstallationChannel
         finally { Array.Clear(input, 0, input.Length); }
     }
 
-    public static int RunWorker(Stream pipe, string backend, string command, Func<string, bool> requiresInput)
+    public static int RunWorker(Stream pipe, string backend, string command, string request, Func<string, bool> requiresInput)
     {
-        var request = Receive(pipe, 65536);
         var start = new ProcessStartInfo(backend, command) {
             UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
@@ -133,7 +132,6 @@ public static class EitmadInstallationChannel
         {
             var errors = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
             WritePrivateInput(process, request);
-            if (command == "windows-backup-management-worker") process.StandardInput.Close();
             request = null;
             try
             {
@@ -160,7 +158,7 @@ public static class EitmadInstallationChannel
                 Send(pipe, process.ExitCode == 0 ? "success" : "failed");
                 return process.ExitCode;
             }
-            finally { if (command != "windows-backup-management-worker") process.StandardInput.Close(); }
+            finally { process.StandardInput.Close(); }
         }
     }
 }

@@ -180,7 +180,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-installation.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          powershell -NoProfile -File deploy/windows/test-local-backup.ps1
+          pwsh -NoProfile -File deploy/windows/test-setup-diagnostics.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-release-lifecycle.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

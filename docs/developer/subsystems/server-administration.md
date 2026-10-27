@@ -1,16 +1,15 @@
 ---
 title: "Extend server administration safely"
-description: "Understand least-privilege diagnostics, health, backup, migration, audit, fleet visibility, support workflows, storage, and recovery."
+description: "Understand least-privilege diagnostics, health, migration, audit, fleet visibility, support workflows, storage, and recovery."
 audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "operations tooling maintainers"
 last_verified: "2026-10-24"
 review_triggers:
-  - "administrative permissions, diagnostics, backup, migration, audit, visibility, support, or operational storage changes"
+  - "administrative permissions, diagnostics, migration, audit, visibility, support, or operational storage changes"
 keywords:
   - "administration plane"
-  - "BackupStatus"
   - "SupportWorkflow"
   - "eitmad.error.admin-unavailable.v1"
 ---
@@ -23,7 +22,7 @@ The administration plane provides tenant-scoped operational evidence and approve
 
 | Concern | Rust authority |
 | --- | --- |
-| Diagnostic, health, backup, migration, visibility, audit, and support contracts | `crates/contracts/src/administration.rs` |
+| Diagnostic, health, migration, visibility, audit, and support contracts | `crates/contracts/src/administration.rs` |
 | Authorization-first service boundary | `server/admin-plane/src/lib.rs` |
 | PostgreSQL migration and checksum | `server/admin-plane/migrations/0003_admin_foundation.sql` and `src/database.rs` |
 | Scoped operational queries and support persistence | `server/admin-plane/src/postgres.rs` |
@@ -31,13 +30,13 @@ The administration plane provides tenant-scoped operational evidence and approve
 | Canonical append-only audit envelope and migration | `server/audit` |
 | Authenticated HTTP routes and support hooks | `server/host/src/http.rs` and `src/planes.rs` |
 
-Migration `3` creates `operations.backup_status` and `operations.support_workflows`. Both tables have explicit `tenant_id`, enable and force PostgreSQL row-level security, and use the transaction-local `eitmad.tenant_id` setting. Database enum values use snake_case text while contract JSON uses camelCase. The migration requires control migration `1` and sync migration `2`, reports `AdminDatabaseError::MissingPrerequisites` when either is absent, and records its checksum as `server.admin-foundation.v1`. Migration `4` expands `control.audit_log` to the canonical server envelope and restores its append-only triggers after the additive backfill.
+Migration `3` creates `operations.support_workflows` and the now-unused `operations.backup_status`. The historical SQL remains immutable; backup interfaces were removed by [ADR-0033](../../decisions/0033-defer-backup-support.md). Both tables have explicit `tenant_id`, enable and force PostgreSQL row-level security, and use the transaction-local `eitmad.tenant_id` setting. Database enum values use snake_case text while contract JSON uses camelCase. The migration requires control migration `1` and sync migration `2`, reports `AdminDatabaseError::MissingPrerequisites` when either is absent, and records its checksum as `server.admin-foundation.v1`. Migration `4` expands `control.audit_log` to the canonical server envelope and restores its append-only triggers after the additive backfill.
 
 ## Administrative interfaces
 
-The `/v1/admin` routes expose diagnostics, component health, backup status, migration status, a bounded audit page, current-tenant visibility, current-tenant device visibility, support workflow start, and signed update publication. The authenticated tenant is always the scope; callers cannot select another tenant through a query parameter.
+The `/v1/admin` routes expose diagnostics, component health, migration status, a bounded audit page, current-tenant visibility, current-tenant device visibility, support workflow start, and signed update publication. The authenticated tenant is always the scope; callers cannot select another tenant through a query parameter.
 
-Backup status distinguishes `Current`, `Stale`, `Running`, `Failed`, and `NotConfigured`. A missing row returns `NotConfigured`; it does not invent a successful backup. Migration status compares the highest durable registry version with the administration foundation's required version `3`; `Current` alone does not prove that every later product migration is present. Startup and `migrate` validate the complete registered migration set. Audit access returns at most 500 records. Its external administration projection is intentionally smaller than the stored canonical envelope and includes only stable operation, outcome, target kind, correlation, time, principal, tenant, and redacted failure code.
+Migration status compares the highest durable registry version with the administration foundation's required version `3`; `Current` alone does not prove that every later product migration is present. Startup and `migrate` validate the complete registered migration set. Audit access returns at most 500 records. Its external administration projection is intentionally smaller than the stored canonical envelope and includes only stable operation, outcome, target kind, correlation, time, principal, tenant, and redacted failure code.
 
 Tenant visibility reports enabled state, active-device count, active-session count, and last-seen time. Device visibility reports tenant, device, label, revoked state, and last-seen time. It does not expose public keys, tokens, nonces, passwords, domain payloads, or another tenant's devices.
 
@@ -45,7 +44,7 @@ Tenant visibility reports enabled state, active-device count, active-session cou
 
 Support actions are reason coded with lowercase ASCII identifiers from 3 through 64 characters. The service creates a typed `SupportWorkflow`, the PostgreSQL provider persists `running`, the approved hook executes, and the provider commits `succeeded` or `failed` with a redacted error.
 
-Implemented hooks close a tenant relay session through the owner-only relay action and revoke all active sessions for a tenant device. Device-session revocation rechecks ownership and device scope and commits the session mutation plus audit in one control-plane transaction. `CollectDiagnostics`, `VerifyBackup`, and `RetryMigration` fail as invalid until an executor performs and verifies those operations. The server never marks these placeholder actions as succeeded.
+Implemented hooks close a tenant relay session through the owner-only relay action and revoke all active sessions for a tenant device. Device-session revocation rechecks ownership and device scope and commits the session mutation plus audit in one control-plane transaction. `CollectDiagnostics` and `RetryMigration` fail as invalid until an executor performs and verifies those operations. The server never marks these placeholder actions as succeeded.
 
 ## Authorization, audit, and partial failure
 
@@ -59,17 +58,16 @@ Support workflow state and the cross-plane audit use separate PostgreSQL transac
 | --- | --- | --- |
 | `eitmad.error.authorization-denied.v1` | Provider action did not start; denial audit is attempted | Repair the tenant-owner relationship |
 | `eitmad.error.admin-unavailable.v1` | Response is withheld; durable workflow state may exist | Check PostgreSQL, RLS context, audit append, then reconcile by correlation ID |
-| Backup `NotConfigured` | No successful backup is claimed | Configure the approved backup reporter and verify restore separately |
-| Migration `Pending` or `Failed` | Server must not report ready after startup migration failure | Back up PostgreSQL, repair the migration prerequisite, and rerun `migrate` |
+| Migration `Pending` or `Failed` | Server must not report ready after startup migration failure | Preserve PostgreSQL, repair the migration prerequisite, and rerun `migrate` |
 | Failed support workflow | Failure code remains redacted and tenant scoped | Correct the dependency; start a new reason-coded workflow only when the first outcome is known |
 
 Use [server-plane troubleshooting](../../troubleshooting/server-plane-failures.md) and [server operations](../../operations/run-server-authority.md).
 
 ## Arabic behavior, tests, and safe extension
 
-The server-plane interfaces have no general operator UI. The separate [Windows backup administration](../../operations/backup-lan-installation.md#manage-backups-after-installation) surface configures the local backup backend; it does not expose these tenant administration routes. Stable identifiers and timestamps are locale independent. Any added Arabic interface must localize status labels, isolate UUIDs and error IDs as LTR values, and keep device labels within the authorized tenant.
+The server-plane interfaces have no general operator UI. Stable identifiers and timestamps are locale independent. Any added Arabic interface must localize status labels, isolate UUIDs and error IDs as LTR values, and keep device labels within the authorized tenant.
 
-Tests cover backup status completeness, invalid audit limits, administrative denial before data access, audit outcomes, cross-tenant device and support denial, forced-RLS migration text, and unauthenticated host routes. PostgreSQL projections use fallible row decoding so schema or type drift returns `AdministrativeError::Unavailable` instead of terminating the process. Add a provider only through `AdministrationDataSource` or `SupportWorkflowExecutor`; keep permissions narrow, queries bounded, failures redacted, and storage tenant scoped.
+Tests cover invalid audit limits, administrative denial before data access, audit outcomes, cross-tenant device and support denial, forced-RLS migration text, and unauthenticated host routes. PostgreSQL projections use fallible row decoding so schema or type drift returns `AdministrativeError::Unavailable` instead of terminating the process. Add a provider only through `AdministrationDataSource` or `SupportWorkflowExecutor`; keep permissions narrow, queries bounded, failures redacted, and storage tenant scoped.
 
 Run:
 

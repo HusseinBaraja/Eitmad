@@ -30,7 +30,7 @@ Record the UTC time, stable error identifier, HTTP status, correlation ID, tenan
 | --- | --- | --- | --- |
 | `eitmad.error.server-config-invalid.v1` | Missing key, invalid listen address, partial TLS pair, unsafe plaintext, or pool size outside 2–128 | Run `check-config` with secret values hidden | Correct deployment configuration; do not enable plaintext on a remote listener |
 | `eitmad.error.server-database-unavailable.v1` | PostgreSQL unavailable, URL/role wrong, or pool exhausted | Check `/readyz`, PostgreSQL service health, role, TLS, and connection limits | Restore database access; keep traffic disabled until ready |
-| `eitmad.error.server-migration-failed.v1` | Permission, checksum/history, SQL, or incompatible schema failure | Preserve backup and inspect migration identifier and database error through restricted operator logs | Repair the cause or restore the pre-migration backup; do not edit migration history |
+| `eitmad.error.server-migration-failed.v1` | Permission, checksum/history, SQL, or incompatible schema failure | Preserve the database and inspect migration identifier and database error through restricted operator logs | Repair the cause using the same release; do not edit migration history |
 | `eitmad.error.pairing-denied.v1` | Expired or exhausted code, replay, changed binding/key, missing Owner relationship, or consumed approval | Check the redacted pairing audit, Owner access, current public offer, and clock; never log the code or PAKE state | Retry the exact saved completion after response loss. Otherwise retain the device key, discard only pending pairing, and obtain a fresh Owner code after expiry |
 | `eitmad.error.server-authentication-failed.v1` | Tenant code, username, password, device, session, or token is invalid | Confirm tenant code and device registration without revealing credentials | Approve an unknown device through pairing, or use the supported invitation activation; retry sign-in with a retained key. Keep the response intentionally non-specific |
 | `eitmad.error.server-token-expired.v1` | Access, refresh, invitation, or session time limit passed | Compare server UTC time and token/session metadata | Refresh once if permitted, otherwise sign in or issue a new invitation |
@@ -78,7 +78,7 @@ The focused proof is in `credential_admission.rs`, `catalog_image.rs`, and `cred
 
 Treat a snapshot as one scoped atomic replacement. Reject a manifest or chunk whose tenant, organization, schema, sequence, count, or checksum differs. Do not combine chunks from different snapshot IDs. Persist the complete projection and checkpoint before acknowledging it. If the client fails before commit, restart the same snapshot transfer or request a new manifest; do not advance its checkpoint.
 
-Compaction must preserve the 90-day history floor and every checkpoint not covered by a complete snapshot. If required data was removed without a valid snapshot, restore PostgreSQL from a consistent backup and stop clients from advancing until integrity is confirmed.
+Compaction must preserve the 90-day history floor and every checkpoint not covered by a complete snapshot. If required data was removed without a valid snapshot, stop clients from advancing, preserve PostgreSQL, and escalate the missing history.
 
 ## Verify recovery
 

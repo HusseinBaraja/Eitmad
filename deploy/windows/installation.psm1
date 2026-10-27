@@ -2,6 +2,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:HostAdapter = Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force -PassThru
 
+function Invoke-InstallationCheck([int]$Code, [scriptblock]$Check) {
+    try { & $Check }
+    catch {
+        if (-not $_.Exception.Data.Contains('EitmadSetupFailure')) { $_.Exception.Data['EitmadSetupFailure'] = $Code }
+        throw
+    }
+}
+
 function Get-InstallationIdentity {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -25,9 +33,9 @@ function Get-InstallPackage($Package, [string]$Target, [switch]$PlatformOnly) {
 }
 
 function Assert-FreshDesktop($Request) {
-    Assert-DesktopUser $Request
+    Invoke-InstallationCheck 10 { Assert-DesktopUser $Request }
     $installed = @(Get-AppxPackage -Name Eitmad.Desktop)
-    if ($installed.Count) { Assert-RetainedDesktop $Request $installed }
+    if ($installed.Count) { Invoke-InstallationCheck 15 { Assert-RetainedDesktop $Request $installed } }
     # Verify checks runtime and inventory. The registration path also checks MSIX signature.
     & (Join-Path $Request.desktop.directory 'install-client.ps1') -Action Verify `
         -ExpectedReleaseSha256 $Request.desktop.releaseSha256 -Publisher $Request.desktop.publisher *> $null
@@ -119,9 +127,9 @@ function Assert-InstallationPreparationTools($Request) {
 function Invoke-EitmadInstallationAction {
     param([string]$Action, [string]$Backend, $Request)
     if ($Action -in 'ClientPreflight', 'Desktop') {
-        Assert-FreshDesktop $Request
+        Invoke-InstallationCheck 11 { Assert-FreshDesktop $Request }
         if ($Action -eq 'Desktop') {
-            Assert-DesktopUser $Request
+            Invoke-InstallationCheck 10 { Assert-DesktopUser $Request }
             $installed = @(Get-AppxPackage -Name Eitmad.Desktop)
             if ($installed.Count) { Assert-RetainedDesktop $Request $installed; return }
             & (Join-Path $Request.desktop.directory 'install-client.ps1') -Action Install `
@@ -133,7 +141,7 @@ function Invoke-EitmadInstallationAction {
     & $script:HostAdapter { Assert-Administrator }
     if ($Action -eq 'ServerPreflight') {
         foreach ($path in $Request.serviceStateDirectory, $Request.serverProgressDirectory, $Request.preparation.stateDirectory) {
-            & $script:HostAdapter { param($value) [void](Get-SafePath $value); Assert-ProtectedParents $value } $path
+            Invoke-InstallationCheck 13 { & $script:HostAdapter { param($value) [void](Get-SafePath $value); Assert-ProtectedParents $value } $path }
             if (Test-Path -LiteralPath $path) { & $script:HostAdapter { param($value) Assert-PlainTree $value } $path }
         }
         foreach ($kind in 'Server', 'Postgres') {
@@ -144,8 +152,8 @@ function Invoke-EitmadInstallationAction {
         }
         # The protected copy was authenticated before this backend started. Standalone
         # operator installs keep their existing externally prepared prerequisite path.
-        $release = Get-InstallPackage $Request.server 'windows-server' -PlatformOnly
-        if (Test-Path -LiteralPath $Request.serviceStateDirectory) { Assert-RetainedHost $Request $release }
+        $release = Invoke-InstallationCheck 12 { Get-InstallPackage $Request.server 'windows-server' -PlatformOnly }
+        if (Test-Path -LiteralPath $Request.serviceStateDirectory) { Invoke-InstallationCheck 15 { Assert-RetainedHost $Request $release } }
         $packagedBackend = Join-Path $Request.server.directory 'eitmad-server.exe'
         if ((Get-FileHash -LiteralPath $Backend).Hash -cne (Get-FileHash -LiteralPath $packagedBackend).Hash) {
             throw 'The running installer must match the verified server package.'
@@ -155,9 +163,9 @@ function Invoke-EitmadInstallationAction {
             throw 'WinSW digest differs.'
         }
         if ((Split-Path $Backend -Parent | Split-Path -Leaf) -eq 'application') {
-            Install-OfflineServerPrerequisites $Backend
+            Invoke-InstallationCheck 14 { Install-OfflineServerPrerequisites $Backend }
         }
-        Assert-WindowsPrerequisites
+        Invoke-InstallationCheck 14 { Assert-WindowsPrerequisites }
         return
     }
     if ($Action -eq 'ResumeInstall') {
@@ -214,6 +222,27 @@ function Test-InstallationProofRequest([string]$Line) {
         $event.stage -ceq 'enrollDesktop' -and $event.status -ceq 'running')
 }
 
+function New-InstallationWorkerFailure([Management.Automation.ErrorRecord]$Failure) {
+    # Keep this OS transport frame separate from Rust's ordered progress events.
+    $diagnostic = [ordered]@{message=$Failure.Exception.Message; errorId=$Failure.FullyQualifiedErrorId;
+        exceptionType=$Failure.Exception.GetType().FullName; script=$Failure.InvocationInfo.ScriptName;
+        line=$Failure.InvocationInfo.ScriptLineNumber; stack=$Failure.ScriptStackTrace}
+    $details = $diagnostic | ConvertTo-Json -Compress
+    if ($details.Length -gt 4000) { $details = $details.Substring(0,4000) }
+    return (@{version=1; kind='adapterFailure'; details=$details} | ConvertTo-Json -Compress)
+}
+
+function Read-InstallationWorkerFailure([string]$Line) {
+    $event = $Line | ConvertFrom-Json
+    if (-not $event.PSObject.Properties['kind']) { return $null }
+    if ($event.version -ne 1 -or $event.kind -cne 'adapterFailure' -or
+        -not $event.PSObject.Properties['details'] -or $event.details -isnot [string] -or
+        $event.details.Length -eq 0 -or $event.details.Length -gt 4000) {
+        throw 'Invalid installation adapter failure.'
+    }
+    return $event.details
+}
+
 function New-ProtectedInstallationPayload([string]$Source, [string]$Stage) {
     if (Test-Path -LiteralPath $Stage) { throw 'Protected payload requires a new directory.' }
     & $script:HostAdapter { param($p) [void](Get-SafePath $p); Assert-ProtectedParents $p } $Stage
@@ -240,13 +269,14 @@ function New-ProtectedInstallationPayload([string]$Source, [string]$Stage) {
 }
 
 function Invoke-EitmadInstallationWorker {
-    param([string]$Backend, [string]$PipeName, [int]$BrokerId, [switch]$Backup)
+    param([string]$Backend, [string]$PipeName, [int]$BrokerId)
     & $script:HostAdapter { Assert-Administrator }
     Initialize-InstallationChannel
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
     $stage = $null
-    $managementComplete = $false
     try {
+        # Drain the broker's request before staging: it can exceed the pipe buffer.
+        $privateInput = [EitmadInstallationChannel]::Receive($pipe, 65536)
         # The initiating process retains the source. Never execute elevated payloads
         # from a user-writable extraction directory, including DLL search paths.
         $source = Split-Path (Split-Path (Split-Path $Backend -Parent) -Parent) -Parent
@@ -261,29 +291,24 @@ function Invoke-EitmadInstallationWorker {
         @{root=$stage; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
             & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
-        # Installation retains its backend for scheduling. Management uses that retained backend.
-        $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, $(if ($Backup) { 'windows-backup-management-worker' } else { 'install-windows-server' }),
+        # Retain the authenticated backend used by TLS renewal.
+        $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, 'install-windows-server', $privateInput,
             [Func[string,bool]]{ param($line) return (Test-InstallationProofRequest $line) })
-        $managementComplete = $Backup -and $code -eq 0
         return $code
+    } catch {
+        [EitmadInstallationChannel]::Send($pipe, (New-InstallationWorkerFailure $_))
+        [EitmadInstallationChannel]::Send($pipe, '')
+        [EitmadInstallationChannel]::Send($pipe, 'failed')
+        return 1
     }
     finally {
+        $privateInput = $null
         $pipe.Dispose()
-        if ($managementComplete -and $stage) {
-            # RunWorker has exited; this temporary management payload owns no task or data.
-            $full = [IO.Path]::GetFullPath($stage)
-            $parent = [IO.Path]::GetFullPath($env:ProgramData).TrimEnd('\')
-            if ((Split-Path $full -Parent) -ine $parent -or (Split-Path $full -Leaf) -notmatch '^EitmadSetupPayload-[a-f0-9]{32}$') {
-                throw 'Unsafe temporary payload path.'
-            }
-            & $script:HostAdapter { param($p) Assert-PlainTree $p } $full
-            Remove-Item -LiteralPath $full -Recurse -Force
-        }
     }
 }
 
 function Invoke-EitmadInstallationElevation {
-    param([string]$Backend, [string]$PrivateInput, [switch]$Backup)
+    param([string]$Backend, [string]$PrivateInput)
     Initialize-InstallationChannel
     $name = 'eitmad-install-' + [Guid]::NewGuid().ToString('N')
     $pipe = [EitmadInstallationChannel]::Create($name)
@@ -292,7 +317,7 @@ function Invoke-EitmadInstallationElevation {
         # All argv values are public. Reuse the adapter's Windows quoting policy.
         $script = Join-Path $PSScriptRoot 'installation.ps1'
         foreach ($path in $script, $Backend) { & $script:HostAdapter { param($value) [void](Get-SafePath $value) } $path }
-        $arguments = @('-NoProfile', '-NonInteractive', '-File', $script, '-Action', $(if ($Backup) { 'BackupWorker' } else { 'Worker' }), '-Backend', $Backend,
+        $arguments = @('-NoProfile', '-NonInteractive', '-File', $script, '-Action', 'Worker', '-Backend', $Backend,
             '-PipeName', $name, '-BrokerId', [string]$PID) | ForEach-Object {
                 '"' + [regex]::Replace([regex]::Replace($_, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
             }
@@ -304,9 +329,15 @@ function Invoke-EitmadInstallationElevation {
         while ($true) {
             $event = [EitmadInstallationChannel]::Receive($pipe, 32768)
             if (-not $event) { break }
+            $failure = Read-InstallationWorkerFailure $event
+            if ($null -ne $failure) {
+                [Console]::Error.WriteLine($failure)
+                [Console]::Error.Flush()
+                continue
+            }
             [Console]::Out.WriteLine($event)
             [Console]::Out.Flush()
-            if (-not $Backup -and (Test-InstallationProofRequest $event)) {
+            if (Test-InstallationProofRequest $event) {
                 $proof = [EitmadInstallationChannel]::ReadPrivateInput([Console]::In)
                 try { [EitmadInstallationChannel]::Send($pipe, $proof) }
                 finally { $proof = $null }

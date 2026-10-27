@@ -62,7 +62,7 @@ Ciphertext, nonce, format marker, filenames, and lock metadata are not secret va
 
 Secret material must never enter `ConfigSnapshot`, configuration export, SQLite product tables, IPC errors, normal logs, crash reports, audit payloads, local data exports, or support bundles. `eitmad-configuration` already converts both `Sensitive` and `Secret` definitions to `ConfigReadValue::Redacted`; a secret setting accepts only `SecretReferenceId`.
 
-Fallback files are deliberately outside the product database contract. Database backup/export does not capture them. The [Windows LAN recovery procedure](../../operations/backup-lan-installation.md) inventories profile/DPAPI dependencies, fallback files, and out-of-band keys, and uses Windows image recovery for native credential continuity. Its replacement-machine credential acceptance remains unverified. Never copy plaintext into SQLite or support artifacts, or claim that a database-only restore recovers credentials.
+Fallback files are deliberately outside the product database contract. Database backup/export does not capture them. Whole-installation backup and credential recovery are [deferred](../../operations/backup-lan-installation.md). Internal interrupted-write recovery remains part of secret-file integrity. Never copy plaintext into SQLite or support artifacts, or claim that a database-only restore recovers credentials.
 
 ## Arabic-first behavior
 

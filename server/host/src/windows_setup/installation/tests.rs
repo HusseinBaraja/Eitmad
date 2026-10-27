@@ -5,6 +5,35 @@ use eitmad_contracts::{
 };
 mod enrollment;
 
+#[test]
+fn native_failure_details_survive_reopening_the_journal() {
+    use eitmad_contracts::setup::WindowsSetupFailure;
+    let root = TestRoot::new();
+    let request = InstallWindows::Client(root.request().client);
+    let journal = root.path("diagnostic-progress");
+    let mut progress = Progress::open(&journal, &request).unwrap();
+    progress.begin(Stage::Preflight).unwrap();
+    let details = "Synthetic native check: access denied. ".repeat(80);
+    assert!(
+        progress
+            .finish(Err(MainError::SetupDiagnostic(
+                Some(WindowsSetupFailure::DesktopUser),
+                details.clone()
+            )))
+            .is_err()
+    );
+    drop(progress);
+    let state = read_state(Path::new(&journal)).unwrap();
+    assert_eq!(state.progress.status, Status::Failed);
+    assert_eq!(state.progress.stage, Stage::Preflight);
+    assert_eq!(
+        state.progress.failure,
+        Some(WindowsSetupFailure::DesktopUser)
+    );
+    assert_eq!(state.progress.details, Some(details));
+    assert!(!state.interrupted);
+}
+
 struct TestRoot(PathBuf);
 impl TestRoot {
     fn new() -> Self {
@@ -54,7 +83,6 @@ impl TestRoot {
             winsw_executable: self.path("winsw.exe"),
             winsw_sha256: "b".repeat(64),
             first_desktop: None,
-            backup: None,
         }
     }
 }

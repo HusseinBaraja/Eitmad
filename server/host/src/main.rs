@@ -17,8 +17,6 @@ use eitmad_sync_plane::{
 use eitmad_update_plane::{FileManifestRepository, UpdateCatalog};
 use zeroize::Zeroizing;
 
-#[cfg(windows)]
-mod windows_backup;
 mod windows_setup;
 #[cfg(windows)]
 mod windows_tls;
@@ -55,10 +53,6 @@ async fn execute() -> Result<(), MainError> {
     #[cfg(windows)]
     if let Some(result) = dispatch_windows(&arguments) {
         return result;
-    }
-    #[cfg(not(windows))]
-    if arguments.get(1).is_some_and(|arg| arg == "windows-backup") {
-        return Err(MainError::Input);
     }
     if arguments.len() == 2 && arguments[1] == "--version" {
         println!(
@@ -153,7 +147,7 @@ async fn execute() -> Result<(), MainError> {
 
 #[cfg(windows)]
 fn dispatch_windows(arguments: &[String]) -> Option<Result<(), MainError>> {
-    windows_tls::dispatch(arguments).or_else(|| windows_backup::dispatch(arguments))
+    windows_tls::dispatch(arguments)
 }
 
 async fn serve(
@@ -335,9 +329,6 @@ fn compose_server_state(
 
 fn print_help() {
     println!("eitmad-server windows-tls <configure|tick|status> <installed-host-directory>");
-    println!(
-        "eitmad-server windows-backup <configure|configuration|schedule|run|tick|status> <private-state-directory>"
-    );
     println!("eitmad-server enroll-first-desktop (private local LoginRequest JSON on stdin)");
     println!("eitmad-server [serve|migrate|check-config]");
     println!(
@@ -379,7 +370,7 @@ async fn enroll_first_desktop() -> Result<(), MainError> {
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 enum MainError {
     Configuration,
     Input,
@@ -390,13 +381,15 @@ enum MainError {
     Runtime,
     Setup,
     #[cfg(windows)]
-    Backup,
+    SetupCheck(eitmad_contracts::setup::WindowsSetupFailure),
+    #[cfg(windows)]
+    SetupDiagnostic(Option<eitmad_contracts::setup::WindowsSetupFailure>, String),
     #[cfg(windows)]
     Tls,
 }
 
 impl MainError {
-    const fn code(self) -> &'static str {
+    const fn code(&self) -> &'static str {
         match self {
             Self::Configuration => "eitmad.error.server-config-invalid.v1",
             Self::Input => "eitmad.error.contract-invalid.v1",
@@ -407,7 +400,9 @@ impl MainError {
             Self::Runtime => "eitmad.error.server-runtime-failed.v1",
             Self::Setup => "eitmad.error.windows-workshop-setup-failed.v1",
             #[cfg(windows)]
-            Self::Backup => "eitmad.error.server-backup-failed.v1",
+            Self::SetupDiagnostic(_, _) | Self::SetupCheck(_) => {
+                "eitmad.error.windows-setup-check-failed.v1"
+            }
             #[cfg(windows)]
             Self::Tls => "eitmad.error.server-tls-renewal-failed.v1",
         }

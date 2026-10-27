@@ -21,7 +21,6 @@ mod quotation_lifecycle;
 mod work_orders;
 pub use quotation_draft::{PendingQuotationDraft, QuotationDraftCommit};
 mod product;
-mod recovery;
 mod reference_marker;
 mod sync_state;
 
@@ -55,7 +54,6 @@ pub use material::{MaterialCommit, MaterialCommitOutcome, MaterialRecord};
 pub use part::{PartRecord, PartTransaction};
 pub use pricing::PricingTransaction;
 pub use product::{ProductRecord, ProductTransaction};
-pub use recovery::{RecoveryArtifact, RecoveryArtifactKind, RestoreOutcome};
 use rusqlite::{Connection, OpenFlags, OptionalExtension as _, TransactionBehavior};
 pub use sync_state::{StoredSyncState, SyncStateCommitOutcome};
 
@@ -144,12 +142,9 @@ impl AuthorityStore {
         fs::create_dir_all(directory).map_err(|_| StorageError)?;
         make_directory_private(directory)?;
         let path = directory.join(DATABASE_FILE_NAME);
-        let existed = ensure_database_file(&path)?;
+        ensure_database_file(&path)?;
         make_file_private(&path)?;
         let store = Self { path };
-        if existed {
-            store.backup_before_pending_migration()?;
-        }
         let mut connection = store.open_connection()?;
         migrations::apply(&mut connection)?;
         make_file_private(&store.path)?;
@@ -237,15 +232,7 @@ fn validate_database_file_with(path: &Path, check: CorruptionCheck) -> Result<()
         return Err(StorageError);
     }
     verify_sqlite_integrity(&connection, check)?;
-    let mut migration_copy = Connection::open_in_memory().map_err(|_| StorageError)?;
-    {
-        let backup = rusqlite::backup::Backup::new(&connection, &mut migration_copy)
-            .map_err(|_| StorageError)?;
-        backup
-            .run_to_completion(100, Duration::from_millis(5), None)
-            .map_err(|_| StorageError)?;
-    }
-    migrations::apply(&mut migration_copy)
+    migrations::validate_existing(&connection)
 }
 
 fn verify_sqlite_integrity(

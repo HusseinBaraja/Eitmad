@@ -1,13 +1,31 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'backup.psm1') -Force
 $script:HostTools = Get-Module host
-$script:BackupTools = Get-Module backup
+
+function Assert-TlsControlPath([string]$Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    for ($part = $full; $part; $part = Split-Path $part -Parent) {
+        $item = Get-Item -LiteralPath $part -Force
+        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'TLS control paths cannot use reparse points.' }
+        $acl = Get-Acl -LiteralPath $part
+        $trusted = @('S-1-5-18', 'S-1-5-32-544', [Security.Principal.WindowsIdentity]::GetCurrent().User.Value,
+            'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+        if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted) { throw 'Untrusted TLS control owner.' }
+        foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -ne 'Allow' -or $rule.IdentityReference.Value -in $trusted -or
+                ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)) { continue }
+            $write = [Security.AccessControl.FileSystemRights]::Delete -bor
+                [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor
+                [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+            if ($part -eq $full -or ($rule.FileSystemRights -band $write)) { throw 'TLS controls or their parents permit untrusted access.' }
+        }
+    }
+}
 
 function Assert-TlsControl([string]$Path) {
     # Unlike the service's readable private directory, CA material permits no service readers.
-    & $script:BackupTools { param($p) Assert-BackupControl $p } $Path
+    Assert-TlsControlPath $Path
     & $script:HostTools { param($p) Assert-PlainTree $p } $Path
     foreach ($item in @(Get-Item -LiteralPath $Path -Force) + @(Get-ChildItem -LiteralPath $Path -Recurse -Force)) {
         $acl = Get-Acl -LiteralPath $item.FullName
@@ -107,7 +125,7 @@ function Initialize-TlsControl([string]$Root, $Settings, $Request) {
     }
     $tool = & $script:HostTools { param($p) Get-SafePath $p } $Request.certificateExecutable
     if ([IO.Path]::GetFileName($tool) -cne 'Eitmad.LanCertificate.exe') { throw 'Use the reviewed certificate executable.' }
-    & $script:BackupTools { param($p) Assert-BackupControl $p } $tool
+    Assert-TlsControlPath $tool
     # Retain the existing .NET implementation and its runtime metadata under protected control.
     $toolDirectory = Split-Path $tool -Parent
     & $script:HostTools { param($p) Assert-PlainTree $p } $toolDirectory
@@ -137,7 +155,7 @@ function Initialize-TlsControl([string]$Root, $Settings, $Request) {
     # The scheduled backend and mechanics must survive removal of the package staging directory.
     $scripts = Join-Path $Root 'app/deploy/windows'
     & $script:HostTools { param($p) Protect-Directory $p } $scripts
-    foreach ($name in 'tls-renewal.ps1','tls-renewal.psm1','host.psm1','backup.psm1') {
+    foreach ($name in 'tls-renewal.ps1','tls-renewal.psm1','host.psm1') {
         $target = Join-Path $scripts $name
         if ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot $name)) -ine [IO.Path]::GetFullPath($target)) {
             Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $target -Force
@@ -162,7 +180,7 @@ function Register-TlsSchedule([string]$Root, $Settings, [int]$IntervalSeconds) {
             throw 'The renewal task belongs to another configuration.'
         }
     }
-    # Same Windows scheduling mechanics as local backups; Rust supplies the check cadence.
+    # Rust supplies the renewal check cadence.
     $action = New-ScheduledTaskAction -Execute $backend -Argument $arguments
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Seconds $IntervalSeconds)
     $taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)

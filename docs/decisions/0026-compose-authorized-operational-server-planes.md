@@ -13,12 +13,12 @@ review_triggers:
 # ADR-0026: Compose authorized relay, update, and administration planes
 
 > - Category: Explanation
-> - Status: Accepted
+> - Status: Accepted; backup and restore requirements partially superseded by ADR-0033
 > - Date: 2026-08-24
 > - Decision owners: Architecture, server platform, connectivity, release, and operations maintainers
 > - Last verified: 2026-08-24
 > - Supersedes: None
-> - Superseded by: None
+> - Superseded by: [ADR-0033](0033-defer-backup-support.md), backup and restore requirements only
 
 ## Context
 

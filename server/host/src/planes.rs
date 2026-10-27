@@ -325,9 +325,9 @@ impl SupportWorkflowExecutor for ServerSupportExecutor {
         workflow: &SupportWorkflow,
     ) -> Result<(), AdministrativeError> {
         match workflow.action {
-            SupportAction::CollectDiagnostics
-            | SupportAction::VerifyBackup
-            | SupportAction::RetryMigration => Err(AdministrativeError::Invalid),
+            SupportAction::CollectDiagnostics | SupportAction::RetryMigration => {
+                Err(AdministrativeError::Invalid)
+            }
             SupportAction::DisconnectRelaySession { relay_session_id } => self
                 .relay
                 .administrative_close(
@@ -452,7 +452,7 @@ mod tests {
 
         for action in [
             SupportAction::CollectDiagnostics,
-            SupportAction::VerifyBackup,
+            SupportAction::CollectDiagnostics,
             SupportAction::RetryMigration,
         ] {
             let workflow = SupportWorkflow {

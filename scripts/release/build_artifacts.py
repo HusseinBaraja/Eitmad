@@ -36,9 +36,7 @@ OFFLINE_COMPONENTS = {
     "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
         "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1",
         "deploy/windows/installation.ps1", "deploy/windows/installation.psm1", "deploy/windows/installation-channel.cs", "deploy/windows/verify-offline.ps1",
-        "deploy/windows/local-backup.ps1", "deploy/windows/local-backup.psm1", "deploy/windows/backup-tools.psm1",
         "deploy/windows/tls-renewal.ps1", "deploy/windows/tls-renewal.psm1",
-        "deploy/windows/backup.psm1", "deploy/windows/restore-backup.ps1",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.dll",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.runtimeconfig.json",
@@ -46,8 +44,7 @@ OFFLINE_COMPONENTS = {
         "tools/lan-certificate/bin/Release/net8.0-windows/hostfxr.dll",
         "tools/lan-certificate/bin/Release/net8.0-windows/hostpolicy.dll")),
     "postgresql": ("server/postgresql", ("bin/postgres.exe", "bin/initdb.exe", "bin/pg_ctl.exe",
-        "bin/psql.exe", "bin/pg_dump.exe", "bin/pg_restore.exe", "bin/pg_basebackup.exe",
-        "bin/pg_verifybackup.exe", "lib", "share/postgres.bki")),
+        "bin/psql.exe", "lib", "share/postgres.bki")),
     "winsw": ("server/winsw", ("WinSW.NET461.exe",)),
     "powershell": ("server/powershell", ("pwsh.exe", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "pwsh.runtimeconfig.json")),
     "vc-redist": ("server/vc-redist", ("vc_redist.x64.exe",)),
@@ -719,7 +716,7 @@ def release_inventory(stage: Path, version: str, target: str, publisher: str, pa
         "files": {p.relative_to(stage).as_posix(): sha256(p) for p in sorted(stage.rglob("*")) if p.is_file()},
         "productionEligible": False,
         "payloadInventorySha256": payload_inventory,
-        "requiredAcceptance": ["trusted self-signed publisher signatures", "clean Windows lifecycle and connected work", "backup restore and migration rehearsal"],
+        "requiredAcceptance": ["trusted self-signed publisher signatures", "clean Windows lifecycle and connected work", "migration rehearsal"],
     }
     (stage / "release.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -797,7 +794,7 @@ def copy_install_tools(stage: Path, target: str) -> None:
         shutil.copy2(ROOT / "run-services.ps1", stage)
         tools = stage / "deploy/windows"
         tools.mkdir(parents=True)
-        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "backup.psm1", "backup-worker.ps1", "backup-tools.psm1", "local-backup.ps1", "local-backup.psm1", "tls-renewal.ps1", "tls-renewal.psm1", "server-backup.example.json", "run-backup.ps1", "restore-backup.ps1", "backup.example.json"):
+        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "tls-renewal.ps1", "tls-renewal.psm1"):
             shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")

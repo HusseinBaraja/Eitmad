@@ -137,6 +137,8 @@ impl Progress {
             wire_sequence: 0,
             stage: Stage::Preflight,
             blocked: false,
+            failure: None,
+            details: None,
         })
     }
 }

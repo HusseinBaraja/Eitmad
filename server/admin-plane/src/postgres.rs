@@ -3,10 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use eitmad_contracts::{
     administration::{
-        AdministrativeAuditId, AdministrativeAuditRecord, AdministrativeFailureCode, BackupState,
-        BackupStatus, DeviceVisibility, DiagnosticSummary, MigrationState, MigrationStatus,
-        ServiceComponentId, ServiceHealth, ServiceHealthState, SupportWorkflow,
-        SupportWorkflowState, TenantVisibility,
+        AdministrativeAuditId, AdministrativeAuditRecord, AdministrativeFailureCode,
+        DeviceVisibility, DiagnosticSummary, MigrationState, MigrationStatus, ServiceComponentId,
+        ServiceHealth, ServiceHealthState, SupportWorkflow, SupportWorkflowState, TenantVisibility,
     },
     identity::{DeviceId, PrincipalId, TenantId},
     server::AuthenticatedServerSession,
@@ -118,64 +117,6 @@ impl AdministrationDataSource for PostgresAdministrationDataSource {
             checked_at: crate::postgres::unix_millis_now(),
             failure_code: None,
         }])
-    }
-
-    async fn backup_status(
-        &self,
-        tenant_id: TenantId,
-    ) -> Result<BackupStatus, AdministrativeError> {
-        let mut transaction = self.transaction(tenant_id).await?;
-        let row = sqlx::query(
-            "SELECT state, last_success_at, last_verified_at, next_scheduled_at,
-                    recovery_point_age_ms, failure_code
-             FROM operations.backup_status WHERE tenant_id = $1",
-        )
-        .bind(tenant_id.value())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(|_| AdministrativeError::Unavailable)?;
-        transaction
-            .commit()
-            .await
-            .map_err(|_| AdministrativeError::Unavailable)?;
-        let Some(row) = row else {
-            return Ok(BackupStatus {
-                state: BackupState::NotConfigured,
-                last_success_at: None,
-                last_verified_at: None,
-                next_scheduled_at: None,
-                recovery_point_age_ms: None,
-                failure_code: None,
-            });
-        };
-        let state: String = row
-            .try_get("state")
-            .map_err(|_| AdministrativeError::Unavailable)?;
-        Ok(BackupStatus {
-            state: parse_backup_state(&state)?,
-            last_success_at: row
-                .try_get::<Option<i64>, _>("last_success_at")
-                .map_err(|_| AdministrativeError::Unavailable)?
-                .map(UnixMillis),
-            last_verified_at: row
-                .try_get::<Option<i64>, _>("last_verified_at")
-                .map_err(|_| AdministrativeError::Unavailable)?
-                .map(UnixMillis),
-            next_scheduled_at: row
-                .try_get::<Option<i64>, _>("next_scheduled_at")
-                .map_err(|_| AdministrativeError::Unavailable)?
-                .map(UnixMillis),
-            recovery_point_age_ms: row
-                .try_get::<Option<i64>, _>("recovery_point_age_ms")
-                .map_err(|_| AdministrativeError::Unavailable)?
-                .map(u64::try_from)
-                .transpose()
-                .map_err(|_| AdministrativeError::Unavailable)?,
-            failure_code: parse_failure(
-                row.try_get("failure_code")
-                    .map_err(|_| AdministrativeError::Unavailable)?,
-            )?,
-        })
     }
 
     async fn migration_status(
@@ -441,17 +382,6 @@ fn parse_failure(
         .map(AdministrativeFailureCode::parse)
         .transpose()
         .map_err(|_| AdministrativeError::Unavailable)
-}
-
-fn parse_backup_state(value: &str) -> Result<BackupState, AdministrativeError> {
-    match value {
-        "current" => Ok(BackupState::Current),
-        "stale" => Ok(BackupState::Stale),
-        "running" => Ok(BackupState::Running),
-        "failed" => Ok(BackupState::Failed),
-        "not_configured" => Ok(BackupState::NotConfigured),
-        _ => Err(AdministrativeError::Unavailable),
-    }
 }
 
 fn count_to_u32(value: i64) -> Result<u32, AdministrativeError> {

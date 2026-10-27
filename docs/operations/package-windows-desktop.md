@@ -21,7 +21,7 @@ keywords:
 
 For a new workshop or employee PC, follow [Install Eitmad on the server and employee PCs](install-windows.md). This page is for release builders and operators who need package verification, manual service import, repair, removal, or upgrade. The manual procedures below are alternatives to guided setup; do not run them after a successful guided installation.
 
-Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, self-contained .NET runtime, and app-local Microsoft C++ runtime. The server ZIP contains Rust, service installation tools, backup tools under `deploy/windows`, and the self-contained LAN certificate tool. Each service and backup module has one copy under `deploy/windows`; run its `restore-backup.ps1` to verify a recovery generation. The backup example contains placeholder paths only; create the protected operational plan outside the package. Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
+Build the server ZIP and desktop installer ZIP from one source revision and version. The desktop ZIP contains an x64 MSIX with the WPF shell, Windows adapter, Rust engine, self-contained .NET runtime, and app-local Microsoft C++ runtime. The server ZIP contains Rust, service installation tools under `deploy/windows`, and the self-contained LAN certificate tool. Backup support is deferred; see [ADR-0033](../decisions/0033-defer-backup-support.md). Neither package contains a database, test account, credential, token, private certificate, or provisioned installation. No automatic updater is added.
 
 Both Windows ZIPs include the canonical `docs/` tree with its repository paths unchanged. For the combined offline bundle, use [the installation guide](install-windows.md). For separate component ZIPs, use the manual procedures on this page. Keep the tree together so linked procedures, reference pages, and heading anchors remain available without a repository checkout. `release.json` inventories these documentation files. External links still require network access. Build and developer-test procedures still require the source checkout and their stated tools.
 
@@ -104,7 +104,7 @@ Use signed desktop, server, and setup ZIPs from the same release version and cle
 | `setup` | Self-contained x64 `EitmadSetup.exe`, native WPF resources, .NET 8 Windows Desktop runtime, approved signatures, and redistribution notices | Launcher for both roles; installs no host component for Client |
 | `client/desktop` | Existing desktop ZIP contents: signed MSIX, installation scripts, and offline documentation; retain self-contained .NET and app-local x64 Microsoft C++ runtime | Client and Server |
 | `server/application` | Existing server ZIP contents, including the self-contained LAN certificate tool and workshop preparation scripts | Server only |
-| `server/postgresql` | Complete reviewed PostgreSQL 17 x64 `bin`, `lib`, and `share`; include initialization, service, SQL, dump/restore, `pg_basebackup.exe`, and `pg_verifybackup.exe` tools | Server only |
+| `server/postgresql` | Complete reviewed PostgreSQL 17 x64 `bin`, `lib`, and `share`; include initialization, service, and SQL tools | Server only |
 | `server/winsw` | Reviewed `WinSW.NET461.exe` version 2.12.0 and redistribution terms | Server only |
 | `server/powershell` | Extracted self-contained PowerShell 7.4+ x64 distribution, including its runtime and notices | Server only |
 | `server/vc-redist` | Reviewed Microsoft C++ 14.40+ x64 offline installer named `vc_redist.x64.exe` and redistribution terms | Server only |
@@ -152,7 +152,7 @@ python scripts/release/build_artifacts.py windows-offline --version 0.1.0 --payl
 
 The builder retains component inventories and SBOMs, creates an aggregate CycloneDX SBOM and root `release.json`, then creates and signs `offline.cat`. The catalog authenticates the complete extracted tree, including review, setup metadata, licenses, runtime files, MSIX, and inventories. Windows catalog version 2 uses SHA-256; see [Microsoft file catalogs](https://learn.microsoft.com/powershell/module/microsoft.powershell.security/new-filecatalog). The builder checks the trusted catalog signature, exact self-signed publisher certificate shared with setup, and contents before assembling a sorted ZIP with fixed entry timestamps. Failure publishes no completed ZIP. Identical staged bytes produce identical archive bytes; catalog generation and external signing are not claimed to produce identical bytes between builds. Without `--signing-hook`, the ZIP is labeled `unsigned` and setup rejects its catalog. Component signature checks remain mandatory.
 
-The launcher retains read-only handles and checks the catalog before starting Rust. Rust verifies it before reading setup metadata. Server elevation authenticates the source again, copies it into a new administrator/SYSTEM-only `%ProgramData%/EitmadSetupPayload-<id>` directory, and verifies that copy before executing its backend. Rust binds tool paths and release pins to that copy and verifies it again before installation. Elevated execution and DLL loading use the protected copy. This release tree is retained for scheduled backup execution and interruption recovery; do not remove it while a backup task references its backend. The outer installer handles the explicit publisher trust step before this workflow. The internal setup does not silently trust certificates; unsigned-MSIX rejection remains enabled.
+The launcher retains read-only handles and checks the catalog before starting Rust. Rust verifies it before reading setup metadata. Server elevation authenticates the source again, copies it into a new administrator/SYSTEM-only `%ProgramData%/EitmadSetupPayload-<id>` directory, and verifies that copy before executing its backend. Rust binds tool paths and release pins to that copy and verifies it again before installation. Elevated execution and DLL loading use the protected copy. This release tree is retained for scheduled TLS renewal and interruption recovery; do not remove it while the renewal task references its backend. The outer installer handles the explicit publisher trust step before this workflow. The internal setup does not silently trust certificates; unsigned-MSIX rejection remains enabled.
 
 Recheck a prepared directory, or the complete extracted distribution, before use:
 
@@ -186,7 +186,7 @@ When the retained signing certificate expires, create a replacement, rebuild and
 
 | Machine | Requirements |
 | --- | --- |
-| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; protected backups; optional disk encryption |
+| Every target | Supported, patched x64 Windows on local NTFS; build 19041+; x64 Windows PowerShell 5.1; sufficient disk space; optional disk encryption |
 | Desktop | MSIX permitted by local policy; self-signed publisher trusted once per PC through the guided administrator approval; install as each intended ordinary Windows user; no elevated application install, global C++ runtime installation, Rust compiler, or .NET SDK required |
 | Server | Target hosts are Windows Server 2022/2025 or Windows 11; elevation for services; `curl.exe`; Microsoft Visual C++ 2015–2022 x64 Redistributable 14.40+ and patched .NET Framework 4.8 for WinSW. Guided setup supplies reviewed PostgreSQL 17 and WinSW 2.12.0, installs missing C++/Framework prerequisites offline, and provisions the cluster. Manual import requires those prerequisites, a provisioned stopped cluster, reviewed tool digests, and PowerShell 7.4+ for manual LAN settings. Guided setup also registers the desktop MSIX; Server-edition AppX prerequisites and the complete guided path still need clean-edition acceptance |
 
@@ -196,7 +196,7 @@ On 2026-10-20, an unsigned desktop validation ZIP built successfully with Rust 1
 
 ## Install the server
 
-For a fresh workshop, use [guided Server setup](install-windows.md#1-install-the-server-pc). The following procedure is an **advanced manual import** from a separate server ZIP. It does not run the guided first-desktop, backup, or renewal flow. Use it only when an operator owns those separate tasks. The [preparation backend](prepare-windows-workshop.md) can create the stopped cluster and prepared LAN root instead of manual database and identity provisioning; do not bootstrap that prepared workshop again.
+For a fresh workshop, use [guided Server setup](install-windows.md#1-install-the-server-pc). The following procedure is an **advanced manual import** from a separate server ZIP. It does not run the guided first-desktop or renewal flow. Use it only when an operator owns those separate tasks. The [preparation backend](prepare-windows-workshop.md) can create the stopped cluster and prepared LAN root instead of manual database and identity provisioning; do not bootstrap that prepared workshop again.
 
 1. Extract the server ZIP into a new local staging directory. Compare ZIP and inventory digests with the authenticated release record. In elevated x64 PowerShell, set `$releaseDigest` and `$approvedPublisher` to its non-secret values, then run:
 
@@ -262,26 +262,25 @@ Windows redeploys the same signed package and the tool checks registration. It n
 
 ## Controlled manual upgrade
 
-1. Verify new artifacts, signatures, higher numeric versions, compatibility notes, and migration inventory. Reject changed/removed existing migration bytes. Keep original packages and authenticated records. Never downgrade binaries over migrated data.
-2. Rehearse the exact next server/client packages against an isolated restored recovery generation. Verify migrations, account sign-in, tenant denial, pending-work replay, receipt idempotency, and confirmed records. Record source/target versions, digests, recovery point, and results. `-RestoreVerified` explicitly attests that this drill passed; the switch cannot prove a restore occurred.
-3. Stop new work and close all clients. Take a fresh complete [LAN recovery generation](backup-lan-installation.md), including server/CA state, all runtime/profile volumes, Credential Manager/DPAPI dependencies, and PostgreSQL. Verify the PostgreSQL backup and all Windows image catalogs with `restore-backup.ps1`. Record hashes, cut time, migration baseline, and participant inclusion. Keep clients closed from this recovery point through acceptance; do not omit unsent work.
-4. Stop both server services. From the **new** server package, use its digest:
+1. Verify new artifacts, signatures, higher numeric versions, compatibility notes, and migration inventory. Reject changed or removed existing migration bytes. Keep original packages and authenticated records. Never downgrade binaries over migrated data.
+2. Stop new work and close all clients. Keep them closed through acceptance. Preserve all existing server and desktop data. The current product has no backup or restore workflow.
+3. Stop both server services. From the **new** server package, use its digest:
 
    ```powershell
-   .\install-server.ps1 Upgrade -ExpectedReleaseSha256 $releaseDigest -Publisher $approvedPublisher -BackupGeneration $completeGeneration -RestoreVerified
+   .\install-server.ps1 Upgrade -ExpectedReleaseSha256 $releaseDigest -Publisher $approvedPublisher
    ```
 
-   The tool checks the old inventory, higher version, immutable migration history, stopped services, complete backup/image verification, and this host's inclusion. It retains the previous binary/inventory in `releases`, disables automatic service starts during replacement, records `release-pending.json`, replaces the binary atomically, runs explicit Rust `migrate`, then requires HTTPS readiness. Success restores automatic startup and clears the marker. PostgreSQL major upgrades are separate; the tool never replaces PostgreSQL or its cluster.
-5. From each new desktop package, as its original Windows user:
+   The tool checks the old inventory, higher version, immutable migration history, and stopped services. It retains the previous binary and inventory in `releases`, disables automatic service starts during replacement, records `release-pending.json`, replaces the binary atomically, runs explicit Rust `migrate`, then requires HTTPS readiness. Success restores automatic startup and clears the marker. PostgreSQL major upgrades are separate; the tool never replaces PostgreSQL or its cluster.
+4. From each new desktop package, as its original Windows user:
 
    ```powershell
-   .\install-client.ps1 Upgrade -ExpectedReleaseSha256 $releaseDigest -Publisher $approvedPublisher -BackupGeneration $completeGeneration -RestoreVerified
+   .\install-client.ps1 Upgrade -ExpectedReleaseSha256 $releaseDigest -Publisher $approvedPublisher
    ```
 
-   The client checks publisher, higher version, migration history, complete-generation marker, and this user's runtime inclusion. The full backup/image verification is the preceding operator/server check; the client does not run `wbadmin`. Windows deploys without a forced shutdown or downgrade. Run `Diagnose`, open the app, sign in online, and check retained work and receipt replay.
-6. Require server readiness, authenticated work from every client, authorization denial, reconnect, and audit continuity before reopening access. Retain the recovery point and both artifact records.
+   The client checks publisher, higher version, and immutable migration history. Windows deploys without a forced shutdown or downgrade. Run `Diagnose`, open the app, sign in online, and check retained work and receipt replay.
+5. Require server readiness, authenticated work from every client, authorization denial, reconnect, and audit continuity before reopening access. Retain both artifact records.
 
-On failure, preserve state. The server leaves services stopped/demand-start with its pending marker. Ordinary Start/Install/Upgrade refuse a pending release. Correct the cause and run `Repair` from the **exact interrupted target package**; the marker binds its version/digest and preserves the old inventory. Never substitute a different release as a retry. If repair cannot succeed, restore the complete coordinated pre-upgrade point with the original binary and Windows credential dependencies. Blind old-binary replacement can corrupt migrated data. Prefer forward recovery; never reverse migration SQL or discard newer work without an explicit recovery decision.
+On failure, preserve state. The server leaves services stopped/demand-start with its pending marker. Ordinary Start/Install/Upgrade refuse a pending release. Correct the cause and run `Repair` from the **exact interrupted target package**; the marker binds its version/digest and preserves the old inventory. Never substitute a different release as a retry. If repair cannot succeed, preserve the database and retained release files for operator investigation. Blind old-binary replacement can corrupt migrated data. Prefer forward recovery; never reverse migration SQL or discard newer work without an explicit recovery decision.
 
 ## Diagnostics and acceptance
 
@@ -293,6 +292,6 @@ Use [current setup verification](verify-offline-windows-setup.md#current-verific
 
 The isolated runtime command is `python deploy/windows/test-runtime.py --postgres-bin <PostgreSQL17-bin> --server <extracted-server-exe> --certificate-tool <built-synthetic-certificate-tool-dll> --root <new-private-evidence-directory> --verify-desktop-enrollment-engine <extracted-engine-exe>`. Build the Windows test project first; the reused enrollment scenario invokes its focused controller test with `--no-build`. Synthetic clusters and keys stay outside packages and compiler output. The test needed an unrestricted process token because PostgreSQL cannot create its restricted child token inside this host's sandbox. It installs no services. This proof is not signed MSIX deployment, rendered UI acceptance, real SCM/reboot behavior, or a coordinated Windows image restore.
 
-Before declaring support, use fresh server/client Windows hosts without developer SDK/runtime state. Record OS builds, prerequisite versions, artifact digests, and signatures. Verify install; reboot without login; TLS readiness; independent desktop enrollment; committed Arabic work and pending local work; repair; data-preserving uninstall/reinstall; backup/restore; higher-version upgrade; interrupted migration/repair; and rejection of altered bytes, wrong publishers, absent backups, changed migrations, and incompatible binaries. Verify ACLs and the unvirtualized runtime after removal. Complete [mandatory release evidence](validate-release-candidate.md). Missing signing, clean hosts, or recovery proof blocks production acceptance, not independent package construction.
+Before declaring support, use fresh server/client Windows hosts without developer SDK/runtime state. Record OS builds, prerequisite versions, artifact digests, and signatures. Verify install; reboot without login; TLS readiness; independent desktop enrollment; committed Arabic work and pending local work; repair; data-preserving uninstall/reinstall; higher-version upgrade; interrupted migration/repair; and rejection of altered bytes, wrong publishers, changed migrations, and incompatible binaries. Verify ACLs and the unvirtualized runtime after removal. Complete [mandatory release evidence](validate-release-candidate.md). Missing signing, clean hosts, or recovery proof blocks production acceptance, not independent package construction.
 
 Related tasks: [Windows services](run-windows-host-services.md), [LAN trust](setup-lan-server.md), [server authority](run-server-authority.md), [backup and recovery](backup-lan-installation.md), and [operations index](index.md).

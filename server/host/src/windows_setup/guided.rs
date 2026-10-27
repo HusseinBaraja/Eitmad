@@ -209,12 +209,6 @@ fn compose(
             winsw_executable: text(bundle.join("server/winsw/WinSW.NET461.exe")),
             winsw_sha256: profile.winsw_sha256,
             first_desktop: None,
-            backup: request.backup.map(|mut backup| {
-                if backup.local.is_empty() {
-                    backup.local = text(program_data.join("EitmadBackups"));
-                }
-                backup
-            }),
         };
         installation::validate_server(&server)?;
         // Reject existing user data before opening or migrating an authority store.
@@ -345,27 +339,6 @@ pub(super) fn enroll_desktop(
     let result = desktop.sign_in(&sign_in);
     zeroize::Zeroize::zeroize(&mut sign_in.password);
     result.map(|_| ()).map_err(|_| MainError::Setup)
-}
-
-pub(super) fn configure_backups(request: &InstallWindowsServer) -> Result<(), MainError> {
-    let destinations = request.backup.as_ref().ok_or(MainError::Input)?;
-    let program_data = std::env::var_os("ProgramData")
-        .map(PathBuf::from)
-        .ok_or(MainError::Setup)?;
-    let state = program_data.join("EitmadBackupState");
-    let configuration = eitmad_contracts::backup::ServerBackupConfiguration {
-        version: 1,
-        deployment_id: uuid::Uuid::new_v4(),
-        host_root: request.service_state_directory.clone(),
-        service_name: request.service_name.clone(),
-        recovery_directory: request.preparation.state_directory.clone(),
-        local_destination: destinations.local.clone(),
-        external_destination: destinations.external.clone(),
-        interval_hours: 24,
-        retention_count: 7,
-        reserve_bytes: 1_073_741_824,
-    };
-    crate::windows_backup::configure_setup(&state, &configuration)
 }
 
 #[cfg(test)]

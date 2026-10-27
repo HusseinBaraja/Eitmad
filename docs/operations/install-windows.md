@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-26"
+last_verified: "2026-10-27"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
@@ -34,7 +34,6 @@ Use Server for a **new workshop** and Client for a **new employee PC** joining a
 - Use patched x64 Windows with local NTFS storage and a policy that permits the signed MSIX. See [target prerequisites](package-windows-desktop.md#target-prerequisites) for host versions and Windows Server edition limits.
 - On every PC, have Windows administrator credentials for the one-time publisher trust prompt. The server also needs administrator approval to install its services. Start setup from the normal Windows account that will use the desktop; a different administrator can approve the prompt. On clients, start setup from the intended normal Windows account; a separate administrator can approve the certificate import.
 - Connect all PCs to the same trusted workshop LAN. Set the workshop interface to **Private** through Windows settings. Setup does not change the network profile. The server's Windows computer name must resolve to its private IPv4 address. Keep that name unchanged and keep the server powered on, connected, and awake.
-- Prepare protected backup folders on accessible local NTFS volumes. Disk encryption is optional; setup does not require BitLocker. The default local destination is `%ProgramData%\EitmadBackups`. An optional external destination must be on a different physical disk. A local backup on the server's disk does not protect against disk loss.
 
 End users need no Rust compiler, .NET SDK, database commands, or internet download during setup. The bundle contains the desktop runtimes and reviewed server tools. Server setup installs missing C++ and .NET Framework prerequisites from the bundle. Client setup installs no global runtime, service, database, or firewall rule. On first launch, setup shows the self-signed publisher and its public certificate fingerprint. Compare it with the authenticated handover, confirm it, then select **اعتماد الناشر والمتابعة**. Windows asks for administrator approval to trust that exact public code-signing certificate in its machine Root store. This applies to both Server and Client. The private signing key stays on the build PC. Later launches reuse existing valid trust. An initial Windows publisher or SmartScreen warning can still occur before the wizard opens; self-signing does not provide public reputation. See [publisher trust and signing](package-windows-desktop.md#build-the-two-standalone-installers).
 
@@ -44,13 +43,12 @@ End users need no Rust compiler, .NET SDK, database commands, or internet downlo
 2. Open it as the intended normal Windows user. Do not select **Run as administrator**. Complete the guided publisher trust step if shown. Setup then verifies and extracts its embedded files automatically.
 3. Confirm that **إعداد خادم الورشة** appears.
 4. Enter **اسم الورشة**, **اسم مستخدم المالك**, and **كلمة مرور المالك**. The password must contain at least 12 characters. Retain it securely. This creates the first active application Owner with Manager duties and the first branch; no separate activation step is required.
-5. Under **وجهات النسخ الاحتياطي**, leave the local destination empty to use the default, or select a protected folder. Select an external folder if a suitable protected separate disk is available. Both selected destinations must be available for the first capture.
-6. Select **بدء التثبيت** and approve Windows UAC. Leave setup open until it reports **اكتمل التثبيت**. If a prerequisite requests a restart, use the recovery steps below after restarting; a restart request is not successful completion.
-7. Select **فتح الاعتماد**, or open **الاعتماد** from Start under the same normal Windows user. Sign in with the Owner username and password entered above. The first server desktop is already enrolled; it does not need an Owner pairing code.
+5. Select **بدء التثبيت** and approve Windows UAC. Leave setup open until it reports **اكتمل التثبيت**. If a prerequisite requests a restart, use the recovery steps below after restarting; a restart request is not successful completion.
+6. Select **فتح الاعتماد**, or open **الاعتماد** from Start under the same normal Windows user. Sign in with the Owner username and password entered above. The first server desktop is already enrolled; it does not need an Owner pairing code.
 
-Setup creates the private PostgreSQL cluster and TLS trust, applies migrations, installs the `EitmadPostgres` and `EitmadServer` services, and verifies HTTPS readiness. It also configures unattended certificate renewal, enrolls the original user's desktop, configures daily backups with seven retained generations, verifies the first capture and any selected external copy, and registers the desktop app. Readiness alone is not whole-setup completion.
+Setup creates the private PostgreSQL cluster and TLS trust, applies migrations, installs the `EitmadPostgres` and `EitmadServer` services, and verifies HTTPS readiness. It also configures unattended certificate renewal, enrolls the original user's desktop, registers the desktop app. Readiness alone is not whole-setup completion.
 
-For a new workshop, the setup form and Windows approval are the required input. With the default backup destination, the remaining installation stages run without further questions. Initial publisher trust can require its own confirmation and Windows approval as described above. A prerequisite restart or a failed check stops setup with a recovery state; setup does not report completion or reset existing data in those cases.
+For a new workshop, the setup form and Windows approval are the required input. The remaining installation stages run without further questions. Initial publisher trust can require its own confirmation and Windows approval as described above. A prerequisite restart or a failed check stops setup with a recovery state; setup does not report completion or reset existing data in those cases.
 
 The installed services start without Windows sign-in. Closing the desktop does not stop the server. PostgreSQL stays on loopback. Guided setup permits the Eitmad HTTPS and discovery traffic only from `LocalSubnet` on **Private** networks. Do not add a firewall rule for each employee address. Keep the server awake; see [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
 
@@ -76,16 +74,19 @@ The app authenticates server trust during pairing and keeps an independent devic
 - Sign in on the server desktop and on each employee PC with their intended accounts. Protected work requires the live LAN server even when installation used an offline bundle. Internet access and a live workshop server are separate requirements.
 - With a permitted account, save a synthetic customer and confirm that another authorized PC can read the server-confirmed record. Do not treat a local pending row as server confirmation.
 - Exit and reopen each desktop. Check that sign-in works without pairing again and that the confirmed record remains.
-- On the server, reopen `EitmadServerSetup.exe` and select **إدارة النسخ الاحتياطي**. Approve the administration prompt and check the schedule, last successful local capture, and any external copy. Follow [backup management and restore verification](backup-lan-installation.md#manage-backups-after-installation). A successful capture does not prove replacement-machine recovery.
 - Before depending on unattended operation, verify client access after a planned server reboot while the server is still at the Windows sign-in screen. Use [offline setup acceptance](verify-offline-windows-setup.md) for the controlled reboot, firewall, DHCP, and restore checks.
 
 ## If setup or pairing stops
 
-Keep signature and permission checks enabled. A preparation-tool path refusal must distinguish a different executable from Windows slash formatting. The elevated payload grants the installing administrator read and execute access only to its PostgreSQL tools, because `initdb` removes Administrators access from its child token. Server controls remain restricted to Administrators and SYSTEM. Default backup folders can be created under ProgramData without making ProgramData private; setup protects each new folder and rejects unsafe ancestor replacement rights. See [the isolated protection proof](verify-offline-windows-setup.md#verify-the-elevated-installation-protection) before distributing a rebuilt installer.
+Keep signature and permission checks enabled. A preparation-tool path refusal must distinguish a different executable from Windows slash formatting. The elevated payload grants the installing administrator read and execute access only to its PostgreSQL tools, because `initdb` removes Administrators access from its child token. Server controls remain restricted to Administrators and SYSTEM. See [the isolated protection proof](verify-offline-windows-setup.md#verify-the-elevated-installation-protection) before distributing a rebuilt installer.
+
+The failure screen names the stopped step and gives a next action. Select **نسخ السجل** to copy the technical log or **حفظ ملف السجل** to save a UTF-8 `.log` file. **تفاصيل السجل** shows the same content. The log contains UTC timestamps, setup role/version, reported stages, failure category, and available native exception, script location, and stack details. It does not export the setup request or credential input. A failure before a native check can have only transport or payload diagnostics. A resumed inspection includes the last durable failure; the current session retains its own earlier attempts.
+
+Setup does not configure, schedule, capture, copy, or require backups. See [backup availability](backup-lan-installation.md).
 
 Keep the original installer EXE, installation folders, and original Windows user. Reopen the **same authenticated installer EXE** and select **فحص حالة الإعداد**. If offered, select **فحص واستكمال الإعداد**. Server recovery asks for the current Owner password; Client recovery requires no password or elevation. Wait if another worker is still active. A blocked or uncertain result needs [stage-specific installation recovery](prepare-windows-workshop.md#progress-interruption-and-recovery).
 
-A server can remain installed when a later enrollment, backup, or desktop stage fails. Do not delete its database, journals, certificates, or device key, and do not select new paths to start again. Repair and upgrade use their [separate package lifecycle procedures](package-windows-desktop.md#repair-and-data-preserving-uninstall).
+A server can remain installed when a later enrollment or desktop stage fails. Do not delete its database, journals, certificates, or device key, and do not select new paths to start again. Repair and upgrade use their [separate package lifecycle procedures](package-windows-desktop.md#repair-and-data-preserving-uninstall).
 
 If no server appears, check that the server is running, all PCs use the workshop Private LAN, and the server computer name resolves correctly. Keep Windows Firewall and TLS validation enabled. Use [host status](run-windows-host-services.md#install-and-operate) for diagnosis; do not start a second foreground server over the installed services.
 
@@ -93,6 +94,6 @@ If pairing was interrupted, select **إعادة محاولة الربط نفسه
 
 ## Maintenance
 
-Keep the authenticated bundle and protected `%ProgramData%\EitmadSetupPayload-<id>` copy available: recovery and scheduled backups can use them. Do not clear these files as temporary installation output.
+Keep the authenticated bundle and protected `%ProgramData%\EitmadSetupPayload-<id>` copy available: recovery and TLS renewal can use them. Do not clear these files as temporary installation output.
 
-Use [backup management](backup-lan-installation.md#manage-backups-after-installation) to change destinations or check failures, [TLS renewal status](setup-lan-server.md#renew-without-changing-trust) to inspect certificate renewal, and [package maintenance](package-windows-desktop.md#repair-and-data-preserving-uninstall) for repair, removal, and controlled upgrades. Return to the [operations index](index.md) for other tasks.
+Use [TLS renewal status](setup-lan-server.md#renew-without-changing-trust) to inspect certificate renewal, and [package maintenance](package-windows-desktop.md#repair-and-data-preserving-uninstall) for repair, removal, and controlled upgrades. Return to the [operations index](index.md) for other tasks.
