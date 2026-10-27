@@ -1,10 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot 'backup.psm1') -Force
+$script:HostTools = Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force -PassThru
+$script:BackupTools = Import-Module (Join-Path $PSScriptRoot 'backup.psm1') -Force -PassThru
 Import-Module (Join-Path $PSScriptRoot 'backup-tools.psm1') -Force -DisableNameChecking
-$script:HostTools = Get-Module host
-$script:BackupTools = Get-Module backup
 
 function Assert-LocalBackupControl([string]$Path) {
     & $script:BackupTools { param($p) Assert-BackupControl $p } $Path
@@ -39,7 +37,7 @@ function New-LocalBackupDirectory([string]$Path) {
     [void](Get-LocalBackupPath $Path)
     if (Test-Path -LiteralPath $Path) { Assert-LocalBackupControl $Path }
     else {
-        Assert-LocalBackupControl (Split-Path $Path -Parent)
+        & $script:HostTools { param($p) Assert-ProtectedParents $p } $Path
         & $script:HostTools { param($p) Protect-Directory $p } $Path
     }
 }
@@ -164,7 +162,7 @@ function Get-LocalBackupSources($Configuration) {
             }
         }
     }
-    Assert-LocalBackupControl (Split-Path $recovery -Parent)
+    & $script:HostTools { param($p) Assert-ProtectedParents $p } $recovery
     $owner = (Get-Acl -LiteralPath $recovery).GetOwner([Security.Principal.SecurityIdentifier]).Value
     # The CA tool deliberately owns its directory as the creating administrator's SID.
     # SYSTEM scheduled runs must accept that identity without accepting arbitrary profile owners.
@@ -338,6 +336,7 @@ function Register-LocalBackupSchedule($Configuration, [string]$StateDirectory, [
         if (Test-LocalBackupSchedule $existing) { return }
     }
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Hours 1)
+    $trigger.Repetition.StopAtDurationEnd = $false
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 3)
     if ($existing) {
         # Only the explicit Schedule action repairs an owned task; preserve its action and principal.

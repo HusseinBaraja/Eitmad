@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "product developer"
-last_verified: "2026-10-24"
+last_verified: "2026-10-26"
 review_triggers:
   - "offline payload validation, installation stages, network recovery, supported Windows editions, or acceptance results change"
 keywords:
@@ -42,6 +42,16 @@ Check acceptance-probe verdicts without accessing a network:
 ```powershell
 pwsh.exe -NoProfile -File deploy/windows/test-offline-machine-probes.ps1
 ```
+
+## Verify the elevated installation protection
+
+On a Windows build host, run the following isolated proof from an elevated Windows PowerShell 5.1 session. Supply an authenticated extracted Server bundle and a new evidence directory. This proof needs administrator access to create private disposable test folders under ProgramData. It installs no service, scheduled task, desktop, or firewall rule and does not change the running workshop.
+
+```powershell
+powershell.exe -NoProfile -File deploy/windows/test-installation-protection.ps1 -SourceBundle C:\ReviewedServerBundle -EvidenceDirectory C:\LabEvidence\installation-protection
+```
+
+The proof authenticates the source and copied catalog, reproduces the Admin/SYSTEM-only PostgreSQL child-token DLL failure, and requires `initdb --show` to succeed after the installer grants read and execute access only to PostgreSQL tools. It also requires private backup and state folders to be created directly under ProgramData and checks the native hourly trigger with `StopAtDurationEnd` disabled. `protection-result.json` records the outcome and the retained synthetic payload path. These focused checks do not replace clean-PC installation acceptance.
 
 ## Prepare clean offline PCs
 

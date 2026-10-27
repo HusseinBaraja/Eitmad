@@ -417,14 +417,16 @@ mod tests {
         ));
     }
 
+    #[derive(Debug)]
+    enum StalledTransferEvent {
+        Accepted,
+        Completed(Result<(), ImageError>),
+    }
+
     fn stall_tls_peer(
         listener: TcpListener,
-    ) -> (
-        mpsc::Receiver<()>,
-        mpsc::Sender<()>,
-        std::thread::JoinHandle<()>,
-    ) {
-        let (entered, accepted) = mpsc::channel();
+        events: mpsc::Sender<StalledTransferEvent>,
+    ) -> (mpsc::Sender<()>, std::thread::JoinHandle<()>) {
         let (release, waiting) = mpsc::channel();
         listener.set_nonblocking(true).unwrap();
         let peer = std::thread::spawn(move || {
@@ -444,12 +446,25 @@ mod tests {
                     _ => panic!("Synthetic stalled TLS request did not arrive"),
                 }
             };
-            if entered.send(()).is_ok() {
+            if events.send(StalledTransferEvent::Accepted).is_ok() {
                 // Keep the peer open until release, including on assertion failure.
                 let _ = waiting.recv();
             }
         });
-        (accepted, release, peer)
+        (release, peer)
+    }
+
+    fn spawn_stalled_download(
+        client: Arc<DirectCatalogImageClient>,
+        actor: AuthorizationContext,
+        image: CatalogImageRef,
+        events: mpsc::Sender<StalledTransferEvent>,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let deadline = UnixMillis(super::super::unix_millis_now().0 + 5_000);
+            let result = client.download(&actor, &image, deadline).map(|_| ());
+            let _ = events.send(StalledTransferEvent::Completed(result));
+        })
     }
 
     #[test]
@@ -458,6 +473,21 @@ mod tests {
         for refresh in [false, true] {
             assert_stalled_transfer_admission(refresh);
         }
+    }
+
+    fn assert_busy_download(
+        client: &DirectCatalogImageClient,
+        actor: &AuthorizationContext,
+        image: &CatalogImageRef,
+    ) {
+        assert_eq!(
+            client.download(
+                actor,
+                image,
+                UnixMillis(super::super::unix_millis_now().0 + 50)
+            ),
+            Err(ImageError::Unavailable)
+        );
     }
 
     fn assert_stalled_transfer_admission(refresh: bool) {
@@ -481,7 +511,8 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let endpoint =
             url::Url::parse(&format!("https://{}/", listener.local_addr().unwrap())).unwrap();
-        let (accepted, release, peer) = stall_tls_peer(listener);
+        let (events, received) = mpsc::channel();
+        let (release, peer) = stall_tls_peer(listener, events.clone());
         let scope = ScopeRef {
             kind: ScopeKind::parse("organization").unwrap(),
             id: ScopeId::new(tenant.value()),
@@ -505,64 +536,54 @@ mod tests {
             kind: CatalogImageKind::Product,
             sha256: "00".repeat(32),
         };
-        let worker = Arc::clone(&client);
-        let worker_actor = actor.clone();
-        let worker_image = image.clone();
-        let (finished, completed) = mpsc::channel();
-        let work = std::thread::spawn(move || {
-            // Native credential reads and worker startup are not subsecond guarantees.
-            let deadline = UnixMillis(super::super::unix_millis_now().0 + 5_000);
-            finished
-                .send(worker.download(&worker_actor, &worker_image, deadline))
-                .unwrap();
-        });
-        // Allow worker scheduling before its five-second operation budget starts.
-        // This harness wait must not race the request's own deadline.
-        accepted.recv_timeout(Duration::from_secs(30)).unwrap();
-        let admission_start = Instant::now();
-        assert_eq!(
-            client.remote_scope(),
-            scope,
-            "Scope reads must not wait behind network I/O"
-        );
-        assert_eq!(
-            client.download(
-                &actor,
-                &image,
-                UnixMillis(super::super::unix_millis_now().0 + 50)
-            ),
-            Err(ImageError::Unavailable)
-        );
-        if refresh {
-            assert_eq!(
-                other_client.download(
-                    &actor,
-                    &image,
-                    UnixMillis(super::super::unix_millis_now().0 + 50)
-                ),
-                Err(ImageError::Unavailable)
+        let started = Instant::now();
+        let work =
+            spawn_stalled_download(Arc::clone(&client), actor.clone(), image.clone(), events);
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // Observe worker failure before acceptance instead of hiding it behind a fixture timeout.
+            let startup = received.recv_timeout(Duration::from_secs(30));
+            assert!(
+                matches!(startup, Ok(StalledTransferEvent::Accepted)),
+                "Transfer ended before TLS acceptance: {startup:?}; refresh={refresh}; backend={:?}; elapsed={:?}",
+                store.backend_kind(),
+                started.elapsed()
             );
-        }
-        assert!(
-            admission_start.elapsed() < Duration::from_secs(1),
-            "Scope reads and busy admission must not wait for the stalled peer"
-        );
-        assert_eq!(
-            completed.recv_timeout(Duration::from_secs(5)).unwrap(),
-            Err(ImageError::Unavailable)
-        );
-        assert!(
-            crate::credential_gate(&credential_id)
-                .unwrap()
-                .acquire(Instant::now() + Duration::from_millis(50))
-                .is_ok(),
-            "An expired refresh must release credential ownership before the peer exits"
-        );
-        // A timed-out refresh must retain the credential for a later retry.
-        assert!(store.get(&credential_id).unwrap().is_some());
-        release.send(()).unwrap();
-        peer.join().unwrap();
-        work.join().unwrap();
+            let admission_start = Instant::now();
+            assert_eq!(
+                client.remote_scope(),
+                scope,
+                "Scope reads must not wait behind network I/O"
+            );
+            assert_busy_download(&client, &actor, &image);
+            if refresh {
+                assert_busy_download(&other_client, &actor, &image);
+            }
+            assert!(
+                admission_start.elapsed() < Duration::from_secs(1),
+                "Scope reads and busy admission must not wait for the stalled peer"
+            );
+            assert!(matches!(
+                received.recv_timeout(Duration::from_secs(5)).unwrap(),
+                StalledTransferEvent::Completed(Err(ImageError::Unavailable))
+            ));
+            assert!(
+                crate::credential_gate(&credential_id)
+                    .unwrap()
+                    .acquire(Instant::now() + Duration::from_millis(50))
+                    .is_ok(),
+                "An expired refresh must release credential ownership before the peer exits"
+            );
+            // A timed-out refresh must retain the credential for a later retry.
+            assert!(store.get(&credential_id).unwrap().is_some());
+        }));
+        let _ = release.send(());
+        let peer_result = peer.join();
+        let work_result = work.join();
         store.delete(&credential_id).unwrap();
+        if let Err(cause) = outcome {
+            std::panic::resume_unwind(cause);
+        }
+        peer_result.unwrap();
+        work_result.unwrap();
     }
 }

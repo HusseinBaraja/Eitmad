@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-24"
+last_verified: "2026-10-26"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
@@ -50,6 +50,8 @@ End users need no Rust compiler, .NET SDK, database commands, or internet downlo
 
 Setup creates the private PostgreSQL cluster and TLS trust, applies migrations, installs the `EitmadPostgres` and `EitmadServer` services, and verifies HTTPS readiness. It also configures unattended certificate renewal, enrolls the original user's desktop, configures daily backups with seven retained generations, verifies the first capture and any selected external copy, and registers the desktop app. Readiness alone is not whole-setup completion.
 
+For a new workshop, the setup form and Windows approval are the required input. With the default backup destination, the remaining installation stages run without further questions. Initial publisher trust can require its own confirmation and Windows approval as described above. A prerequisite restart or a failed check stops setup with a recovery state; setup does not report completion or reset existing data in those cases.
+
 The installed services start without Windows sign-in. Closing the desktop does not stop the server. PostgreSQL stays on loopback. Guided setup permits the Eitmad HTTPS and discovery traffic only from `LocalSubnet` on **Private** networks. Do not add a firewall rule for each employee address. Keep the server awake; see [power and reboot requirements](run-windows-host-services.md#sleep-power-and-reboot-requirements).
 
 ## 2. Create employee accounts
@@ -78,6 +80,8 @@ The app authenticates server trust during pairing and keeps an independent devic
 - Before depending on unattended operation, verify client access after a planned server reboot while the server is still at the Windows sign-in screen. Use [offline setup acceptance](verify-offline-windows-setup.md) for the controlled reboot, firewall, DHCP, and restore checks.
 
 ## If setup or pairing stops
+
+Keep signature and permission checks enabled. A preparation-tool path refusal must distinguish a different executable from Windows slash formatting. The elevated payload grants the installing administrator read and execute access only to its PostgreSQL tools, because `initdb` removes Administrators access from its child token. Server controls remain restricted to Administrators and SYSTEM. Default backup folders can be created under ProgramData without making ProgramData private; setup protects each new folder and rejects unsafe ancestor replacement rights. See [the isolated protection proof](verify-offline-windows-setup.md#verify-the-elevated-installation-protection) before distributing a rebuilt installer.
 
 Keep the original installer EXE, installation folders, and original Windows user. Reopen the **same authenticated installer EXE** and select **فحص حالة الإعداد**. If offered, select **فحص واستكمال الإعداد**. Server recovery asks for the current Owner password; Client recovery requires no password or elevation. Wait if another worker is still active. A blocked or uncertain result needs [stage-specific installation recovery](prepare-windows-workshop.md#progress-interruption-and-recovery).
 
