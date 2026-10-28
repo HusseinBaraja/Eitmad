@@ -42,6 +42,8 @@ pub(super) fn invoke(
         .args([
             "-NoProfile",
             "-NonInteractive",
+            "-ExecutionPolicy",
+            "AllSigned",
             "-File",
             &request.platform_script,
             "-Action",

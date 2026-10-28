@@ -28,7 +28,13 @@ fn invoke(
     let bytes = Zeroizing::new(serde_json::to_vec(request).map_err(|_| MainError::Input)?);
     let mut child =
         Command::new(Path::new(&system).join("System32/WindowsPowerShell/v1.0/powershell.exe"))
-            .args(["-NoProfile", "-NonInteractive", "-File"])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "AllSigned",
+                "-File",
+            ])
             .arg(script)
             .args(["-Action", action])
             .env_remove("PSModulePath")

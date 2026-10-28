@@ -45,8 +45,11 @@ public sealed class PublisherCertificateTrust : IDisposable
     }
 
     public bool IsTrustedForMachine()
+        => IsInMachineStore(StoreName.Root) && IsInMachineStore(StoreName.TrustedPublisher);
+
+    private bool IsInMachineStore(StoreName name)
     {
-        using var store = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
+        using var store = new X509Store(name, StoreLocation.LocalMachine);
         store.Open(OpenFlags.ReadOnly);
         return store.Certificates.Cast<X509Certificate2>().Any(entry => entry.RawData.SequenceEqual(certificate.RawData));
     }
@@ -63,13 +66,20 @@ public sealed class PublisherCertificateTrust : IDisposable
                 await output.WriteAsync(certificate.RawData);
             using (var lease = OfflinePayloadLease.RetainForLaunch(root))
             {
-                var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "certutil.exe")) {
-                    UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden,
-                };
-                foreach (var argument in new[] { "-addstore", "Root", path }) start.ArgumentList.Add(argument);
-                using var child = Process.Start(start) ?? throw new IOException("Windows certificate trust unavailable.");
-                await child.WaitForExitAsync();
-                if (child.ExitCode != 0 || !IsTrustedForMachine()) throw new IOException("Publisher certificate was not trusted.");
+                // Root validates the signature chain. TrustedPublisher permits
+                // AllSigned scripts without an interactive publisher prompt,
+                // including under another UAC account and the SYSTEM task.
+                foreach (var name in new[] { StoreName.Root, StoreName.TrustedPublisher })
+                {
+                    if (IsInMachineStore(name)) continue;
+                    var start = new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "certutil.exe")) {
+                        UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden,
+                    };
+                    foreach (var argument in new[] { "-addstore", name.ToString(), path }) start.ArgumentList.Add(argument);
+                    using var child = Process.Start(start) ?? throw new IOException("Windows certificate trust unavailable.");
+                    await child.WaitForExitAsync();
+                    if (child.ExitCode != 0 || !IsInMachineStore(name)) throw new IOException("Publisher certificate was not trusted.");
+                }
             }
         }
         finally
