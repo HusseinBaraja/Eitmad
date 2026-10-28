@@ -98,10 +98,15 @@ public sealed class WindowsSetupBridge : IWindowsSetupBridge
         var start = new ProcessStartInfo(Path.Combine(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")) {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-Command", "$p=Get-AppxPackage -Name Eitmad.Desktop; if (@($p).Count -ne 1) { exit 1 }; Start-Process explorer.exe -ArgumentList ('shell:AppsFolder\'+$p.PackageFamilyName+'!Desktop') -WindowStyle Hidden" }) start.ArgumentList.Add(arg);
+        foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; $p=@(Get-AppxPackage -Name Eitmad.Desktop); if ($p.Count -ne 1) { exit 1 }; [Console]::WriteLine($p[0].PackageFamilyName+'!Desktop')" }) start.ArgumentList.Add(arg);
         using var child = Process.Start(start) ?? throw new IOException("Desktop unavailable.");
-        var output = child.StandardOutput.BaseStream.CopyToAsync(Stream.Null); var errors = ReadDiagnosticsAsync(child.StandardError);
-        await child.WaitForExitAsync(); await Task.WhenAll(output, errors);
-        if (child.ExitCode != 0) throw new IOException("Desktop launch was not confirmed.");
+        var output = ReadBoundedLineAsync(child.StandardOutput); var errors = ReadDiagnosticsAsync(child.StandardError);
+        await child.WaitForExitAsync(); await Task.WhenAll((Task)output, errors);
+        var applicationId = (await output)?.TrimEnd('\r');
+        if (child.ExitCode != 0 || applicationId is null ||
+            !applicationId.StartsWith("Eitmad.Desktop_", StringComparison.Ordinal) ||
+            !applicationId.EndsWith("!Desktop", StringComparison.Ordinal))
+            throw new IOException("The desktop registration could not be resolved for this Windows user.");
+        await Task.Run(() => WindowsDesktopActivation.Activate(applicationId));
     }
 }

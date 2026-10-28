@@ -10,6 +10,7 @@ try
         throw new ArgumentException("Usage: Eitmad.Platform.Windows.Tests [--engine <path>]");
     }
 
+    if (OperatingSystem.IsWindows()) await DesktopActivationScenario.UnregisteredApplicationReportsWindowsFailure();
     await IpcCancellationScenario.DiagnosticsRetainCorrelationAndRedactPayloads();
     await IpcCancellationScenario.DiagnosticQueueNeverWaitsForBlockedStderr();
     var tests = new SupervisionScenarios();
