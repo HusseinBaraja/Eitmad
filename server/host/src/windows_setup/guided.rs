@@ -312,7 +312,7 @@ pub(super) async fn approve_first_desktop(
     })
 }
 
-pub(super) fn enroll_desktop(
+pub(super) async fn enroll_desktop(
     request: &InstallWindowsServer,
     handoff: &SetupDesktopHandoff,
 ) -> Result<(), MainError> {
@@ -328,7 +328,7 @@ pub(super) fn enroll_desktop(
         )
         .map_err(|_| MainError::Setup)?;
     let owner = &request.preparation.workshop;
-    let mut sign_in = DesktopSignInRequest {
+    let sign_in = DesktopSignInRequest {
         request_id: RequestId::new(uuid::Uuid::new_v4()),
         correlation_id: CorrelationId::new(uuid::Uuid::new_v4()),
         username: owner.owner_username.clone(),
@@ -336,13 +336,112 @@ pub(super) fn enroll_desktop(
         server_login: true,
         connection: Some(connection),
     };
-    let result = desktop.sign_in(&sign_in);
-    zeroize::Zeroize::zeroize(&mut sign_in.password);
-    result.map(|_| ()).map_err(|_| MainError::Setup)
+    sign_in_desktop(desktop, sign_in).await
+}
+
+async fn sign_in_desktop(
+    desktop: DesktopEnrollment,
+    mut sign_in: DesktopSignInRequest,
+) -> Result<(), MainError> {
+    // Synchronous connection recovery drives its own discovery runtime. Keep it off
+    // the installer's async task, including when the initial address is unavailable.
+    tokio::task::spawn_blocking(move || {
+        let result = desktop.sign_in(&sign_in);
+        zeroize::Zeroize::zeroize(&mut sign_in.password);
+        result.map(|_| ()).map_err(|_| MainError::Setup)
+    })
+    .await
+    .map_err(|_| MainError::Setup)?
 }
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    #[ignore = "requires a disposable EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE and LAN discovery"]
+    async fn unavailable_first_desktop_recovers_without_nesting_the_setup_runtime() {
+        use super::*;
+        use eitmad_contracts::{
+            discovery::ServerInstallationId,
+            identity::{AccountId, OrganizationId, ScopeId, TenantId},
+            server::TenantCode,
+            setup::InitializedWorkshop,
+        };
+        use eitmad_secret_storage::{FallbackEncryptionKey, SecretStore};
+        use eitmad_storage::AuthorityStore;
+        use uuid::Uuid;
+
+        let directory = std::env::temp_dir().join(format!("eitmad-enrollment-{}", Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let desktop = DesktopEnrollment::new(
+            directory.clone(),
+            AuthorityStore::open(&directory).unwrap(),
+            SecretStore::open(&directory, Some(FallbackEncryptionKey::new([91; 32]))).unwrap(),
+        );
+        let login = desktop
+            .first_desktop_request(
+                TenantCode::parse("synthetic-workshop").unwrap(),
+                "synthetic-owner".into(),
+                "Synthetic-password-123!".into(),
+            )
+            .unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!(
+            "https://localhost:{}/",
+            listener.local_addr().unwrap().port()
+        );
+        drop(listener);
+        let handoff = SetupDesktopHandoff {
+            version: 1,
+            server_id: ServerInstallationId::new(Uuid::new_v4()),
+            public_ca_pem: std::fs::read_to_string(
+                std::env::var("EITMAD_DIRECT_TEST_TRUSTED_CERTIFICATE").unwrap(),
+            )
+            .unwrap(),
+            prepared: PreparedWindowsWorkshop {
+                version: 1,
+                endpoint,
+                workshop: InitializedWorkshop {
+                    version: 1,
+                    tenant_id: TenantId::new(Uuid::new_v4()),
+                    tenant_code: login.tenant_code.clone(),
+                    organization_id: OrganizationId::new(Uuid::new_v4()),
+                    branch_id: ScopeId::new(Uuid::new_v4()),
+                    owner_account_id: AccountId::new(Uuid::new_v4()),
+                },
+            },
+        };
+        let connection = desktop.retain_first_desktop(&handoff, &login).unwrap();
+        let files = [
+            "desktop-first-server.json",
+            "desktop-device.json",
+            "desktop-pairing-ca.pem",
+        ];
+        let before = files.map(|name| std::fs::read(directory.join(name)).unwrap());
+        let result = sign_in_desktop(
+            desktop,
+            DesktopSignInRequest {
+                request_id: RequestId::new(Uuid::new_v4()),
+                correlation_id: CorrelationId::new(Uuid::new_v4()),
+                username: login.username,
+                password: login.password,
+                server_login: true,
+                connection: Some(connection),
+            },
+        )
+        .await;
+        assert!(matches!(result, Err(MainError::Setup)));
+        assert!(
+            eitmad_server_connection::DesktopConnectionSettings::load(&directory)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            before,
+            files.map(|name| std::fs::read(directory.join(name)).unwrap())
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
     #[test]
     fn fixed_role_refuses_the_other_install_action() {
         use eitmad_contracts::setup::{GuidedSetupAction as Action, WindowsSetupRole as Role};
