@@ -41,6 +41,8 @@ Rust 1.85.1 compiler output and NuGet downloads are cached. CI omits development
 
 The test profile optimizes Argon2 to avoid unoptimized password-hashing overhead. Tests retain the real password parameters, memory cost, debug assertions, overflow checks, and authentication behavior. The release profile is unchanged.
 
+Clippy checks compilation and warnings for all workspace targets with Rust 1.85.1 in one pass. CI does not repeat the same compilation check with `cargo check`. Local publication validation retains both commands as required by `AGENTS.md`.
+
 The Rust gate uses pinned Nextest for concurrent workspace unit and integration tests, with no retries, followed by Cargo documentation tests. The Windows shell suite runs alongside engine compilation and supervision. Engine diagnostics reuse the executable already built in `windows-supervision`. To compare CI performance, record job and workflow durations for an initial cache-populating run and a rerun of the same commit. A warm run must execute all checks; a cache hit never replaces a validation command.
 
 The shell suite runs in three required process-isolated groups selected by `scripts/ci/test_windows_shell.ps1`. Each group retains a separate WPF dispatcher. The third group includes every class outside the first two lists, so new tests remain covered automatically. Uploaded TRX reports record the executed tests and durations. Before publication, run the full unfiltered local shell suite as required by `AGENTS.md`.

@@ -67,9 +67,8 @@ jobs:
           fallback: none
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
-      - name: Check minimum-version compilation
-        run: cargo check --locked --workspace --all-targets
-      - name: Reject Rust warnings
+      # Clippy checks compilation with this pinned minimum toolchain as well as lints.
+      - name: Check minimum-version compilation and reject Rust warnings
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
         run: cargo nextest run --locked --workspace --profile ci
