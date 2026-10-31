@@ -1,5 +1,5 @@
 [profile.ci]
-test-threads = 8
+test-threads = 4
 # Keep failures visible without retrying intermittent failures into a passing gate.
 retries = 0
 status-level = "fail"

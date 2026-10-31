@@ -23,10 +23,20 @@ use eitmad_sync::{
     SyncEngine, SyncTransport, TransportFailure, TransportKind,
 };
 
+fn keep_wal_open(store: &AuthorityStore) -> Connection {
+    let connection = Connection::open(store.path()).unwrap();
+    connection
+        .pragma_update(None, "journal_mode", "WAL")
+        .unwrap();
+    connection
+}
+
 #[test]
 fn customer_sync_counts_confirmations_while_the_next_batch_stays_full() {
     let directory = TempDir::new().unwrap();
     let (store, customers, actor) = authorized_service(&directory, 41, 51, MANAGER_RELATION);
+    // Keep WAL open across page operations instead of checkpointing each closed connection.
+    let _database_connection = keep_wal_open(&store);
     for index in 0..102 {
         customers
             .create(
@@ -74,9 +84,11 @@ fn customer_sync_counts_confirmations_while_the_next_batch_stays_full() {
 #[test]
 fn incoming_customer_pages_catch_up_and_resume_without_an_outbox() {
     let source = TempDir::new().unwrap();
-    let (_, writer, author) = authorized_service(&source, 42, 51, MANAGER_RELATION);
+    let (source_store, writer, author) = authorized_service(&source, 42, 51, MANAGER_RELATION);
+    let _source_connection = keep_wal_open(&source_store);
     let directory = TempDir::new().unwrap();
     let (store, customers, actor) = authorized_service(&directory, 43, 51, MANAGER_RELATION);
+    let database_connection = keep_wal_open(&store);
     let mut server = customer_server();
     server.records = customer_history(&writer, &author, 51);
     let (mut engine, request, audit) = sync_engine(&store, &actor);
@@ -138,6 +150,8 @@ fn incoming_customer_pages_catch_up_and_resume_without_an_outbox() {
         )
         .unwrap(),
     );
+    // Close the fixture connection before exercising persisted-state recovery.
+    drop(database_connection);
     drop(engine);
     let reopened = AuthorityStore::open(directory.path()).unwrap();
     let (mut engine, request, audit) = sync_engine(&reopened, &actor);

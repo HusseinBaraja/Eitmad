@@ -73,6 +73,14 @@ fn retained(store: &AuthorityStore) -> i64 {
         .unwrap()
 }
 
+fn keep_wal_open(store: &AuthorityStore) -> rusqlite::Connection {
+    let connection = rusqlite::Connection::open(store.path()).unwrap();
+    connection
+        .pragma_update(None, "journal_mode", "WAL")
+        .unwrap();
+    connection
+}
+
 fn grant_receptionist(store: &AuthorityStore, subject: &AuthorizationContext) {
     let auth = AuthorizationService::new(store.clone());
     let mut owner = actor(99, 50);
@@ -303,6 +311,7 @@ fn quotation_recovery_distinguishes_temporary_failure_conflict_and_rejection() {
         (ApprovalError::Invalid, QuotationDraftSyncState::Rejected),
     ] {
         let (dir, store, _, actor, input, _) = fixture_evaluation();
+        let database_connection = keep_wal_open(&store);
         let drafts = service(&store);
         let saved = drafts
             .create(
@@ -323,6 +332,7 @@ fn quotation_recovery_distinguishes_temporary_failure_conflict_and_rejection() {
             }
         );
         assert_eq!(retained(&store), 1);
+        drop(database_connection);
         let reopened = AuthorityStore::open(dir.path()).unwrap();
         let drafts = service(&reopened);
         let current = drafts
@@ -354,6 +364,8 @@ fn quotation_recovery_distinguishes_temporary_failure_conflict_and_rejection() {
 #[test]
 fn quotation_recovery_bounds_each_pass_and_rotates_past_blocked_dependencies() {
     let (_dir, store, _, actor, input, _) = fixture_evaluation();
+    // Keep WAL open across the full page while retaining every durable transaction.
+    let _database_connection = keep_wal_open(&store);
     let drafts = service(&store);
     for key in 1300..1350 {
         drafts
