@@ -74,10 +74,12 @@ public sealed class OnboardingRenderedTests
         public WindowsInstallationState? State { get; set; }
         public Func<Task<WindowsInstallationState?>>? Inspect { get; set; }
         public Func<IProgress<WindowsInstallProgress>, Task>? Install { get; set; }
+        public Func<Task>? Open { get; set; }
+        public int OpenCalls { get; private set; }
         public int Calls { get; private set; }
         public GuidedSetupAction? Action { get; private set; }
         public Task<WindowsInstallationState?> InspectAsync() => Inspect?.Invoke() ?? Task.FromResult(State);
-        public Task OpenDesktopAsync() => Task.CompletedTask;
+        public Task OpenDesktopAsync() { OpenCalls++; return Open?.Invoke() ?? Task.CompletedTask; }
         public string? RetryPassword { get; private set; }
         public Task RetryAsync(string? ownerPassword, IProgress<WindowsInstallProgress> progress)
         { Calls++; RetryPassword = ownerPassword; return Install?.Invoke(progress) ?? Task.FromException(new IOException("Synthetic retry failure")); }
@@ -91,6 +93,54 @@ public sealed class OnboardingRenderedTests
         TestContext.WriteLine($"Requested {width}x{height}; actual {window.ActualWidth}x{window.ActualHeight} DIP; scale {dpi.DpiScaleX * 100:0}%; primary display {SystemParameters.PrimaryScreenWidth}x{SystemParameters.PrimaryScreenHeight} DIP.");
         Assert.AreEqual(FlowDirection.RightToLeft, window.FlowDirection);
         Assert.AreEqual("ar-ye", window.Language.IetfLanguageTag);
+    }
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Desktop_launch_failure_preserves_completion_and_allows_retry(int width, int height)
+    {
+        var activation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var backend = new SetupBackend {
+            State = new WindowsInstallationState { Version = 1, Recovery = WindowsSetupRecovery.Complete,
+                Progress = new WindowsInstallProgress { Version = 1, Sequence = 1,
+                    Stage = WindowsInstallStage.Complete, Status = WindowsInstallStatus.Succeeded } },
+            Open = () => activation.Task,
+        };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) {
+            Width = width, Height = height,
+        }, window => {
+            Record(window, width, height);
+            var view = (SetupWindow)window;
+            var open = WpfTestHost.FindByName<Button>(window, "OpenDesktopButton");
+            var launch = view.OpenDesktopAsync();
+            Assert.IsFalse(open.IsEnabled);
+            Assert.IsTrue(view.OpenDesktopAsync().IsCompletedSuccessfully);
+            Assert.AreEqual(1, backend.OpenCalls);
+            activation.SetException(new IOException("Synthetic activation failure (HRESULT=0x80070490)."));
+            WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(launch.IsCompletedSuccessfully);
+            Assert.IsTrue(open.IsEnabled);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "FailurePanel").Visibility);
+            Assert.IsTrue(view.DiagnosticLog.Contains("0x80070490", StringComparison.Ordinal));
+            Assert.AreEqual(WindowsInstallStatus.Succeeded, backend.State.Progress.Status);
+            Assert.AreEqual("اكتمل التثبيت", WpfTestHost.FindByName<TextBlock>(window, "ProgressTitle").Text);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<Button>(window, "InstallButton").Visibility);
+            Assert.IsTrue(open.Focus());
+            Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(open)));
+            var copy = WpfTestHost.FindByName<Button>(window, "CopyLogButton");
+            copy.BringIntoView(); WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(copy.Focus());
+            Assert.IsTrue(copy.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            Assert.IsTrue(WpfTestHost.FindByName<Button>(window, "SaveLogButton").IsKeyboardFocused);
+            WpfTestHost.FindByName<ScrollViewer>(window, "SetupScroll").ScrollToTop();
+            WpfTestHost.CompleteLayout(window);
+            WpfTestHost.Capture(window, $"setup-desktop-launch-failure-{width}");
+            backend.Open = () => Task.CompletedTask;
+            open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(2, backend.OpenCalls);
+            Assert.AreEqual(0, backend.Calls);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "FailurePanel").Visibility);
+        });
     }
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]

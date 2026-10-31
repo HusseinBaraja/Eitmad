@@ -380,7 +380,7 @@ pub(super) async fn install(
             let handoff = platform.elevate(server, &mut progress)?;
             if server.first_desktop.is_some() {
                 progress.begin(Stage::EnrollDesktop)?;
-                super::guided::enroll_desktop(server, &handoff.ok_or(MainError::Setup)?)?;
+                super::guided::enroll_desktop(server, &handoff.ok_or(MainError::Setup)?).await?;
             }
         }
         progress.begin(Stage::RegisterDesktop)?;

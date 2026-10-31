@@ -44,7 +44,7 @@ public partial class InstallerWindow : Window
             {
                 ShowPublisherTrust(publisher.Publisher, publisher.Fingerprint);
                 if (!trustPublisher || ConfirmedPublisher.IsChecked != true) return;
-                InstallerNotice.Text = "وافق على طلب مسؤول Windows لاعتماد شهادة الناشر. تبقى عملية تثبيت التطبيق للمستخدم الذي بدأ الإعداد.";
+                InstallerNotice.Text = "وافق على طلبات مسؤول Windows لاعتماد شهادة الناشر. قد يظهر طلبان. تبقى عملية تثبيت التطبيق للمستخدم الذي بدأ الإعداد.";
                 await Task.Run(publisher.TrustForMachineAsync);
             }
             PublisherTrustPanel.Visibility = Visibility.Collapsed; TrustPublisher.Visibility = Visibility.Collapsed;
@@ -83,7 +83,7 @@ public partial class InstallerWindow : Window
         PublisherName.Text = publisher; PublisherFingerprint.Text = fingerprint;
         PublisherTrustPanel.Visibility = Visibility.Visible; TrustPublisher.Visibility = Visibility.Visible;
         PreparationProgress.Visibility = Visibility.Collapsed;
-        InstallerNotice.Text = "يستخدم الاعتماد شهادة ناشر ذاتية التوقيع. قارن البصمة مع المصدر الذي سلّمك الملف قبل المتابعة. بموافقة مسؤول Windows، تُضاف الشهادة العامة مرة واحدة إلى مخزن الشهادات الجذرية الموثوقة لهذا الجهاز، حتى على جهاز الموظف. يسمح ذلك بتشغيل البرامج الموقّعة بهذا المفتاح. الشهادة مخصّصة لتوقيع البرامج ولا تحتوي على مفتاح خاص.";
+        InstallerNotice.Text = "يستخدم الاعتماد شهادة ناشر ذاتية التوقيع. قارن البصمة مع المصدر الذي سلّمك الملف قبل المتابعة. بموافقة مسؤول Windows، تُضاف الشهادة العامة إلى مخزني الشهادات الجذرية والناشرين الموثوقين لهذا الجهاز، حتى على جهاز الموظف. قد يظهر طلبان. يسمح ذلك بتشغيل البرامج ونصوص الإعداد الموقّعة بهذا المفتاح. الشهادة لا تحتوي على مفتاح خاص.";
         UpdateTrustAction();
     }
 

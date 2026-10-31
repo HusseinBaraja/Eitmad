@@ -11,10 +11,30 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-self-signed-proof-' + [gui
 $subject = 'CN=Eitmad signing proof ' + [guid]::NewGuid().ToString('N')
 $previousThumbprint = $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT
 $certificate = $null
+$publisherAdded = $false
 function Reject([scriptblock]$Operation) {
     $rejected = $false
     try { & $Operation } catch { $rejected = $true }
     if (-not $rejected) { throw 'An invalid signing operation was accepted.' }
+}
+function Invoke-SignedScriptProbe([string]$Path) {
+    $start = [Diagnostics.ProcessStartInfo]::new('pwsh.exe')
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.Environment['PSExecutionPolicyPreference'] = 'Restricted'
+    foreach ($argument in @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'AllSigned', '-File', $Path)) {
+        $start.ArgumentList.Add($argument)
+    }
+    $child = [Diagnostics.Process]::Start($start)
+    try {
+        $output = $child.StandardOutput.ReadToEndAsync()
+        $errors = $child.StandardError.ReadToEndAsync()
+        if (-not $child.WaitForExit(30000)) { $child.Kill(); throw 'Signed script probe timed out.' }
+        [void]$errors.GetAwaiter().GetResult()
+        return @{Code=$child.ExitCode; Output=$output.GetAwaiter().GetResult().Trim()}
+    } finally { $child.Dispose() }
 }
 try {
     if ($CertificateThumbprint) {
@@ -68,8 +88,44 @@ try {
     Assert-PackageSignature $executable $subject
     # The real script SIP needs extended paths when staging exceeds MAX_PATH.
     $module = Join-Path $root 'probe.psm1'
-    [IO.File]::WriteAllText($module, '# Synthetic signed module for long-path verification.')
+    [IO.File]::WriteAllText($module, "function Get-SignedProbe { return 'signed-module-ok' }; Export-ModuleMember -Function Get-SignedProbe")
     & (Join-Path $PSScriptRoot 'sign-windows.ps1') -Path $module -Publisher $subject -SigningHook $hook
+    # Reproduce a Restricted parent without changing user/machine policy. The
+    # setup process must accept a signed entry point and signed module.
+    $probe = Join-Path $root 'probe.ps1'
+    [IO.File]::WriteAllText($probe, "Import-Module (Join-Path `$PSScriptRoot 'probe.psm1') -Force -ErrorAction Stop; Get-SignedProbe")
+    $previousPolicy = Get-ExecutionPolicy
+    & {
+        $result = Invoke-SignedScriptProbe $probe
+        if ($result.Code -eq 0) { throw 'AllSigned accepted an unsigned entry script.' }
+        & $hook -Path $probe
+        if (-not $CertificateThumbprint) {
+            $result = Invoke-SignedScriptProbe $probe
+            if ($result.Code -eq 0) { throw 'An unclassified script publisher was accepted noninteractively.' }
+        }
+        $publishers = [Security.Cryptography.X509Certificates.X509Store]::new('TrustedPublisher', 'CurrentUser')
+        try {
+            $publishers.Open('ReadWrite')
+            if (-not @($publishers.Certificates | Where-Object Thumbprint -eq $certificate.Thumbprint).Count) {
+                $publishers.Add($certificate)
+                $script:publisherAdded = $true
+            }
+        } finally { $publishers.Dispose() }
+        $result = Invoke-SignedScriptProbe $probe
+        if ($result.Code -ne 0 -or $result.Output -cne 'signed-module-ok') { throw 'Trusted signed script/module failed from Restricted parent.' }
+        # Package authentication independently rejects unsigned/modified modules.
+        [IO.File]::WriteAllText($module, "function Get-SignedProbe { return 'unsigned-module' }")
+        Reject { Assert-PackageSignature $module $subject }
+        & $hook -Path $module
+        [IO.File]::AppendAllText($module, "`n# changed after signing")
+        Reject { Assert-PackageSignature $module $subject }
+        [IO.File]::AppendAllText($probe, "`n# changed after signing")
+        $result = Invoke-SignedScriptProbe $probe
+        if ($result.Code -eq 0) { throw 'AllSigned accepted a modified signed entry script.' }
+        if ((Get-ExecutionPolicy) -ne $previousPolicy) { throw 'Child process changed its parent execution policy.' }
+    }
+    [IO.File]::WriteAllText($module, '# Synthetic signed module for long-path verification.')
+    & $hook -Path $module
     $relative = ('staging-' + ('x' * 100) + '/payload-' + ('y' * 100) + '/probe.psm1')
     $longPath = Join-Path $root $relative
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($longPath))
@@ -103,6 +159,10 @@ try {
     Reject { Assert-PackageSignature $executable $subject }
     Write-Output 'Self-signed EXE, public certificate, native trust, catalog, and tamper checks passed without timestamps.'
 } finally {
+    if ($publisherAdded -and $certificate) {
+        $store = [Security.Cryptography.X509Certificates.X509Store]::new('TrustedPublisher', 'CurrentUser')
+        try { $store.Open('ReadWrite'); $store.Remove($certificate) } finally { $store.Dispose() }
+    }
     # Remove only the certificate/key and files created by this invocation.
     if ($certificate -and -not $CertificateThumbprint) {
         $store = [Security.Cryptography.X509Certificates.X509Store]::new('Root', 'CurrentUser')

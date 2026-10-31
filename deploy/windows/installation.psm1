@@ -283,13 +283,13 @@ function Invoke-EitmadInstallationWorker {
         $verifier = Join-Path $PSScriptRoot 'verify-offline.ps1'
         $systemPowerShell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
         @{root=$source; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
-            & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
+            & $systemPowerShell -NoProfile -NonInteractive -ExecutionPolicy AllSigned -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Offline source authentication failed after elevation.' }
         $stage = Join-Path $env:ProgramData ('EitmadSetupPayload-' + [Guid]::NewGuid().ToString('N'))
         New-ProtectedInstallationPayload $source $stage
         $protectedBackend = Join-Path $stage 'server/application/eitmad-server.exe'
         @{root=$stage; anchor=$Backend; publisher=''} | ConvertTo-Json -Compress |
-            & $systemPowerShell -NoProfile -NonInteractive -File $verifier *> $null
+            & $systemPowerShell -NoProfile -NonInteractive -ExecutionPolicy AllSigned -File $verifier *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Protected offline copy authentication failed.' }
         # Retain the authenticated backend used by TLS renewal.
         $code = [EitmadInstallationChannel]::RunWorker($pipe, $protectedBackend, 'install-windows-server', $privateInput,
@@ -317,7 +317,7 @@ function Invoke-EitmadInstallationElevation {
         # All argv values are public. Reuse the adapter's Windows quoting policy.
         $script = Join-Path $PSScriptRoot 'installation.ps1'
         foreach ($path in $script, $Backend) { & $script:HostAdapter { param($value) [void](Get-SafePath $value) } $path }
-        $arguments = @('-NoProfile', '-NonInteractive', '-File', $script, '-Action', 'Worker', '-Backend', $Backend,
+        $arguments = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'AllSigned', '-File', $script, '-Action', 'Worker', '-Backend', $Backend,
             '-PipeName', $name, '-BrokerId', [string]$PID) | ForEach-Object {
                 '"' + [regex]::Replace([regex]::Replace($_, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
             }

@@ -26,7 +26,13 @@ impl Windows {
         let system = std::env::var_os("SystemRoot").ok_or(Outcome::RenewalFailed)?;
         let mut child =
             Command::new(Path::new(&system).join("System32/WindowsPowerShell/v1.0/powershell.exe"))
-                .args(["-NoProfile", "-NonInteractive", "-File"])
+                .args([
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "AllSigned",
+                    "-File",
+                ])
                 .arg(script)
                 .args(["-Action", action, "-StateDirectory"])
                 .arg(&self.root)

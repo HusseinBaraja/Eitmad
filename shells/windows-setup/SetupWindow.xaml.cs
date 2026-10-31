@@ -151,12 +151,27 @@ public partial class SetupWindow : Window
         SetupNotice.Text = "اكتمل التثبيت بعد التحقق. افتح الاعتماد. على جهاز الموظف، اختر الخادم واربط الجهاز برمز المالك، ثم سجل الدخول بحسابك الشخصي. لإضافة الموظفين، افتح المستخدمون من حساب المالك.";
         OpenDesktopButton.Visibility = Visibility.Visible;
     }
-    private async void OpenDesktopClick(object sender, RoutedEventArgs e)
+    private async void OpenDesktopClick(object sender, RoutedEventArgs e) => await OpenDesktopAsync();
+    public async Task OpenDesktopAsync()
     {
+        if (!OpenDesktopButton.IsEnabled || OpenDesktopButton.Visibility != Visibility.Visible) return;
         OpenDesktopButton.IsEnabled = false;
-        try { await backend.OpenDesktopAsync(); }
+        AppendLog("Desktop activation started");
+        try
+        {
+            await backend.OpenDesktopAsync();
+            AppendLog("Windows confirmed desktop activation");
+            FailurePanel.Visibility = Visibility.Collapsed;
+            SetupNotice.Text = "أكد Windows تشغيل التطبيق. يمكنك إغلاق نافذة الإعداد.";
+        }
         catch (Exception error) when (error is System.IO.IOException or System.ComponentModel.Win32Exception)
-        { SetupNotice.Text = "تعذر فتح التطبيق. افتح الاعتماد من قائمة ابدأ تحت مستخدم Windows الذي بدأ الإعداد."; }
+        {
+            AppendLog(error.ToString());
+            FailurePanel.Visibility = Visibility.Visible;
+            FailureSummary.Text = "اكتمل التثبيت، لكن تعذر فتح التطبيق.";
+            NextAction.Text = "افتح الاعتماد من قائمة ابدأ تحت مستخدم Windows الذي بدأ الإعداد. إذا تعذر فتحه، احفظ السجل وأرسله لفحص السبب.";
+            SetupNotice.Text = "";
+        }
         finally { OpenDesktopButton.IsEnabled = true; }
     }
     public static string StageText(WindowsInstallStage stage) => stage switch {
