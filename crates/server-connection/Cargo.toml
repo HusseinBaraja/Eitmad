@@ -40,6 +40,7 @@ uuid = { version = "=1.23.4", features = ["v4"] }
 zeroize = "=1.8.1"
 
 [dev-dependencies]
+eitmad-secret-storage = { path = "../secret-storage", features = ["test-support"] }
 eitmad-server-discovery = { path = "../server-discovery", features = ["test-support"] }
 eitmad-part = { path = "../part" }
 eitmad-product = { path = "../product" }

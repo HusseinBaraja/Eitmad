@@ -50,3 +50,7 @@ pedantic = "deny"
 codegen-units = 1
 lto = "thin"
 strip = "symbols"
+
+# Exercise real password parameters without the cost of unoptimized hashing in tests.
+[profile.test.package.argon2]
+opt-level = 3

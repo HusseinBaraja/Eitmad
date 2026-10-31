@@ -73,6 +73,8 @@ jobs:
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
         run: cargo nextest run --locked --workspace --profile ci
+      - name: Verify native Windows credential storage
+        run: cargo nextest run --locked -p eitmad-secret-storage --profile ci --run-ignored only -E 'test(os_native_backend_supports_secret_lifecycle)'
       - name: Test Rust documentation examples
         run: cargo test --locked --workspace --doc
 
@@ -114,6 +116,10 @@ jobs:
 
   windows-desktop:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,9 +133,16 @@ jobs:
           key: ${{ runner.os }}-nuget-8-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
           restore-keys: ${{ runner.os }}-nuget-8-
       - name: Build Windows shell with warnings rejected
+        if: matrix.partition == 3
         run: dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo
       - name: Test Arabic, RTL, and presentation lifecycle
-        run: dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
+        run: pwsh -NoProfile -File scripts/ci/test_windows_shell.ps1 -Partition ${{ matrix.partition }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-shell-tests-${{ matrix.partition }}
+          path: artifacts/windows-shell-tests/*.trx
+          if-no-files-found: warn
 
   windows-supervision:
     runs-on: windows-latest

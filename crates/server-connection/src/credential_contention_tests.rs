@@ -22,8 +22,11 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();
-        let store =
-            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let store = SecretStore::open_encrypted_for_tests(
+            directory.path(),
+            FallbackEncryptionKey::new([7; 32]),
+        )
+        .unwrap();
         let route = SecretId::new(
             eitmad_contracts::secrets::SecretKind::parse("credential-tls-test").unwrap(),
             eitmad_contracts::config::SecretReferenceId::new(Uuid::new_v4()),

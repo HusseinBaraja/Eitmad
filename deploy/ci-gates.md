@@ -7,7 +7,9 @@ Branch protection for `main` must require every job from `.github/workflows/mand
 - `repository-policy`
 - `rust-quality`
 - `contracts-and-ipc`
-- `windows-desktop`
+- `windows-desktop (1)`
+- `windows-desktop (2)`
+- `windows-desktop (3)`
 - `windows-supervision`
 - `macos-bindings`
 - `server-smoke`
@@ -21,6 +23,8 @@ The final `validation-complete` job fails when any dependency is skipped or fail
 Packaging starts alongside the other validation jobs. Both Windows matrix entries must pass; one failure does not cancel the other. Uploaded unsigned bundles are validation evidence only and cannot be promoted before every gate passes.
 
 `rust-quality` runs all workspace unit and integration tests with pinned Nextest, without retries, and runs documentation tests separately with Cargo. The full workspace suite owns Rust IPC and engine lifecycle coverage. `windows-supervision` owns the engine diagnostic smoke check and fake/real-engine supervision, alongside the independent `windows-desktop` shell suite. The focused contract and supervision workflows remain available through manual dispatch; they do not repeat these automatic gates.
+
+Windows shell tests run in three disjoint class groups, each with its own WPF dispatcher. The first two groups contain measured slow classes; the third includes every other class, including new tests. Every group must pass. Local publication validation still runs the complete unfiltered shell suite. Rust credential-routing unit fixtures use isolated encrypted storage through the test-only `test-support` feature; a separate required step exercises the real Windows credential-store lifecycle without retries.
 
 The `contracts-and-ipc` job installs the pinned contract generator with lifecycle scripts disabled, then runs `npm audit --audit-level=high`. A high or critical advisory blocks contract generation and release validation. Update the pinned generator, verify generated binding drift, and rerun the full contract job. Do not suppress an advisory without an accepted security decision and a bounded replacement date.
 

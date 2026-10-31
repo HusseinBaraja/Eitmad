@@ -39,7 +39,13 @@ The workflow runs for every pull request and every push to `main` without path f
 
 Rust 1.85.1 compiler output and NuGet downloads are cached. CI omits development/test debug symbols to reduce linking and cache transfer time; debug assertions and overflow checks remain enabled. Packaging uses its separate `target/toolchain-1.85.1` cache and retains the release profile, inventory, SBOM, and integrity checks. Windows desktop and server packages build in separate matrix jobs alongside the other checks. Both must succeed before `validation-complete` passes. Unsigned artifact uploads do not imply release acceptance.
 
+The test profile optimizes Argon2 to avoid unoptimized password-hashing overhead. Tests retain the real password parameters, memory cost, debug assertions, overflow checks, and authentication behavior. The release profile is unchanged.
+
 The Rust gate uses pinned Nextest for concurrent workspace unit and integration tests, with no retries, followed by Cargo documentation tests. The Windows shell suite runs alongside engine compilation and supervision. Engine diagnostics reuse the executable already built in `windows-supervision`. To compare CI performance, record job and workflow durations for an initial cache-populating run and a rerun of the same commit. A warm run must execute all checks; a cache hit never replaces a validation command.
+
+The shell suite runs in three required process-isolated groups selected by `scripts/ci/test_windows_shell.ps1`. Each group retains a separate WPF dispatcher. The third group includes every class outside the first two lists, so new tests remain covered automatically. Uploaded TRX reports record the executed tests and durations. Before publication, run the full unfiltered local shell suite as required by `AGENTS.md`.
+
+Credential-routing unit fixtures use isolated encrypted storage instead of the OS credential store. This prevents their correctness checks from depending on shared native storage. The Rust gate separately runs the synthetic native Windows credential lifecycle test, including exact-ID cleanup; native failures remain visible and are not retried into success.
 
 That base comparison makes existing server migration paths and bytes immutable. A schema change must add a new numbered migration and refresh `deploy/migrations.sha256`; changing or deleting a migration present at the base revision fails policy validation even if the manifest was refreshed.
 
