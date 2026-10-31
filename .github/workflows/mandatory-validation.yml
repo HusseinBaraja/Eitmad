@@ -73,9 +73,15 @@ jobs:
       - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
         run: cargo nextest run --locked --workspace --profile ci
       - name: Verify native Windows credential storage
-        run: cargo nextest run --locked -p eitmad-secret-storage --profile ci --run-ignored only -E 'test(os_native_backend_supports_secret_lifecycle)'
+        run: cargo nextest run --locked --workspace --profile native-credentials --run-ignored only -E 'package(eitmad-secret-storage) & test(os_native_backend_supports_secret_lifecycle)'
       - name: Test Rust documentation examples
         run: cargo test --locked --workspace --doc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-test-timings
+          path: target/nextest/**/junit.xml
+          if-no-files-found: warn
 
   contracts-and-ipc:
     runs-on: windows-latest
@@ -231,6 +237,9 @@ jobs:
 
   package-windows:
     runs-on: windows-latest
+    env:
+      # Parallel LLVM work for unsigned CI artifacts; keep full optimization and ThinLTO.
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
     strategy:
       fail-fast: false
       matrix:
@@ -278,6 +287,8 @@ jobs:
 
   package-server:
     runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
     steps:
       - uses: actions/checkout@v4
         with:

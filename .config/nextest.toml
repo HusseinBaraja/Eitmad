@@ -1,5 +1,15 @@
 [profile.ci]
+test-threads = 8
 # Keep failures visible without retrying intermittent failures into a passing gate.
 retries = 0
 status-level = "fail"
 final-status-level = "fail"
+
+[profile.ci.junit]
+path = "junit.xml"
+
+[profile.native-credentials]
+inherits = "ci"
+
+[profile.native-credentials.junit]
+path = "junit.xml"

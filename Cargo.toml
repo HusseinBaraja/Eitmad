@@ -54,3 +54,10 @@ strip = "symbols"
 # Exercise real password parameters without the cost of unoptimized hashing in tests.
 [profile.test.package.argon2]
 opt-level = 3
+
+# Keep real image sizes and codecs practical in storage and synchronization tests.
+[profile.test.package.image]
+opt-level = 3
+
+[profile.test.package.png]
+opt-level = 3
