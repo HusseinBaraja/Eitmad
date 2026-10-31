@@ -50,6 +50,10 @@ jobs:
 
   rust-quality:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,21 +81,25 @@ jobs:
           tool: cargo-nextest@0.9.150
           fallback: none
       - name: Check Rust formatting
+        if: matrix.partition == 1
         run: cargo fmt --all -- --check
       # Clippy checks compilation with this pinned minimum toolchain as well as lints.
       - name: Check minimum-version compilation and reject Rust warnings
+        if: matrix.partition == 1
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
-        run: cargo nextest run --locked --workspace --profile ci
+        run: cargo nextest run --locked --workspace --profile ci --partition count:${{ matrix.partition }}/3
       - name: Verify native Windows credential storage
+        if: matrix.partition == 1
         run: cargo nextest run --locked --workspace --profile native-credentials --run-ignored only -E 'package(eitmad-secret-storage) & test(os_native_backend_supports_secret_lifecycle)'
       - name: Test Rust documentation examples
+        if: matrix.partition == 1
         run: cargo test --locked --workspace --doc
       - name: Record compiler source timestamps
-        if: always()
+        if: always() && matrix.partition == 1
         run: python scripts/ci/cache_source_mtimes.py save artifacts/rust-source-mtimes.json
       - uses: actions/cache/save@v4
-        if: always() && steps.rust-build-cache.outputs.cache-hit != 'true'
+        if: always() && matrix.partition == 1 && steps.rust-build-cache.outputs.cache-hit != 'true'
         with:
           path: |
             ~/.cargo/registry/index
@@ -103,7 +111,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rust-test-timings
+          name: rust-test-timings-${{ matrix.partition }}
           path: target/nextest/**/junit.xml
           if-no-files-found: warn
 
