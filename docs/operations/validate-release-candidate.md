@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-24"
+last_verified: "2026-10-31"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -23,19 +23,23 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Required evidence | CI enforcement |
 | --- | --- |
 | Rust format, minimum version, warnings, full workspace tests on the supported Windows engine host | `rust-quality` |
-| Contract freshness and generated C#/Swift compatibility | `contracts-and-ipc`, `macos-bindings` |
+| Contract freshness and generated C#/Swift compatibility; Linux contract lint and tests | `contracts-and-ipc`, `macos-bindings`, `server-smoke` |
 | Contract generator dependency vulnerabilities | `contracts-and-ipc` (`npm audit --audit-level=high`) |
-| IPC and engine lifecycle | `contracts-and-ipc`, `windows-desktop` |
+| IPC and engine lifecycle | `rust-quality`, `windows-supervision` |
 | Migrations and missing migration detection | Rust migration tests plus immutable `deploy/migrations.sha256` in `repository-policy` |
 | Authorization, tenant isolation, audit redaction, secret storage, sync, updates | Focused workspace tests in `rust-quality` |
 | Unsafe Rust, console, or C# `ILogger` calls; possible secret literals; direct shell database/config/secret access, including Rust and Swift environment APIs | `repository-policy` |
 | Arabic/RTL, mixed-direction contracts, Windows shell behavior | `contracts-and-ipc`, `windows-desktop`, `macos-bindings`, `repository-policy` |
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
-| Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |
+| Desktop build, shell lifecycle, real-engine supervision | `windows-desktop`, `windows-supervision` |
 | Linux server build, CLI, and safe configuration | `server-smoke` |
 | Versioned Windows MSIX/client and server packages, integrity and retained service lifecycle; separate Linux server artifact | `package-windows`, `package-server` |
 
-The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
+The workflow runs for every pull request and every push to `main` without path filters. Focused contract and supervision workflows are available through manual dispatch for diagnosis; their automatic coverage belongs to mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
+
+Rust 1.85.1 compiler output and NuGet downloads are cached. CI omits development/test debug symbols to reduce linking and cache transfer time; debug assertions and overflow checks remain enabled. Packaging uses its separate `target/toolchain-1.85.1` cache and retains the release profile, inventory, SBOM, and integrity checks. Windows desktop and server packages build in separate matrix jobs alongside the other checks. Both must succeed before `validation-complete` passes. Unsigned artifact uploads do not imply release acceptance.
+
+The Rust gate uses pinned Nextest for concurrent workspace unit and integration tests, with no retries, followed by Cargo documentation tests. The Windows shell suite runs alongside engine compilation and supervision. Engine diagnostics reuse the executable already built in `windows-supervision`. To compare CI performance, record job and workflow durations for an initial cache-populating run and a rerun of the same commit. A warm run must execute all checks; a cache hit never replaces a validation command.
 
 That base comparison makes existing server migration paths and bytes immutable. A schema change must add a new numbered migration and refresh `deploy/migrations.sha256`; changing or deleting a migration present at the base revision fails policy validation even if the manifest was refreshed.
 

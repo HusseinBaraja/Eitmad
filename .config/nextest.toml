@@ -1,0 +1,5 @@
+[profile.ci]
+# Keep failures visible without retrying intermittent failures into a passing gate.
+retries = 0
+status-level = "fail"
+final-status-level = "fail"

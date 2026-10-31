@@ -21,6 +21,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Keep test/build output small enough to restore quickly; runtime checks stay enabled.
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   repository-policy:
@@ -50,9 +53,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
         with:
           components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: rust-quality
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2
+        with:
+          tool: cargo-nextest@0.9.150
+          fallback: none
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
       - name: Check minimum-version compilation
@@ -60,9 +72,9 @@ jobs:
       - name: Reject Rust warnings
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test contracts, IPC, migrations, authorization, isolation, redaction, secrets, sync, and updates
-        run: cargo test --locked --workspace
-      - name: Smoke-test engine diagnostics
-        run: cargo run --locked -q -p eitmad-engine-cli -- diagnose
+        run: cargo nextest run --locked --workspace --profile ci
+      - name: Test Rust documentation examples
+        run: cargo test --locked --workspace --doc
 
   contracts-and-ipc:
     runs-on: windows-latest
@@ -70,7 +82,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: contracts
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -79,6 +94,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-8-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-8-
       - run: npm ci --ignore-scripts --prefix crates/contracts/codegen
       - name: Reject high-severity contract tool vulnerabilities
         run: npm audit --audit-level=high --prefix crates/contracts/codegen
@@ -90,8 +110,7 @@ jobs:
           --project tests/contract-compatibility/csharp/Eitmad.ContractConformance.csproj
           --configuration Release
           -- tests/contract-compatibility/fixtures/protocol-v1.json
-      - name: Validate local IPC and engine lifecycle
-        run: cargo test --locked -p eitmad-engine-runtime -p eitmad-engine-cli
+      # Rust IPC and engine lifecycle tests run in rust-quality's full workspace suite.
 
   windows-desktop:
     runs-on: windows-latest
@@ -99,16 +118,43 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Build engine
-        run: cargo build --locked -p eitmad-engine-cli
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-8-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-8-
       - name: Build Windows shell with warnings rejected
         run: dotnet build shells/windows/Eitmad.WindowsShell.csproj --configuration Release --nologo
       - name: Test Arabic, RTL, and presentation lifecycle
         run: dotnet test shells/windows/tests/Eitmad.WindowsShell.Tests.csproj --configuration Release --nologo
+
+  windows-supervision:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.85.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: windows-supervision
+          cache-workspace-crates: true
+          cache-on-failure: true
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-8-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-8-
+      - name: Build engine
+        run: cargo build --locked -p eitmad-engine-cli
+      - name: Smoke-test engine diagnostics
+        run: ./target/debug/eitmad-engine-cli.exe diagnose
       - name: Test fake and real-engine process supervision
         run: >-
           dotnet run
@@ -142,7 +188,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: server-smoke
+          cache-workspace-crates: true
+      - name: Preserve Linux contract lint and test coverage
+        run: |
+          cargo clippy --locked -p eitmad-contracts --all-targets -- -D warnings
+          cargo test --locked -p eitmad-contracts
       - name: Build server with locked dependencies
         run: cargo build --locked -p eitmad-server
       - name: Check server CLI
@@ -162,17 +218,32 @@ jobs:
           cargo run --locked -q -p eitmad-server -- check-config
 
   package-windows:
-    needs: [repository-policy, contracts-and-ipc, windows-desktop]
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [windows-desktop, windows-server]
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@1.85.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: package-${{ matrix.target }}
+          workspaces: ". -> target/toolchain-1.85.1"
+          cache-workspace-crates: true
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST EITMAD_RELEASE_VERSION"
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-8-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: ${{ runner.os }}-nuget-8-
       - name: Verify Windows package and retained service lifecycle tools
+        if: matrix.target == 'windows-desktop'
         run: |
           powershell -NoProfile -File deploy/windows/test-package.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -184,24 +255,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           powershell -NoProfile -File deploy/windows/test-release-lifecycle.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build repeatable unsigned Windows installation bundles
-        run: python scripts/release/build_artifacts.py windows-desktop --version 0.0.0-ci --output dist
-      - name: Build Windows server installation bundle
-        run: python scripts/release/build_artifacts.py windows-server --version 0.0.0-ci --output dist
+      - name: Build repeatable unsigned Windows installation bundle
+        run: python scripts/release/build_artifacts.py ${{ matrix.target }} --version 0.0.0-ci --output dist
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-validation-package
+          name: windows-validation-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
+          compression-level: 0
 
   package-server:
-    needs: [repository-policy, rust-quality, server-smoke]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@1.85.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          key: package-server
+          workspaces: ". -> target/toolchain-1.85.1"
+          cache-workspace-crates: true
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST EITMAD_RELEASE_VERSION"
       - name: Build repeatable unsigned server validation bundle
         env:
           SOURCE_DATE_EPOCH: 1577836800
@@ -211,6 +286,7 @@ jobs:
           name: server-validation-package
           path: dist/*
           if-no-files-found: error
+          compression-level: 0
 
   validation-complete:
     if: always()
@@ -219,6 +295,7 @@ jobs:
       - rust-quality
       - contracts-and-ipc
       - windows-desktop
+      - windows-supervision
       - macos-bindings
       - server-smoke
       - package-windows
@@ -228,4 +305,4 @@ jobs:
       - name: Require every validation gate
         env:
           RESULTS: ${{ join(needs.*.result, ',') }}
-        run: test "$RESULTS" = "success,success,success,success,success,success,success,success"
+        run: test "$RESULTS" = "success,success,success,success,success,success,success,success,success"
