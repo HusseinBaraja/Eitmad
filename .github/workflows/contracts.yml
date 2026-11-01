@@ -1,23 +1,8 @@
 name: Contract compatibility
 
+# Mandatory validation owns the automatic gates; use this workflow for focused diagnostics.
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/contracts.yml"
-      - "crates/contracts/**"
-      - "shells/linux/**"
-      - "shells/macos/**"
-      - "shells/windows/**"
-      - "tests/contract-compatibility/**"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/contracts.yml"
-      - "crates/contracts/**"
-      - "shells/linux/**"
-      - "shells/macos/**"
-      - "shells/windows/**"
-      - "tests/contract-compatibility/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.85
+      - uses: dtolnay/rust-toolchain@1.85.1
         with:
           components: clippy,rustfmt
       - uses: actions/setup-node@v4

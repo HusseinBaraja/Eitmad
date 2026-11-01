@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-24"
+last_verified: "2026-10-31"
 review_triggers:
   - "CI jobs, release artifacts, supported platforms, migrations, or promotion policy changes"
 keywords:
@@ -23,19 +23,35 @@ A release candidate can advance only after every mandatory check succeeds on the
 | Required evidence | CI enforcement |
 | --- | --- |
 | Rust format, minimum version, warnings, full workspace tests on the supported Windows engine host | `rust-quality` |
-| Contract freshness and generated C#/Swift compatibility | `contracts-and-ipc`, `macos-bindings` |
+| Contract freshness and generated C#/Swift compatibility; Linux contract lint and tests | `contracts-and-ipc`, `macos-bindings`, `server-smoke` |
 | Contract generator dependency vulnerabilities | `contracts-and-ipc` (`npm audit --audit-level=high`) |
-| IPC and engine lifecycle | `contracts-and-ipc`, `windows-desktop` |
+| IPC and engine lifecycle | `rust-quality`, `windows-supervision` |
 | Migrations and missing migration detection | Rust migration tests plus immutable `deploy/migrations.sha256` in `repository-policy` |
 | Authorization, tenant isolation, audit redaction, secret storage, sync, updates | Focused workspace tests in `rust-quality` |
 | Unsafe Rust, console, or C# `ILogger` calls; possible secret literals; direct shell database/config/secret access, including Rust and Swift environment APIs | `repository-policy` |
 | Arabic/RTL, mixed-direction contracts, Windows shell behavior | `contracts-and-ipc`, `windows-desktop`, `macos-bindings`, `repository-policy` |
 | Documentation impact, metadata, links, ownership | `repository-policy` and documentation audit |
-| Desktop build, shell lifecycle, real-engine supervision | `windows-desktop` |
+| Desktop build, shell lifecycle, real-engine supervision | `windows-desktop`, `windows-supervision` |
 | Linux server build, CLI, and safe configuration | `server-smoke` |
 | Versioned Windows MSIX/client and server packages, integrity and retained service lifecycle; separate Linux server artifact | `package-windows`, `package-server` |
 
-The workflow runs for every pull request and every push to `main` without path filters. Existing focused workflows can give faster feedback, but they do not replace mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
+The workflow runs for every pull request and every push to `main` without path filters. Focused contract and supervision workflows are available through manual dispatch for diagnosis; their automatic coverage belongs to mandatory validation. The repository-policy job compares pull requests with their base SHA and pushes with their prior SHA. A manual run requires the operator to supply a base SHA.
+
+Rust 1.85.1 compiler output and NuGet downloads are cached. CI omits development/test debug symbols to reduce linking and cache transfer time; debug assertions and overflow checks remain enabled. Packaging uses its separate `target/toolchain-1.85.1` cache and retains full release optimization, ThinLTO, inventory, SBOM, and integrity checks. Unsigned CI packages use 16 code generation units for parallel LLVM compilation; normal production builds retain the workspace release profile. Windows desktop and server packages build in separate matrix jobs alongside the other checks. Both must succeed before `validation-complete` passes. Unsigned artifact uploads do not imply release acceptance.
+
+The test profile optimizes Argon2, image, and PNG dependencies to avoid unoptimized password hashing and image processing. Tests retain the real password parameters, image sizes and formats, memory limits, debug assertions, overflow checks, and authentication behavior. The workspace release profile is unchanged.
+
+Clippy checks compilation and warnings for all workspace targets with Rust 1.85.1 in one pass. CI does not repeat the same compilation check with `cargo check`. Local publication validation retains both commands as required by `AGENTS.md`.
+
+Rust quality and packaging cache compiler outputs with each commit and restore the latest compatible cache. The cache also records SHA-256 hashes and timestamps of tracked source files. `scripts/ci/cache_source_mtimes.py` restores a timestamp only when the current file has identical bytes; changed content receives a fresh timestamp and must rebuild. This avoids recompiling unchanged workspace crates after a fresh checkout. Missing or invalid metadata leaves normal Cargo freshness checks in place. Cache reuse never replaces compilation, lint, test, package, or integrity commands.
+
+The `rust-test-timings-1`, `rust-test-timings-2`, and `rust-test-timings-3` artifacts contain Nextest JUnit reports for three required workspace count partitions. The third also contains the separate native credential report. Each test records its duration so slow tests can be identified without rerunning the gate with verbose output. Each partition uses its own Windows host and runs four tests concurrently; each test retains its own process. The third partition also runs formatting, minimum-version Clippy, and Cargo documentation tests. Every partition must pass. Paging fixtures keep a SQLite WAL connection open across bulk operations to avoid repeated connection-close checkpoints. Every mutation and durability setting remains active, and fixtures close that connection before testing persisted-state recovery.
+
+The Rust gate uses pinned Nextest for concurrent workspace unit and integration tests, with no retries, followed by Cargo documentation tests. The Windows shell suite runs alongside engine compilation and supervision. Engine diagnostics reuse the executable already built in `windows-supervision`. To compare CI performance, record job and workflow durations for an initial cache-populating run and a rerun of the same commit. A warm run must execute all checks; a cache hit never replaces a validation command.
+
+The shell suite runs in three required process-isolated groups selected by `scripts/ci/test_windows_shell.ps1`. Each group retains a separate WPF dispatcher. The third group includes every class outside the first two lists, so new tests remain covered automatically. Uploaded TRX reports record the executed tests and durations. Before publication, run the full unfiltered local shell suite as required by `AGENTS.md`.
+
+Credential-routing unit fixtures use isolated encrypted storage instead of the OS credential store. This prevents their correctness checks from depending on shared native storage. The Rust gate separately runs the synthetic native Windows credential lifecycle test, including exact-ID cleanup; native failures remain visible and are not retried into success.
 
 That base comparison makes existing server migration paths and bytes immutable. A schema change must add a new numbered migration and refresh `deploy/migrations.sha256`; changing or deleting a migration present at the base revision fails policy validation even if the manifest was refreshed.
 

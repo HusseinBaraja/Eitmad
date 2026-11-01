@@ -145,6 +145,19 @@ impl SecretStore {
         )
     }
 
+    /// Opens isolated encrypted storage for tests without accessing the OS credential store.
+    ///
+    /// # Errors
+    ///
+    /// Returns a sanitized availability error if the private test directory cannot open.
+    #[cfg(feature = "test-support")]
+    pub fn open_encrypted_for_tests(
+        directory: impl AsRef<Path>,
+        key: FallbackEncryptionKey,
+    ) -> Result<Self, SecretStorageError> {
+        Self::open_with_native_availability(directory.as_ref(), Some(key), false)
+    }
+
     fn open_with_native_availability(
         fallback_directory: &Path,
         fallback_key: Option<FallbackEncryptionKey>,

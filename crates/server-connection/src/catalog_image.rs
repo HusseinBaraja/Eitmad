@@ -201,8 +201,11 @@ mod tests {
     fn account_routes_retain_the_author_and_reject_foreign_identity() {
         let _ = rustls::crypto::ring::default_provider().install_default();
         let directory = tempfile::TempDir::new().unwrap();
-        let store =
-            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let store = SecretStore::open_encrypted_for_tests(
+            directory.path(),
+            FallbackEncryptionKey::new([7; 32]),
+        )
+        .unwrap();
         let route = SecretId::new(
             SecretKind::parse("account-route-test").unwrap(),
             SecretReferenceId::new(Uuid::new_v4()),
@@ -296,8 +299,11 @@ mod tests {
     fn credential_contention_waits_and_reloads_the_rotated_pair() {
         let _ = rustls::crypto::ring::default_provider().install_default();
         let directory = tempfile::tempdir().unwrap();
-        let store =
-            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let store = SecretStore::open_encrypted_for_tests(
+            directory.path(),
+            FallbackEncryptionKey::new([7; 32]),
+        )
+        .unwrap();
         let route = SecretId::new(
             SecretKind::parse("credential-contention-test").unwrap(),
             SecretReferenceId::new(Uuid::new_v4()),
@@ -378,8 +384,11 @@ mod tests {
         };
         let _ = rustls::crypto::ring::default_provider().install_default();
         let directory = tempfile::TempDir::new().unwrap();
-        let store =
-            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let store = SecretStore::open_encrypted_for_tests(
+            directory.path(),
+            FallbackEncryptionKey::new([7; 32]),
+        )
+        .unwrap();
         let id = SecretId::new(
             SecretKind::parse("image-protocol-test").unwrap(),
             SecretReferenceId::new(Uuid::new_v4()),
@@ -492,8 +501,11 @@ mod tests {
 
     fn assert_stalled_transfer_admission(refresh: bool) {
         let directory = tempfile::TempDir::new().unwrap();
-        let store =
-            SecretStore::open(directory.path(), Some(FallbackEncryptionKey::new([7; 32]))).unwrap();
+        let store = SecretStore::open_encrypted_for_tests(
+            directory.path(),
+            FallbackEncryptionKey::new([7; 32]),
+        )
+        .unwrap();
         let id = SecretId::new(
             SecretKind::parse("image-deadline-test").unwrap(),
             SecretReferenceId::new(Uuid::new_v4()),

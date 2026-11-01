@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust security and platform-integration maintainers"
-last_verified: "2026-08-19"
+last_verified: "2026-10-31"
 review_triggers:
   - "secret identifiers, native backends, fallback cryptography, key provisioning, authorization, audit, or platform support changes"
 keywords:
@@ -31,6 +31,8 @@ keywords:
 | Native store unavailable | Rust-owned encrypted files | Lifecycle, corruption, recovery, permission, and ciphertext tests passed on Windows |
 
 Backend selection occurs once in `SecretStore::open`. The write/read/delete native availability probe runs at most once per engine process, and its result is reused by later store construction. If that first probe fails, later opens in the same process remain on the encrypted fallback; restore the platform service and restart the engine before expecting a new native probe. A mid-session native error returns a sanitized availability error; it does not silently switch stores or create split secret state.
+
+The `test-support` Cargo feature exposes `SecretStore::open_encrypted_for_tests` for isolated test fixtures. It uses the real encrypted backend and private directory protections without probing or modifying the native store. Production callers continue to use `open`; the test feature does not change its selection policy. Mandatory Windows CI separately runs the synthetic native credential lifecycle test.
 
 Native shells never call these stores for product secrets. Rust uses `SecretId`, composed of a validated `SecretKind` and `SecretReferenceId`, while configuration may carry only the non-secret reference. Raw material has no serde implementation, prints as `[REDACTED]`, is bounded to 2 KiB for consistent desktop credential-store behavior, rejects empty values, and zeroizes owned memory on drop.
 
