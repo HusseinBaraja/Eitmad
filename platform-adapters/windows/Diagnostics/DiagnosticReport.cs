@@ -112,7 +112,9 @@ public static class DiagnosticReport
                         if (record is null || record.Component != component || !LocalDiagnosticRecorder.Valid(record)) throw new JsonException();
                         output.Add(record); result.Records++;
                     }
-                    catch (Exception error) when (error is JsonException or ArgumentException) { result.RejectedRecords++; }
+                    // Generated enum converters use Exception for unknown strings and InvalidOperationException for wrong JSON kinds.
+                    catch (Exception error) when (error is JsonException or ArgumentException or InvalidOperationException
+                        || error.GetType() == typeof(Exception)) { result.RejectedRecords++; }
                     start = end + 1;
                 }
                 if (start < length) result.RejectedRecords++;

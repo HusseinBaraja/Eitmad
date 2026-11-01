@@ -24,7 +24,8 @@ mod windows_tls;
 #[tokio::main]
 async fn main() -> ExitCode {
     use eitmad_observability_audit::local_diagnostics as diagnostics;
-    let serving = std::env::args().nth(1).as_deref() == Some("serve");
+    let serving = ServerCommand::from_arguments(&std::env::args().collect::<Vec<_>>())
+        == ServerCommand::Serve;
     let directory = if serving {
         std::env::var_os("EITMAD_SERVER_DIAGNOSTIC_DIRECTORY")
             .map(std::path::PathBuf::from)

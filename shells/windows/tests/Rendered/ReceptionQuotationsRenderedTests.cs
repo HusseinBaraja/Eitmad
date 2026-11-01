@@ -26,7 +26,7 @@ public sealed class ReceptionQuotationsRenderedTests
                 var child = window.OwnedWindows.Cast<Window>().Single();
                 try
                 {
-                    var catalog = (SalesCatalogView)child.Content;
+                    var catalog = WpfTestHost.Descendants<SalesCatalogView>(child).Single();
                     var model = (SalesCatalogViewModel)catalog.DataContext;
                     WpfTestHost.CompleteLayout(child);
                     Assert.IsFalse(model.IsReviewingQuotation);
@@ -98,7 +98,7 @@ public sealed class ReceptionQuotationsRenderedTests
                 var child = window.OwnedWindows.Cast<Window>().Single();
                 try
                 {
-                    var orders = (Eitmad.WindowsShell.Features.Orders.OrdersView)child.Content;
+                    var orders = WpfTestHost.Descendants<Eitmad.WindowsShell.Features.Orders.OrdersView>(child).Single();
                     var order = orders.ViewModel.SelectedOrder!;
                     Assert.AreEqual(quotation.Customer, order.Customer);
                     Assert.AreEqual(quotation.Discount, order.Discount);

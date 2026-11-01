@@ -43,6 +43,12 @@ internal static class LocalDiagnosticsScenario
             Assert.True(files.All(file => new FileInfo(file).Length <= 2 * 1024 * 1024), "each diagnostic file is bounded");
             var last = files.OrderByDescending(File.GetLastWriteTimeUtc).First();
             var lines = File.ReadAllLines(last);
+            foreach (var component in new object[] { "private-component-sentinel", 42 })
+            {
+                var damaged = System.Text.Json.Nodes.JsonNode.Parse(lines[0])!;
+                damaged["component"] = JsonSerializer.SerializeToNode(component);
+                File.AppendAllText(last, damaged.ToJsonString() + "\n");
+            }
             var valid = JsonSerializer.Deserialize<LocalDiagnosticEvent>(lines[0], Converter.Settings)!;
             valid.ErrorCode = "private-customer-sentinel";
             File.AppendAllText(last, JsonSerializer.Serialize(valid, Converter.Settings) + "\n{\"password\":\"private-password-sentinel\"}\n{broken-tail");
@@ -59,7 +65,7 @@ internal static class LocalDiagnosticsScenario
             Assert.True(records.Zip(records.Skip(1)).All(pair => pair.First.UtcMillis <= pair.Second.UtcMillis), "report timeline is ordered");
             using var manifestReader = new StreamReader(zip.GetEntry("manifest.json")!.Open());
             var manifest = JsonSerializer.Deserialize<LocalDiagnosticManifest>(await manifestReader.ReadToEndAsync(), Converter.Settings)!;
-            Assert.True(manifest.Sources.Single(source => source.Component == LocalDiagnosticComponent.Desktop).RejectedRecords >= 3, "damaged evidence is reported");
+            Assert.True(manifest.Sources.Single(source => source.Component == LocalDiagnosticComponent.Desktop).RejectedRecords >= 5, "damaged evidence is reported");
             Assert.Equal("Missing", manifest.Sources.Single(source => source.Component == LocalDiagnosticComponent.Server).Status, "missing server evidence is explicit");
             Assert.Equal(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant(), manifest.EventsSha256, "timeline checksum matches the ZIP");
             Assert.False(Directory.GetFiles(destination).Any(file => file.EndsWith(".partial", StringComparison.Ordinal)), "successful export leaves no temporary archive");
