@@ -54,6 +54,8 @@ Separate quotation editor, conflict review and print-preview windows also contai
 
 No exception message, panic payload, argument value, customer content, credential, authorization graph, raw IPC frame, database/config file, raw WinSW/PostgreSQL log, or setup journal is included. Export accepts only the typed event shape and generated allowlists; unknown fields, unknown phases/codes, malformed tails and oversized records are rejected and counted. Setup projects only native numeric codes, exception type, script basename/line and the safe failure category into the persistent stream. Detailed historical setup text remains in its existing manual log view/export and recovery journal; it is not automatically archived.
 
+For each manifest source, `Ready` means matching files were found, `Missing` means the directory or matching files were absent, `Denied` means access was refused, and `Unavailable` means an I/O or reparse-path failure. `records` counts accepted events; `rejectedRecords` counts invalid records and unfinished tails; `truncatedFiles` counts omitted files and files read only to the byte limit. Records accepted before a source fails remain available. Service entries report only the two fixed Eitmad Windows services: their SCM state or `NotInstalled`, `Denied`, or `Unavailable`, with native query codes and the reported Win32 exit code when available. Manifest capture failures and pending drops apply to the exporting process; they are not totals for all source processes.
+
 ### Storage, access and bounds
 
 | Scope | Directory | Access |
@@ -64,6 +66,8 @@ No exception message, panic payload, argument value, customer content, credentia
 The installed wrapper sets `EITMAD_SERVER_DIAGNOSTIC_DIRECTORY` to its own host root's `diagnostics` directory. A custom host root must be collected by an operator from that root; guided setup uses the fixed ProgramData path above. Raw service logs, keys, configuration and database permissions remain private. Local Users cannot write the server diagnostic stream. Technical process-session UUIDs are unrelated to authentication sessions; the report contains no principal, tenant, device identity or customer record identifier.
 
 Each component retains at most four files of at most 2 MiB each. Each record is below 8 KiB, code locations are bounded, and the writer queue holds at most 256 events. Writers run off the UI/product request path and drop rather than block a full queue. Subsequent evidence records drops; the report also exposes available capture failures. Rotating files removes only diagnostic output. User-created ZIPs in Downloads are not deleted automatically. Reparse paths are refused for diagnostic storage and collection.
+
+Invalid native metadata is counted and skipped without stopping the writer. A later valid event carries the dropped-event count. The Rust panic hook replaces the default hook to avoid printing a panic payload that may contain secrets. Reparse rejection also applies to Downloads and can prevent export when that folder is redirected through a cloud placeholder or link; use a plain local Downloads location for collection.
 
 `EITMAD_DIAGNOSTICS=1` still enables the older, process-capped stderr troubleshooting stream; automatic file capture does not require it and continues past that stream's 4,096-event cap. Product audit remains separate and unchanged.
 

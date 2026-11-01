@@ -28,7 +28,10 @@ struct Recorder {
     dropped: AtomicU64,
 }
 
-/// Start once per executable. Collection failure never prevents product startup.
+/// Start once per executable. The first call fixes the process-wide component, directory,
+/// and build and starts a bounded writer. Collection failure never prevents product startup.
+/// Each call records startup and replaces the panic hook with metadata-only capture and a
+/// best-effort flush. The previous hook is not called: its output can expose panic payloads.
 pub fn initialize(component: LocalDiagnosticComponent, directory: PathBuf, build: &str) {
     RECORDER.get_or_init(|| {
         let build = build.to_owned();
@@ -124,6 +127,9 @@ pub fn event(phase: &str, result: &str) -> LocalDiagnosticEvent {
     }
 }
 
+/// Enqueue approved technical metadata without waiting; do nothing before initialization.
+/// A full/disconnected queue counts drops for the next event. The worker stamps session,
+/// sequence, component, build and binary identity and counts invalid or unwritable records.
 pub fn record(mut event: LocalDiagnosticEvent) {
     if let Some(recorder) = RECORDER.get() {
         event.dropped = recorder.dropped.swap(0, Ordering::Relaxed);
@@ -138,6 +144,8 @@ pub fn record(mut event: LocalDiagnosticEvent) {
     }
 }
 
+/// Best-effort wait for earlier queued writes, for at most two seconds. Do nothing before
+/// initialization or when the flush marker cannot enter the queue; this does not force disk durability.
 pub fn flush() {
     if let Some(recorder) = RECORDER.get() {
         let (done, waiting) = mpsc::channel();

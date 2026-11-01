@@ -35,6 +35,8 @@ public sealed class LocalDiagnosticRecorder : IDisposable
         worker = Task.Run(WriteAsync);
     }
 
+    /// <summary>Stamp UTC time and enqueue without waiting. Full or completed queues count a drop.
+    /// The worker stamps process/build identity and rejects invalid metadata individually. Do not reuse the mutable event.</summary>
     public void Record(LocalDiagnosticEvent record)
     {
         record.UtcMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -57,7 +59,7 @@ public sealed class LocalDiagnosticRecorder : IDisposable
             record.Build = build; record.BinarySha256 = hash; record.OsVersion = Environment.OSVersion.Version.ToString();
             record.Dropped = Interlocked.Exchange(ref dropped, 0);
             try { Append(record); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException)
             { Interlocked.Increment(ref failures); Interlocked.Add(ref dropped, record.Dropped + 1); }
         }
     }
@@ -106,12 +108,16 @@ public sealed class LocalDiagnosticRecorder : IDisposable
         using var json = JsonDocument.Parse(input); return json.RootElement.Clone();
     }
 
+    /// <summary>Complete the queue at shutdown and wait up to two seconds for the writer.
+    /// Timeout and writer failures propagate; recording cannot resume after completion.</summary>
     public async Task DrainAsync()
     {
         // Complete only at process shutdown; report capture uses the independent file snapshot.
         queue.Writer.TryComplete();
         await worker.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
     }
+    /// <summary>Wait up to two seconds for queued events without closing the recorder.
+    /// Cancellation reports the timeout; a completed recorder throws ChannelClosedException. This does not force disk durability.</summary>
     public async Task FlushAsync()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -119,6 +125,8 @@ public sealed class LocalDiagnosticRecorder : IDisposable
         await queue.Writer.WriteAsync(new WriteItem(null, done), timeout.Token).ConfigureAwait(false);
         await done.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
     }
+    /// <summary>Complete the queue and wait at most two seconds. Writer failures are suppressed;
+    /// completion does not guarantee that pending events reached disk.</summary>
     public void Dispose() { queue.Writer.TryComplete(); try { worker.Wait(TimeSpan.FromSeconds(2)); } catch (AggregateException) { } }
 }
 
@@ -185,7 +193,8 @@ public static class LocalDiagnostics
                 {
                     var line = root.TryGetProperty("line", out var number) && number.ValueKind == JsonValueKind.Number
                         && number.TryGetInt32(out var lineNumber) ? lineNumber : 0;
-                    locations.Add(name + ":" + line);
+                    var location = name + ":" + line;
+                    if (LocalDiagnosticRecorder.Symbol(location)) locations.Add(location);
                 }
             }
             Record(progress.Stage.ToString(), progress.Status.ToString(), nativeCode: native, locations: locations.ToArray());

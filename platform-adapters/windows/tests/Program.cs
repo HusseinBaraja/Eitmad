@@ -258,6 +258,7 @@ internal sealed class SupervisionScenarios
             && fixture.Supervisor.Snapshot.State == EngineSupervisionState.Starting);
 
         Assert.Equal(2L, fixture.Supervisor.Snapshot.Generation, "replacement generation");
+        Assert.True(fixture.Supervisor.Snapshot.LastExit is null, "replacement does not inherit the previous process exit code");
         await fixture.StopCurrent();
     }
 

@@ -582,6 +582,7 @@ public sealed class EngineSupervisor : IAsyncDisposable
             Generation = generation,
             LastLifecycle = null,
             LastError = null,
+            LastExit = null,
         };
         var monitoredGeneration = generation;
         currentMonitor = MonitorProcessAsync(process, monitoredGeneration);

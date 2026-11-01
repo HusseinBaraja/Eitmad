@@ -11,6 +11,8 @@ namespace Eitmad.Platform.Windows.Diagnostics;
 public static class DiagnosticReport
 {
     private static long flushFailures;
+    /// <summary>Flush current-process evidence, then export off the caller thread to the Windows Downloads known folder.
+    /// A flush timeout is counted and capture continues. Folder lookup, access and I/O failures propagate to the caller.</summary>
     public static async Task<string> SaveToDownloadsAsync()
     {
         LocalDiagnostics.Record("Export", "Started");
@@ -19,6 +21,9 @@ public static class DiagnosticReport
         return await Task.Run(() => Save(Downloads(), LocalDiagnostics.UserDirectory, LocalDiagnostics.ServerDirectory)).ConfigureAwait(false);
     }
 
+    /// <summary>Read only bounded typed sources, count rejected records and unavailable evidence, and sort by UTC/session/sequence.
+    /// Reparse paths are refused. Write a new ZIP through an exclusive partial file; remove that partial file if writing fails.
+    /// The manifest describes source statuses, rejected records, omitted/oversized files, capture failures, pending drops and the timeline hash.</summary>
     public static string Save(string destinationDirectory, string userDirectory, string serverDirectory)
     {
         LocalDiagnosticRecorder.PlainPath(destinationDirectory);

@@ -33,7 +33,8 @@ public partial class DiagnosticReportButton : System.Windows.Controls.UserContro
             OpenDownloadsButton.Visibility = Visibility.Visible;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
-            or System.Runtime.InteropServices.COMException or System.Text.Json.JsonException)
+            or System.Runtime.InteropServices.COMException or System.Text.Json.JsonException
+            or System.Threading.Channels.ChannelClosedException)
         {
             LocalDiagnostics.Error("Export", error);
             Notice.Text = "تعذر حفظ تقرير السجلات. تحقق من مساحة مجلد التنزيلات وصلاحياته، ثم أعد المحاولة.";

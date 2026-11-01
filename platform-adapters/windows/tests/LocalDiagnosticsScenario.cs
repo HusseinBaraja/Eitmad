@@ -15,6 +15,7 @@ internal static class LocalDiagnosticsScenario
         Directory.CreateDirectory(logs);
         try
         {
+            await RecorderContinuesAfterInvalidMetadata(Path.Combine(root, "recovery"));
             var correlation = Guid.NewGuid();
             foreach (var details in new[] { "{\"hresult\":\"private-password-sentinel\",\"line\":{}}", "[1,2,3]", "{truncated" })
                 LocalDiagnostics.RecordNativeSetupFailure(new WindowsInstallProgress {
@@ -71,5 +72,20 @@ internal static class LocalDiagnosticsScenario
             Assert.False(Directory.GetFiles(destination).Any(file => file.EndsWith(".partial", StringComparison.Ordinal)), "successful export leaves no temporary archive");
         }
         finally { Directory.Delete(root, recursive: true); }
+    }
+
+    private static async Task RecorderContinuesAfterInvalidMetadata(string directory)
+    {
+        using var recorder = new LocalDiagnosticRecorder(directory, LocalDiagnosticComponent.Desktop);
+        recorder.Record(new LocalDiagnosticEvent { Phase = "Crash", Result = "Failed", Locations = [new string('x', 240) + ":123"] });
+        var correlation = Guid.NewGuid();
+        recorder.Record(new LocalDiagnosticEvent { Phase = "Crash", Result = "Failed", Correlation = correlation, Locations = [] });
+        await recorder.FlushAsync();
+        Assert.Equal(1L, recorder.Failures, "invalid metadata is counted without stopping the writer");
+        var records = Directory.GetFiles(directory, "*.jsonl").SelectMany(File.ReadAllLines)
+            .Select(line => JsonSerializer.Deserialize<LocalDiagnosticEvent>(line, Converter.Settings)!).ToArray();
+        Assert.Equal(1, records.Length, "only valid metadata persists");
+        Assert.Equal(correlation, records[0].Correlation!.Value, "the event after invalid metadata persists");
+        Assert.Equal(1L, records[0].Dropped, "the next valid event accounts for rejected metadata");
     }
 }
