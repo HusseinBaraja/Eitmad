@@ -67,7 +67,7 @@ public partial class QuotationsView : UserControl
     private async void ReviewDraftClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.CreateDraftReview() is not { } view) return;
-        var window = new Window { Title = "مراجعة تعارض مسودة عرض السعر", Content = view,
+        var window = new Window { Title = "مراجعة تعارض مسودة عرض السعر", Content = DiagnosticReportButton.WithContent(view),
             Owner = Window.GetWindow(this), Width = 900, Height = 720, MinWidth = 720, MinHeight = 560,
             FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         editorWindows.Add(window);
@@ -154,7 +154,7 @@ public partial class QuotationsView : UserControl
     private void ShowPreviewWindow(UserControl content, string title)
     {
         Window window = content is Features.Reception.SalesCatalogView { DataContext: Features.Reception.SalesCatalogViewModel { IsLiveQuotation: true } model } catalogView
-            ? new QuotationEditorWindow(model, catalogView) : new Window { Content = content };
+            ? new QuotationEditorWindow(model, catalogView) : new Window { Content = DiagnosticReportButton.WithContent(content) };
         window.Title = title;
         window.Owner = Window.GetWindow(this);
         window.Width = 1050; window.Height = 780;

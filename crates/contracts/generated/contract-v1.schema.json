@@ -99,6 +99,12 @@
     "list_server_accounts": {
       "$ref": "#/definitions/ListServerAccounts"
     },
+    "local_diagnostic_event": {
+      "$ref": "#/definitions/LocalDiagnosticEvent"
+    },
+    "local_diagnostic_manifest": {
+      "$ref": "#/definitions/LocalDiagnosticManifest"
+    },
     "negotiation": {
       "$ref": "#/definitions/NegotiationOutcome"
     },
@@ -260,6 +266,8 @@
     }
   },
   "required": [
+    "local_diagnostic_manifest",
+    "local_diagnostic_event",
     "guided_windows_setup",
     "windows_setup_bundle",
     "open_pairing",
@@ -7735,6 +7743,251 @@
       },
       "required": [
         "change"
+      ]
+    },
+    "LocalDiagnosticComponent": {
+      "type": "string",
+      "enum": [
+        "desktop",
+        "engine",
+        "installer",
+        "setup",
+        "server"
+      ]
+    },
+    "LocalDiagnosticEvent": {
+      "type": "object",
+      "properties": {
+        "binarySha256": {
+          "type": "string"
+        },
+        "build": {
+          "type": "string"
+        },
+        "component": {
+          "$ref": "#/definitions/LocalDiagnosticComponent"
+        },
+        "correlation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "dropped": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "elapsedMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "httpStatus": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "locations": {
+          "description": "Code symbols and source basenames only; never exception messages or absolute paths.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nativeCode": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "operation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "osVersion": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "processId": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "result": {
+          "type": "string"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "session": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "utcMillis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "utcMillis",
+        "session",
+        "sequence",
+        "processId",
+        "component",
+        "build",
+        "binarySha256",
+        "osVersion",
+        "phase",
+        "result",
+        "locations",
+        "dropped"
+      ]
+    },
+    "LocalDiagnosticManifest": {
+      "type": "object",
+      "properties": {
+        "captureFailures": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "eventsSha256": {
+          "type": "string"
+        },
+        "exportedUtcMillis": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "pendingDroppedEvents": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LocalDiagnosticService"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LocalDiagnosticSource"
+          }
+        },
+        "version": {
+          "type": "integer",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "exportedUtcMillis",
+        "sources",
+        "services",
+        "captureFailures",
+        "pendingDroppedEvents",
+        "eventsSha256"
+      ]
+    },
+    "LocalDiagnosticService": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "nativeCode": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int32"
+        },
+        "serviceExitCode": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state"
+      ]
+    },
+    "LocalDiagnosticSource": {
+      "type": "object",
+      "properties": {
+        "component": {
+          "$ref": "#/definitions/LocalDiagnosticComponent"
+        },
+        "records": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "rejectedRecords": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string"
+        },
+        "truncatedFiles": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "status",
+        "records",
+        "rejectedRecords",
+        "truncatedFiles"
       ]
     },
     "LoginRequest": {

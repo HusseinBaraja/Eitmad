@@ -20,6 +20,9 @@ public partial class SetupWindow
 
     private void RecordProgress(WindowsInstallProgress progress)
     {
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(progress.Stage.ToString(), progress.Status.ToString(),
+            locations: progress.Failure is { } failure ? ["WindowsSetupFailure." + failure] : []);
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.RecordNativeSetupFailure(progress);
         last = progress;
         var prefix = StageText(progress.Stage) + " · ";
         var text = prefix + StatusText(progress.Status);
@@ -38,7 +41,10 @@ public partial class SetupWindow
 
     private void ShowFailure(Exception? error = null, bool interrupted = false, bool inspectionFailed = false)
     {
-        if (error is not null) AppendLog(error.ToString());
+        if (error is not null) {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error(last?.Stage.ToString() ?? "Preflight", error);
+            AppendLog(error.ToString());
+        }
         InputPanel.Visibility = Visibility.Collapsed;
         ProgressPanel.Visibility = FailurePanel.Visibility = StageHistory.Visibility = Visibility.Visible;
         BusyProgress.Visibility = Visibility.Collapsed; StageHistory.IsExpanded = false;

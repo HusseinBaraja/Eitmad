@@ -61,7 +61,10 @@ pub(super) fn measure_io<T>(
         |error| io_result(error, deadline),
         |_| DiagnosticResult::Succeeded,
     ));
-    result.map_err(|_| super::unavailable(failure_phase))
+    result.map_err(|error| {
+        span.io_failure(&error);
+        super::unavailable(failure_phase)
+    })
 }
 
 #[cfg(test)]

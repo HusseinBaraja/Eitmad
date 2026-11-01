@@ -623,12 +623,16 @@ public sealed class EngineIpcClient : IAsyncDisposable
             sending = null;
             reply = new OperationDiagnostics(DiagnosticPhase.IpcReply, correlation);
             var response = await completion.Task.WaitAsync(requestCancellation.Token).ConfigureAwait(false);
+            var failure = response.AsIpcFailure()?.Error ?? response.AsIpcDesktopSessionResponse()?.Error;
+            Diagnostics.LocalDiagnostics.Record("IpcReply", failure is null ? "Succeeded" : "Failed", correlation,
+                operation: kind, errorCode: failure?.Code);
             reply.Finish();
             requestDiagnostic.Finish();
             return response;
         }
         catch (Exception error) when (error is OperationCanceledException or IOException or ObjectDisposedException or EngineIpcException)
         {
+            Diagnostics.LocalDiagnostics.Error("IpcRequest", error, correlation);
             var reason = cancellationToken.IsCancellationRequested ? DiagnosticResult.Cancelled
                 : deadline.IsCancellationRequested ? DiagnosticResult.Deadline : DiagnosticResult.Failed;
             (reply ?? sending ?? diagnostic ?? requestDiagnostic).Finish(reason);

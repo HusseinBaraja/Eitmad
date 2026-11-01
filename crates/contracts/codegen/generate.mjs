@@ -113,6 +113,7 @@ try {
   );
 
   const outputs = new Map([
+    ["local-diagnostic-policy-v1.json", "crates/contracts/generated/local-diagnostic-policy-v1.json"],
     ["contract-v1.schema.json", "crates/contracts/generated/contract-v1.schema.json"],
     ["protocol-v1.json", "crates/contracts/generated/protocol-v1.json"],
     ["protocol-v1.fixture.json", "tests/contract-compatibility/fixtures/protocol-v1.json"],

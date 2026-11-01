@@ -11,6 +11,11 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Initialize(Eitmad.Contracts.LocalDiagnosticComponent.Desktop);
+        DispatcherUnhandledException += (_, error) => {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error("Crash", error.Exception);
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Stop();
+        };
         base.OnStartup(e);
         var bridge = WindowsEngineBridge.Create(e.Args);
         var sessions = new Features.Authentication.DesktopSessionController(bridge);
@@ -41,12 +46,14 @@ public partial class App : System.Windows.Application
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error("Process", error);
             window.SignInSurface.ShowConnectionFailure();
         }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Stop();
         lifetime?.Dispose();
         base.OnExit(e);
     }

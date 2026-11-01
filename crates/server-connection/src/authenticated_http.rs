@@ -217,6 +217,11 @@ fn decode_response<T: serde::de::DeserializeOwned>(
     status: u16,
     bytes: &[u8],
 ) -> Result<T, HttpError> {
+    if status != 200 {
+        if let Ok(failure) = serde_json::from_slice::<super::ServerFailure>(bytes) {
+            super::record_server_failure(&failure, Some(status));
+        }
+    }
     match status {
         200 => serde_json::from_slice(bytes).map_err(|_| HttpError::Invalid),
         401 | 403 => Err(HttpError::Denied),

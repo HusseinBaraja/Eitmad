@@ -23,6 +23,7 @@ pub mod furniture;
 pub mod home;
 pub mod identity;
 pub mod ipc;
+pub mod local_diagnostics;
 pub mod material;
 pub mod observability;
 pub mod onboarding;

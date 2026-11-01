@@ -166,6 +166,7 @@ public partial class SetupWindow : Window
         }
         catch (Exception error) when (error is System.IO.IOException or System.ComponentModel.Win32Exception)
         {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error("Activation", error);
             AppendLog(error.ToString());
             FailurePanel.Visibility = Visibility.Visible;
             FailureSummary.Text = "اكتمل التثبيت، لكن تعذر فتح التطبيق.";

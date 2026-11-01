@@ -1300,6 +1300,8 @@ async fn dispatch_command(
     session: Option<&Session>,
     request: eitmad_contracts::transport::CommandEnvelope,
 ) -> CommandResponseEnvelope {
+    let started = std::time::Instant::now();
+    let operation = request.command.kind();
     let error = validate_request(
         desktop_auth,
         session,
@@ -1340,6 +1342,15 @@ async fn dispatch_command(
             }
         }
     };
+    let mut event = eitmad_observability_audit::local_diagnostics::event("IpcRequest", "Succeeded");
+    event.operation = Some(operation.into());
+    event.correlation = Some(request.correlation_id.value());
+    event.elapsed_ms = Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX));
+    if let CommandOutcome::Failed(error) = &outcome {
+        event.result = "Failed".into();
+        event.error_code = Some(error.code.as_str().into());
+    }
+    eitmad_observability_audit::local_diagnostics::record(event);
     CommandResponseEnvelope {
         request_id: request.request_id,
         correlation_id: request.correlation_id,
@@ -1353,6 +1364,8 @@ async fn dispatch_query(
     session: Option<&Session>,
     request: eitmad_contracts::transport::QueryEnvelope,
 ) -> QueryResponseEnvelope {
+    let started = std::time::Instant::now();
+    let operation = request.query.kind();
     let error = validate_request(
         desktop_auth,
         session,
@@ -1390,6 +1403,15 @@ async fn dispatch_query(
             }
         }
     };
+    let mut event = eitmad_observability_audit::local_diagnostics::event("IpcRequest", "Succeeded");
+    event.operation = Some(operation.into());
+    event.correlation = Some(request.correlation_id.value());
+    event.elapsed_ms = Some(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX));
+    if let QueryOutcome::Failed(error) = &outcome {
+        event.result = "Failed".into();
+        event.error_code = Some(error.code.as_str().into());
+    }
+    eitmad_observability_audit::local_diagnostics::record(event);
     QueryResponseEnvelope {
         request_id: request.request_id,
         correlation_id: request.correlation_id,

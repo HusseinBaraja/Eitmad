@@ -82,7 +82,7 @@ public partial class CurrentQuotationView : UserControl
         };
         var window = new Window
         {
-            Title = "معاينة عرض السعر", Content = preview, Owner = Window.GetWindow(this),
+            Title = "معاينة عرض السعر", Content = Controls.DiagnosticReportButton.WithContent(preview), Owner = Window.GetWindow(this),
             Width = 900, Height = 850, MinWidth = 640, MinHeight = 480,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language,

@@ -34,7 +34,7 @@ try {
     # No request, credential input, environment dump, or script source is exported.
     $diagnostic = [ordered]@{message=$_.Exception.Message; errorId=$_.FullyQualifiedErrorId;
         exceptionType=$_.Exception.GetType().FullName; script=$_.InvocationInfo.ScriptName;
-        line=$_.InvocationInfo.ScriptLineNumber; stack=$_.ScriptStackTrace}
+        line=$_.InvocationInfo.ScriptLineNumber; stack=$_.ScriptStackTrace; hresult=$_.Exception.HResult}
     $text = $diagnostic | ConvertTo-Json -Compress
     if ($text.Length -gt 7000) { $text = $text.Substring(0,7000) }
     [Console]::Error.WriteLine($text)

@@ -226,7 +226,7 @@ function New-InstallationWorkerFailure([Management.Automation.ErrorRecord]$Failu
     # Keep this OS transport frame separate from Rust's ordered progress events.
     $diagnostic = [ordered]@{message=$Failure.Exception.Message; errorId=$Failure.FullyQualifiedErrorId;
         exceptionType=$Failure.Exception.GetType().FullName; script=$Failure.InvocationInfo.ScriptName;
-        line=$Failure.InvocationInfo.ScriptLineNumber; stack=$Failure.ScriptStackTrace}
+        line=$Failure.InvocationInfo.ScriptLineNumber; stack=$Failure.ScriptStackTrace; hresult=$Failure.Exception.HResult}
     $details = $diagnostic | ConvertTo-Json -Compress
     if ($details.Length -gt 4000) { $details = $details.Substring(0,4000) }
     return (@{version=1; kind='adapterFailure'; details=$details} | ConvertTo-Json -Compress)

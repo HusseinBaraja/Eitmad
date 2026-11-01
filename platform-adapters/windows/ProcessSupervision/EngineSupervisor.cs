@@ -1167,6 +1167,10 @@ public sealed class EngineSupervisor : IAsyncDisposable
             handler = StateChanged;
         }
 
+        Diagnostics.LocalDiagnostics.Record("EngineProcess", current.State switch {
+            EngineSupervisionState.Running => "Running", EngineSupervisionState.Stopped => "Stopped",
+            EngineSupervisionState.Faulted or EngineSupervisionState.RestartExhausted => "Failed", _ => "Started",
+        }, errorCode: current.LastError?.Code, nativeCode: current.LastExit?.ExitCode);
         handler?.Invoke(current);
     }
 }

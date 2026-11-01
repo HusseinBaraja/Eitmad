@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server platform maintainers"
-last_verified: "2026-10-21"
+last_verified: "2026-11-01"
 review_triggers:
   - "Windows service installation, service identities, readiness, recovery, or host power requirements change"
 keywords:
@@ -114,6 +114,7 @@ From the second PC, test the host address and saved HTTPS port with `Test-NetCon
 | `app/`, `postgres/` | Service identities have read/execute access only; operators replace artifacts while stopped |
 | `manifests/`, `logs/server/` | Server write access; stdout/stderr roll at 10 MiB with four retained files per stream |
 | `logs/postgres/` | PostgreSQL identity write access for its separate wrapper logs, with the same rotation limits |
+| `diagnostics/` | Rust metadata-only support events; server Modify, local Users read/execute, Administrators/SYSTEM full control; four files of at most 2 MiB |
 | `renewal/` | Administrators and SYSTEM only; encrypted retained CA key, machine-DPAPI unlock credential, certificate tool/runtime, Rust state and sanitized audit; no service-account access |
 | Source LAN directory | Operator-owned; retained separately for recovery; CA signing key stays outside service access |
 
@@ -133,6 +134,8 @@ The installer grants no administrator group membership or interactive logon. [Wi
 - Use [Rust-owned unattended leaf renewal](setup-lan-server.md#renew-without-changing-trust). It stages immutable pairs, atomically changes both wrapper references, restarts only Rust, and requires exact-leaf validated HTTPS readiness. Check renewal status for current attempts, credential failures, rollback, and CA expiry warnings. A changed source `active-tls.json` alone does not update the installed host. Keep the retained CA outside both service accounts.
 
 The installer registers each wrapper's Windows Application Event Log source before restricted-account startup. Uninstall retains these historical event-source registrations. PostgreSQL fatal diagnostics go to its private rotating stderr log, with the logging collector and statement logging disabled by command-line overrides. Server logs use stable error codes. Collect only sanitized service states and error identifiers for support. Backup support is deferred; see [backup availability](backup-lan-installation.md). Log retention, TLS expiry monitoring, disk monitoring, and UPS maintenance remain explicit operator responsibilities.
+
+For routine support, use **تنزيل السجلات** on the server desktop or setup window. The ZIP includes the bounded `diagnostics/` stream and current states/native exit codes for `EitmadServer` and `EitmadPostgres`. It never archives the private `logs/`, database, keys or configuration. The standard guided installation uses `%ProgramData%\EitmadHost`; custom host roots require operator collection from their actual diagnostics directory. See [local diagnostic evidence](../developer/subsystems/privacy-preserving-observability.md#collect-local-support-evidence) for access, missing-source handling and interpretation limits.
 
 ## Sleep, power, and reboot requirements
 

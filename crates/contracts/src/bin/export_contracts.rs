@@ -45,6 +45,8 @@ use uuid::Uuid;
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct ContractSchemaRoot {
+    local_diagnostic_manifest: eitmad_contracts::local_diagnostics::LocalDiagnosticManifest,
+    local_diagnostic_event: eitmad_contracts::local_diagnostics::LocalDiagnosticEvent,
     guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
     windows_setup_bundle: eitmad_contracts::setup::WindowsSetupBundle,
     open_pairing: eitmad_contracts::pairing::OpenPairing,
@@ -140,6 +142,8 @@ struct ContractSchemaRoot {
 #[derive(JsonSchema)]
 #[allow(dead_code)]
 struct NativeShellSchemaRoot {
+    local_diagnostic_manifest: eitmad_contracts::local_diagnostics::LocalDiagnosticManifest,
+    local_diagnostic_event: eitmad_contracts::local_diagnostics::LocalDiagnosticEvent,
     windows_setup_role: eitmad_contracts::setup::WindowsSetupRole,
     guided_windows_setup: eitmad_contracts::setup::GuidedWindowsSetup,
     windows_installation_state: eitmad_contracts::setup::WindowsInstallationState,
@@ -180,6 +184,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_root_schema_for::<NativeShellSchemaRoot>(),
     )?;
     write_json(&output.join("protocol-v1.fixture.json"), &fixture()?)?;
+    write_json(
+        &output.join("local-diagnostic-policy-v1.json"),
+        &eitmad_contracts::local_diagnostics::LocalDiagnosticPolicy::default(),
+    )?;
     write_text(
         &output.join("contracts-v1.md"),
         &render_reference(&ProtocolCatalog::current()),
