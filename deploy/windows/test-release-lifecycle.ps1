@@ -1,7 +1,6 @@
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'package.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
 $module = Get-Module host
 $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Guid]::NewGuid().ToString('N'))

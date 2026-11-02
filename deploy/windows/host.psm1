@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'package.psm1')
 # Service types must also resolve before Get-Service runs, including with mocked SCM access.
 Add-Type -AssemblyName System.ServiceProcess
 
@@ -508,6 +509,9 @@ function Get-DiscoveryFirewallRule($Settings) {
     return $rule
 }
 
+# Select Repair or Upgrade without changing installed state. Require the same
+# publisher, append-only migrations, and a higher version for changed bytes.
+# A pending replacement accepts only its exact target release for Repair.
 function Get-HostReleaseAction($Settings, $Release) {
     $pendingFile = Join-Path $Settings.root 'release-pending.json'
     $pending = if (Test-Path -LiteralPath $pendingFile) { Get-Content -LiteralPath $pendingFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
@@ -535,6 +539,10 @@ function Get-HostReleaseAction($Settings, $Release) {
     return 'Upgrade'
 }
 
+# Validate the target and both owned services before stopping Server, then
+# PostgreSQL. Set-HostRelease owns replacement, migrations, HTTPS readiness,
+# and the pending marker that binds failure recovery to this exact release.
+# Operator workflow: docs/operations/install-windows.md#update-an-installed-pc.
 function Update-HostRelease($Settings, $Release, [string]$Directory) {
     $action = Get-HostReleaseAction $Settings $Release
     # Verify both services before stopping either one. A name alone is insufficient.

@@ -61,6 +61,9 @@ public struct GuidedWindowsSetup: Codable, Sendable {
     }
 }
 
+/// Update applies the authenticated payload's fixed role to an existing installation.
+/// It uses a separate release journal without workshop creation or Owner credentials;
+/// an interrupted attempt uses Retry with that exact target release.
 public enum GuidedSetupAction: String, Codable, Sendable {
     case client = "client"
     case inspect = "inspect"
@@ -5703,6 +5706,9 @@ public enum WindowsInstallStatus: String, Codable, Sendable {
 }
 
 /// Rust decides which action is available; the native shell supplies localized copy.
+/// Update offers a new same-role release for an existing installation, without
+/// workshop creation or Owner credentials. Its separate release journal retains
+/// exact-target Retry recovery; publisher and installed-state checks still apply.
 public enum WindowsSetupRecovery: String, Codable, Sendable {
     case complete = "complete"
     case inspectManually = "inspectManually"

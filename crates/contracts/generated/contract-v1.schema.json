@@ -6074,6 +6074,7 @@
       ]
     },
     "GuidedSetupAction": {
+      "description": "Update applies the authenticated payload's fixed role to an existing installation.\nIt uses a separate release journal without workshop creation or Owner credentials;\nan interrupted attempt uses Retry with that exact target release.",
       "type": "string",
       "enum": [
         "inspect",
@@ -16719,7 +16720,7 @@
       ]
     },
     "WindowsSetupRecovery": {
-      "description": "Rust decides which action is available; the native shell supplies localized copy.",
+      "description": "Rust decides which action is available; the native shell supplies localized copy.\nUpdate offers a new same-role release for an existing installation, without\nworkshop creation or Owner credentials. Its separate release journal retains\nexact-target Retry recovery; publisher and installed-state checks still apply.",
       "type": "string",
       "enum": [
         "update",

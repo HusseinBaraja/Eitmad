@@ -5285,6 +5285,11 @@ namespace Eitmad.Contracts
         public long Version { get; set; }
     }
 
+    /// <summary>
+    /// Update applies the authenticated payload's fixed role to an existing installation.
+    /// It uses a separate release journal without workshop creation or Owner credentials;
+    /// an interrupted attempt uses Retry with that exact target release.
+    /// </summary>
     public enum GuidedSetupAction { Client, Inspect, Retry, Server, Update };
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
@@ -5406,6 +5411,9 @@ namespace Eitmad.Contracts
 
     /// <summary>
     /// Rust decides which action is available; the native shell supplies localized copy.
+    /// Update offers a new same-role release for an existing installation, without
+    /// workshop creation or Owner credentials. Its separate release journal retains
+    /// exact-target Retry recovery; publisher and installed-state checks still apply.
     /// </summary>
     public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Update, Wait };
 

@@ -1,4 +1,10 @@
 //! New releases get separate journals. The installed host remains the data authority.
+//!
+//! The current release's update journal takes precedence over the original
+//! installation journal. Incomplete original attempts can retry only the same
+//! authenticated role and release; unreadable recovery input never permits an
+//! update. Completed original attempts offer Update only for a proven different
+//! release. See docs/operations/install-windows.md#update-an-installed-pc.
 use super::*;
 use eitmad_contracts::setup::{
     WindowsInstallProgress, WindowsInstallStage, WindowsInstallStatus, WindowsInstallationState,
@@ -70,14 +76,17 @@ fn inspect_journals(
     }
     if original.try_exists().map_err(|_| MainError::Setup)? {
         let mut state = installation::read_state(original)?;
-        let retained = installation::recovery::load(original)?;
+        let retained = installation::recovery::load(original);
+        let same = retained
+            .as_ref()
+            .is_ok_and(|retained| same_release(retained, profile));
         if state.recovery != WindowsSetupRecovery::Complete {
-            if !same_release(&retained, profile) {
+            if !same {
                 state.recovery = WindowsSetupRecovery::InspectManually;
             }
             return Ok(Some(state));
         }
-        if same_release(&retained, profile) {
+        if same || retained.is_err() {
             return Ok(Some(state));
         }
     } else if !host_exists {
@@ -108,6 +117,10 @@ fn host_root() -> Result<PathBuf, MainError> {
     Ok(program_data()?.join("EitmadHost"))
 }
 
+/// Build an update only after inspection offers it. Server requests retain the
+/// original network and host settings, set `update_existing`, and rebind tools
+/// to the authenticated target. No workshop or Owner enrollment is repeated.
+/// Missing metadata or a mismatched host stops composition before installation.
 pub(super) fn compose(
     request: GuidedWindowsSetup,
     progress: PathBuf,
@@ -203,6 +216,55 @@ mod tests {
                 publisher: "CN=Synthetic".into(),
             },
         })
+    }
+
+    #[test]
+    fn unproven_original_release_preserves_inspection_without_offering_update() {
+        let root =
+            std::env::temp_dir().join(format!("eitmad-unproven-update-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let original = root.join("original");
+        let update = root.join("update");
+        let request = client_request(&root, &original);
+        let profile = WindowsSetupBundle {
+            version: 2,
+            role: WindowsSetupRole::Client,
+            publisher: "CN=Synthetic".into(),
+            desktop_release_sha256: "d".repeat(64),
+            server_release_sha256: "b".repeat(64),
+            winsw_sha256: "c".repeat(64),
+        };
+        drop(installation::Progress::open(original.to_str().unwrap(), &request).unwrap());
+        std::fs::remove_file(original.join("recovery-input.json")).unwrap();
+        for invalid in [false, true] {
+            if invalid {
+                std::fs::write(original.join("recovery-input.json"), b"invalid").unwrap();
+            }
+            record(
+                &original,
+                1,
+                WindowsInstallStage::RegisterDesktop,
+                WindowsInstallStatus::Failed,
+            );
+            let state = inspect_journals(&original, &update, false, &profile)
+                .unwrap()
+                .unwrap();
+            assert_eq!(state.recovery, WindowsSetupRecovery::InspectManually);
+            assert_eq!(state.progress.stage, WindowsInstallStage::RegisterDesktop);
+            record(
+                &original,
+                2,
+                WindowsInstallStage::Complete,
+                WindowsInstallStatus::Succeeded,
+            );
+            let state = inspect_journals(&original, &update, false, &profile)
+                .unwrap()
+                .unwrap();
+            assert_eq!(state.recovery, WindowsSetupRecovery::Complete);
+            assert_eq!(state.progress.stage, WindowsInstallStage::Complete);
+            std::fs::remove_file(original.join("00000002.json")).unwrap();
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

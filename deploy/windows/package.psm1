@@ -141,6 +141,10 @@ function Assert-AppendOnlyMigrations($Previous, $Next) {
     }
 }
 
+# Select Install, Repair, or Upgrade for the authenticated release and this
+# user's registration; this function changes no registration. Publisher and
+# migration history must match, downgrades stop, and Repair requires the exact
+# original inventory digest. Only a higher package version selects Upgrade.
 function Get-DesktopInstallAction($Release, $Installed) {
     if ($Installed.Count -gt 1) { throw 'More than one desktop identity is installed.' }
     if (-not $Installed.Count) { return 'Install' }
