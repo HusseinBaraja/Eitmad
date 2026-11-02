@@ -63,7 +63,7 @@ public partial class OrdersView : UserControl
     {
         var previousFocus = System.Windows.Input.Keyboard.FocusedElement;
         var preview = new PrintPreview { Document = document, JobName = title, CanPrint = canPrint };
-        var window = new Window { Title = title, Content = preview, Owner = Window.GetWindow(this),
+        var window = new Window { Title = title, Content = DiagnosticReportButton.WithContent(preview), Owner = Window.GetWindow(this),
             Width = 1000, Height = 780, MinWidth = 640, MinHeight = 480,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             FlowDirection = System.Windows.FlowDirection.RightToLeft, Language = Language };

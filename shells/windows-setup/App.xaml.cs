@@ -6,6 +6,13 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Initialize(
+            typeof(App).Assembly.GetManifestResourceInfo("Eitmad.InstallerPayload.zip") is not null
+                ? LocalDiagnosticComponent.Installer : LocalDiagnosticComponent.Setup);
+        DispatcherUnhandledException += (_, error) => {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error("Crash", error.Exception);
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Stop();
+        };
         base.OnStartup(e);
         if (typeof(App).Assembly.GetManifestResourceInfo("Eitmad.InstallerPayload.zip") is not null)
         {
@@ -26,5 +33,10 @@ public partial class App : Application
             Shutdown(); return;
         }
         MainWindow = window; window.Show();
+    }
+    protected override void OnExit(ExitEventArgs e)
+    {
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Stop();
+        base.OnExit(e);
     }
 }

@@ -204,6 +204,7 @@ fn resolve_before(
 ) -> Result<Vec<SocketAddr>, TransportFailure> {
     let mut span = DiagnosticSpan::start(DiagnosticPhase::Dns);
     let admission = admit_dns(deadline).map_err(|error| {
+        span.io_failure(&error);
         span.finish(diagnostics::io_result(&error, deadline));
         unavailable(FailurePhase::Connect)
     })?;
@@ -229,6 +230,7 @@ fn resolve_before(
         unavailable(FailurePhase::Connect)
     })?;
     let addresses = resolved.map_err(|error| {
+        span.io_failure(&error);
         span.finish(diagnostics::io_result(&error, deadline));
         unavailable(FailurePhase::Connect)
     })?;
@@ -985,6 +987,7 @@ fn connect_tls_at(
                 DiagnosticPhase::Tls,
             );
             connection.complete_io(&mut stream).map_err(|error| {
+                tls.io_failure(&error);
                 if error
                     .get_ref()
                     .is_some_and(<dyn std::error::Error + Send + Sync>::is::<rustls::Error>)
@@ -1131,6 +1134,7 @@ fn authentication_failure() -> TransportFailure {
 }
 
 fn map_server_failure(failure: &ServerFailure) -> TransportFailure {
+    record_server_failure(failure, None);
     let code = failure.code.as_str();
     if code == "eitmad.error.server-token-expired.v1" {
         return unavailable(FailurePhase::Authentication);
@@ -1150,6 +1154,14 @@ fn map_server_failure(failure: &ServerFailure) -> TransportFailure {
         );
     }
     unavailable(FailurePhase::Receive)
+}
+
+fn record_server_failure(failure: &ServerFailure, status: Option<u16>) {
+    let mut event = eitmad_observability_audit::local_diagnostics::event("ServerRequest", "Failed");
+    event.correlation = Some(failure.correlation_id.value());
+    event.error_code = Some(failure.code.as_str().into());
+    event.http_status = status;
+    eitmad_observability_audit::local_diagnostics::record(event);
 }
 
 fn encryption_failure() -> TransportFailure {

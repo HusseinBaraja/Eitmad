@@ -23,6 +23,31 @@ mod windows_tls;
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    use eitmad_observability_audit::local_diagnostics as diagnostics;
+    let serving = ServerCommand::from_arguments(&std::env::args().collect::<Vec<_>>())
+        == ServerCommand::Serve;
+    let directory = if serving {
+        std::env::var_os("EITMAD_SERVER_DIAGNOSTIC_DIRECTORY")
+            .map(std::path::PathBuf::from)
+            .or_else(diagnostics::user_directory)
+    } else {
+        diagnostics::user_directory()
+    };
+    if let Some(directory) = directory {
+        diagnostics::initialize(
+            if serving {
+                eitmad_contracts::local_diagnostics::LocalDiagnosticComponent::Server
+            } else {
+                eitmad_contracts::local_diagnostics::LocalDiagnosticComponent::Setup
+            },
+            directory,
+            &format!(
+                "{}+{}",
+                option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+                option_env!("EITMAD_SOURCE_REVISION").unwrap_or("local")
+            ),
+        );
+    }
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -39,13 +64,26 @@ async fn main() -> ExitCode {
     } else {
         execute().await
     };
-    match result {
+    let outcome = match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
+            let mut event = diagnostics::event("Process", "Failed");
+            event.error_code = Some(error.code().into());
+            diagnostics::record(event);
             tracing::error!(error = error.code(), "server command failed");
             ExitCode::FAILURE
         }
-    }
+    };
+    diagnostics::record(diagnostics::event(
+        "Process",
+        if outcome == ExitCode::SUCCESS {
+            "Stopped"
+        } else {
+            "Failed"
+        },
+    ));
+    diagnostics::flush();
+    outcome
 }
 
 async fn execute() -> Result<(), MainError> {
@@ -246,6 +284,12 @@ async fn startup_databases(
                 .await
             {
                 Err(MainError::Database) => {
+                    let mut event = eitmad_observability_audit::local_diagnostics::event(
+                        "Connect",
+                        "Unavailable",
+                    );
+                    event.error_code = Some("eitmad.error.server-database-unavailable.v1".into());
+                    eitmad_observability_audit::local_diagnostics::record(event);
                     tracing::warn!("database unavailable during startup; retrying");
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }

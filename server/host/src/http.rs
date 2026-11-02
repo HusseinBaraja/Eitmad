@@ -1954,11 +1954,18 @@ impl ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        let correlation = CorrelationId::new(Uuid::new_v4());
+        let mut event =
+            eitmad_observability_audit::local_diagnostics::event("ServerRequest", "Failed");
+        event.correlation = Some(correlation.value());
+        event.error_code = Some(self.code.as_str().into());
+        event.http_status = Some(self.status.as_u16());
+        eitmad_observability_audit::local_diagnostics::record(event);
         (
             self.status,
             Json(ServerFailure {
                 code: self.code,
-                correlation_id: CorrelationId::new(Uuid::new_v4()),
+                correlation_id: correlation,
                 retry_after_ms: None,
             }),
         )

@@ -40,6 +40,7 @@
         </WrapPanel>
     </Window.Resources>
     <Grid x:Name="ShellHost">
+    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <Grid x:Name="ResponsiveRoot" FlowDirection="LeftToRight" layout:ResponsiveLayout.IsEnabled="True">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -94,5 +95,6 @@
                 </WrapPanel>
             </StackPanel>
         </controls:DialogHost>
+        <controls:DiagnosticReportButton Grid.Row="1" />
     </Grid>
 </Window>

@@ -24,6 +24,8 @@ public partial class InstallerWindow : Window
         PublisherTrustPanel.IsEnabled = false; TrustPublisher.IsEnabled = false;
         PreparationProgress.Visibility = Visibility.Visible;
         InstallerNotice.Text = "جارٍ التحقق من ملف الإعداد وتجهيز المتطلبات. انتظر قليلًا…";
+        var phase = "PayloadVerification";
+        Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Started");
         try
         {
             var assembly = typeof(App).Assembly;
@@ -42,31 +44,44 @@ public partial class InstallerWindow : Window
             await Task.Run(() => publisher.VerifyInstallerSigner(executable));
             if (!await Task.Run(publisher.IsTrustedForMachine))
             {
+                phase = "PublisherTrust";
+                Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Started");
                 ShowPublisherTrust(publisher.Publisher, publisher.Fingerprint);
-                if (!trustPublisher || ConfirmedPublisher.IsChecked != true) return;
+                if (!trustPublisher || ConfirmedPublisher.IsChecked != true)
+                { Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Blocked"); return; }
                 InstallerNotice.Text = "وافق على طلبات مسؤول Windows لاعتماد شهادة الناشر. قد يظهر طلبان. تبقى عملية تثبيت التطبيق للمستخدم الذي بدأ الإعداد.";
                 await Task.Run(publisher.TrustForMachineAsync);
+                Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Succeeded");
             }
             PublisherTrustPanel.Visibility = Visibility.Collapsed; TrustPublisher.Visibility = Visibility.Collapsed;
+            phase = "PayloadVerification";
             PreparationProgress.Visibility = Visibility.Visible;
             InstallerNotice.Text = "جارٍ التحقق من ملف الإعداد وتجهيز المتطلبات. انتظر قليلًا…";
             await Task.Run(() => AuthenticodeTrust.Verify(retainedExecutable));
             using var source = assembly.GetManifestResourceStream("Eitmad.InstallerPayload.zip")
                 ?? throw new IOException("Installer payload missing.");
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Succeeded");
+            phase = "PayloadExtraction";
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Started");
             using var payload = await Task.Run(() => EmbeddedInstallerPayload.PrepareAsync(source,
                 Metadata("InstallerPayloadSha256")));
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Succeeded");
+            phase = "Activation";
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, "Started");
             var start = new ProcessStartInfo(Path.Combine(payload.RootDirectory, "setup", "EitmadSetup.exe")) {
                 UseShellExecute = false, WorkingDirectory = payload.RootDirectory,
             };
             start.ArgumentList.Add("--role"); start.ArgumentList.Add(role);
             using var child = Process.Start(start) ?? throw new IOException("Guided setup unavailable.");
             Hide(); await child.WaitForExitAsync();
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Record(phase, child.ExitCode == 0 ? "Succeeded" : "Failed", nativeCode: child.ExitCode);
             if (child.ExitCode != 0) throw new IOException("Guided setup stopped.");
             busy = false; Close();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
             or Win32Exception or System.Security.Cryptography.CryptographicException or System.Security.SecurityException)
         {
+            Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Error(phase, error);
             Show(); PreparationProgress.Visibility = Visibility.Collapsed;
             InstallerNotice.Text = "تعذر التحقق من ملف الإعداد أو تجهيز متطلباته. استخدم ملف إعداد الاعتماد المعتمد، وتأكد من وجود مساحة كافية ومن سماح Windows بتشغيله، ثم أعد المحاولة. حُفظت أي ملفات تجهيز سابقة؛ لا تحذف بيانات الورشة.";
             RetryPreparation.Visibility = Visibility.Visible;

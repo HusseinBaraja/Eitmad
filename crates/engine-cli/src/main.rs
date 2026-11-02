@@ -100,7 +100,19 @@ enum RunMode {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    match Cli::parse().command {
+    use eitmad_observability_audit::local_diagnostics as diagnostics;
+    if let Some(directory) = diagnostics::user_directory() {
+        diagnostics::initialize(
+            eitmad_contracts::local_diagnostics::LocalDiagnosticComponent::Engine,
+            directory,
+            &format!(
+                "{}+{}",
+                option_env!("EITMAD_RELEASE_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+                option_env!("EITMAD_SOURCE_REVISION").unwrap_or("local")
+            ),
+        );
+    }
+    let outcome = match Cli::parse().command {
         Command::Run {
             mode,
             supervisor_pid,
@@ -122,7 +134,17 @@ async fn main() -> ExitCode {
         Command::SeedDevelopmentAccounts { runtime_directory } => {
             seed_development_accounts(runtime_directory)
         }
-    }
+    };
+    diagnostics::record(diagnostics::event(
+        "Process",
+        if outcome == ExitCode::SUCCESS {
+            "Stopped"
+        } else {
+            "Failed"
+        },
+    ));
+    diagnostics::flush();
+    outcome
 }
 
 #[cfg(debug_assertions)]
@@ -729,6 +751,10 @@ fn emit_json(value: &impl Serialize) -> Result<(), serde_json::Error> {
 
 fn emit_failure(failure: &RuntimeFailure) {
     let safe = failure.contract_error().redacted_for_external_boundary();
+    let mut event = eitmad_observability_audit::local_diagnostics::event("Process", "Failed");
+    event.error_code = Some(safe.code.as_str().into());
+    event.correlation = Some(safe.correlation_id.value());
+    eitmad_observability_audit::local_diagnostics::record(event);
     match serde_json::to_string(&safe) {
         Ok(encoded) => eprintln!("{encoded}"),
         Err(_) => eprintln!("{{\"code\":\"eitmad.error.engine-startup-failed.v1\"}}"),
@@ -737,6 +763,10 @@ fn emit_failure(failure: &RuntimeFailure) {
 
 fn emit_operational_failure(event_id: &str, error_code: &str) {
     let correlation_id = CorrelationId::new(uuid::Uuid::new_v4());
+    let mut event = eitmad_observability_audit::local_diagnostics::event("Process", "Failed");
+    event.error_code = Some(error_code.into());
+    event.correlation = Some(correlation_id.value());
+    eitmad_observability_audit::local_diagnostics::record(event);
     let field_name = ObservationFieldName::parse("error-code")
         .expect("static observation field name must be valid");
     let contract = ObservationContract::new(

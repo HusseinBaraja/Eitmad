@@ -118,7 +118,9 @@ function Protect-Directory([string]$Path, [hashtable]$Readers = @{}) {
             $sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
     }
     foreach ($entry in $Readers.GetEnumerator()) {
-        $account = New-Object Security.Principal.NTAccount($entry.Key)
+        $account = if ($entry.Key -match '^S-1-\d+(?:-\d+)+$') {
+            New-Object Security.Principal.SecurityIdentifier($entry.Key)
+        } else { New-Object Security.Principal.NTAccount($entry.Key) }
         $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
             $account, $entry.Value, 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
     }
@@ -353,6 +355,7 @@ function Initialize-Host([string]$Root, [string]$Name, [string]$LanDirectory,
     [IO.File]::WriteAllText((Join-Path $Root 'private/database-url'), $source.environment.EITMAD_SERVER_DATABASE_URL)
     [IO.File]::WriteAllText((Join-Path $Root 'private/token-key'), $source.environment.EITMAD_SERVER_TOKEN_KEY)
     $environment = @{
+        EITMAD_SERVER_DIAGNOSTIC_DIRECTORY = Join-Path $Root 'diagnostics'
         EITMAD_SERVER_DATABASE_URL_FILE = Join-Path $Root 'private/database-url'
         EITMAD_SERVER_TOKEN_KEY_FILE = Join-Path $Root 'private/token-key'
         EITMAD_SERVER_LISTEN = "0.0.0.0:$($source.port)"
@@ -420,6 +423,8 @@ function Install-Host($Settings, [switch]$ResumeExisting) {
     Protect-Directory (Join-Path $root 'data') @{"NT SERVICE\$databaseId" = 'Modify'}
     Protect-Directory (Join-Path $root 'manifests') @{"NT SERVICE\$serverId" = 'Modify'}
     Protect-Directory (Join-Path $root 'logs/server') @{"NT SERVICE\$serverId" = 'Modify'}
+    # Only the metadata-only support stream is readable by local users. Raw service logs and secrets stay private.
+    Protect-Directory (Join-Path $root 'diagnostics') @{"NT SERVICE\$serverId" = 'Modify'; 'S-1-5-32-545' = 'ReadAndExecute'}
     Protect-Directory (Join-Path $root 'logs/postgres') @{"NT SERVICE\$databaseId" = 'Modify'}
     Assert-InstalledProtection $root $Settings.name
     Invoke-Native sc.exe @('config', $databaseId, 'start=', 'auto')

@@ -34,6 +34,12 @@ namespace Eitmad.Contracts
         [JsonPropertyName("lifecycle_snapshot")]
         public LifecycleSnapshot LifecycleSnapshot { get; set; }
 
+        [JsonPropertyName("local_diagnostic_event")]
+        public LocalDiagnosticEvent LocalDiagnosticEvent { get; set; }
+
+        [JsonPropertyName("local_diagnostic_manifest")]
+        public LocalDiagnosticManifest LocalDiagnosticManifest { get; set; }
+
         [JsonPropertyName("unionPayloadKeepAlive")]
         public UnionPayloadKeepAlive UnionPayloadKeepAlive { get; set; }
 
@@ -264,6 +270,126 @@ namespace Eitmad.Contracts
 
         [JsonPropertyName("minor")]
         public long Minor { get; set; }
+    }
+
+    public partial class LocalDiagnosticEvent
+    {
+        [JsonPropertyName("binarySha256")]
+        public string BinarySha256 { get; set; }
+
+        [JsonPropertyName("build")]
+        public string Build { get; set; }
+
+        [JsonPropertyName("component")]
+        public LocalDiagnosticComponent Component { get; set; }
+
+        [JsonPropertyName("correlation")]
+        public Guid? Correlation { get; set; }
+
+        [JsonPropertyName("dropped")]
+        public long Dropped { get; set; }
+
+        [JsonPropertyName("elapsedMs")]
+        public long? ElapsedMs { get; set; }
+
+        [JsonPropertyName("errorCode")]
+        public string ErrorCode { get; set; }
+
+        [JsonPropertyName("httpStatus")]
+        public long? HttpStatus { get; set; }
+
+        /// <summary>
+        /// Code symbols and source basenames only; never exception messages or absolute paths.
+        /// </summary>
+        [JsonPropertyName("locations")]
+        public string[] Locations { get; set; }
+
+        [JsonPropertyName("nativeCode")]
+        public long? NativeCode { get; set; }
+
+        [JsonPropertyName("operation")]
+        public string Operation { get; set; }
+
+        [JsonPropertyName("osVersion")]
+        public string OsVersion { get; set; }
+
+        [JsonPropertyName("phase")]
+        public string Phase { get; set; }
+
+        [JsonPropertyName("processId")]
+        public long ProcessId { get; set; }
+
+        [JsonPropertyName("result")]
+        public string Result { get; set; }
+
+        [JsonPropertyName("sequence")]
+        public long Sequence { get; set; }
+
+        [JsonPropertyName("session")]
+        public Guid Session { get; set; }
+
+        [JsonPropertyName("utcMillis")]
+        public long UtcMillis { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public partial class LocalDiagnosticManifest
+    {
+        [JsonPropertyName("captureFailures")]
+        public long CaptureFailures { get; set; }
+
+        [JsonPropertyName("eventsSha256")]
+        public string EventsSha256 { get; set; }
+
+        [JsonPropertyName("exportedUtcMillis")]
+        public long ExportedUtcMillis { get; set; }
+
+        [JsonPropertyName("pendingDroppedEvents")]
+        public long PendingDroppedEvents { get; set; }
+
+        [JsonPropertyName("services")]
+        public LocalDiagnosticService[] Services { get; set; }
+
+        [JsonPropertyName("sources")]
+        public LocalDiagnosticSource[] Sources { get; set; }
+
+        [JsonPropertyName("version")]
+        public long Version { get; set; }
+    }
+
+    public partial class LocalDiagnosticService
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("nativeCode")]
+        public long? NativeCode { get; set; }
+
+        [JsonPropertyName("serviceExitCode")]
+        public long? ServiceExitCode { get; set; }
+
+        [JsonPropertyName("state")]
+        public string State { get; set; }
+    }
+
+    public partial class LocalDiagnosticSource
+    {
+        [JsonPropertyName("component")]
+        public LocalDiagnosticComponent Component { get; set; }
+
+        [JsonPropertyName("records")]
+        public long Records { get; set; }
+
+        [JsonPropertyName("rejectedRecords")]
+        public long RejectedRecords { get; set; }
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; }
+
+        [JsonPropertyName("truncatedFiles")]
+        public long TruncatedFiles { get; set; }
     }
 
     public partial class UnionPayloadKeepAlive
@@ -5181,6 +5307,8 @@ namespace Eitmad.Contracts
 
     public enum LifecycleState { Failed, Ready, Starting, Stopped, Stopping };
 
+    public enum LocalDiagnosticComponent { Desktop, Engine, Installer, Server, Setup };
+
     public enum PrincipalKind { Device, Service, User };
 
     public enum CatalogImageKind { Furniture, Product };
@@ -5336,6 +5464,7 @@ namespace Eitmad.Contracts
                 HealthStatusConverter.Singleton,
                 EngineModeConverter.Singleton,
                 LifecycleStateConverter.Singleton,
+                LocalDiagnosticComponentConverter.Singleton,
                 CatalogImageKindConverter.Singleton,
                 RestartRequirementConverter.Singleton,
                 ConfigSensitivityConverter.Singleton,
@@ -5949,6 +6078,55 @@ namespace Eitmad.Contracts
         }
 
         public static readonly LifecycleStateConverter Singleton = new LifecycleStateConverter();
+    }
+
+    internal class LocalDiagnosticComponentConverter : JsonConverter<LocalDiagnosticComponent>
+    {
+        public override bool CanConvert(Type t) => t == typeof(LocalDiagnosticComponent);
+
+        public override LocalDiagnosticComponent Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var value = reader.GetString();
+            switch (value)
+            {
+                case "desktop":
+                    return LocalDiagnosticComponent.Desktop;
+                case "engine":
+                    return LocalDiagnosticComponent.Engine;
+                case "installer":
+                    return LocalDiagnosticComponent.Installer;
+                case "server":
+                    return LocalDiagnosticComponent.Server;
+                case "setup":
+                    return LocalDiagnosticComponent.Setup;
+            }
+            throw new Exception("Cannot unmarshal type LocalDiagnosticComponent");
+        }
+
+        public override void Write(Utf8JsonWriter writer, LocalDiagnosticComponent value, JsonSerializerOptions options)
+        {
+            switch (value)
+            {
+                case LocalDiagnosticComponent.Desktop:
+                    JsonSerializer.Serialize(writer, "desktop", options);
+                    return;
+                case LocalDiagnosticComponent.Engine:
+                    JsonSerializer.Serialize(writer, "engine", options);
+                    return;
+                case LocalDiagnosticComponent.Installer:
+                    JsonSerializer.Serialize(writer, "installer", options);
+                    return;
+                case LocalDiagnosticComponent.Server:
+                    JsonSerializer.Serialize(writer, "server", options);
+                    return;
+                case LocalDiagnosticComponent.Setup:
+                    JsonSerializer.Serialize(writer, "setup", options);
+                    return;
+            }
+            throw new Exception("Cannot marshal type LocalDiagnosticComponent");
+        }
+
+        public static readonly LocalDiagnosticComponentConverter Singleton = new LocalDiagnosticComponentConverter();
     }
 
     internal class CatalogImageKindConverter : JsonConverter<CatalogImageKind>

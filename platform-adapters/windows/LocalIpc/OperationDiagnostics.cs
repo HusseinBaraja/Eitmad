@@ -56,6 +56,7 @@ public sealed class OperationDiagnostics : IDisposable
 
     private static void Write(Guid operation, Guid correlation, DiagnosticPhase phase, DiagnosticResult result, long elapsedMs, DiagnosticSource source = DiagnosticSource.Unspecified)
     {
+        Diagnostics.LocalDiagnostics.Record(phase.ToString(), result.ToString(), correlation, elapsedMs: elapsedMs);
         if (Environment.GetEnvironmentVariable("EITMAD_DIAGNOSTICS") != "1") return;
         var count = Volatile.Read(ref events);
         while (true)

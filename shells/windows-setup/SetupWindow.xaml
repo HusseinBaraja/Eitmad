@@ -4,7 +4,7 @@
  Title="إعداد الاعتماد" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen"
  FlowDirection="RightToLeft" Language="ar-YE" Background="{DynamicResource CanvasBrush}" UseLayoutRounding="True">
  <Grid Margin="24">
-  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <DockPanel Margin="0,0,0,16">
    <TextBlock Text="الاعتماد" Foreground="{DynamicResource CopperBrush}" FontSize="26" FontWeight="Bold"/>
    <TextBlock x:Name="StepTitle" Text="إعداد جهاز الورشة" FontSize="18" Margin="20,0,0,0" VerticalAlignment="Center"/>
@@ -66,5 +66,6 @@
    <Button x:Name="InspectButton" Content="فحص حالة الإعداد" Style="{StaticResource SecondaryButton}" Click="InspectClick" Margin="10,0,0,0" AutomationProperties.Name="فحص حالة الإعداد المحفوظة"/>
    <Button x:Name="OpenDesktopButton" Content="فتح الاعتماد" Style="{StaticResource PrimaryButton}" Click="OpenDesktopClick" Visibility="Collapsed" Margin="10,0,0,0" AutomationProperties.Name="فتح تطبيق الاعتماد وتسجيل الدخول"/>
   </WrapPanel>
+  <controls:DiagnosticReportButton Grid.Row="3"/>
  </Grid>
 </Window>

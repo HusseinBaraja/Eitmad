@@ -638,6 +638,9 @@ def windows_version(version: str) -> str:
 def build_rust(package: str, version: str) -> Path:
     # Select rustc explicitly: a PATH shim must not mix stable objects into the MSRV cache.
     environment = dict(os.environ, EITMAD_RELEASE_VERSION=version, CARGO_INCREMENTAL="0")
+    environment["EITMAD_SOURCE_REVISION"] = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
     compiler = subprocess.check_output(
         ["rustup", "which", "--toolchain", "1.85.1", "rustc"], cwd=ROOT, text=True
     ).strip()

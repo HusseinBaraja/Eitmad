@@ -73,7 +73,7 @@ public sealed class ReceptionOrdersRenderedTests
                     var child = window.OwnedWindows.Cast<Window>().Single();
                     try
                     {
-                        var preview = (PrintPreview)child.Content;
+                        var preview = WpfTestHost.Descendants<PrintPreview>(child).Single();
                         Assert.IsFalse(preview.CanPrint);
                         Assert.IsTrue(preview.BackButton.IsKeyboardFocusWithin);
                         Assert.AreEqual(jobName, preview.JobName);

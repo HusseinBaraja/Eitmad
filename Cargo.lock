@@ -1054,6 +1054,8 @@ dependencies = [
  "eitmad-contracts",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
  "uuid",
 ]
 
@@ -1192,6 +1194,7 @@ dependencies = [
  "eitmad-contracts",
  "eitmad-control-plane",
  "eitmad-customer",
+ "eitmad-observability-audit",
  "eitmad-orders",
  "eitmad-pairing",
  "eitmad-postgres-support",

@@ -11,6 +11,8 @@ public struct EitmadContractSchema: Codable, Sendable {
     public let guidedWindowsSetup: GuidedWindowsSetup
     public let ipcClientMessage, ipcServerMessage: [String: JSONAny]
     public let lifecycleSnapshot: LifecycleSnapshot
+    public let localDiagnosticEvent: LocalDiagnosticEvent
+    public let localDiagnosticManifest: LocalDiagnosticManifest
     public let unionPayloadKeepAlive: UnionPayloadKeepAlive
     public let windowsInstallationState: WindowsInstallationState
     public let windowsSetupRole: WindowsSetupRole
@@ -20,16 +22,20 @@ public struct EitmadContractSchema: Codable, Sendable {
         case ipcClientMessage = "ipc_client_message"
         case ipcServerMessage = "ipc_server_message"
         case lifecycleSnapshot = "lifecycle_snapshot"
+        case localDiagnosticEvent = "local_diagnostic_event"
+        case localDiagnosticManifest = "local_diagnostic_manifest"
         case unionPayloadKeepAlive
         case windowsInstallationState = "windows_installation_state"
         case windowsSetupRole = "windows_setup_role"
     }
 
-    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState, windowsSetupRole: WindowsSetupRole) {
+    public init(guidedWindowsSetup: GuidedWindowsSetup, ipcClientMessage: [String: JSONAny], ipcServerMessage: [String: JSONAny], lifecycleSnapshot: LifecycleSnapshot, localDiagnosticEvent: LocalDiagnosticEvent, localDiagnosticManifest: LocalDiagnosticManifest, unionPayloadKeepAlive: UnionPayloadKeepAlive, windowsInstallationState: WindowsInstallationState, windowsSetupRole: WindowsSetupRole) {
         self.guidedWindowsSetup = guidedWindowsSetup
         self.ipcClientMessage = ipcClientMessage
         self.ipcServerMessage = ipcServerMessage
         self.lifecycleSnapshot = lifecycleSnapshot
+        self.localDiagnosticEvent = localDiagnosticEvent
+        self.localDiagnosticManifest = localDiagnosticManifest
         self.unionPayloadKeepAlive = unionPayloadKeepAlive
         self.windowsInstallationState = windowsInstallationState
         self.windowsSetupRole = windowsSetupRole
@@ -379,6 +385,123 @@ public enum LifecycleState: String, Codable, Sendable {
     case starting = "starting"
     case stopped = "stopped"
     case stopping = "stopping"
+}
+
+// MARK: - LocalDiagnosticEvent
+public struct LocalDiagnosticEvent: Codable, Sendable {
+    public let binarySha256, build: String
+    public let component: LocalDiagnosticComponent
+    public let correlation: String?
+    public let dropped: Int
+    public let elapsedMS: Int?
+    public let errorCode: String?
+    public let httpStatus: Int?
+    /// Code symbols and source basenames only; never exception messages or absolute paths.
+    public let locations: [String]
+    public let nativeCode: Int?
+    public let operation: String?
+    public let osVersion, phase: String
+    public let processID: Int
+    public let result: String
+    public let sequence: Int
+    public let session: String
+    public let utcMillis: Int
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case binarySha256, build, component, correlation, dropped
+        case elapsedMS = "elapsedMs"
+        case errorCode, httpStatus, locations, nativeCode, operation, osVersion, phase
+        case processID = "processId"
+        case result, sequence, session, utcMillis, version
+    }
+
+    public init(binarySha256: String, build: String, component: LocalDiagnosticComponent, correlation: String?, dropped: Int, elapsedMS: Int?, errorCode: String?, httpStatus: Int?, locations: [String], nativeCode: Int?, operation: String?, osVersion: String, phase: String, processID: Int, result: String, sequence: Int, session: String, utcMillis: Int, version: Int) {
+        self.binarySha256 = binarySha256
+        self.build = build
+        self.component = component
+        self.correlation = correlation
+        self.dropped = dropped
+        self.elapsedMS = elapsedMS
+        self.errorCode = errorCode
+        self.httpStatus = httpStatus
+        self.locations = locations
+        self.nativeCode = nativeCode
+        self.operation = operation
+        self.osVersion = osVersion
+        self.phase = phase
+        self.processID = processID
+        self.result = result
+        self.sequence = sequence
+        self.session = session
+        self.utcMillis = utcMillis
+        self.version = version
+    }
+}
+
+public enum LocalDiagnosticComponent: String, Codable, Sendable {
+    case desktop = "desktop"
+    case engine = "engine"
+    case installer = "installer"
+    case server = "server"
+    case setup = "setup"
+}
+
+// MARK: - LocalDiagnosticManifest
+public struct LocalDiagnosticManifest: Codable, Sendable {
+    public let captureFailures: Int
+    public let eventsSha256: String
+    public let exportedUTCMillis, pendingDroppedEvents: Int
+    public let services: [LocalDiagnosticService]
+    public let sources: [LocalDiagnosticSource]
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case captureFailures, eventsSha256
+        case exportedUTCMillis = "exportedUtcMillis"
+        case pendingDroppedEvents, services, sources, version
+    }
+
+    public init(captureFailures: Int, eventsSha256: String, exportedUTCMillis: Int, pendingDroppedEvents: Int, services: [LocalDiagnosticService], sources: [LocalDiagnosticSource], version: Int) {
+        self.captureFailures = captureFailures
+        self.eventsSha256 = eventsSha256
+        self.exportedUTCMillis = exportedUTCMillis
+        self.pendingDroppedEvents = pendingDroppedEvents
+        self.services = services
+        self.sources = sources
+        self.version = version
+    }
+}
+
+// MARK: - LocalDiagnosticService
+public struct LocalDiagnosticService: Codable, Sendable {
+    public let name: String
+    public let nativeCode: Int?
+    public let serviceExitCode: Int?
+    public let state: String
+
+    public init(name: String, nativeCode: Int?, serviceExitCode: Int?, state: String) {
+        self.name = name
+        self.nativeCode = nativeCode
+        self.serviceExitCode = serviceExitCode
+        self.state = state
+    }
+}
+
+// MARK: - LocalDiagnosticSource
+public struct LocalDiagnosticSource: Codable, Sendable {
+    public let component: LocalDiagnosticComponent
+    public let records, rejectedRecords: Int
+    public let status: String
+    public let truncatedFiles: Int
+
+    public init(component: LocalDiagnosticComponent, records: Int, rejectedRecords: Int, status: String, truncatedFiles: Int) {
+        self.component = component
+        self.records = records
+        self.rejectedRecords = rejectedRecords
+        self.status = status
+        self.truncatedFiles = truncatedFiles
+    }
 }
 
 // MARK: - UnionPayloadKeepAlive

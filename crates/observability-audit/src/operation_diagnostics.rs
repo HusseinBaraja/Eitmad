@@ -107,6 +107,8 @@ pub struct DiagnosticSpan {
     source: DiagnosticSource,
     started: Instant,
     result: DiagnosticResult,
+    native_code: Option<i32>,
+    io_kind: Option<std::io::ErrorKind>,
 }
 impl DiagnosticSpan {
     #[must_use]
@@ -119,6 +121,8 @@ impl DiagnosticSpan {
             source: SOURCE.get(),
             started: Instant::now(),
             result: DiagnosticResult::Failed,
+            native_code: None,
+            io_kind: None,
         };
         span.emit(DiagnosticResult::Started);
         span
@@ -126,17 +130,39 @@ impl DiagnosticSpan {
     pub fn finish(&mut self, result: DiagnosticResult) {
         self.result = result;
     }
+    /// Preserve the typed OS cause, never its free-text message or inner payload.
+    pub fn io_failure(&mut self, error: &std::io::Error) {
+        self.native_code = error.raw_os_error();
+        self.io_kind = Some(error.kind());
+    }
     fn emit(&self, result: DiagnosticResult) {
+        let mut event =
+            crate::local_diagnostics::event(&format!("{:?}", self.phase), &format!("{result:?}"));
+        event.correlation = Some(self.correlation.value());
+        event.native_code = self.native_code;
+        if let Some(kind) = self.io_kind {
+            event.locations.push(format!("io.{kind:?}"));
+        }
+        event.elapsed_ms =
+            Some(u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX));
+        crate::local_diagnostics::record(event);
         if std::env::var_os("EITMAD_DIAGNOSTICS").as_deref() != Some(std::ffi::OsStr::new("1")) {
             return;
         }
-        if EVENTS
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
-                (n < LIMIT).then_some(n + 1)
-            })
-            .is_err()
-        {
-            return;
+        let mut count = EVENTS.load(Ordering::Relaxed);
+        loop {
+            if count >= LIMIT {
+                return;
+            }
+            match EVENTS.compare_exchange_weak(
+                count,
+                count + 1,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(observed) => count = observed,
+            }
         }
         // Fixed keys/enums and an opaque ID only. Never format an underlying error.
         let line = serde_json::json!({"diagnostic":"eitmad.operation.v1", "correlation":self.correlation, "source":format!("{:?}", self.source), "phase":format!("{:?}", self.phase), "result":format!("{result:?}"), "elapsedMs":u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX)});

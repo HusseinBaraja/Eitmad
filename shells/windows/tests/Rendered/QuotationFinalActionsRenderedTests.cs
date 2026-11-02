@@ -74,7 +74,7 @@ public sealed class QuotationFinalActionsRenderedTests
                 try
                 {
                     WpfTestHost.CompleteLayout(modal);
-                    var preview = (PrintPreview)modal.Content;
+                    var preview = WpfTestHost.Descendants<PrintPreview>(modal).Single();
                     Assert.IsFalse(preview.CanPrint);
                     Assert.IsTrue(preview.BackButton.IsKeyboardFocusWithin);
                     var text = new TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text;

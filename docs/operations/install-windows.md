@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-10-28"
+last_verified: "2026-11-01"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
@@ -77,6 +77,10 @@ The app authenticates server trust during pairing and keeps an independent devic
 - Before depending on unattended operation, verify client access after a planned server reboot while the server is still at the Windows sign-in screen. Use [offline setup acceptance](verify-offline-windows-setup.md) for the controlled reboot, firewall, DHCP, and restore checks.
 
 ## If setup or pairing stops
+
+For an installer or desktop built with local diagnostics, select **تنزيل السجلات** in the fixed bottom bar. It saves one `Eitmad-Logs-*.zip` in Downloads; select **فتح التنزيلات** to locate it. Copy that ZIP to the development laptop with the observed symptom and approximate time. The button is available before sign-in, throughout the desktop, and in both installer windows. If the app cannot open, reopen the authenticated setup EXE and download the report without starting installation. For a server-related problem, collect a report on both the client and server PC. The report does not collect remotely.
+
+The ZIP contains a typed event timeline and a collection/service-status summary. It reports missing, denied, rejected or truncated evidence. It excludes customer content, credentials, raw service logs, databases and private setup state. See [local diagnostic collection and interpretation](../developer/subsystems/privacy-preserving-observability.md#collect-local-support-evidence). Existing EXEs need to be rebuilt and authenticated to include the feature.
 
 If setup reports **اكتمل التثبيت** but **فتح الاعتماد** does nothing, open **الاعتماد** from Start under the same Windows user. If Start opens the app, the failure is in the setup launch path; do not recreate the workshop or reinstall the services. Older setup code launched a hidden Explorer helper and checked only its exit. The corrected launcher requests native Windows activation and checks its result and process ID. Activation does not prove that the desktop finished loading. On activation failure, setup keeps installation marked complete and exposes **نسخ السجل** and **حفظ ملف السجل** with the available failure details. If Start also fails, retain the installation and inspect the desktop startup failure separately. A rebuilt authenticated installer is needed to distribute the launch correction; do not replace files inside an existing signed payload.
 
