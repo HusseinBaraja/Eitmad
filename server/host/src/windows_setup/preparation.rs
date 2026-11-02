@@ -160,6 +160,14 @@ pub(super) fn validate(request: &PrepareWindowsWorkshop) -> Result<(), MainError
 }
 
 pub(super) fn validate_inputs(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
+    validate_host_inputs(request)?;
+    // Reject invalid account input before creating any native state.
+    eitmad_control_plane::validate_workshop_initialization(&request.workshop)
+        .map_err(|_| MainError::Input)?;
+    Ok(())
+}
+
+pub(super) fn validate_host_inputs(request: &PrepareWindowsWorkshop) -> Result<(), MainError> {
     if request.version != 1
         || request.workshop.version != 1
         || request.server_port < 1024
@@ -204,9 +212,6 @@ pub(super) fn validate_inputs(request: &PrepareWindowsWorkshop) -> Result<(), Ma
     if !root.parent().is_some_and(Path::is_dir) {
         return Err(MainError::Input);
     }
-    // Reject invalid account input before creating any native state.
-    eitmad_control_plane::validate_workshop_initialization(&request.workshop)
-        .map_err(|_| MainError::Input)?;
     Ok(())
 }
 

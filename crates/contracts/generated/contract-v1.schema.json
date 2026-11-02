@@ -6078,6 +6078,7 @@
       "enum": [
         "inspect",
         "retry",
+        "update",
         "client",
         "server"
       ]
@@ -6674,6 +6675,11 @@
         },
         "serviceStateDirectory": {
           "type": "string"
+        },
+        "updateExisting": {
+          "description": "Update only an existing owned host; never prepare or enroll a workshop.",
+          "type": "boolean",
+          "default": false
         },
         "version": {
           "type": "integer",
@@ -16716,6 +16722,7 @@
       "description": "Rust decides which action is available; the native shell supplies localized copy.",
       "type": "string",
       "enum": [
+        "update",
         "retry",
         "ownerPassword",
         "wait",

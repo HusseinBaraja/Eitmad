@@ -205,7 +205,7 @@ impl Platform for WindowsPlatform {
     }
     fn host(&mut self, request: &InstallWindowsServer, action: &str) -> Result<(), MainError> {
         invoke(action, request, None, None)?;
-        if matches!(action, "Install" | "ResumeInstall") {
+        if matches!(action, "Install" | "ResumeInstall" | "UpdateHost") {
             crate::windows_tls::configure_setup(
                 &request.service_state_directory,
                 &request.preparation.state_directory,

@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-11-01"
+last_verified: "2026-11-02"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
@@ -24,7 +24,7 @@ keywords:
 
 Use the two installers from the same release. Install the server first. It keeps the workshop database and also installs the desktop app for the Windows user who starts setup. Each employee PC installs only the desktop app and connects to that server. Each EXE fixes its role; there is no second role-choice screen.
 
-Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. For a PC where Eitmad is already installed, use [repair or upgrade](package-windows-desktop.md#repair-and-data-preserving-uninstall). Do not create another workshop to repair a failed installation.
+Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. On a PC where Eitmad is already installed, run the newer EXE for the same role and use [Update an installed PC](#update-an-installed-pc). Do not create another workshop to repair a failed installation.
 
 **Current verification:** a complete reviewed self-signed Server and Client pair has been assembled, and both final EXE signatures passed build-host verification. Clean-PC installation, company LAN, reboot, and recovery acceptance remain **Needs verification**. See [offline setup verification](verify-offline-windows-setup.md#current-verification-status) for the observed evidence and its limits. The steps below describe the implemented path; they do not claim a live installation has passed.
 
@@ -104,8 +104,22 @@ If no server appears, check that the server is running, all PCs use the workshop
 
 If pairing was interrupted, select **إعادة محاولة الربط نفسه** first. It can recover a lost completion receipt without another code. If the exchange expired and cannot complete, select **ترك الطلب واستخدام رمز جديد**, then obtain a fresh code from the Owner. This preserves the device identity and does not revoke a server approval already committed. If approval was committed but its receipt was abandoned, preserve the runtime and use [desktop recovery](run-server-authority.md#enroll-or-recover-a-windows-desktop); do not replace the key to force another pairing.
 
+## Update an installed PC
+
+Use an authenticated, signed release with a higher numeric package version and the same publisher. Close the desktop and wait for its engine to exit. For a server update, stop workshop work and close all connected desktops until verification is complete.
+
+1. Open the newer `EitmadServerSetup.exe` on the server, or `EitmadClientSetup.exe` on an employee PC. Use the original ordinary Windows account to retain that desktop's pairing and credentials. Do not uninstall Eitmad or remove its files first.
+2. Setup detects the retained installation and offers **تحديث الاعتماد**. It does not ask you to create a workshop or enter the Owner password. Select the update action. Server updates request Windows administrator approval.
+3. Wait for **اكتمل التثبيت**, then open the desktop. Update the server first, then its clients from the same release. Verify online sign-in and retained work before normal use resumes. An already completed installation of this exact release reports completion without creating another workshop.
+
+The server verifies the protected host and service ownership before stopping its Server and PostgreSQL services. It uses the existing release replacement and Rust migration path, then verifies HTTPS readiness. It retains the database, accounts, token key, CA, device identities, network settings, PostgreSQL distribution, and service wrappers. Client deployment retains local engine data and Windows credentials; a registered desktop does not cause a fresh-install refusal.
+
+Each update has its own journal. It does not overwrite the original installation journal. If interrupted, reopen the **same target EXE**, inspect the saved state, and use **فحص واستكمال الإعداد** when offered. Server update recovery needs administrator approval, but no Owner password. An interrupted migration remains bound to that exact target release. A different pending release, downgrade, publisher mismatch, changed migration history, unowned service, or missing installation metadata stops the update and preserves retained state. Use [advanced repair and recovery](package-windows-desktop.md#repair-and-data-preserving-uninstall) if setup cannot prove ownership or recover its journal. Never delete a service, database, or journal to force setup to continue.
+
+**Verification limit:** automated checks cover update orchestration, package selection, retained files, migration failure recovery, and the rendered update screen. A signed older-to-newer EXE upgrade on independent target PCs remains **Needs verification** under [offline setup acceptance](verify-offline-windows-setup.md).
+
 ## Maintenance
 
 Keep the authenticated bundle and protected `%ProgramData%\EitmadSetupPayload-<id>` copy available: recovery and TLS renewal can use them. Do not clear these files as temporary installation output.
 
-Use [TLS renewal status](setup-lan-server.md#renew-without-changing-trust) to inspect certificate renewal, and [package maintenance](package-windows-desktop.md#repair-and-data-preserving-uninstall) for repair, removal, and controlled upgrades. Return to the [operations index](index.md) for other tasks.
+Use [TLS renewal status](setup-lan-server.md#renew-without-changing-trust) to inspect certificate renewal, and [package maintenance](package-windows-desktop.md#repair-and-data-preserving-uninstall) for advanced repair, removal, and manual upgrades. Return to the [operations index](index.md) for other tasks.

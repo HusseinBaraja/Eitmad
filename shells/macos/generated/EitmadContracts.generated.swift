@@ -66,6 +66,7 @@ public enum GuidedSetupAction: String, Codable, Sendable {
     case inspect = "inspect"
     case retry = "retry"
     case server = "server"
+    case update = "update"
 }
 
 // MARK: - InitializeWorkshop
@@ -5707,6 +5708,7 @@ public enum WindowsSetupRecovery: String, Codable, Sendable {
     case inspectManually = "inspectManually"
     case ownerPassword = "ownerPassword"
     case retry = "retry"
+    case update = "update"
     case wait = "wait"
 }
 

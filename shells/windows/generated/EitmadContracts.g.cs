@@ -5285,7 +5285,7 @@ namespace Eitmad.Contracts
         public long Version { get; set; }
     }
 
-    public enum GuidedSetupAction { Client, Inspect, Retry, Server };
+    public enum GuidedSetupAction { Client, Inspect, Retry, Server, Update };
 
     public enum DetailKind { Compatibility, Deadline, Lifecycle, PayloadLimit, QuotationDraftValidation, RevisionConflict, Validation };
 
@@ -5407,7 +5407,7 @@ namespace Eitmad.Contracts
     /// <summary>
     /// Rust decides which action is available; the native shell supplies localized copy.
     /// </summary>
-    public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Wait };
+    public enum WindowsSetupRecovery { Complete, InspectManually, OwnerPassword, Retry, Update, Wait };
 
     /// <summary>
     /// Fixed installation capability of an authenticated offline payload.
@@ -5532,6 +5532,8 @@ namespace Eitmad.Contracts
                     return GuidedSetupAction.Retry;
                 case "server":
                     return GuidedSetupAction.Server;
+                case "update":
+                    return GuidedSetupAction.Update;
             }
             throw new Exception("Cannot unmarshal type GuidedSetupAction");
         }
@@ -5551,6 +5553,9 @@ namespace Eitmad.Contracts
                     return;
                 case GuidedSetupAction.Server:
                     JsonSerializer.Serialize(writer, "server", options);
+                    return;
+                case GuidedSetupAction.Update:
+                    JsonSerializer.Serialize(writer, "update", options);
                     return;
             }
             throw new Exception("Cannot marshal type GuidedSetupAction");
@@ -7964,6 +7969,8 @@ namespace Eitmad.Contracts
                     return WindowsSetupRecovery.OwnerPassword;
                 case "retry":
                     return WindowsSetupRecovery.Retry;
+                case "update":
+                    return WindowsSetupRecovery.Update;
                 case "wait":
                     return WindowsSetupRecovery.Wait;
             }
@@ -7985,6 +7992,9 @@ namespace Eitmad.Contracts
                     return;
                 case WindowsSetupRecovery.Retry:
                     JsonSerializer.Serialize(writer, "retry", options);
+                    return;
+                case WindowsSetupRecovery.Update:
+                    JsonSerializer.Serialize(writer, "update", options);
                     return;
                 case WindowsSetupRecovery.Wait:
                     JsonSerializer.Serialize(writer, "wait", options);

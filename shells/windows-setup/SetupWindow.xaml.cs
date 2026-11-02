@@ -31,7 +31,7 @@ public partial class SetupWindow : Window
         InstallButton.IsEnabled = !busy && fresh;
         InstallButton.Visibility = fresh ? Visibility.Visible : Visibility.Collapsed;
         InspectButton.IsEnabled = !busy; InputPanel.IsEnabled = !busy;
-        RetryButton.IsEnabled = !busy && recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword;
+        RetryButton.IsEnabled = !busy && recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword or WindowsSetupRecovery.Update;
         RecoveryPanel.IsEnabled = !busy;
         CopyLogButton.IsEnabled = SaveLogButton.IsEnabled = !busy;
     }
@@ -66,12 +66,20 @@ public partial class SetupWindow : Window
                     ? "انقطع الإعداد عند: " + StageText(last.Stage) + ". حُفظت الملفات والبيانات. لا تبدأ تثبيتًا جديدًا ولا تحذف المجلدات. افحص حالة خدمات الاعتماد واستكمل الإصلاح وفق دليل استرداد التثبيت."
                     : last.Status == WindowsInstallStatus.Failed ? FailureText(last.Stage)
                     : "الإعداد ما زال يعمل في عملية أخرى. انتظر ثم افحص الحالة. لا تبدأ تثبيتًا آخر.";
-                if (recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword)
+                if (recovery is WindowsSetupRecovery.Retry or WindowsSetupRecovery.OwnerPassword or WindowsSetupRecovery.Update)
                 {
                     RecoveryPanel.Visibility = Visibility.Visible; RetryButton.Visibility = Visibility.Visible;
                     RecoveryPasswordField.Visibility = recovery == WindowsSetupRecovery.OwnerPassword ? Visibility.Visible : Visibility.Collapsed;
-                    StepTitle.Text = "استكمال الإعداد";
-                    SetupNotice.Text = FailureText(last.Stage) + " استخدم فحص واستكمال الإعداد من مستخدم Windows الذي بدأ التثبيت وبالحزمة نفسها. إذا تعذر إثبات الحالة، سيتوقف الإعداد دون إعادة إنشاء الورشة.";
+                    var update = recovery == WindowsSetupRecovery.Update;
+                    RetryButton.Content = update ? "تحديث الاعتماد" : "فحص واستكمال الإعداد";
+                    System.Windows.Automation.AutomationProperties.SetName(RetryButton, update ? "تحديث الاعتماد مع الاحتفاظ بالبيانات" : "فحص التثبيت واستكمال الإعداد المحفوظ");
+                    StepTitle.Text = update ? "تحديث الاعتماد" : "استكمال الإعداد";
+                    RecoveryTitle.Text = update ? "الاحتفاظ ببيانات التثبيت السابق" : "استكمال الإعداد المحفوظ";
+                    if (update) ProgressTitle.Text = "تحديث الاعتماد";
+                    SetupNotice.Text = update
+                        ? "يوجد تثبيت سابق. أغلق تطبيق الاعتماد على هذا الجهاز، ثم اضغط تحديث الاعتماد. ستُحفظ البيانات والحسابات وإعدادات الاتصال."
+                            + (role == WindowsSetupRole.Server ? " يتوقف خادم الورشة مؤقتًا أثناء التحديث ويطلب موافقة مسؤول Windows." : "")
+                        : FailureText(last.Stage) + " استخدم فحص واستكمال الإعداد من مستخدم Windows الذي بدأ التثبيت وبالحزمة نفسها. إذا تعذر إثبات الحالة، سيتوقف الإعداد دون إعادة إنشاء الورشة.";
                 }
                 else if (recovery == WindowsSetupRecovery.InspectManually)
                     SetupNotice.Text = "تعذر إثبات حالة التثبيت المحفوظة. احتفظ بكل المجلدات. افحص سجل الإعداد والخدمات وفق دليل استرداد التثبيت؛ لا تغيّر المسارات ولا تنشئ ورشة أخرى.";
@@ -79,7 +87,8 @@ public partial class SetupWindow : Window
                     FailurePanel.Visibility = Visibility.Collapsed;
                     ProgressTitle.Text = "الإعداد ما زال يعمل";
                     ProgressDescription.Text = "توجد عملية إعداد أخرى. انتظر انتهاءها، ثم اضغط فحص حالة الإعداد. لا تبدأ تثبيتًا آخر.";
-                } else if (recovery != WindowsSetupRecovery.Complete) ShowFailure(interrupted: state.Interrupted);
+                } else if (recovery is not (WindowsSetupRecovery.Complete or WindowsSetupRecovery.Update)) ShowFailure(interrupted: state.Interrupted);
+                if (recovery == WindowsSetupRecovery.Update) FailurePanel.Visibility = Visibility.Collapsed;
             }
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
@@ -100,12 +109,20 @@ public partial class SetupWindow : Window
         RecoveryPassword.Clear();
         try
         {
-            await backend.RetryAsync(password, new SetupProgress(this));
+            if (recovery == WindowsSetupRecovery.Update)
+                await backend.InstallAsync(GuidedSetupAction.Update, null, new SetupProgress(this));
+            else
+                await backend.RetryAsync(password, new SetupProgress(this));
             recovery = WindowsSetupRecovery.Complete; RecoveryPanel.Visibility = Visibility.Collapsed;
             RetryButton.Visibility = Visibility.Collapsed; Complete();
         }
         catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or System.Text.Json.JsonException)
         {
+            if (recovery == WindowsSetupRecovery.Update) {
+                recovery = WindowsSetupRecovery.InspectManually;
+                RetryButton.Visibility = Visibility.Collapsed;
+                RecoveryPanel.Visibility = Visibility.Collapsed;
+            }
             SetupNotice.Text = FailureText(last?.Stage ?? WindowsInstallStage.Preflight) + " تعذر تأكيد الاستكمال. افحص الحالة المحفوظة. إذا كانت ملفات التجهيز أو الخدمة غير مكتملة، احتفظ بها واتبع دليل الاسترداد.";
             if (last?.Status == WindowsInstallStatus.Blocked) {
                 recovery = WindowsSetupRecovery.InspectManually; RecoveryPanel.Visibility = Visibility.Collapsed; RetryButton.Visibility = Visibility.Collapsed;
@@ -148,7 +165,7 @@ public partial class SetupWindow : Window
         StepTitle.Text = ProgressTitle.Text = "اكتمل التثبيت";
         ProgressDescription.Text = "أكمل برنامج التثبيت التحقق من المراحل المطلوبة.";
         AppendLog("Installation confirmed complete");
-        SetupNotice.Text = "اكتمل التثبيت بعد التحقق. افتح الاعتماد. على جهاز الموظف، اختر الخادم واربط الجهاز برمز المالك، ثم سجل الدخول بحسابك الشخصي. لإضافة الموظفين، افتح المستخدمون من حساب المالك.";
+        SetupNotice.Text = "اكتمل التثبيت بعد التحقق. افتح الاعتماد وسجل الدخول بحسابك. إذا طلب التطبيق ربط الجهاز، اختر خادم الورشة واستخدم رمز الربط من المالك.";
         OpenDesktopButton.Visibility = Visibility.Visible;
     }
     private async void OpenDesktopClick(object sender, RoutedEventArgs e) => await OpenDesktopAsync();

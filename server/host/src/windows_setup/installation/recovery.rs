@@ -69,6 +69,7 @@ pub(in crate::windows_setup) fn action(
     }
     match load(root) {
         Ok(InstallWindows::Client(_)) => Recovery::Retry,
+        Ok(InstallWindows::Server(server)) if server.update_existing => Recovery::Retry,
         Ok(InstallWindows::Server(_)) => Recovery::OwnerPassword,
         Err(_) => Recovery::InspectManually,
     }

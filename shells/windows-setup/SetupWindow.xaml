@@ -51,7 +51,7 @@
      </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
     </Expander>
     <StackPanel x:Name="RecoveryPanel" Visibility="Collapsed" Margin="0,18,0,0">
-     <TextBlock Text="استكمال الإعداد المحفوظ" Style="{StaticResource SectionTitle}"/>
+     <TextBlock x:Name="RecoveryTitle" Text="استكمال الإعداد المحفوظ" Style="{StaticResource SectionTitle}"/>
      <TextBlock Text="سيُفحص التثبيت قبل المتابعة. تبقى الورشة وهوية الجهاز والبيانات المحفوظة كما هي." Margin="0,8,0,12"/>
      <controls:FormField x:Name="RecoveryPasswordField" Label="كلمة مرور المالك الحالية" IsRequired="True" Visibility="Collapsed">
       <PasswordBox x:Name="RecoveryPassword" Padding="12,8" MaxLength="256" AutomationProperties.Name="كلمة مرور المالك لاستكمال الإعداد"/>

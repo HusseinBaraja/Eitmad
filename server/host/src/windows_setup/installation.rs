@@ -143,7 +143,15 @@ pub(super) fn validate_server(request: &InstallWindowsServer) -> Result<(), Main
     {
         return Err(MainError::Input);
     }
-    preparation::validate_inputs(&request.preparation)?;
+    if request.update_existing {
+        if request.first_desktop.is_some() || !Path::new(&request.service_state_directory).is_dir()
+        {
+            return Err(MainError::Setup);
+        }
+        preparation::validate_host_inputs(&request.preparation)?;
+    } else {
+        preparation::validate_inputs(&request.preparation)?;
+    }
     installation_path(&request.preparation.state_directory)?;
     validate_package(&request.server)?;
     plain_path(Path::new(&request.winsw_executable), true)?;
@@ -391,17 +399,14 @@ pub(super) async fn install(
     progress.finish(result)
 }
 
-async fn install_server(
-    request: &InstallWindowsServer,
-    platform: &mut impl Platform,
-    proof_input: &mut impl std::io::Read,
-) -> Result<(), MainError> {
-    if Path::new(&request.preparation.state_directory)
-        .try_exists()
-        .map_err(|_| MainError::Setup)?
-        || Path::new(&request.service_state_directory)
+fn validate_retained_attempt(request: &InstallWindowsServer) -> Result<(), MainError> {
+    if !request.update_existing
+        && (Path::new(&request.preparation.state_directory)
             .try_exists()
             .map_err(|_| MainError::Setup)?
+            || Path::new(&request.service_state_directory)
+                .try_exists()
+                .map_err(|_| MainError::Setup)?)
     {
         let bound =
             recovery::load(Path::new(&request.server_progress_directory)).and_then(|retained| {
@@ -420,6 +425,15 @@ async fn install_server(
             return Err(MainError::Setup);
         }
     }
+    Ok(())
+}
+
+async fn install_server(
+    request: &InstallWindowsServer,
+    platform: &mut impl Platform,
+    proof_input: &mut impl std::io::Read,
+) -> Result<(), MainError> {
+    validate_retained_attempt(request)?;
     // Validate elevation and protected ancestors before creating any server-owned state.
     if let Err(error) = platform.server_preflight(request) {
         let _ = publish(&WindowsInstallProgress {
@@ -456,6 +470,9 @@ async fn install_server(
         let imported = Path::new(&request.service_state_directory)
             .try_exists()
             .map_err(|_| MainError::Setup)?;
+        if request.update_existing && !imported {
+            return Err(MainError::Setup);
+        }
         if !imported {
             let retained = Path::new(&request.preparation.state_directory)
                 .try_exists()
@@ -470,7 +487,13 @@ async fn install_server(
         for (stage, action) in [
             (
                 Stage::InstallServices,
-                if imported { "ResumeInstall" } else { "Install" },
+                if request.update_existing {
+                    "UpdateHost"
+                } else if imported {
+                    "ResumeInstall"
+                } else {
+                    "Install"
+                },
             ),
             (Stage::ConfigureFirewall, "Firewall"),
             (Stage::VerifyHttps, "Start"),

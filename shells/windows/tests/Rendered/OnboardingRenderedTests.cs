@@ -96,6 +96,43 @@ public sealed class OnboardingRenderedTests
     }
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
+    public void Existing_installation_updates_without_workshop_fields_or_owner_credentials(int width, int height)
+    {
+        var completion = new TaskCompletionSource();
+        var backend = new SetupBackend { State = new WindowsInstallationState {
+            Version = 1, Recovery = WindowsSetupRecovery.Update,
+            Progress = new WindowsInstallProgress { Version = 1, Sequence = 0,
+                Stage = WindowsInstallStage.Preflight, Status = WindowsInstallStatus.Succeeded } },
+            Install = progress => {
+                progress.Report(new WindowsInstallProgress { Version = 1, Sequence = 1,
+                    Stage = WindowsInstallStage.InstallServices, Status = WindowsInstallStatus.Running });
+                return completion.Task;
+            } };
+        WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) { Width = width, Height = height }, window => {
+            Record(window, width, height);
+            var view = (SetupWindow)window;
+            var update = WpfTestHost.FindByName<Button>(window, "RetryButton");
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "InputPanel").Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "RecoveryPasswordField").Visibility);
+            Assert.AreEqual(Visibility.Collapsed, WpfTestHost.FindByName<FrameworkElement>(window, "FailurePanel").Visibility);
+            Assert.IsTrue(update.IsEnabled);
+            Assert.AreEqual("تحديث الاعتماد", update.Content);
+            Assert.AreEqual("تحديث الاعتماد مع الاحتفاظ بالبيانات", AutomationProperties.GetName(update));
+            Assert.IsTrue(update.Focus());
+            Assert.IsTrue(update.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+            WpfTestHost.Capture(window, $"setup-update-{width}");
+            var task = view.RetryAsync(); WpfTestHost.CompleteLayout(window);
+            Assert.AreEqual(GuidedSetupAction.Update, backend.Action);
+            Assert.IsNull(backend.RetryPassword);
+            Assert.IsFalse(update.IsEnabled);
+            completion.SetResult(); WpfTestHost.CompleteLayout(window);
+            Assert.IsTrue(task.IsCompletedSuccessfully);
+            Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
+        });
+    }
+
+    [TestMethod]
+    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
     public void Desktop_launch_failure_preserves_completion_and_allows_retry(int width, int height)
     {
         var activation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

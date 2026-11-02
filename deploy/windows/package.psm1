@@ -141,4 +141,19 @@ function Assert-AppendOnlyMigrations($Previous, $Next) {
     }
 }
 
-Export-ModuleMember -Function Read-EitmadPackage, Assert-PackageSignature, Assert-WindowsPrerequisites, Assert-DesktopRuntime, Assert-AppendOnlyMigrations
+function Get-DesktopInstallAction($Release, $Installed) {
+    if ($Installed.Count -gt 1) { throw 'More than one desktop identity is installed.' }
+    if (-not $Installed.Count) { return 'Install' }
+    if ($Installed[0].Publisher -cne $Release.publisher) { throw 'Installed publisher differs; preserve identity and stop.' }
+    $previousFile = Join-Path $Installed[0].InstallLocation 'release.json'
+    $previous = Get-Content -LiteralPath $previousFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-AppendOnlyMigrations $previous $Release
+    if ([version]$Release.windowsVersion -lt [version]$Installed[0].Version) { throw 'Downgrade is not supported.' }
+    if ([version]$Release.windowsVersion -gt [version]$Installed[0].Version) { return 'Upgrade' }
+    if ((Get-FileHash -LiteralPath $previousFile -Algorithm SHA256).Hash -ine $Release.payloadInventorySha256) {
+        throw 'Repair requires the original release inventory and payload digest.'
+    }
+    return 'Repair'
+}
+
+Export-ModuleMember -Function Read-EitmadPackage, Assert-PackageSignature, Assert-WindowsPrerequisites, Assert-DesktopRuntime, Assert-AppendOnlyMigrations, Get-DesktopInstallAction

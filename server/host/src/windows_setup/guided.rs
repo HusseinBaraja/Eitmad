@@ -19,6 +19,8 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+mod updates;
+
 fn local_root() -> Result<PathBuf, MainError> {
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
@@ -80,19 +82,23 @@ pub(super) async fn execute() -> Result<(), MainError> {
     let role = profile.role;
     let progress = local_root()?.join("EitmadSetupProgress");
     if matches!(request.action, GuidedSetupAction::Inspect) {
-        let state = if progress.try_exists().map_err(|_| MainError::Setup)? {
-            Some(installation::read_state(&progress)?)
-        } else {
-            None
-        };
+        let state = updates::inspect(&progress, &profile)?;
         println!(
             "{}",
             serde_json::to_string(&state).map_err(|_| MainError::Setup)?
         );
         return Ok(());
     }
-    let install = if matches!(request.action, GuidedSetupAction::Retry) {
-        retry(request, &progress)?
+    let update_progress = updates::progress_path(&profile)?;
+    let install = if matches!(request.action, GuidedSetupAction::Update) {
+        updates::compose(request, update_progress, &profile)?
+    } else if matches!(request.action, GuidedSetupAction::Retry) {
+        let journal = if update_progress.exists() {
+            &update_progress
+        } else {
+            &progress
+        };
+        retry(request, journal)?
     } else {
         if progress.try_exists().map_err(|_| MainError::Setup)? {
             return Err(MainError::Setup);
@@ -112,7 +118,7 @@ pub(super) async fn execute() -> Result<(), MainError> {
 fn allows_action(role: WindowsSetupRole, action: GuidedSetupAction) -> bool {
     matches!(
         action,
-        GuidedSetupAction::Inspect | GuidedSetupAction::Retry
+        GuidedSetupAction::Inspect | GuidedSetupAction::Retry | GuidedSetupAction::Update
     ) || matches!(
         (role, action),
         (WindowsSetupRole::Server, GuidedSetupAction::Server)
@@ -125,14 +131,16 @@ fn retry(request: GuidedWindowsSetup, progress: &Path) -> Result<InstallWindows,
     let client = match &mut retained {
         InstallWindows::Client(client) => client,
         InstallWindows::Server(server) => {
-            let password = request.owner_password.ok_or(MainError::Input)?;
-            server.preparation.workshop.owner_password = password.clone();
-            if let Some(login) = &mut server.first_desktop {
-                login.password = password.expose_secret().into();
+            if !server.update_existing {
+                let password = request.owner_password.ok_or(MainError::Input)?;
+                server.preparation.workshop.owner_password = password.clone();
+                if let Some(login) = &mut server.first_desktop {
+                    login.password = password.expose_secret().into();
+                }
             }
-            installation::validate_server(server)?;
             // Rebind only to the same authenticated release, never to newly entered settings.
             super::payload::bind_server(server, Path::new(&request.bundle_directory))?;
+            installation::validate_server(server)?;
             &mut server.client
         }
     };
@@ -183,6 +191,7 @@ fn compose(
             .ok_or(MainError::Input)?;
         let mut server = InstallWindowsServer {
             version: 1,
+            update_existing: false,
             client,
             preparation: PrepareWindowsWorkshop {
                 version: 1,

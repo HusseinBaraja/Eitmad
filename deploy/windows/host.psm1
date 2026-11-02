@@ -508,6 +508,45 @@ function Get-DiscoveryFirewallRule($Settings) {
     return $rule
 }
 
+function Get-HostReleaseAction($Settings, $Release) {
+    $pendingFile = Join-Path $Settings.root 'release-pending.json'
+    $pending = if (Test-Path -LiteralPath $pendingFile) { Get-Content -LiteralPath $pendingFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
+    $previous = if ($pending) { $pending.previousRelease } else {
+        Get-Content -LiteralPath (Join-Path $Settings.root 'app/release.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+    if ($previous.publisher -cne $Release.publisher) { throw 'Installed server publisher differs. No service was changed.' }
+    Assert-AppendOnlyMigrations $previous $Release
+    if ($pending) {
+        if ($Release.version -cne $pending.version -or $Release.files.'eitmad-server.exe' -cne $pending.binarySha256) {
+            throw 'Recovery requires the exact interrupted release. No service was changed.'
+        }
+        return 'Repair'
+    }
+    if ([version]$Release.windowsVersion -lt [version]$previous.windowsVersion) { throw 'Downgrade is not supported.' }
+    if ([version]$Release.windowsVersion -eq [version]$previous.windowsVersion) {
+        if ($Release.version -cne $previous.version -or $Release.files.'eitmad-server.exe' -cne $previous.files.'eitmad-server.exe') {
+            throw 'A changed server release requires a higher Windows package version.'
+        }
+        return 'Repair'
+    }
+    if ((Get-FileHash -LiteralPath (Join-Path $Settings.root 'app/eitmad-server.exe') -Algorithm SHA256).Hash -ine $previous.files.'eitmad-server.exe') {
+        throw 'Installed binary differs from its release. Repair the original package before upgrading.'
+    }
+    return 'Upgrade'
+}
+
+function Update-HostRelease($Settings, $Release, [string]$Directory) {
+    $action = Get-HostReleaseAction $Settings $Release
+    # Verify both services before stopping either one. A name alone is insufficient.
+    foreach ($kind in 'Server', 'Postgres') {
+        $service = Get-OwnedService $Settings $kind
+        try { if (-not $service) { throw 'An owned host service is missing. Preserve state and repair service registration.' } }
+        finally { Close-Service $service }
+    }
+    Stop-Host $Settings
+    Set-HostRelease $Settings $Release $Directory $action
+}
+
 function Set-HostRelease($Settings, $Release, [string]$Directory, [string]$Action) {
     $root = $Settings.root
     $previousFile = Join-Path $root 'app/release.json'

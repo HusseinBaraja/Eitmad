@@ -88,6 +88,9 @@ pub struct InstallWindowsClient {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstallWindowsServer {
     pub version: u32,
+    /// Update only an existing owned host; never prepare or enroll a workshop.
+    #[serde(default)]
+    pub update_existing: bool,
     pub client: InstallWindowsClient,
     pub preparation: PrepareWindowsWorkshop,
     pub server: WindowsInstallPackage,
@@ -121,6 +124,7 @@ pub struct SetupDesktopHandoff {
 pub enum GuidedSetupAction {
     Inspect,
     Retry,
+    Update,
     Client,
     Server,
 }
@@ -230,6 +234,7 @@ pub struct WindowsInstallationState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum WindowsSetupRecovery {
+    Update,
     Retry,
     OwnerPassword,
     Wait,
