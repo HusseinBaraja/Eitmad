@@ -41,29 +41,12 @@ Write-Host 'Synthetic native output must not enter the progress stream.'
     Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
     $script:identity.Elevated = $false
     $script:installed = $true
-    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
+    Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client
     $script:installed = $false
     Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client
     $calls = @(Get-Content -LiteralPath $trace | ForEach-Object { $_ | ConvertFrom-Json })
-    Assert (($calls.action -join ',') -ceq 'Verify,Verify,Install') 'Desktop path or refusal order changed.'
+    Assert (($calls.action -join ',') -ceq 'Verify,Verify,Install,Verify,Install') 'Existing desktops did not reach the authenticated install/upgrade adapter.'
     Assert (@($calls | Where-Object { $_.digest -cne ('a' * 64) -or $_.publisher -cne 'CN=Synthetic' }).Count -eq 0) 'Package identity was lost.'
-    $script:registration = [pscustomobject]@{Name='Eitmad.Desktop'; Publisher='CN=Synthetic'; Version=[version]'1.0.0.0'; Status='Ok'; InstallLocation=$Root}
-    [IO.File]::WriteAllText((Join-Path $Root 'release.json'), 'synthetic installed inventory')
-    $script:desktopRelease = [pscustomobject]@{publisher='CN=Synthetic'; windowsVersion='1.0.0.0'; payloadInventorySha256=(Get-FileHash -LiteralPath (Join-Path $Root 'release.json')).Hash}
-    function Get-InstallPackage { param($Package, $Target) return $script:desktopRelease }
-    function Get-AppxPackage { param($Name) if ($script:installed) { return $script:registration } }
-    $script:installed = $true
-    Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client
-    $calls = @(Get-Content -LiteralPath $trace | ForEach-Object { $_ | ConvertFrom-Json })
-    Assert (@($calls | Where-Object action -eq 'Install').Count -eq 1) 'A healthy retained registration was installed again.'
-    $script:registration.Publisher = 'CN=Other'
-    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
-    $script:registration.Publisher = 'CN=Synthetic'
-    $script:registration.Version = [version]'2.0.0.0'
-    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
-    $script:registration.Version = [version]'1.0.0.0'
-    [IO.File]::WriteAllText((Join-Path $Root 'release.json'), 'changed inventory')
-    Reject { Invoke-EitmadInstallationAction -Action Desktop -Backend 'synthetic' -Request $client }
 
     # Host actions use the existing service adapter. All OS effects are synthetic.
     & $script:HostAdapter { function script:Assert-Administrator {} }
@@ -97,6 +80,26 @@ Write-Host 'Synthetic private native output.'
     Assert ($calls[1].privateLan -and -not $calls[0].privateLan -and -not $calls[2].privateLan) 'Private-network LocalSubnet policy was lost.'
     Assert ($calls[0].cluster -ceq (Join-Path $request.preparation.stateDirectory 'cluster')) 'An unrelated database was imported.'
     Assert ($calls[0].digest -ceq ('a' * 64)) 'Server package authentication was lost.'
+
+    # UpdateHost shares stdout with Rust's typed progress reader. Host messages
+    # must stay private, while a terminating replacement failure must propagate.
+    function Get-InstallPackage { param($Package, $Target) return [pscustomobject]@{version='1.1.0'} }
+    function Assert-RetainedHost { param($Request, $Release) }
+    [void][IO.Directory]::CreateDirectory($request.serviceStateDirectory)
+    & $script:HostAdapter {
+        function script:Get-SafePath($Path) { return $Path }
+        function script:Read-HostManifest($Root, $Name) { return [pscustomobject]@{root=$Root; name=$Name} }
+        $script:failUpdate = $false
+        function script:Update-HostRelease($Settings, $Release, $Directory) {
+            Write-Host 'Synthetic release update completed.'
+            Write-Output 'Synthetic native output.'
+            if ($script:failUpdate) { throw 'Synthetic release update failed.' }
+        }
+    }
+    $output = @(Invoke-EitmadInstallationAction -Action UpdateHost -Backend 'synthetic' -Request $request *>&1)
+    Assert ($output.Count -eq 0) 'UpdateHost output escaped into typed progress.'
+    & $script:HostAdapter { $script:failUpdate = $true }
+    Reject { Invoke-EitmadInstallationAction -Action UpdateHost -Backend 'synthetic' -Request $request }
 
     # Runtime installers are selected only on the elevated Server path. Substitute
     # registry/process boundaries; no real runtime or registry state is changed.

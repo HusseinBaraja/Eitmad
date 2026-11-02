@@ -35,30 +35,15 @@ $release = Read-EitmadPackage -Directory $PSScriptRoot -Target windows-desktop `
 $package = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.msix' -File)
 if ($package.Count -ne 1) { throw 'Expected exactly one desktop MSIX.' }
 Assert-DesktopRuntime $package[0].FullName $release.payloadInventorySha256
+$selected = Get-DesktopInstallAction $release $installed
 if ($Action -eq 'Verify') {
     Write-Host "Package inventory verified: desktop $($release.version). Unsigned MSIX cannot be installed by this tool."
     return
 }
 # There is deliberately no Add-AppxPackage -AllowUnsigned or certificate-import path.
 Assert-PackageSignature $package[0].FullName $Publisher
-if ($installed) {
-    if ($installed[0].Publisher -cne $release.publisher) { throw 'Installed publisher differs; preserve identity and stop.' }
-    if ($Action -eq 'Install') { throw 'Desktop is already installed. Use Repair or Upgrade.' }
-    $previousFile = Join-Path $installed[0].InstallLocation 'release.json'
-    $previous = Get-Content -LiteralPath $previousFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    Assert-AppendOnlyMigrations $previous $release
-    if ($Action -eq 'Repair' -and [version]$release.windowsVersion -ne $installed[0].Version) {
-        throw 'Repair requires the installed version.'
-    }
-    if ($Action -eq 'Repair' -and
-        (Get-FileHash -LiteralPath $previousFile -Algorithm SHA256).Hash -ine $release.payloadInventorySha256) {
-        throw 'Repair requires the original release inventory and payload digest.'
-    }
-    if ($Action -eq 'Upgrade') {
-        if ([version]$release.windowsVersion -le $installed[0].Version) { throw 'Upgrade requires a higher package version.' }
-
-    }
-} elseif ($Action -ne 'Install') { throw 'Desktop is not installed. Use Install for this user.' }
+if ($Action -eq 'Install') { $Action = $selected }
+elseif ($Action -cne $selected) { throw "The package requires $selected, not $Action. No registration was changed." }
 if ($Action -eq 'Repair') { Add-AppxPackage -Path $package[0].FullName -ForceUpdateFromAnyVersion -ErrorAction Stop }
 else { Add-AppxPackage -Path $package[0].FullName -ErrorAction Stop }
 $current = @(Get-AppxPackage -Name Eitmad.Desktop)

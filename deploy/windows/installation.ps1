@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('ClientPreflight', 'ServerPreflight', 'Elevate', 'Worker', 'Desktop', 'Install', 'ResumeInstall', 'Firewall', 'Start')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('ClientPreflight', 'ServerPreflight', 'Elevate', 'Worker', 'Desktop', 'Install', 'ResumeInstall', 'UpdateHost', 'Firewall', 'Start')][string]$Action,
     [Parameter(Mandatory)][string]$Backend,
     [string]$PipeName,
     [int]$BrokerId

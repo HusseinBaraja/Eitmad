@@ -264,6 +264,8 @@ Windows redeploys the same signed package and the tool checks registration. It n
 
 ## Controlled manual upgrade
 
+End users can run the newer role-specific EXE and follow [Update an installed PC](install-windows.md#update-an-installed-pc). The guided server path validates ownership, stops both services, and selects the existing Upgrade or exact-target Repair path automatically. The commands below remain available for operators. Client `Install` also selects Install, exact-release Repair, or higher-version Upgrade from the current user's registration; explicit Repair and Upgrade still enforce their respective version rules.
+
 1. Verify new artifacts, signatures, higher numeric versions, compatibility notes, and migration inventory. Reject changed or removed existing migration bytes. Keep original packages and authenticated records. Never downgrade binaries over migrated data.
 2. Stop new work and close all clients. Keep them closed through acceptance. Preserve all existing server and desktop data. The current product has no backup or restore workflow.
 3. Stop both server services. From the **new** server package, use its digest:

@@ -88,6 +88,9 @@ pub struct InstallWindowsClient {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstallWindowsServer {
     pub version: u32,
+    /// Update only an existing owned host; never prepare or enroll a workshop.
+    #[serde(default)]
+    pub update_existing: bool,
     pub client: InstallWindowsClient,
     pub preparation: PrepareWindowsWorkshop,
     pub server: WindowsInstallPackage,
@@ -118,9 +121,13 @@ pub struct SetupDesktopHandoff {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+/// Update applies the authenticated payload's fixed role to an existing installation.
+/// It uses a separate release journal without workshop creation or Owner credentials;
+/// an interrupted attempt uses Retry with that exact target release.
 pub enum GuidedSetupAction {
     Inspect,
     Retry,
+    Update,
     Client,
     Server,
 }
@@ -227,9 +234,13 @@ pub struct WindowsInstallationState {
 }
 
 /// Rust decides which action is available; the native shell supplies localized copy.
+/// Update offers a new same-role release for an existing installation, without
+/// workshop creation or Owner credentials. Its separate release journal retains
+/// exact-target Retry recovery; publisher and installed-state checks still apply.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum WindowsSetupRecovery {
+    Update,
     Retry,
     OwnerPassword,
     Wait,

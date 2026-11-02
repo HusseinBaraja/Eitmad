@@ -110,5 +110,33 @@ Reject { Assert-DesktopRuntime $missing $payloadDigest } 'missing, ambiguous'
     Assert-WindowsPrerequisites -PlatformOnly
 }
 Write-Host 'PASS: package inventory, tamper/extra-file/path rejection, unsigned refusal, and append-only migration gate.'
+& (Get-Module package) {
+    param($Root)
+    function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
+    function Reject([scriptblock]$Operation) {
+        $failed = $false; try { & $Operation } catch { $failed = $true }
+        Assert $failed 'Expected unsafe desktop update to be rejected.'
+    }
+    $installedRoot = Join-Path $Root 'installed-desktop'
+    [void][IO.Directory]::CreateDirectory($installedRoot)
+    $inventory = Join-Path $installedRoot 'release.json'
+    @{migrations=@{one='immutable'}} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $inventory -Encoding UTF8
+    $release = [pscustomobject]@{publisher='CN=Synthetic'; windowsVersion='1.0.0.0';
+        migrations=[pscustomobject]@{one='immutable'}; payloadInventorySha256=(Get-FileHash $inventory).Hash}
+    $installed = @([pscustomobject]@{Publisher='CN=Synthetic'; Version=[version]'1.0.0.0'; InstallLocation=$installedRoot})
+    Assert ((Get-DesktopInstallAction $release @()) -ceq 'Install') 'Fresh desktop did not select Install.'
+    Assert ((Get-DesktopInstallAction $release $installed) -ceq 'Repair') 'Same release did not select Repair.'
+    $release.windowsVersion = '1.1.0.0'
+    Assert ((Get-DesktopInstallAction $release $installed) -ceq 'Upgrade') 'Newer release did not select Upgrade.'
+    $release.publisher = 'CN=Other'; Reject { Get-DesktopInstallAction $release $installed }
+    $release.publisher = 'CN=Synthetic'; $release.windowsVersion = '0.9.0.0'
+    Reject { Get-DesktopInstallAction $release $installed }
+    $release.windowsVersion = '1.1.0.0'; $release.migrations.one = 'changed'
+    Reject { Get-DesktopInstallAction $release $installed }
+    $release.migrations.one = 'immutable'; $release.windowsVersion = '1.0.0.0'
+    $release.payloadInventorySha256 = '0' * 64
+    Reject { Get-DesktopInstallAction $release $installed }
+} $root
+Write-Host 'PASS: automatic desktop install/repair/upgrade selection; downgrade, publisher, migration, and same-version payload rejection.'
 Write-Host 'PASS: inventoried app-local desktop runtime, altered/missing DLL rejection, and no global runtime requirement.'
 Write-Host "Synthetic evidence: $root"

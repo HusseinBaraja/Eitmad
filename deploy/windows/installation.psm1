@@ -34,36 +34,23 @@ function Get-InstallPackage($Package, [string]$Target, [switch]$PlatformOnly) {
 
 function Assert-FreshDesktop($Request) {
     Invoke-InstallationCheck 10 { Assert-DesktopUser $Request }
-    $installed = @(Get-AppxPackage -Name Eitmad.Desktop)
-    if ($installed.Count) { Invoke-InstallationCheck 15 { Assert-RetainedDesktop $Request $installed } }
     # Verify checks runtime and inventory. The registration path also checks MSIX signature.
     & (Join-Path $Request.desktop.directory 'install-client.ps1') -Action Verify `
         -ExpectedReleaseSha256 $Request.desktop.releaseSha256 -Publisher $Request.desktop.publisher *> $null
     if (-not $?) { throw 'Desktop verification failed.' }
 }
 
-function Assert-RetainedDesktop($Request, $Installed) {
-    $release = Get-InstallPackage $Request.desktop 'windows-desktop'
-    if ($Installed.Count -ne 1 -or $Installed[0].Publisher -cne $release.publisher -or
-        $Installed[0].Version -ne [version]$release.windowsVersion -or $Installed[0].Status -ne 'Ok') {
-        throw 'The registered desktop differs. Preserve data and use the exact release repair procedure.'
-    }
-    $inventory = Join-Path $Installed[0].InstallLocation 'release.json'
-    if ((Get-FileHash -LiteralPath $inventory -Algorithm SHA256).Hash -ine $release.payloadInventorySha256) {
-        throw 'The registered desktop inventory differs.'
-    }
-}
-
 function Assert-RetainedHost($Request, $Release) {
     & $script:HostAdapter {
         param($r, $release)
         $root = Get-SafePath $r.serviceStateDirectory
-        Assert-InstalledProtection $root $r.serviceName
+        Assert-InstalledProtection $root $r.serviceName -AllowMissingServerBinary:$r.updateExisting
         Assert-PlainTree $root
         $settings = Read-HostManifest $root $r.serviceName
         if ($settings.endpoint -cne ('https://' + $r.preparation.serverName + ':' + $r.preparation.serverPort + '/') -or
             $settings.databasePort -ne $r.preparation.databasePort -or $settings.serverPort -ne $r.preparation.serverPort -or
-            $settings.address -cne $r.preparation.listenAddress -or (Test-Path -LiteralPath (Join-Path $root 'release-pending.json'))) {
+            $settings.address -cne $r.preparation.listenAddress -or
+            (-not $r.updateExisting -and (Test-Path -LiteralPath (Join-Path $root 'release-pending.json')))) {
             throw 'Retained host settings differ or a release repair is pending.'
         }
         $lan = $r.preparation.stateDirectory
@@ -73,15 +60,19 @@ function Assert-RetainedHost($Request, $Release) {
             if ((Get-FileHash -LiteralPath (Join-Path $root $pair[0])).Hash -cne
                 (Get-FileHash -LiteralPath (Join-Path $lan $pair[1])).Hash) { throw 'Retained installation identity differs.' }
         }
-        if ((Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe')).Hash -ine $release.files.'eitmad-server.exe' -or
+        if ((-not $r.updateExisting -and (Get-FileHash -LiteralPath (Join-Path $root 'app/eitmad-server.exe')).Hash -ine $release.files.'eitmad-server.exe') -or
             (Get-FileHash -LiteralPath (Join-Path $root 'data/PG_VERSION')).Hash -cne
             (Get-FileHash -LiteralPath (Join-Path $lan 'cluster/PG_VERSION')).Hash) { throw 'Retained host release or cluster differs.' }
         $source = Get-Content -LiteralPath (Join-Path $lan 'server.json') -Raw | ConvertFrom-Json
         if ([IO.File]::ReadAllText((Join-Path $root 'private/database-url')) -cne $source.environment.EITMAD_SERVER_DATABASE_URL) {
             throw 'Retained database route differs.'
         }
-        foreach ($relative in 'app/host-service.exe','postgres/host-service.exe') {
-            if ((Get-FileHash -LiteralPath (Join-Path $root $relative)).Hash -ine $r.winswSha256) { throw 'Retained service wrapper differs.' }
+        if (-not $r.updateExisting) {
+            foreach ($relative in 'app/host-service.exe','postgres/host-service.exe') {
+                if ((Get-FileHash -LiteralPath (Join-Path $root $relative)).Hash -ine $r.winswSha256) { throw 'Retained service wrapper differs.' }
+            }
+        } else {
+            [void](Get-HostReleaseAction $settings $release)
         }
         $xml = [xml](Get-Content -LiteralPath (Join-Path $root 'app/host-service.xml') -Raw)
         if ($xml.service.executable -ine (Join-Path $root 'app/eitmad-server.exe') -or $xml.service.arguments -cne 'serve') {
@@ -130,8 +121,6 @@ function Invoke-EitmadInstallationAction {
         Invoke-InstallationCheck 11 { Assert-FreshDesktop $Request }
         if ($Action -eq 'Desktop') {
             Invoke-InstallationCheck 10 { Assert-DesktopUser $Request }
-            $installed = @(Get-AppxPackage -Name Eitmad.Desktop)
-            if ($installed.Count) { Assert-RetainedDesktop $Request $installed; return }
             & (Join-Path $Request.desktop.directory 'install-client.ps1') -Action Install `
                 -ExpectedReleaseSha256 $Request.desktop.releaseSha256 -Publisher $Request.desktop.publisher *> $null
             if (-not $?) { throw 'Desktop registration failed.' }
@@ -168,19 +157,23 @@ function Invoke-EitmadInstallationAction {
         Invoke-InstallationCheck 14 { Assert-WindowsPrerequisites }
         return
     }
-    if ($Action -eq 'ResumeInstall') {
+    if ($Action -in 'ResumeInstall', 'UpdateHost') {
         $release = Get-InstallPackage $Request.server 'windows-server'
         Assert-RetainedHost $Request $release
         & $script:HostAdapter {
-            param($r, $release)
+            param($r, $release, $action)
             $root = Get-SafePath $r.serviceStateDirectory
             $lock = [IO.File]::Open((Join-Path $root 'host.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
             try {
                 $settings = Read-HostManifest $root $r.serviceName
-                Install-Host $settings -ResumeExisting
-                $release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'app/release.json') -Encoding UTF8
+                if ($action -eq 'UpdateHost') {
+                    Update-HostRelease $settings $release $r.server.directory *> $null
+                } else {
+                    Install-Host $settings -ResumeExisting
+                    $release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'app/release.json') -Encoding UTF8
+                }
             } finally { $lock.Dispose() }
-        } $Request $release
+        } $Request $release $Action
         return
     }
     $arguments = @{Action = $Action; StateDirectory = $Request.serviceStateDirectory; Name = $Request.serviceName}

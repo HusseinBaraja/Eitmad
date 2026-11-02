@@ -1,7 +1,6 @@
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'package.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'host.psm1') -Force
 $module = Get-Module host
 $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Guid]::NewGuid().ToString('N'))
@@ -83,7 +82,7 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
         $directory = Join-Path $Evidence $Version
         [void][IO.Directory]::CreateDirectory($directory)
         [IO.File]::WriteAllText((Join-Path $directory 'eitmad-server.exe'), $Bytes)
-        $release = [pscustomobject]@{version=$Version; windowsVersion=($Version+'.0');
+        $release = [pscustomobject]@{version=$Version; windowsVersion=($Version+'.0'); publisher='CN=Synthetic';
             migrations=[pscustomobject]@{one='immutable'};
             files=[pscustomobject]@{'eitmad-server.exe'=(Get-FileHash (Join-Path $directory 'eitmad-server.exe') -Algorithm SHA256).Hash}}
         $release | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $directory 'release.json') -Encoding UTF8
@@ -101,9 +100,16 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Assert ([IO.File]::ReadAllText((Join-Path $root 'app/eitmad-server.exe')) -ceq 'release one') 'Repair did not restore a missing binary.'
     Stop-Host $settings
     $two = New-Release '1.1.0' 'release two'
+    $script:services.Server.Status = $script:services.Postgres.Status = 'Running'
+    $eventCount = $script:events.Count
+    $two.publisher = 'CN=Other'
+    Reject { Update-HostRelease $settings $two (Join-Path $Evidence '1.1.0') } 'publisher differs'
+    Assert ($eventCount -eq $script:events.Count) 'Wrong publisher stopped an installed service.'
+    $two.publisher = 'CN=Synthetic'
     $script:failMigration = $true
     $script:events.Clear()
-    Reject { Set-HostRelease $settings $two (Join-Path $Evidence '1.1.0') Upgrade } 'Release failed'
+    Reject { Update-HostRelease $settings $two (Join-Path $Evidence '1.1.0') } 'Release failed'
+    Assert (($script:events -join ',').StartsWith('stop:Server,stop:Postgres,')) 'Automatic update did not stop services in dependency order.'
     Assert (Test-Path -LiteralPath (Join-Path $root 'release-pending.json')) 'Failed upgrade lost recovery marker.'
     Assert ($script:services.Server.Status -eq 'Stopped' -and $script:services.Postgres.Status -eq 'Stopped') 'Failed migration left a writer running.'
     Assert ($script:startupModes.EitmadReleaseProofServer -eq 'demand' -and $script:startupModes.EitmadReleaseProofPostgres -eq 'demand') 'Failed migration left automatic startup enabled.'
@@ -115,10 +121,12 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-release-proof-' + [Gui
     Reject { Set-HostRelease $settings $one (Join-Path $Evidence '1.0.0') Repair } 'exact interrupted release'
     [IO.File]::WriteAllText((Join-Path $root 'app/release.json'), 'interrupted inventory write')
     $script:failMigration = $false
-    Invoke-EitmadHost Repair -StateDirectory $root -Name EitmadReleaseProof `
-        -ReleaseDirectory (Join-Path $Evidence '1.1.0') -Release $two
+    Update-HostRelease $settings $two (Join-Path $Evidence '1.1.0')
     Assert (-not (Test-Path -LiteralPath (Join-Path $root 'release-pending.json'))) 'Successful recovery retained the pending gate.'
     Assert ((Get-Content -LiteralPath (Join-Path $root 'app/release.json') -Raw | ConvertFrom-Json).version -ceq '1.1.0') 'Recovery inventory is incorrect.'
+    $eventCount = $script:events.Count
+    Reject { Update-HostRelease $settings $one (Join-Path $Evidence '1.0.0') } 'Downgrade'
+    Assert ($eventCount -eq $script:events.Count) 'Downgrade stopped an installed service.'
     $pendingFile = Join-Path $root 'release-pending.json'
     foreach ($scenario in @(
         @{name='Pending-marker removal failure'; serverAuto=$false; demand=''; stop=''},

@@ -53,6 +53,7 @@ impl TestRoot {
         };
         InstallWindowsServer {
             version: 1,
+            update_existing: false,
             client: InstallWindowsClient {
                 version: 1,
                 progress_directory: self.path("client-progress"),
@@ -84,6 +85,20 @@ impl TestRoot {
             winsw_sha256: "b".repeat(64),
             first_desktop: None,
         }
+    }
+
+    fn request_with_tools(&self) -> InstallWindowsServer {
+        let request = self.request();
+        fs::create_dir(&request.server.directory).unwrap();
+        fs::create_dir(&request.preparation.postgres_bin).unwrap();
+        for file in [
+            &request.preparation.platform_script,
+            &request.preparation.certificate_executable,
+            &request.winsw_executable,
+        ] {
+            fs::write(file, b"synthetic tool sentinel").unwrap();
+        }
+        request
     }
 }
 impl Drop for TestRoot {
@@ -227,7 +242,7 @@ impl Platform for FakePlatform {
             fs::create_dir(&request.service_state_directory).unwrap();
         }
         self.call(match action {
-            "Install" | "ResumeInstall" => Stage::InstallServices,
+            "Install" | "ResumeInstall" | "UpdateHost" => Stage::InstallServices,
             "Firewall" => Stage::ConfigureFirewall,
             "Start" => Stage::VerifyHttps,
             _ => panic!("Unexpected host action"),
@@ -240,6 +255,71 @@ impl Platform for FakePlatform {
     fn desktop(&mut self, _: &InstallWindowsClient) -> Result<(), MainError> {
         self.call(Stage::RegisterDesktop)
     }
+}
+
+#[tokio::test]
+async fn server_update_preserves_host_and_never_prepares_or_enrolls_a_workshop() {
+    let root = TestRoot::new();
+    let mut request = root.request_with_tools();
+    fs::create_dir(&request.service_state_directory).unwrap();
+    let durable = Path::new(&request.service_state_directory).join("synthetic-work");
+    fs::write(&durable, b"retained work and identity").unwrap();
+    request.update_existing = true;
+    request.preparation.workshop.owner_password = AccountPassword::new("");
+    validate_server(&request).unwrap();
+    let mut platform = FakePlatform {
+        failure: Some(Stage::InstallServices),
+        ..Default::default()
+    };
+    assert!(
+        install_server(&request, &mut platform, &mut std::io::empty())
+            .await
+            .is_err()
+    );
+    let state = read_state(Path::new(&request.server_progress_directory)).unwrap();
+    assert_eq!(
+        state.recovery,
+        eitmad_contracts::setup::WindowsSetupRecovery::Retry
+    );
+    platform.failure = None;
+    platform.calls.clear();
+    install_server(&request, &mut platform, &mut std::io::empty())
+        .await
+        .unwrap();
+    assert_eq!(
+        platform.calls,
+        [
+            Stage::Preflight,
+            Stage::InstallServices,
+            Stage::ConfigureFirewall,
+            Stage::VerifyHttps
+        ]
+    );
+    assert_eq!(fs::read(&durable).unwrap(), b"retained work and identity");
+    assert!(!Path::new(&request.preparation.state_directory).exists());
+}
+
+#[test]
+fn server_update_requires_existing_state_and_forbids_first_desktop_enrollment() {
+    let root = TestRoot::new();
+    let mut request = root.request_with_tools();
+    request.update_existing = true;
+    assert!(validate_server(&request).is_err());
+    fs::create_dir(&request.service_state_directory).unwrap();
+    validate_server(&request).unwrap();
+    request.first_desktop = Some(eitmad_contracts::server::LoginRequest {
+        tenant_code: eitmad_contracts::server::TenantCode::parse("synthetic-workshop").unwrap(),
+        username: "synthetic-owner".into(),
+        password: "Synthetic-password-123!".into(),
+        device_id: eitmad_contracts::identity::DeviceId::new(uuid::Uuid::new_v4()),
+        device_label: "synthetic-desktop".into(),
+        device_public_key: eitmad_contracts::server::DevicePublicKey {
+            algorithm: "ed25519".into(),
+            base64: String::new(),
+        },
+        device_proof: None,
+    });
+    assert!(validate_server(&request).is_err());
 }
 
 #[tokio::test]
