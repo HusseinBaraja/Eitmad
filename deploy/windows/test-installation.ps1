@@ -81,6 +81,26 @@ Write-Host 'Synthetic private native output.'
     Assert ($calls[0].cluster -ceq (Join-Path $request.preparation.stateDirectory 'cluster')) 'An unrelated database was imported.'
     Assert ($calls[0].digest -ceq ('a' * 64)) 'Server package authentication was lost.'
 
+    # UpdateHost shares stdout with Rust's typed progress reader. Host messages
+    # must stay private, while a terminating replacement failure must propagate.
+    function Get-InstallPackage { param($Package, $Target) return [pscustomobject]@{version='1.1.0'} }
+    function Assert-RetainedHost { param($Request, $Release) }
+    [void][IO.Directory]::CreateDirectory($request.serviceStateDirectory)
+    & $script:HostAdapter {
+        function script:Get-SafePath($Path) { return $Path }
+        function script:Read-HostManifest($Root, $Name) { return [pscustomobject]@{root=$Root; name=$Name} }
+        $script:failUpdate = $false
+        function script:Update-HostRelease($Settings, $Release, $Directory) {
+            Write-Host 'Synthetic release update completed.'
+            Write-Output 'Synthetic native output.'
+            if ($script:failUpdate) { throw 'Synthetic release update failed.' }
+        }
+    }
+    $output = @(Invoke-EitmadInstallationAction -Action UpdateHost -Backend 'synthetic' -Request $request *>&1)
+    Assert ($output.Count -eq 0) 'UpdateHost output escaped into typed progress.'
+    & $script:HostAdapter { $script:failUpdate = $true }
+    Reject { Invoke-EitmadInstallationAction -Action UpdateHost -Backend 'synthetic' -Request $request }
+
     # Runtime installers are selected only on the elevated Server path. Substitute
     # registry/process boundaries; no real runtime or registry state is changed.
     $bundle = Join-Path $Root 'offline'

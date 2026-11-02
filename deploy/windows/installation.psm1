@@ -167,7 +167,7 @@ function Invoke-EitmadInstallationAction {
             try {
                 $settings = Read-HostManifest $root $r.serviceName
                 if ($action -eq 'UpdateHost') {
-                    Update-HostRelease $settings $release $r.server.directory
+                    Update-HostRelease $settings $release $r.server.directory *> $null
                 } else {
                     Install-Host $settings -ResumeExisting
                     $release | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $root 'app/release.json') -Encoding UTF8
