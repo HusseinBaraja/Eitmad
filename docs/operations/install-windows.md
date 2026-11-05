@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "server and Windows deployment maintainers"
-last_verified: "2026-11-02"
+last_verified: "2026-11-05"
 review_triggers:
   - "guided setup, target prerequisites, pairing, backup, renewal, or recovery changes"
 keywords:
@@ -87,6 +87,8 @@ If setup reports **اكتمل التثبيت** but **فتح الاعتماد** d
 If setup 0.1.13.0 reports `Cannot start a runtime from within a runtime` at `EnrollDesktop`, the installer called synchronous desktop connection recovery from its async task. The panic occurs when the first connection attempt fails and recovery starts discovery. The enrollment worker fix moves synchronous sign-in off the async task. New installations need an authenticated installer that contains this fix. Clean-PC installation with the corrected installer remains **Needs verification**.
 
 For an affected installation, preserve the original folders and Windows user. Use **فحص حالة الإعداد**, then check the retained server's [service and HTTPS status](run-windows-host-services.md#install-and-operate) and computer-name resolution. A prior `VerifyHttps` success does not prove that the original user's desktop can connect. If the original route now works, retry the same authenticated EXE with **فحص واستكمال الإعداد**; the unchanged EXE can repeat the panic if recovery discovery is still needed. A rebuilt release cannot directly resume this journal because recovery checks the exact release hashes. If the connection cannot be restored, use [operator inspection](prepare-windows-workshop.md#progress-interruption-and-recovery). Do not replace payload files, edit release hashes, delete retained state, or create another workshop to bypass the check.
+
+If Server setup `0.1.15.0` fails at `Preflight` with `Modules_ModuleNotFound` for `server\application\deploy\windows\package.psm1`, the release omitted the host adapter's sibling package verifier. The root `server\application\package.psm1` does not satisfy this import. Retrying the same EXE repeats the failure. Obtain a newly built authenticated installer that includes both module paths; do not copy a module into the extracted payload or change its hashes. Preserve the existing installation, journals, and original Windows user. Check [host status](run-windows-host-services.md#install-and-operate) before retrying: services from a previous installation can still be running. For an existing installation, follow [the update procedure](#update-an-installed-pc); if an interrupted update is bound to the broken target release, use [advanced recovery](package-windows-desktop.md#repair-and-data-preserving-uninstall). Do not delete retained state to force a new installation. Release-builder tests load the staged modules outside the checkout, and offline payload validation requires both verifier paths.
 
 If an older installer reports `installation.ps1 cannot be loaded because running scripts is disabled on this system`, use the corrected authenticated installer. It uses signed-only execution for its own processes and completes publisher trust through the guided approval step. Do not change the PC's saved execution policy. If the log shows that this attempt stopped at preflight before installation, retry with the corrected EXE. If an earlier attempt installed services or retained an installation journal, preserve those paths and use the recovery procedure below. An administrator-enforced Group Policy prohibition needs the Windows administrator; setup does not override it.
 

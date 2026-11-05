@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -57,6 +59,23 @@ class BuildArtifactsTests(unittest.TestCase):
             self.assertTrue((stage / "run-services.ps1").is_file())
             self.assertTrue((stage / "install-server.ps1").is_file())
             self.assertTrue((stage / "package.psm1").is_file())
+
+    @unittest.skipUnless(os.name == "nt", "Packaged PowerShell modules require Windows")
+    def test_packaged_server_modules_load_without_a_source_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            artifacts.copy_install_tools(stage, "windows-server")
+            command = """$ErrorActionPreference = 'Stop'
+foreach ($name in 'host.psm1', 'installation.psm1', 'tls-renewal.psm1') {
+    Import-Module (Join-Path $env:EITMAD_TEST_PACKAGE_TOOLS $name) -Force -ErrorAction Stop
+}
+"""
+            result = subprocess.run(
+                ["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+                cwd=stage, env=dict(os.environ, EITMAD_TEST_PACKAGE_TOOLS=str(stage / "deploy/windows")),
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_windows_packages_deliver_resolvable_inventoried_documentation(self) -> None:
         manuals = ("package-windows-desktop.md", "run-windows-host-services.md", "setup-lan-server.md",

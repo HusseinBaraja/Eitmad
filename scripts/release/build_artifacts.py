@@ -33,8 +33,8 @@ CRT_FILES = {"concrt140.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll"
 OFFLINE_COMPONENTS = {
     "setup": ("setup", ("EitmadSetup.exe", "EitmadSetup.dll", "EitmadSetup.runtimeconfig.json", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll", "sbom.cdx.json", "release.json", *sorted(CRT_FILES))),
     "desktop": ("client/desktop", ("install-client.ps1", "package.psm1", "release.json")),
-    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
-        "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1",
+    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "package.psm1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
+        "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1", "deploy/windows/package.psm1",
         "deploy/windows/installation.ps1", "deploy/windows/installation.psm1", "deploy/windows/installation-channel.cs", "deploy/windows/verify-offline.ps1",
         "deploy/windows/tls-renewal.ps1", "deploy/windows/tls-renewal.psm1",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
@@ -797,7 +797,8 @@ def copy_install_tools(stage: Path, target: str) -> None:
         shutil.copy2(ROOT / "run-services.ps1", stage)
         tools = stage / "deploy/windows"
         tools.mkdir(parents=True)
-        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "tls-renewal.ps1", "tls-renewal.psm1"):
+        # Root installers and nested host adapters each import their sibling verifier.
+        for name in ("package.psm1", "host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "tls-renewal.ps1", "tls-renewal.psm1"):
             shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")

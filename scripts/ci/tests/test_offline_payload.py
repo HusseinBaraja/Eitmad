@@ -211,6 +211,25 @@ class OfflinePayloadTests(unittest.TestCase):
                 if extra.exists():
                     extra.unlink()
 
+    def test_missing_host_package_module_is_rejected_even_when_inventoried(self) -> None:
+        # Reproduce the broken release: the root verifier exists, but the host's
+        # sibling dependency is absent from both the payload and its inventories.
+        stage = self.source / "server/application"
+        relative = "deploy/windows/package.psm1"
+        (stage / relative).unlink(missing_ok=True)
+        (stage / "package.psm1").write_text("synthetic root package verifier")
+        self.release(stage, "windows-server")
+        files = self.review["components"]["application"]["files"]
+        files.pop(relative, None)
+        for name in ("package.psm1", "release.json"):
+            files[name] = {"sha256": artifacts.sha256(stage / name)}
+            if name == "package.psm1":
+                files[name]["publisher"] = "CN=Synthetic Test Publisher"
+        self.save_review()
+        with patch.object(artifacts, "verify_payload_signatures"), self.assertRaisesRegex(ValueError, "Required prerequisite content"):
+            self.prepare()
+        self.assertFalse(self.output.exists())
+
     def test_operational_state_is_rejected_even_when_reviewed(self) -> None:
         for name in ("customer.db", "cluster/PG_VERSION", "credentials.json", "leaf.pem", "desktop-device.json", "ca.cer"):
             with self.subTest(name=name):
