@@ -202,9 +202,13 @@ def load_payload_review(path: Path, expected: str, version: str) -> dict:
         if set(component) != {"version", "provenance", "licenses", "files"} or not component["files"]:
             raise ValueError("Incomplete component review")
         selected = component["version"]
-        if not isinstance(selected, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?", selected):
+        if not isinstance(selected, str):
             raise ValueError("Invalid reviewed component version")
-        parts = tuple(int(part) for part in selected.split("-")[0].split("."))
+        if name in {"desktop", "application", "setup"}:
+            windows_version(selected)
+        elif not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?", selected):
+            raise ValueError("Invalid reviewed component version")
+        parts = tuple(int(part) for part in selected.split("+")[0].split("-")[0].split("."))
         if ((name in {"desktop", "application", "setup"} and selected != version) or
             (name == "postgresql" and (len(parts) != 2 or parts[0] != 17)) or
             (name == "winsw" and selected != "2.12.0") or
@@ -627,12 +631,13 @@ def run(*command: str, env: dict | None = None) -> None:
 def windows_version(version: str) -> str:
     prerelease = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
     match = re.fullmatch(
-        rf"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-{prerelease}(?:\.{prerelease})*)?",
+        rf"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-{prerelease}(?:\.{prerelease})*)?(?:\+revision\.(0|[1-9][0-9]*))?",
         version,
     )
-    if not match or any(int(part) > 65535 for part in match.groups()):
-        raise ValueError("Use a semantic version with three numeric components <= 65535")
-    return ".".join(match.groups()) + ".0"
+    if not match or any(int(part) > 65535 for part in match.groups() if part is not None):
+        raise ValueError("Use a semantic version with numeric components <= 65535 and optional +revision.N")
+    major, minor, patch, revision = match.groups()
+    return ".".join((major, minor, patch, revision or "0"))
 
 
 def build_rust(package: str, version: str) -> Path:

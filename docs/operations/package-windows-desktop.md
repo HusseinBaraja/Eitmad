@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-24"
+last_verified: "2026-11-05"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -47,7 +47,7 @@ The setup target builds `EitmadSetup.exe` with self-contained .NET 8 Windows Des
 
 The desktop builder locates the newest numeric `VC/Redist/MSVC/<version>/x64/Microsoft.VC143.CRT` directory from installed Visual Studio instances through `vswhere.exe`. Use `--vc-runtime <REVIEWED_CRT_DIRECTORY>` to pin another approved redistribution source. It refuses missing files, mixed versions, versions below 14.40, non-x64 DLLs, untrusted Microsoft signatures, and conflicts with published runtime files. It never takes DLLs from System32 or installs a global runtime. `visual-cpp-runtime.json`, the payload inventory, and SBOM retain the exact shipped version and digests. Review redistribution rights and servicing status for the selected source before release.
 
-`0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
+`0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. For a Windows revision, use `--version 0.1.15+revision.1`: Rust and inventories retain this valid semantic version, while MSIX and .NET file identities use `0.1.15.1`. Each numeric component must be at most 65535. Revision metadata does not increase semantic-version precedence; this mapping supports the manual Windows package lifecycle. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
 
 The builder checks Rust `--version` and runtime diagnostic identity, gives .NET and MSIX the same version, validates migration hashes, and records revision, dirty-source status, architecture, local IPC version, and payload digests. `sbom.cdx.json` is a CycloneDX 1.6 dependency inventory from the resolved Rust normal/build graph and published .NET dependency manifests. It includes build inputs, excludes unrelated/test-only roots, and records exact bundled .NET runtime versions. Static linking can remove code from those inputs; the inventory does not claim that every source function ships. Signed payload digests bind this inventory to the release record. ZIP entries have sorted paths and fixed timestamps. Archive assembly is repeatable for identical payload bytes; compiler and external signing output are not claimed to be bit-reproducible. The `server` target still builds the separate Linux artifact.
 

@@ -141,6 +141,15 @@ class OfflinePayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "new directory"):
             self.prepare()
 
+    def test_component_review_accepts_a_semantic_windows_revision(self) -> None:
+        version = "1.2.3+revision.1"
+        self.review["version"] = version
+        for name in ("setup", "desktop", "application"):
+            self.review["components"][name]["version"] = version
+        self.save_review()
+        reviewed = artifacts.load_payload_review(self.review_path, self.digest, version)
+        self.assertEqual(reviewed["version"], version)
+
     def test_role_payloads_keep_authenticated_components_and_omit_client_host_dependencies(self) -> None:
         with patch.object(artifacts, "verify_payload_signatures"):
             self.prepare()
