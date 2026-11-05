@@ -22,11 +22,11 @@ keywords:
 
 **Delivery requirement:** "click and run and follow in app guided setup". [ADR-0031](../decisions/0031-two-self-contained-windows-installers.md) requires `EitmadServerSetup.exe` and `EitmadClientSetup.exe`, each with its required offline payload embedded. End users do not run scripts, extract a ZIP, install runtimes separately, or configure certificates and firewall rules manually.
 
-Use the two installers from the same release. Install the server first. It keeps the workshop database and also installs the desktop app for the Windows user who starts setup. Each employee PC installs only the desktop app and connects to that server. Each EXE fixes its role; there is no second role-choice screen.
+Use the two installers from the same release. Install the server first. It keeps the workshop database and also installs the desktop app for the Windows user who starts setup. Each employee PC installs only the desktop app and connects to that server. Each EXE fixes its role; there is no second role-choice screen. New releases use the Arabic Inno wizard for package preparation and removal, then open the Eitmad guided setup. See [installer ownership](../decisions/0034-inno-windows-installation.md).
 
 Use Server for a **new workshop** and Client for a **new employee PC** joining a running workshop. On a PC where Eitmad is already installed, run the newer EXE for the same role and use [Update an installed PC](#update-an-installed-pc). Do not create another workshop to repair a failed installation.
 
-**Current verification:** a complete reviewed self-signed Server and Client pair has been assembled, and both final EXE signatures passed build-host verification. Clean-PC installation, company LAN, reboot, and recovery acceptance remain **Needs verification**. See [offline setup verification](verify-offline-windows-setup.md#current-verification-status) for the observed evidence and its limits. The steps below describe the implemented path; they do not claim a live installation has passed.
+**Current verification:** both new Inno templates compile and sign with synthetic payloads. This is not a complete new release. Earlier custom installer pairs passed build-host signing checks; those results do not verify the new installer lifecycle. Clean-PC installation, company LAN, reboot, and recovery acceptance remain **Needs verification**. See [offline setup verification](verify-offline-windows-setup.md#current-verification-status) for the observed evidence and its limits. The steps below describe the implemented path; they do not claim a live installation has passed.
 
 ## Before you start
 
@@ -76,9 +76,15 @@ The app authenticates server trust during pairing and keeps an independent devic
 - Exit and reopen each desktop. Check that sign-in works without pairing again and that the confirmed record remains.
 - Before depending on unattended operation, verify client access after a planned server reboot while the server is still at the Windows sign-in screen. Use [offline setup acceptance](verify-offline-windows-setup.md) for the controlled reboot, firewall, DHCP, and restore checks.
 
+## Remove the app before a fresh installation
+
+Close Eitmad and guided setup. Open **إزالة الاعتماد** from the installed role's Start menu folder under the same ordinary Windows user, then confirm removal. Server removal asks for administrator approval and stops access for connected employees. It removes Eitmad services, the renewal task, firewall rules, desktop registration, installer files, and owned registry entries.
+
+User data stays in private `EitmadRetained` directories under LocalAppData and, for Server, ProgramData. Active setup state is cleared so the next installation starts fresh. Retained data is not automatically restored. See [complete removal and retention](package-windows-desktop.md#remove-an-inno-installation-before-a-fresh-setup). Do not remove files or registry keys manually after a failed cleanup; keep the uninstaller available and correct the reported problem.
+
 ## If setup or pairing stops
 
-For an installer or desktop built with local diagnostics, select **تنزيل السجلات** in the fixed bottom bar. It saves one `Eitmad-Logs-*.zip` in Downloads; select **فتح التنزيلات** to locate it. Copy that ZIP to the development laptop with the observed symptom and approximate time. The button is available before sign-in, throughout the desktop, and in both installer windows. If the app cannot open, reopen the authenticated setup EXE and download the report without starting installation. For a server-related problem, collect a report on both the client and server PC. The report does not collect remotely.
+For an installer or desktop built with local diagnostics, select **تنزيل السجلات** in the fixed bottom bar. It saves one `Eitmad-Logs-*.zip` in Downloads; select **فتح التنزيلات** to locate it. Copy that ZIP to the development laptop with the observed symptom and approximate time. The button is available before sign-in, throughout the desktop, and in the Eitmad guided setup window. The Inno preparation wizard does not have this report button; retain its error message if preparation fails. If the app cannot open, open **استكمال الإعداد** from the installed role folder and download the report without starting workshop setup. For a server-related problem, collect a report on both the client and server PC. The report does not collect remotely.
 
 The ZIP contains a typed event timeline and a collection/service-status summary. It reports missing, denied, rejected or truncated evidence. It excludes customer content, credentials, raw service logs, databases and private setup state. See [local diagnostic collection and interpretation](../developer/subsystems/privacy-preserving-observability.md#collect-local-support-evidence). Existing EXEs need to be rebuilt and authenticated to include the feature.
 

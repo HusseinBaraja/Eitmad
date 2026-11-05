@@ -13,6 +13,7 @@ public partial class SetupWindow : Window
     private bool fresh;
     private WindowsSetupRecovery recovery = WindowsSetupRecovery.InspectManually;
     private WindowsInstallProgress? last;
+    public bool InstallationCompleted => recovery == WindowsSetupRecovery.Complete;
     public SetupWindow(IWindowsSetupBridge backend, WindowsSetupRole role)
     {
         this.backend = backend; this.role = role;
