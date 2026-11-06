@@ -141,6 +141,15 @@ class OfflinePayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "new directory"):
             self.prepare()
 
+    def test_component_review_accepts_a_semantic_windows_revision(self) -> None:
+        version = "1.2.3+revision.1"
+        self.review["version"] = version
+        for name in ("setup", "desktop", "application"):
+            self.review["components"][name]["version"] = version
+        self.save_review()
+        reviewed = artifacts.load_payload_review(self.review_path, self.digest, version)
+        self.assertEqual(reviewed["version"], version)
+
     def test_role_payloads_keep_authenticated_components_and_omit_client_host_dependencies(self) -> None:
         with patch.object(artifacts, "verify_payload_signatures"):
             self.prepare()
@@ -210,6 +219,25 @@ class OfflinePayloadTests(unittest.TestCase):
                 self.assertFalse(self.output.exists())
                 if extra.exists():
                     extra.unlink()
+
+    def test_missing_host_package_module_is_rejected_even_when_inventoried(self) -> None:
+        # Reproduce the broken release: the root verifier exists, but the host's
+        # sibling dependency is absent from both the payload and its inventories.
+        stage = self.source / "server/application"
+        relative = "deploy/windows/package.psm1"
+        (stage / relative).unlink(missing_ok=True)
+        (stage / "package.psm1").write_text("synthetic root package verifier")
+        self.release(stage, "windows-server")
+        files = self.review["components"]["application"]["files"]
+        files.pop(relative, None)
+        for name in ("package.psm1", "release.json"):
+            files[name] = {"sha256": artifacts.sha256(stage / name)}
+            if name == "package.psm1":
+                files[name]["publisher"] = "CN=Synthetic Test Publisher"
+        self.save_review()
+        with patch.object(artifacts, "verify_payload_signatures"), self.assertRaisesRegex(ValueError, "Required prerequisite content"):
+            self.prepare()
+        self.assertFalse(self.output.exists())
 
     def test_operational_state_is_rejected_even_when_reviewed(self) -> None:
         for name in ("customer.db", "cluster/PG_VERSION", "credentials.json", "leaf.pem", "desktop-device.json", "ca.cer"):

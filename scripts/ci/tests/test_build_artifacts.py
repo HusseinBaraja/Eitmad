@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -58,6 +60,23 @@ class BuildArtifactsTests(unittest.TestCase):
             self.assertTrue((stage / "install-server.ps1").is_file())
             self.assertTrue((stage / "package.psm1").is_file())
 
+    @unittest.skipUnless(os.name == "nt", "Packaged PowerShell modules require Windows")
+    def test_packaged_server_modules_load_without_a_source_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            artifacts.copy_install_tools(stage, "windows-server")
+            command = """$ErrorActionPreference = 'Stop'
+foreach ($name in 'host.psm1', 'installation.psm1', 'tls-renewal.psm1') {
+    Import-Module (Join-Path $env:EITMAD_TEST_PACKAGE_TOOLS $name) -Force -ErrorAction Stop
+}
+"""
+            result = subprocess.run(
+                ["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+                cwd=stage, env=dict(os.environ, EITMAD_TEST_PACKAGE_TOOLS=str(stage / "deploy/windows")),
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_windows_packages_deliver_resolvable_inventoried_documentation(self) -> None:
         manuals = ("package-windows-desktop.md", "run-windows-host-services.md", "setup-lan-server.md",
                    "run-server-authority.md")
@@ -104,10 +123,19 @@ class BuildArtifactsTests(unittest.TestCase):
 
     def test_release_version_cannot_escape_output_or_overflow_msix_identity(self) -> None:
         for value in ("../escape", "1.2.3/other", "65536.1.0", "01.2.3", "1.2", "1.2.3\n",
-                      "1.2.3-..", "1.2.3-01", "1.2.3-rc..1"):
+                      "1.2.3-..", "1.2.3-01", "1.2.3-rc..1", "1.2.3+revision.65536",
+                      "1.2.3+revision.01", "1.2.3+revision.-1", "1.2.3+revision.1/other"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 artifacts.windows_version(value)
         self.assertEqual(artifacts.windows_version("1.2.3-rc.1"), "1.2.3.0")
+
+    def test_windows_revision_is_preserved_for_package_upgrade_ordering(self) -> None:
+        versions = [artifacts.windows_version(value) for value in
+                    ("0.1.15-lan.20261102", "0.1.15+revision.1", "0.1.16")]
+        numeric = [tuple(int(part) for part in value.split(".")) for value in versions]
+        self.assertLess(numeric[0], numeric[1])
+        self.assertLess(numeric[1], numeric[2])
+        self.assertEqual(versions[1], "0.1.15.1")
 
     def test_inventory_detects_payload_tampering_and_records_migration_source(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

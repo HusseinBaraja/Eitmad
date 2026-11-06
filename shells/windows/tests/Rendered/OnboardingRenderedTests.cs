@@ -29,9 +29,11 @@ public sealed class OnboardingRenderedTests
         WpfTestHost.RunWindow(() => new SetupWindow(backend, WindowsSetupRole.Server) { Width = width, Height = height }, window => {
             Record(window, width, height);
             var view = (SetupWindow)window;
+            Assert.IsFalse(view.InstallationCompleted);
             WpfTestHost.FindByName<PasswordBox>(window, "OwnerPassword").Password = "Synthetic-owner-secret";
             _ = view.InstallAsync(); WpfTestHost.CompleteLayout(window);
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<FrameworkElement>(window, "FailurePanel").Visibility);
+            Assert.IsFalse(view.InstallationCompleted);
             Assert.IsTrue(WpfTestHost.FindByName<TextBlock>(window, "NextAction").Text.Contains("دون تشغيل كمسؤول", StringComparison.Ordinal));
             Assert.IsTrue(view.DiagnosticLog.Contains("installation.psm1:24", StringComparison.Ordinal));
             Assert.IsTrue(view.DiagnosticLog.Contains("exit code: 10", StringComparison.Ordinal));
@@ -125,8 +127,10 @@ public sealed class OnboardingRenderedTests
             Assert.AreEqual(GuidedSetupAction.Update, backend.Action);
             Assert.IsNull(backend.RetryPassword);
             Assert.IsFalse(update.IsEnabled);
+            Assert.IsFalse(view.InstallationCompleted);
             completion.SetResult(); WpfTestHost.CompleteLayout(window);
             Assert.IsTrue(task.IsCompletedSuccessfully);
+            Assert.IsTrue(view.InstallationCompleted);
             Assert.AreEqual(Visibility.Visible, WpfTestHost.FindByName<Button>(window, "OpenDesktopButton").Visibility);
         });
     }
@@ -181,30 +185,7 @@ public sealed class OnboardingRenderedTests
     }
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
-    public void Publisher_trust_requires_confirmation_and_keeps_fingerprint_readable(int width, int height)
-    {
-        WpfTestHost.RunWindow(() => new InstallerWindow { Width = width, Height = height }, window => {
-            Record(window, width, height);
-            ((InstallerWindow)window).ShowPublisherTrust("CN=Eitmad synthetic publisher", new string('A', 64));
-            WpfTestHost.CompleteLayout(window);
-            var trust = WpfTestHost.FindByName<Button>(window, "TrustPublisher");
-            var confirm = WpfTestHost.FindByName<CheckBox>(window, "ConfirmedPublisher");
-            Assert.IsFalse(trust.IsEnabled);
-            confirm.BringIntoView(); WpfTestHost.CompleteLayout(window);
-            Assert.IsTrue(confirm.Focus()); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(confirm)));
-            confirm.IsChecked = true;
-            Assert.IsTrue(trust.IsEnabled); Assert.IsTrue(confirm.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
-            Assert.IsTrue(trust.Focus()); Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(trust)));
-            var fingerprint = WpfTestHost.FindByName<TextBox>(window, "PublisherFingerprint");
-            Assert.AreEqual(FlowDirection.LeftToRight, fingerprint.FlowDirection);
-            fingerprint.BringIntoView(); WpfTestHost.CompleteLayout(window);
-            WpfTestHost.Capture(window, $"onboarding-publisher-trust-{width}");
-            confirm.IsChecked = false; Assert.IsFalse(trust.IsEnabled);
-        });
-    }
-    [TestMethod]
-    [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
-    public void Client_setup_and_payload_preparation_have_native_accessible_actions(int width, int height)
+    public void Client_setup_has_native_accessible_actions(int width, int height)
     {
         WpfTestHost.RunWindow(() => new SetupWindow(new SetupBackend(), WindowsSetupRole.Client) { Width = width, Height = height }, window => {
             Record(window, width, height);
@@ -217,13 +198,6 @@ public sealed class OnboardingRenderedTests
             var position = install.TransformToAncestor(window).Transform(new Point());
             Assert.IsTrue(install.IsVisible && position.Y + install.ActualHeight <= window.ActualHeight);
             WpfTestHost.Capture(window, $"onboarding-client-{width}");
-        });
-        WpfTestHost.RunWindow(() => new InstallerWindow { Width = width, Height = height }, window => {
-            Record(window, width, height);
-            var close = WpfTestHost.FindByName<Button>(window, "ClosePreparation");
-            Assert.IsTrue(close.Focus());
-            Assert.IsFalse(string.IsNullOrEmpty(AutomationProperties.GetName(close)));
-            WpfTestHost.Capture(window, $"onboarding-preparation-{width}");
         });
     }
     [TestMethod]

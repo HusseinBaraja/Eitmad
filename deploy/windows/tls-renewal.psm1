@@ -153,9 +153,14 @@ function Initialize-TlsControl([string]$Root, $Settings, $Request) {
         Set-Acl -LiteralPath $item.FullName -AclObject $acl
     }
     # The scheduled backend and mechanics must survive removal of the package staging directory.
+    Install-TlsControlScripts $Root
+    Assert-TlsControl $control
+}
+
+function Install-TlsControlScripts([string]$Root) {
     $scripts = Join-Path $Root 'app/deploy/windows'
     & $script:HostTools { param($p) Protect-Directory $p } $scripts
-    foreach ($name in 'tls-renewal.ps1','tls-renewal.psm1','host.psm1') {
+    foreach ($name in 'tls-renewal.ps1','tls-renewal.psm1','host.psm1','package.psm1') {
         $target = Join-Path $scripts $name
         if ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot $name)) -ine [IO.Path]::GetFullPath($target)) {
             Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination $target -Force
@@ -166,7 +171,6 @@ function Initialize-TlsControl([string]$Root, $Settings, $Request) {
         Set-Acl -LiteralPath $target -AclObject $acl
     }
     Assert-TlsControl $scripts
-    Assert-TlsControl $control
 }
 
 function Register-TlsSchedule([string]$Root, $Settings, [int]$IntervalSeconds) {

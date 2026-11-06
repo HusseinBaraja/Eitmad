@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-10-24"
+last_verified: "2026-11-05"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -47,7 +47,7 @@ The setup target builds `EitmadSetup.exe` with self-contained .NET 8 Windows Des
 
 The desktop builder locates the newest numeric `VC/Redist/MSVC/<version>/x64/Microsoft.VC143.CRT` directory from installed Visual Studio instances through `vswhere.exe`. Use `--vc-runtime <REVIEWED_CRT_DIRECTORY>` to pin another approved redistribution source. It refuses missing files, mixed versions, versions below 14.40, non-x64 DLLs, untrusted Microsoft signatures, and conflicts with published runtime files. It never takes DLLs from System32 or installs a global runtime. `visual-cpp-runtime.json`, the payload inventory, and SBOM retain the exact shipped version and digests. Review redistribution rights and servicing status for the selected source before release.
 
-`0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
+`0.1.0` is a validation example, not a declared production release. Use one approved semantic version for both artifacts. Three numeric components map to `major.minor.patch.0` in MSIX and .NET file identities. For a Windows revision, use `--version 0.1.15+revision.1`: Rust and inventories retain this valid semantic version, while MSIX and .NET file identities use `0.1.15.1`. Each numeric component must be at most 65535. Revision metadata does not increase semantic-version precedence; this mapping supports the manual Windows package lifecycle. Prerelease labels are recorded in the Rust binary and inventory but do not increase the MSIX numeric version. Use a higher numeric version for every upgrade; never reuse a release version for different bytes.
 
 The builder checks Rust `--version` and runtime diagnostic identity, gives .NET and MSIX the same version, validates migration hashes, and records revision, dirty-source status, architecture, local IPC version, and payload digests. `sbom.cdx.json` is a CycloneDX 1.6 dependency inventory from the resolved Rust normal/build graph and published .NET dependency manifests. It includes build inputs, excludes unrelated/test-only roots, and records exact bundled .NET runtime versions. Static linking can remove code from those inputs; the inventory does not claim that every source function ships. Signed payload digests bind this inventory to the release record. ZIP entries have sorted paths and fixed timestamps. Archive assembly is repeatable for identical payload bytes; compiler and external signing output are not claimed to be bit-reproducible. The `server` target still builds the separate Linux artifact.
 
@@ -83,17 +83,21 @@ Build reviewed desktop, server, and setup components from the same clean current
 python scripts/release/build_artifacts.py windows-installers --version 0.1.0 --payload-input C:\ReviewedOfflineInputs --payload-review C:\ReviewedRelease\offline-inputs.json --expected-review-sha256 $approvedReviewDigest --publisher $approvedPublisher --signing-hook deploy/windows/sign-with-self-signed-certificate.ps1 --output dist
 ```
 
-This target requires the local self-signed certificate signing hook and new destination filenames. It verifies all reviewed components, stages each role, creates and signs each role's catalog, embeds the archive with its SHA-256 and fixed role, and signs the final EXEs. The outer launcher uses the same reviewed .NET runtime patch and app-local C++ files as the inner setup. Both roles must finish before either final EXE is published. The adjacent manifest records the role, embedded archive digest, catalog digest, and public certificate SHA-256; authenticate the manifest through the release handover. `productionEligible` remains false until the separate release acceptance gates pass.
+This target requires Inno Setup **7.1.1+ within major version 7**, the local self-signed certificate signing hook, and new destination filenames. Install the official signed compiler, or set `EITMAD_INNO_COMPILER` to its `ISCC.exe`. The builder verifies the compiler's Windows signature and Pyrsys B.V. publisher before executing it, then checks its version. See [Inno Setup downloads](https://jrsoftware.org/isdl.php) and [ADR-0034](../decisions/0034-inno-windows-installation.md).
+
+The builder verifies reviewed components, stages each fixed role, signs its catalog, and compiles `deploy/windows/eitmad.iss`. Inno signs its setup copies, uninstaller, and final EXE through the existing signing hook. Both roles must finish before either final EXE is published. The adjacent manifest records the technology, role, payload inventory digest, installed bundle directory name, catalog digest, and public certificate SHA-256. Authenticate it through the release handover. `productionEligible` remains false until separate release acceptance passes.
 
 Server includes all reviewed components. Client includes the setup, desktop, and complete authenticated application component because the Rust setup backend runs from that component. Client omits PostgreSQL, WinSW, PowerShell 7, C++ redistributable installers, and Framework installers. Its installed MSIX contains no server tools. The temporary setup backend is not a Client host-service installation.
 
-At first launch on each PC, the outer launcher reads its embedded public certificate, checks its compiled SHA-256 and exact EXE signer, and shows the publisher and fingerprint. The user compares the fingerprint with the independently authenticated release handover, confirms it, and selects **اعتماد الناشر والمتابعة**. Windows asks for administrator approval to import that public code-signing leaf into `LocalMachine\Root` and `LocalMachine\TrustedPublisher`. Each missing store needs its own approval, so a new PC can show two prompts. It runs the protected Windows `certutil.exe`; it does not elevate unverified payload code. The app install continues under the original user. Authenticode checks the retained EXE before payload extraction. Later launches skip the trust step only when that exact certificate remains installed in both stores and valid. A PC with only the older root trust receives the missing publisher import.
+At first launch on each PC, Inno shows its Arabic standard wizard. If the exact publisher certificate is missing from either machine store, its trust page shows the compiled public SHA-256 fingerprint and requires explicit confirmation. Compare it with the independently authenticated handover. Inno checks its embedded certificate hash and invokes protected Windows `certutil.exe` with administrator approval for each missing store: `LocalMachine\Root` and `LocalMachine\TrustedPublisher`. It verifies the signed outer EXE after trust and before installation. It does not elevate unverified payload code. The application setup continues as the original user.
 
 Setup starts installation, elevated verification, workshop preparation, and TLS renewal scripts with process-only `-ExecutionPolicy AllSigned`. Both entry scripts and imported modules must have trusted signatures. Machine publisher trust covers the original user, a different UAC administrator, and the SYSTEM renewal task. Setup does not change saved user/machine execution policy or override Group Policy. A managed script prohibition still stops setup. The signed catalog, inventory, exact publisher, and protected-copy checks remain required.
 
-A self-signed EXE can show an initial Windows unknown-publisher or SmartScreen warning before its UI opens. Self-signing does not create public publisher reputation. Do not disable Windows protection. The installer cannot authenticate its own initial download: obtain the EXE digest and public certificate fingerprint through the independent release handover. The adapter checks the compiled archive digest, rejects unsafe or duplicate paths and links, bounds extraction, and retains verified files against replacement. Extraction uses a private `%LocalAppData%\Eitmad\Installers\<archive-sha256>` directory. Reopening the same EXE verifies and reuses that directory. Changed or unexpected retained files stop setup and are preserved. Rust verifies the signed catalog and enforces the authenticated role, including recovery; launch arguments cannot grant the other role. Server elevation continues to authenticate a separate protected ProgramData copy.
+A self-signed EXE can show an initial Windows publisher or SmartScreen warning. Do not disable Windows protection. Obtain the EXE digest and certificate fingerprint through the independent handover. Inno extracts files using its signed package metadata and registers an installed uninstaller under `%LocalAppData%\Programs\Eitmad\<role>`. The complete catalog-bound payload stays under `bundles/<payloadDirectoryName>`, including files needed for interrupted setup and removal. Setup and Rust retain and authenticate the payload before using it. Rust enforces the role; launch arguments cannot select another role. Server elevation still authenticates a separate protected ProgramData copy.
 
-A complete reviewed self-signed installer pair has been built, and both final EXE signatures passed build-host verification. Record each pair's source revision, hashes, and certificate fingerprint in its release handover. Clean-PC installation, company LAN, reboot, and recovery still require [offline acceptance](verify-offline-windows-setup.md#current-verification-status). Distribute only the authenticated Server and Client EXEs and their current handover instructions.
+Inno launches the existing WPF guided setup before showing its result. Cancellation or failure is not successful application installation. Keep the installed **استكمال الإعداد** and **إزالة الاعتماد** shortcuts available for recovery. Do not delete a bundle directory while it can be referenced by a setup journal.
+
+The Inno template has compiled and signed both roles with a small synthetic payload on the build host. This is not a complete new release or clean-PC acceptance. Previous custom installer pairs remain historical evidence only. Record each new pair's current source revision, hashes, and fingerprint in its handover; complete [offline acceptance](verify-offline-windows-setup.md#current-verification-status) before declaring production support.
 
 ## Prepare the combined offline payload
 
@@ -136,7 +140,7 @@ Client MSIX validation also refuses external package dependencies and server too
 
 ### Collect and recheck without installation
 
-During setup, both launchers keep payload files open against writes and deletion. The embedded verifier authenticates the catalog and its publisher, reads the catalog inventory against an empty temporary directory, and verifies the root `release.json` hash from that inventory. It then checks every retained file's raw SHA-256 against this authenticated release inventory and rejects missing or unexpected files. The empty-directory catalog result alone never accepts a payload. This avoids incompatible file sharing in `Test-FileCatalog` and preserves the distinction between Windows PE catalog hashes and raw file hashes. A preflight failure leaves installation state untouched; preserve the failed release and use a newly reviewed, signed installer instead of editing extracted files.
+During guided setup, the WPF adapter and Rust backend keep payload files open against writes and deletion. The embedded verifier authenticates the catalog and its publisher, reads the catalog inventory against an empty temporary directory, and verifies the root `release.json` hash from that inventory. It then checks every retained file's raw SHA-256 against this authenticated release inventory and rejects missing or unexpected files. The empty-directory catalog result alone never accepts a payload. This avoids incompatible file sharing in `Test-FileCatalog` and preserves the distinction between Windows PE catalog hashes and raw file hashes. A preflight failure leaves installation state untouched; preserve the failed release and use a newly reviewed, signed installer instead of editing extracted files.
 
 On the release build host, set `$approvedReviewDigest` to the independently authenticated review digest, then run:
 
@@ -261,6 +265,32 @@ For the desktop:
 Windows redeploys the same signed package and the tool checks registration. It never calls Windows Reset. If Windows cannot repair package files in place, use the data-preserving Uninstall below and reinstall the original package under the same user/publisher. Verify retained work and online sign-in before returning the PC.
 
 `install-server.ps1 Uninstall` removes owned service registrations and its firewall rule, preserving **all** server files. `install-client.ps1 Uninstall` removes this user's package and retains engine data and credentials. Do not select **Reset**, delete runtime files, remove Credential Manager entries, reset Windows passwords, or initialize a database as part of removal. Reinstall the same identity under the same Windows account to resume. Device decommissioning is separate work.
+
+## Remove an Inno installation before a fresh setup
+
+Close the desktop with **إنهاء الاعتماد** and close guided setup. Under the Windows user who installed it, open **إزالة الاعتماد** from the role's Start menu folder, or use its role-specific Windows Installed apps entry. Do not launch the uninstaller as administrator. Server removal requests administrator approval for its separate machine phase and interrupts connected employee PCs.
+
+Approve Server removal with the Windows administrator account used for workshop preparation. The prepared directory remains private to that account and SYSTEM. Installed host directories use Administrators/SYSTEM ownership. Removal checks each policy separately; do not broaden permissions to bypass an ownership failure.
+
+Inno first runs the signed native removal adapter. It checks both service owners, removes `EitmadServer` and `EitmadPostgres` through SCM, removes their Event Log sources, the owned `Eitmad-TlsRenewal` task, and owned firewall rules. It waits for service deletion; pending deletion requires a restart and retry, not manual registry removal. It then removes this user's MSIX after checking its publisher. Inno removes its tracked payload files, setup shortcuts, uninstall entry, and `HKCU\Software\Eitmad\Installation\<role>` keys. Client removal never performs the machine phase.
+
+Records, settings, private recovery material, and setup journals are renamed into private `%LocalAppData%\EitmadRetained\<unique-id>` and, for Server, protected `%ProgramData%\EitmadRetained\<unique-id>`. The active `Eitmad`, `EitmadHost`, `EitmadPreparedWorkshop`, and setup-journal paths are cleared. Installed binaries and authenticated setup caches are removed; data files and native credentials referenced by retained records remain. Shared .NET/C++ prerequisites and publisher trust remain installed. Unauthenticated partial caches are preserved for inspection rather than guessed safe to delete.
+
+A later install starts fresh and does not restore retained records automatically. Retention is not a backup or restore feature. Do not copy a retained database or identity into a new workshop. A cleanup error stops removal before Inno deletes the signed tools; correct the reported process, service, permission, or integrity problem and retry.
+
+The manual `install-server.ps1 Uninstall` and `install-client.ps1 Uninstall` commands above keep their narrower repair semantics. Use the Inno entry point for complete removal and a fresh setup. Older custom installer EXEs do not gain this uninstaller until a new authenticated release is built and installed.
+
+Validate native removal without changing real installation state:
+
+```powershell
+powershell.exe -NoProfile -File deploy/windows/test-uninstallation.ps1
+```
+
+Windows PowerShell 5.1 is required for this proof's Framework ACL APIs and matches the runtime adapter. On a build host with the retained signing certificate, compile and sign both real Inno templates with a small synthetic payload, without installing them:
+
+```powershell
+pwsh.exe -NoProfile -File deploy/windows/test-inno-package.ps1 -Compiler <Inno-Setup-7-ISCC.exe> -SigningCertificateThumbprint <retained-public-thumbprint>
+```
 
 ## Controlled manual upgrade
 

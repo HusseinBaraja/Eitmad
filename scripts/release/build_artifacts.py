@@ -33,10 +33,10 @@ CRT_FILES = {"concrt140.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll"
 OFFLINE_COMPONENTS = {
     "setup": ("setup", ("EitmadSetup.exe", "EitmadSetup.dll", "EitmadSetup.runtimeconfig.json", "coreclr.dll", "hostfxr.dll", "hostpolicy.dll", "PresentationFramework.dll", "sbom.cdx.json", "release.json", *sorted(CRT_FILES))),
     "desktop": ("client/desktop", ("install-client.ps1", "package.psm1", "release.json")),
-    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
-        "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1",
+    "application": ("server/application", ("eitmad-server.exe", "install-server.ps1", "package.psm1", "release.json", "sbom.cdx.json", *sorted(CRT_FILES),
+        "deploy/windows/prepare-workshop.ps1", "deploy/windows/host.psm1", "deploy/windows/package.psm1",
         "deploy/windows/installation.ps1", "deploy/windows/installation.psm1", "deploy/windows/installation-channel.cs", "deploy/windows/verify-offline.ps1",
-        "deploy/windows/tls-renewal.ps1", "deploy/windows/tls-renewal.psm1",
+        "deploy/windows/tls-renewal.ps1", "deploy/windows/tls-renewal.psm1", "deploy/windows/uninstall.ps1", "deploy/windows/uninstallation.psm1",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.exe",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.dll",
         "tools/lan-certificate/bin/Release/net8.0-windows/Eitmad.LanCertificate.runtimeconfig.json",
@@ -202,9 +202,13 @@ def load_payload_review(path: Path, expected: str, version: str) -> dict:
         if set(component) != {"version", "provenance", "licenses", "files"} or not component["files"]:
             raise ValueError("Incomplete component review")
         selected = component["version"]
-        if not isinstance(selected, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?", selected):
+        if not isinstance(selected, str):
             raise ValueError("Invalid reviewed component version")
-        parts = tuple(int(part) for part in selected.split("-")[0].split("."))
+        if name in {"desktop", "application", "setup"}:
+            windows_version(selected)
+        elif not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z.-]+)?", selected):
+            raise ValueError("Invalid reviewed component version")
+        parts = tuple(int(part) for part in selected.split("+")[0].split("-")[0].split("."))
         if ((name in {"desktop", "application", "setup"} and selected != version) or
             (name == "postgresql" and (len(parts) != 2 or parts[0] != 17)) or
             (name == "winsw" and selected != "2.12.0") or
@@ -476,30 +480,53 @@ def prepare_installer_role(source: Path, stage: Path, review: dict, role: str) -
     return dict(review, components=inventory["components"])
 
 
-def publish_installer(stage: Path, payload: Path, role: str, version: str, crt: Path, certificate: Path) -> Path:
-    """The same WPF application is the outer single-file launcher and the inner wizard."""
+def inno_compiler() -> str:
+    """Use an explicitly selected compiler, PATH, or the standard Inno Setup 7 location."""
+    selected = os.environ.get("EITMAD_INNO_COMPILER") or shutil.which("ISCC.exe")
+    if selected:
+        return selected
+    for variable in ("ProgramFiles", "ProgramFiles(x86)"):
+        candidate = Path(os.environ.get(variable, "C:/Program Files")) / "Inno Setup 7/ISCC.exe"
+        if candidate.is_file():
+            return str(candidate)
+    raise ValueError("Install Inno Setup 7.1.1+ or set EITMAD_INNO_COMPILER to its ISCC.exe")
+
+
+def publish_installer(stage: Path, payload: Path, role: str, version: str, certificate: Path,
+                      publisher: str, hook: Path) -> Path:
+    """Inno owns extraction, durable payload files, registration, signing, and uninstall."""
+    if role not in {"server", "client"}:
+        raise ValueError("Installer role must be server or client")
     name = "EitmadServerSetup" if role == "server" else "EitmadClientSetup"
-    frameworks = self_contained_runtime(crt / "EitmadSetup.runtimeconfig.json", desktop=True)
-    versions = {framework["version"] for framework in frameworks}
-    if len(versions) != 1:
-        raise ValueError("Installer and reviewed setup must use one matching .NET runtime patch")
-    runtime_version = versions.pop()
-    crt_stage = stage.parent / f"{role}-crt"
-    crt_stage.mkdir()
-    for name_in_crt in sorted(CRT_FILES):
-        shutil.copyfile(crt / name_in_crt, crt_stage / name_in_crt)
-    run("dotnet", "publish", "shells/windows-setup/Eitmad.WindowsSetup.csproj", "--configuration", "Release",
-        "--runtime", "win-x64", "--self-contained", "true", "--nologo", "--output", str(stage),
-        f"-p:Version={version}", f"-p:AssemblyVersion={windows_version(version)}", f"-p:FileVersion={windows_version(version)}",
-        f"-p:RuntimeFrameworkVersion={runtime_version}", "-p:TargetLatestRuntimePatch=false",
-        f"-p:InstallerExecutableName={name}", "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
-        "-p:IncludeAllContentForSelfExtract=true", "-p:DebugType=None", "-p:DebugSymbols=false",
-        f"-p:InstallerPayload={payload}", f"-p:InstallerPayloadSha256={sha256(payload)}",
-        f"-p:InstallerRole={role}", f"-p:InstallerCrtDirectory={crt_stage}",
-        f"-p:PublisherCertificate={certificate}", f"-p:PublisherCertificateSha256={sha256(certificate)}")
+    stage.mkdir(parents=True)
+    compiler = inno_compiler()
+    # Authenticate the build tool before executing it. Inno also signs its temporary
+    # setup copies and uninstaller through this hook, not just the final outer EXE.
+    check = "$ErrorActionPreference='Stop'; $path=[Console]::In.ReadToEnd(); " \
+        "$s=Get-AuthenticodeSignature -LiteralPath $path; " \
+        "if($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch '(^|, )CN=Pyrsys B[.]V[.](,|$)') " \
+        "{throw 'Require the authentic signed Inno Setup compiler from Pyrsys B.V.'}"
+    subprocess.run(["pwsh.exe", "-NoProfile", "-NonInteractive", "-Command", check], input=compiler,
+                   text=True, check=True, capture_output=True)
+    compiler_version = subprocess.check_output([compiler, "--version"], text=True).strip()
+    if not re.fullmatch(r"7\.\d+\.\d+", compiler_version) or \
+            tuple(int(part) for part in compiler_version.split(".")) < (7, 1, 1):
+        raise ValueError("Require Inno Setup 7.1.1+ within major version 7")
+    # ISCC uses its own argv parser. Its $q escape avoids nested literal quotes
+    # being split by Delphi's command-line parsing on Windows.
+    def quote(value: str | Path) -> str:
+        return "$q" + str(value).replace("$", "$$") + "$q"
+    signing = f'{quote(shutil.which("pwsh.exe") or "pwsh.exe")} -NoProfile -File {quote(ROOT / "deploy/windows/sign-windows.ps1")} -Path $f -Publisher {quote(publisher)} -SigningHook {quote(hook.resolve())}'
+    run(compiler, f"--signtool=eitmad={signing}", "--no-ide-signtools",
+        f"--define=PayloadDirectory={payload}", f"--define=PublisherCertificate={certificate}",
+        f"--define=PublisherCertificateSha256={sha256(certificate)}", f"--define=InstallerRole={role}",
+        f"--define=AppVersion={version}", f"--define=WindowsVersion={windows_version(version)}",
+        f"--define=PayloadKey={windows_version(version)}-{sha256(payload / 'release.json')[:16]}",
+        f"--define=OutputDirectory={stage}", str(ROOT / "deploy/windows/eitmad.iss"))
     executable = stage / f"{name}.exe"
-    if set(tree_files(stage)) != {executable.name}:
-        raise ValueError("Installer publish must contain exactly one self-contained EXE")
+    if not executable.is_file():
+        raise ValueError("Inno Setup did not produce the role's standalone EXE")
+    sign_path(executable, publisher, hook)
     return executable
 
 
@@ -529,11 +556,10 @@ def build_windows_installers(output: Path, version: str, source: Path, review_pa
             write_offline_sbom(stage, scoped_review)
             release_inventory(stage, version, f"windows-{role}-installer", publisher, sha256(stage / "payload.json"))
             create_offline_catalog(stage, publisher, hook)
-            archive = working / f"{role}.zip"
-            deterministic_zip(stage, archive)
-            executable = publish_installer(working / f"{role}-exe", archive, role, version, verified / "setup", certificate)
-            sign_path(executable, publisher, hook)
-            completed.append((executable, {"role": role, "embeddedPayloadSha256": sha256(archive),
+            executable = publish_installer(working / f"{role}-exe", stage, role, version, certificate, publisher, hook)
+            completed.append((executable, {"role": role, "installerTechnology": "inno-setup",
+                                           "payloadDirectoryName": f"{windows_version(version)}-{sha256(stage / 'release.json')[:16]}",
+                                           "payloadInventorySha256": sha256(stage / "release.json"),
                                            "offlineCatalogSha256": sha256(stage / "offline.cat"),
                                            "publisherCertificateSha256": sha256(certificate)}))
         # Publish neither role until both signing and all packaging checks succeed.
@@ -627,12 +653,13 @@ def run(*command: str, env: dict | None = None) -> None:
 def windows_version(version: str) -> str:
     prerelease = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
     match = re.fullmatch(
-        rf"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-{prerelease}(?:\.{prerelease})*)?",
+        rf"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-{prerelease}(?:\.{prerelease})*)?(?:\+revision\.(0|[1-9][0-9]*))?",
         version,
     )
-    if not match or any(int(part) > 65535 for part in match.groups()):
-        raise ValueError("Use a semantic version with three numeric components <= 65535")
-    return ".".join(match.groups()) + ".0"
+    if not match or any(int(part) > 65535 for part in match.groups() if part is not None):
+        raise ValueError("Use a semantic version with numeric components <= 65535 and optional +revision.N")
+    major, minor, patch, revision = match.groups()
+    return ".".join((major, minor, patch, revision or "0"))
 
 
 def build_rust(package: str, version: str) -> Path:
@@ -797,7 +824,8 @@ def copy_install_tools(stage: Path, target: str) -> None:
         shutil.copy2(ROOT / "run-services.ps1", stage)
         tools = stage / "deploy/windows"
         tools.mkdir(parents=True)
-        for name in ("host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "tls-renewal.ps1", "tls-renewal.psm1"):
+        # Root installers and nested host adapters each import their sibling verifier.
+        for name in ("package.psm1", "host.psm1", "prepare-workshop.ps1", "installation.ps1", "installation.psm1", "installation-channel.cs", "verify-offline.ps1", "tls-renewal.ps1", "tls-renewal.psm1", "uninstall.ps1", "uninstallation.psm1"):
             shutil.copy2(ROOT / "deploy/windows" / name, tools)
     # Preserve the canonical documentation tree so all relative links work offline.
     shutil.copytree(ROOT / "docs", stage / "docs")

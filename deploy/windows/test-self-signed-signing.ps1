@@ -65,25 +65,6 @@ try {
     $signature = Get-AuthenticodeSignature -LiteralPath $executable
     if ($signature.Status -ne 'Valid' -or $signature.TimeStamperCertificate) { throw 'Expected trusted signing without a timestamp.' }
     [Eitmad.Platform.Windows.Installation.AuthenticodeTrust]::Verify($executable)
-    $trust = [Eitmad.Platform.Windows.Installation.PublisherCertificateTrust]::new(
-        [IO.File]::ReadAllBytes($publicPath), $result.certificateSha256)
-    try { $trust.VerifyInstallerSigner($executable) } finally { $trust.Dispose() }
-    # A different key with the same subject cannot authenticate this installer.
-    $rsa = [Security.Cryptography.RSA]::Create(2048)
-    try {
-        $otherRequest = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
-            $subject, $rsa, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)
-        $usages = [Security.Cryptography.OidCollection]::new()
-        [void]$usages.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3'))
-        $otherRequest.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($usages,$true))
-        $otherRequest.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true))
-        $other = $otherRequest.CreateSelfSigned([DateTimeOffset]::UtcNow.AddMinutes(-1),[DateTimeOffset]::UtcNow.AddHours(1))
-        try {
-            $trust = [Eitmad.Platform.Windows.Installation.PublisherCertificateTrust]::new(
-                $other.RawData, $other.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256))
-            try { Reject { $trust.VerifyInstallerSigner($executable) } } finally { $trust.Dispose() }
-        } finally { $other.Dispose() }
-    } finally { $rsa.Dispose() }
     Reject { Assert-PackageSignature $executable 'CN=Wrong publisher' }
     Assert-PackageSignature $executable $subject
     # The real script SIP needs extended paths when staging exceeds MAX_PATH.

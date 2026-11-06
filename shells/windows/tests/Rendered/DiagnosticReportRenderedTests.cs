@@ -32,9 +32,8 @@ public sealed class DiagnosticReportRenderedTests
 
     [TestMethod]
     [DataRow(1920, 1080)] [DataRow(1338, 753)] [DataRow(720, 560)]
-    public void Report_is_accessible_before_verification_and_during_guided_setup(int width, int height)
+    public void Report_is_accessible_during_guided_setup(int width, int height)
     {
-        WpfTestHost.RunWindow(() => new InstallerWindow { Width = width, Height = height }, window => Check(window, width, height, "installer"));
         WpfTestHost.RunWindow(() => new SetupWindow(new SetupBackend(), WindowsSetupRole.Server) { Width = width, Height = height }, window => Check(window, width, height, "setup"));
     }
 

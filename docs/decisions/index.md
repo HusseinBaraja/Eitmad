@@ -67,6 +67,7 @@ Accepted ADRs are immutable historical records except for typo fixes, link repai
 | [ADR-0028](0028-manager-receptionist-sales-workflows.md) | Define Manager and Receptionist sales workflows | Accepted | 2026-09-19 | None |
 | [ADR-0029](0029-require-live-server-authority-for-protected-access.md) | Require live server authority for protected access | Accepted | 2026-10-18 | ADR-0022, offline access only |
 | [ADR-0030](0030-offline-guided-windows-setup.md) | Provide offline guided Windows setup | Partially superseded by ADR-0031 and ADR-0032 and ADR-0033 | 2026-10-20 | None |
-| [ADR-0031](0031-two-self-contained-windows-installers.md) | Distribute two self-contained Windows installers | Partially superseded by ADR-0032 and ADR-0033 | 2026-10-24 | ADR-0030, distribution format and installer role selection only |
+| [ADR-0031](0031-two-self-contained-windows-installers.md) | Distribute two self-contained Windows installers | Partially superseded by ADR-0032, ADR-0033, and ADR-0034 | 2026-10-24 | ADR-0030, distribution format and installer role selection only |
 | [ADR-0032](0032-self-signed-windows-publisher.md) | Require a self-signed Windows publisher certificate | Accepted | 2026-10-24 | ADR-0030 and ADR-0031, publisher signing and first-use Client certificate elevation only |
 | [ADR-0033](0033-defer-backup-support.md) | Defer backup support | Accepted | 2026-10-27 | Backup and restore requirements in ADR-0021, ADR-0022, ADR-0026, ADR-0030, ADR-0031 |
+| [ADR-0034](0034-inno-windows-installation.md) | Use Inno Setup for Windows installation and removal | Accepted | 2026-11-05 | ADR-0031, outer bootstrap and extracted-payload lifecycle only |

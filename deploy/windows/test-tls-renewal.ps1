@@ -22,6 +22,24 @@ $root = Join-Path $env:TEMP ('eitmad-tls-adapter-' + [Guid]::NewGuid().ToString(
     }
     $OutputEncoding = New-Object Text.UTF8Encoding($false, $true)
     $unlockPassword = 'synthetic adapter CA password ' + [char]0x0633
+    # Retain the real script closure and import it in a fresh process, without
+    # source modules. Substitute only machine ACL mechanics for this TEMP tree.
+    & {
+        $protect = & $script:HostTools { ${function:Protect-Directory} }
+        try {
+            & $script:HostTools { function script:Protect-Directory { param($Path) [void][IO.Directory]::CreateDirectory($Path) } }
+            function Set-Acl { param($LiteralPath, $AclObject) }
+            function Assert-TlsControl { param($Path) }
+            $installed = Join-Path $Root 'retained-script-host'
+            Install-TlsControlScripts $installed
+            $retainedModule = Join-Path $installed 'app/deploy/windows/tls-renewal.psm1'
+            $probe = '$ErrorActionPreference = ''Stop''; Import-Module ([Console]::In.ReadToEnd().Trim()) -Force -DisableNameChecking'
+            $retainedModule | & powershell.exe -NoProfile -NonInteractive -EncodedCommand ([Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($probe)))
+            if ($LASTEXITCODE -ne 0) { throw 'Installed TLS scripts cannot load without package staging.' }
+        } finally {
+            & $script:HostTools { param($guard) Set-Item Function:script:Protect-Directory $guard } $protect
+        }
+    }
     # No services, scheduled tasks, trust stores, or firewall rules are changed.
     Reject { Invoke-TlsMechanic Guard $Root @{} }
     foreach ($child in 'renewal/tool','app','private') { [void][IO.Directory]::CreateDirectory((Join-Path $Root $child)) }
