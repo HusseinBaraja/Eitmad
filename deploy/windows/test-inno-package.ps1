@@ -9,10 +9,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Use a new evidence directory.' }
 [void][IO.Directory]::CreateDirectory($OutputDirectory)
 $previousCertificate = $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT
 $previousCompiler = $env:EITMAD_INNO_COMPILER
+$previousRoot = $env:EITMAD_INNO_REPOSITORY_ROOT
+$previousPublisher = $env:EITMAD_INNO_PUBLISHER
+$previousProofDirectory = $env:EITMAD_INNO_PROOF_DIRECTORY
 try {
     $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT = $SigningCertificateThumbprint
     $env:EITMAD_INNO_COMPILER = $Compiler
@@ -34,17 +38,19 @@ try {
         & (Join-Path $PSScriptRoot 'sign-windows.ps1') -Path $path.FullName -Publisher $certificate.Subject -SigningHook (Join-Path $PSScriptRoot 'sign-with-self-signed-certificate.ps1')
     }
     $env:EITMAD_INNO_PROOF_DIRECTORY = $OutputDirectory
+    $env:EITMAD_INNO_REPOSITORY_ROOT = $root
+    $env:EITMAD_INNO_PUBLISHER = $certificate.Subject
     @'
 import importlib.util
 import os
 from pathlib import Path
-spec = importlib.util.spec_from_file_location('build_artifacts', 'scripts/release/build_artifacts.py')
+spec = importlib.util.spec_from_file_location('build_artifacts', Path(os.environ['EITMAD_INNO_REPOSITORY_ROOT']) / 'scripts/release/build_artifacts.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 root = Path(os.environ['EITMAD_INNO_PROOF_DIRECTORY'])
 for role in ('server', 'client'):
     executable = module.publish_installer(root / role, root / 'payload', role, '0.0.0', root / 'publisher.cer',
-        'CN=Eitmad', module.ROOT / 'deploy/windows/sign-with-self-signed-certificate.ps1')
+        os.environ['EITMAD_INNO_PUBLISHER'], module.ROOT / 'deploy/windows/sign-with-self-signed-certificate.ps1')
     print(executable)
 '@ | python -
     if ($LASTEXITCODE -ne 0) { throw 'Inno package compilation failed.' }
@@ -59,5 +65,7 @@ for role in ('server', 'client'):
 } finally {
     $env:EITMAD_SIGNING_CERTIFICATE_THUMBPRINT = $previousCertificate
     $env:EITMAD_INNO_COMPILER = $previousCompiler
-    Remove-Item Env:EITMAD_INNO_PROOF_DIRECTORY -ErrorAction SilentlyContinue
+    $env:EITMAD_INNO_REPOSITORY_ROOT = $previousRoot
+    $env:EITMAD_INNO_PUBLISHER = $previousPublisher
+    $env:EITMAD_INNO_PROOF_DIRECTORY = $previousProofDirectory
 }

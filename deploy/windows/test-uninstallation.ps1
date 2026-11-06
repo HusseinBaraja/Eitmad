@@ -95,6 +95,24 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-uninstall-proof-' + [G
         & $script:HostAdapter { param($guard) Set-Item Function:script:Assert-ProtectedParents $guard } $parentGuard
     }
 
+    # A stale PID can identify an unrelated process or another PostgreSQL cluster.
+    $cluster = Join-Path $evidence 'process-proof/cluster'
+    Write-Fixture (Join-Path $cluster 'postmaster.pid') '123'
+    $script:processFixture = [pscustomobject]@{ExecutablePath='C:\Windows\System32\notepad.exe'; CommandLine='notepad.exe'}
+    function Get-CimInstance { param($ClassName, $Filter, $ErrorAction) return $script:processFixture }
+    Assert-ClusterStopped $cluster
+    Stop-PreparedDatabase (Split-Path $cluster -Parent) $evidence
+    $script:processFixture = [pscustomobject]@{ExecutablePath='C:\PostgreSQL\postgres.exe'; CommandLine=('postgres.exe -D "' + $cluster + '-other"')}
+    Assert-ClusterStopped $cluster
+    $script:processFixture.CommandLine = 'postgres.exe -D "' + $cluster + '"'
+    Reject { Assert-ClusterStopped $cluster } 'live process'
+    $script:processFixture.ExecutablePath = $null
+    Reject { Assert-ClusterStopped $cluster } 'ownership inspection failed'
+    Reject { Stop-PreparedDatabase (Split-Path $cluster -Parent) $evidence } 'ownership inspection failed'
+    $script:processFixture.ExecutablePath = 'C:\PostgreSQL\postgres.exe'
+    $script:processFixture.CommandLine = $null
+    Reject { Stop-PreparedDatabase (Split-Path $cluster -Parent) $evidence } 'data directory is unavailable'
+
     # Test machine file lifecycle separately. No SCM, registry, tasks, firewall,
     # administrator operations, or real ProgramData paths are touched.
     function Assert-RemovalOwner { param($Path, [switch]$CreatorPrivate) }
@@ -122,10 +140,10 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-uninstall-proof-' + [G
     Assert (Test-Path -LiteralPath (Join-Path $machine 'EitmadHost/data/records')) 'Service failure moved live data.'
     $script:registrationFailure = $false
     Write-Fixture (Join-Path $machine 'EitmadHost/data/postmaster.pid') '123'
-    function Get-CimInstance { param($ClassName, $Filter) return [pscustomobject]@{ProcessId=123} }
+    $script:processFixture = [pscustomobject]@{ExecutablePath=(Join-Path $machine 'EitmadHost/postgres/bin/postgres.exe'); CommandLine=('postgres.exe -D "' + (Join-Path $machine 'EitmadHost/data') + '"')}
     Reject { Remove-MachineInstallation $evidence ('a' * 64) $machine } 'live process'
     Assert (Test-Path -LiteralPath (Join-Path $machine 'EitmadHost/data/records')) 'A live cluster was moved.'
-    function Get-CimInstance { param($ClassName, $Filter) return $null }
+    $script:processFixture = $null
     Remove-MachineInstallation $evidence ('a' * 64) $machine
     foreach ($name in 'EitmadHost', 'EitmadPreparedWorkshop', 'EitmadServerSetupProgress') {
         Assert (-not (Test-Path -LiteralPath (Join-Path $machine $name))) ('Active reinstall blocker remains: ' + $name)

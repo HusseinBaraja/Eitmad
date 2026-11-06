@@ -157,29 +157,41 @@ function Remove-HostRegistrations([string]$Root) {
     } $Root
 }
 
-function Assert-ClusterStopped([string]$Cluster) {
+function Get-ClusterProcess([string]$Cluster) {
     $pidFile = Join-Path $Cluster 'postmaster.pid'
     if (-not (Test-Path -LiteralPath $pidFile)) { return }
     $line = Get-Content -LiteralPath $pidFile -TotalCount 1
     if ($line -notmatch '^\d{1,10}$') { throw 'PostgreSQL process state is unreadable.' }
-    if (Get-CimInstance Win32_Process -Filter ('ProcessId=' + $line)) {
+    $process = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $line) -ErrorAction Stop
+    if (-not $process) { return }
+    if ([string]::IsNullOrWhiteSpace($process.ExecutablePath)) {
+        throw 'PostgreSQL process ownership inspection failed: executable path is unavailable.'
+    }
+    if ([IO.Path]::GetFileName($process.ExecutablePath) -ine 'postgres.exe') { return }
+    if ([string]::IsNullOrWhiteSpace($process.CommandLine) -or
+        $process.CommandLine -notmatch '(?i)(?:^|\s)-D\s+(?:"(?<quoted>[^"]+)"|(?<plain>\S+))(?=\s|$)') {
+        throw 'PostgreSQL process ownership inspection failed: data directory is unavailable.'
+    }
+    $data = if ($Matches.quoted) { $Matches.quoted } else { $Matches.plain }
+    if ([IO.Path]::GetFullPath($data).TrimEnd('\') -ieq [IO.Path]::GetFullPath($Cluster).TrimEnd('\')) {
+        return $process
+    }
+}
+
+function Assert-ClusterStopped([string]$Cluster) {
+    if (Get-ClusterProcess $Cluster) {
         throw 'A PostgreSQL cluster still has a live process. No database directory was moved.'
     }
 }
 
 function Stop-PreparedDatabase([string]$Prepared, [string]$BundleDirectory) {
     $cluster = Join-Path $Prepared 'cluster'
-    $pidFile = Join-Path $cluster 'postmaster.pid'
-    if (-not (Test-Path -LiteralPath $pidFile)) { return }
-    $lines = [IO.File]::ReadAllLines($pidFile)
-    if ($lines.Length -eq 0 -or $lines[0] -notmatch '^\d+$') { throw 'Prepared PostgreSQL state is unreadable.' }
-    $process = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $lines[0])
+    $process = Get-ClusterProcess $cluster
     if (-not $process) { return }
     $programData = [Environment]::GetFolderPath('CommonApplicationData')
     $relative = $process.ExecutablePath.Substring([Math]::Min($process.ExecutablePath.Length, $programData.Length))
     if (-not $process.ExecutablePath.StartsWith($programData + '\', [StringComparison]::OrdinalIgnoreCase) -or
-        $relative -notmatch '^\\EitmadSetupPayload-[a-f0-9]{32}\\server\\postgresql\\bin\\postgres[.]exe$' -or
-        -not $process.CommandLine.Replace('/', '\').Contains(('"' + $cluster + '"'))) {
+        $relative -notmatch '^\\EitmadSetupPayload-[a-f0-9]{32}\\server\\postgresql\\bin\\postgres[.]exe$') {
         throw 'A process uses the prepared database PID. Inspect its ownership before removal.'
     }
     $protected = $process.ExecutablePath
