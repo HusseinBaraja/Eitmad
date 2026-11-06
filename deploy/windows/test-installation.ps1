@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 [CmdletBinding()]
 param()
 Set-StrictMode -Version Latest
@@ -136,7 +136,16 @@ Write-Host 'Synthetic private native output.'
 } $evidence
 
 # Exercise real local pipes and peer PID checks, without UAC or installation.
-Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
+# A self-contained setup can be the inherited working directory. Its assemblies
+# must not replace the Windows PowerShell framework references during compilation.
+$shadow = Join-Path $evidence 'runtime'
+[void][IO.Directory]::CreateDirectory($shadow)
+Add-Type -OutputAssembly (Join-Path $shadow 'System.Core.dll') -TypeDefinition 'public class SyntheticRuntimeAssembly {}'
+$previousDirectory = [Environment]::CurrentDirectory
+try {
+    [Environment]::CurrentDirectory = $shadow
+    Initialize-InstallationChannel
+} finally { [Environment]::CurrentDirectory = $previousDirectory }
 $backend = Join-Path $evidence 'synthetic-worker.exe'
 Add-Type -OutputAssembly $backend -OutputType ConsoleApplication -TypeDefinition @'
 using System;
@@ -155,7 +164,8 @@ public static class SyntheticInstallationWorker {
 $clientScript = @'
 param($ChannelSource, $PipeName, [int]$BrokerId, $Mode, $Backend)
 $ErrorActionPreference = 'Stop'
-Add-Type -Path $ChannelSource
+Import-Module (Join-Path (Split-Path $ChannelSource) 'installation.psm1') -Force
+Initialize-InstallationChannel
 try {
     $pipe = [EitmadInstallationChannel]::Connect($PipeName, $BrokerId)
     try {
@@ -187,7 +197,7 @@ foreach ($mode in 'echo', 'wrong-client', 'wrong-server', 'oversize', 'refresh')
         $arguments = @('-NoProfile', '-NonInteractive', '-File', $childFile, '-ChannelSource', (Join-Path $PSScriptRoot 'installation-channel.cs'),
             '-PipeName', $name, '-BrokerId', [string]$broker, '-Mode', $mode, '-Backend', $backend) | ForEach-Object { '"' + $_ + '"' }
         $child = Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
-            -ArgumentList ($arguments -join ' ') -WindowStyle Hidden -PassThru
+            -ArgumentList ($arguments -join ' ') -WorkingDirectory $shadow -WindowStyle Hidden -PassThru
         if ($mode -eq 'wrong-client') {
             $rejected = $false
             try { [EitmadInstallationChannel]::Accept($pipe, ($child.Id + 1)) } catch { $rejected = $true }

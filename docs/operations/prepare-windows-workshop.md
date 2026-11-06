@@ -207,12 +207,14 @@ A `blocked` result disables native retry and directs the operator to inspect sta
 
 ### Safe development verification
 
+If Server setup fails during `Elevation` with `SafePipeHandle` forwarded to `System.IO.Pipes` in an `Add-Type` error, preserve the report and use a corrected, signed installer. Windows PowerShell can resolve compiler references from its inherited working directory, where self-contained setup ships .NET 8 facade assemblies. The channel initializer supplies absolute references to the running Windows PowerShell process's Framework assemblies for both broker and worker. Do not edit the authenticated bundle or disable signature checks. This compilation failure occurs before the elevation request; inspect retained state before retrying.
+
 ```powershell
 rustup run 1.85.1 cargo test --locked -p eitmad-server --bin eitmad-server windows_setup
 ```
 
 ```powershell
-pwsh.exe -NoProfile -File deploy/windows/test-installation.ps1
+& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -File deploy/windows/test-installation.ps1
 ```
 
 Rust tests exercise Client and Server order, stage failures and retry, cancelled UAC, reuse without Owner initialization, blocked uncertain preparation, torn/interrupted journals, user/release/device binding, unchanged trust, input validation, and credential/proof redaction using isolated synthetic files and platform doubles. The native adapter test substitutes service and AppX actions, simulates a different elevated administrator and existing desktop, and tests real local pipe framing, UTF-8, peer PID refusal, and frame bounds. It installs no package, service, or firewall rule. Real UAC with another administrator, signed MSIX registration, and a fresh clean-machine service installation remain **Needs verification** in an isolated Windows VM; these tests do not claim that deployment proof. The separate executable preparation proof below checks real PostgreSQL, first-owner sign-in, and HTTPS without installing services.
