@@ -192,7 +192,11 @@ function Invoke-EitmadInstallationAction {
 
 function Initialize-InstallationChannel {
     if (-not ('EitmadInstallationChannel' -as [type])) {
-        Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
+        # The inherited setup directory contains .NET 8 facades. Bind compilation
+        # to this Windows PowerShell process's Framework assemblies instead.
+        $references = @([Microsoft.Win32.SafeHandles.SafePipeHandle].Assembly.Location,
+            [Diagnostics.Process].Assembly.Location)
+        Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs') -ReferencedAssemblies $references
     }
 }
 
@@ -346,4 +350,4 @@ function Invoke-EitmadInstallationElevation {
     }
 }
 
-Export-ModuleMember -Function Invoke-EitmadInstallationAction, Invoke-EitmadInstallationElevation, Invoke-EitmadInstallationWorker
+Export-ModuleMember -Function Initialize-InstallationChannel, Invoke-EitmadInstallationAction, Invoke-EitmadInstallationElevation, Invoke-EitmadInstallationWorker

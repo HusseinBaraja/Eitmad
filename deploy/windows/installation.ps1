@@ -18,7 +18,7 @@ try {
         exit $code
     }
     if ($Action -eq 'Elevate') {
-        Add-Type -Path (Join-Path $PSScriptRoot 'installation-channel.cs')
+        Initialize-InstallationChannel
     }
     $privateInput = if ($Action -eq 'Elevate') { [EitmadInstallationChannel]::ReadPrivateInput([Console]::In) }
         else { [Console]::In.ReadToEnd() }
