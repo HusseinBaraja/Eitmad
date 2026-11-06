@@ -25,6 +25,16 @@ function Read-Inventory([switch]$Unsigned) {
 }
 Save-Inventory
 [void](Read-Inventory -Unsigned)
+$release.windowsVersion = '1.0.0.1'
+Save-Inventory
+if ((Read-Inventory -Unsigned).windowsVersion -cne '1.0.0.1') { throw 'Windows revision package was rejected.' }
+foreach ($invalidVersion in '1.0.0.65536', '1.0.0.-1', '1.0.0', '1.0.0.1.0') {
+    $release.windowsVersion = $invalidVersion
+    Save-Inventory
+    Reject { Read-Inventory -Unsigned } 'Unsupported release inventory'
+}
+$release.windowsVersion = '1.0.0.0'
+Save-Inventory
 Reject { Read-EitmadPackage -Directory $root -Target windows-server -ExpectedReleaseSha256 $script:digest -Publisher 'CN=Other' } 'approved publisher'
 Reject { Read-Inventory } 'trusted signature'
 [IO.File]::WriteAllText($binary, 'changed executable')

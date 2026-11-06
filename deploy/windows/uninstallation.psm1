@@ -12,19 +12,28 @@ function Assert-RemovalTree([string]$Path, [string]$Parent) {
     return $full
 }
 
-function Assert-RemovalOwner([string]$Path) {
+function Assert-RemovalOwner([string]$Path, [switch]$CreatorPrivate) {
     & $script:HostAdapter { param($p) Assert-ProtectedParents $p } $Path
     if (Test-Path -LiteralPath $Path) {
         $acl = Get-Acl -LiteralPath $Path
         $owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-        if ($owner -notin 'S-1-5-18', 'S-1-5-32-544') { throw 'Machine removal requires an administrator-owned directory.' }
+        $trusted = @('S-1-5-18', 'S-1-5-32-544')
+        if ($CreatorPrivate) {
+            # Certificates.Initialize protects preparation state for its elevated
+            # creator and SYSTEM, unlike the Administrators-owned installed host.
+            $creator = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+            $trusted = @('S-1-5-18', $creator)
+            if ($owner -cne $creator -or -not $acl.AreAccessRulesProtected) {
+                throw 'Prepared data requires its original creator and private permissions.'
+            }
+        } elseif ($owner -notin $trusted) { throw 'Machine removal requires an administrator-owned directory.' }
         $write = [Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor
             [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor
             [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
         foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-            if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin 'S-1-5-18', 'S-1-5-32-544' -and
-                -not ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -and
-                ($rule.FileSystemRights -band $write)) { throw 'Machine removal root permits untrusted changes.' }
+            if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trusted -and
+                ($CreatorPrivate -or (-not ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -and
+                ($rule.FileSystemRights -band $write)))) { throw 'Machine removal root permits untrusted access.' }
         }
     }
 }
@@ -190,7 +199,10 @@ function Remove-MachineInstallation([string]$BundleDirectory, [string]$Publisher
     [string]$Parent = [Environment]::GetFolderPath('CommonApplicationData')) {
     & $script:HostAdapter { Assert-Administrator }
     $targets = @('EitmadHost', 'EitmadPreparedWorkshop', 'EitmadServerSetupProgress') | ForEach-Object { Join-Path $parent $_ }
-    foreach ($target in $targets) { [void](Assert-RemovalTree $target $parent); Assert-RemovalOwner $target }
+    foreach ($target in $targets) {
+        [void](Assert-RemovalTree $target $parent)
+        Assert-RemovalOwner $target -CreatorPrivate:([IO.Path]::GetFileName($target) -ceq 'EitmadPreparedWorkshop')
+    }
     $hostRoot = Join-Path $parent 'EitmadHost'
     Remove-HostRegistrations $hostRoot
     Stop-PreparedDatabase (Join-Path $parent 'EitmadPreparedWorkshop') $BundleDirectory

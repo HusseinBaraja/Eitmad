@@ -32,7 +32,8 @@ function Read-EitmadPackage {
     }
     $release = Get-Content -LiteralPath $manifest -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($release.schemaVersion -ne 1 -or $release.target -cne $Target -or $release.architecture -cne 'x64' -or
-        $release.windowsVersion -notmatch '^\d+\.\d+\.\d+\.0$') { throw 'Unsupported release inventory.' }
+        $release.windowsVersion -notmatch '^[0-9]{1,5}(\.[0-9]{1,5}){3}$' -or
+        @($release.windowsVersion -split '\.' | Where-Object { [int]$_ -gt 65535 }).Count) { throw 'Unsupported release inventory.' }
     if (-not $AllowUnsignedValidation -and (-not $Publisher -or $release.publisher -cne $Publisher)) {
         throw 'Supply the approved publisher from the authenticated release record.'
     }

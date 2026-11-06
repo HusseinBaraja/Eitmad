@@ -70,9 +70,34 @@ $evidence = Join-Path ([IO.Path]::GetTempPath()) ('eitmad-uninstall-proof-' + [G
     }
     Reject { Remove-HostRegistrations (Join-Path $evidence 'missing-host') } 'Foreign PostgreSQL service'
 
+    # Exercise the creator/SYSTEM ACL used by Certificates.Initialize. Only the
+    # ancestor check is substituted because this fixture lives below user TEMP.
+    $parentGuard = & $script:HostAdapter { ${function:Assert-ProtectedParents} }
+    try {
+        & $script:HostAdapter { function script:Assert-ProtectedParents { param($Root) } }
+        $prepared = Join-Path $evidence 'creator-private-preparation'
+        $acl = New-Object Security.AccessControl.DirectorySecurity
+        $creator = [Security.Principal.WindowsIdentity]::GetCurrent().User
+        $acl.SetOwner($creator)
+        $acl.SetAccessRuleProtection($true, $false)
+        foreach ($sid in @($creator, (New-Object Security.Principal.SecurityIdentifier('S-1-5-18')))) {
+            $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+        }
+        [void][IO.Directory]::CreateDirectory($prepared, $acl)
+        Assert-RemovalOwner $prepared -CreatorPrivate
+        Reject { Assert-RemovalOwner $prepared } 'administrator-owned'
+        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(
+            (New-Object Security.Principal.SecurityIdentifier('S-1-1-0')), 'Read', 'Allow')))
+        $exposed = Join-Path $evidence 'exposed-preparation'
+        [void][IO.Directory]::CreateDirectory($exposed, $acl)
+        Reject { Assert-RemovalOwner $exposed -CreatorPrivate } 'untrusted'
+    } finally {
+        & $script:HostAdapter { param($guard) Set-Item Function:script:Assert-ProtectedParents $guard } $parentGuard
+    }
+
     # Test machine file lifecycle separately. No SCM, registry, tasks, firewall,
     # administrator operations, or real ProgramData paths are touched.
-    function Assert-RemovalOwner { param($Path) }
+    function Assert-RemovalOwner { param($Path, [switch]$CreatorPrivate) }
     function New-RetentionDirectory {
         param($Parent, $Machine)
         $path = Join-Path (Join-Path $Parent 'EitmadRetained') ([Guid]::NewGuid().ToString('N'))
