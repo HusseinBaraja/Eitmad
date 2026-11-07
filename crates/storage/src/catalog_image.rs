@@ -28,7 +28,7 @@ impl AuthorityStore {
         scope: &ScopeRef,
         key: eitmad_contracts::transport::IdempotencyKey,
     ) -> Result<Option<DurableIdempotency>, StorageError> {
-        load_idempotency(&self.open_connection()?, scope, key).map(|v| {
+        load_idempotency(&*self.open_connection()?, scope, key).map(|v| {
             v.map(|(request_hash, response_json)| DurableIdempotency {
                 key,
                 request_hash,

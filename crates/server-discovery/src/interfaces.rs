@@ -2,6 +2,9 @@
 use serde::Deserialize;
 use std::{future::Future, io, net::Ipv4Addr};
 
+#[cfg(any(windows, test))]
+mod windows;
+
 /// A currently active Windows Private interface, including its identity and subnet.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Interface {
@@ -45,15 +48,20 @@ struct RawInterface {
     private: bool,
 }
 
-#[cfg(any(windows, test))]
+#[cfg(test)]
 fn parse(bytes: &[u8]) -> io::Result<Vec<Interface>> {
     let raw: Vec<RawInterface> =
         serde_json::from_slice(bytes).map_err(|_| io::ErrorKind::InvalidData)?;
+    eligible(&raw)
+}
+
+#[cfg(any(windows, test))]
+fn eligible(raw: &[RawInterface]) -> io::Result<Vec<Interface>> {
     if raw.len() > 64 {
         return Err(io::ErrorKind::InvalidData.into());
     }
     let mut accepted = Vec::new();
-    for item in &raw {
+    for item in raw {
         if !item.private
             || !(1..=30).contains(&item.prefix)
             || item.address.is_loopback()
@@ -90,42 +98,7 @@ fn parse(bytes: &[u8]) -> io::Result<Vec<Interface>> {
 
 #[cfg(windows)]
 async fn snapshot() -> io::Result<Vec<Interface>> {
-    use std::{path::Path, process::Stdio};
-    use tokio::io::AsyncReadExt as _;
-    let system = std::env::var_os("SystemRoot").ok_or(io::ErrorKind::NotFound)?;
-    let mut command = tokio::process::Command::new(
-        Path::new(&system).join("System32/WindowsPowerShell/v1.0/powershell.exe"),
-    );
-    command
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            include_str!("interfaces.ps1"),
-        ])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
-    command.creation_flags(0x0800_0000);
-    let mut child = command.spawn()?;
-    let read = async {
-        let mut bytes = Vec::new();
-        child
-            .stdout
-            .take()
-            .ok_or(io::ErrorKind::BrokenPipe)?
-            .take(16_385)
-            .read_to_end(&mut bytes)
-            .await?;
-        if bytes.len() > 16_384 || !child.wait().await?.success() {
-            return Err(io::ErrorKind::InvalidData.into());
-        }
-        parse(&bytes)
-    };
-    tokio::time::timeout(super::PROFILE_TIME, read)
-        .await
-        .map_err(|_| io::ErrorKind::TimedOut)?
+    windows::snapshot().await
 }
 
 #[cfg(not(windows))]

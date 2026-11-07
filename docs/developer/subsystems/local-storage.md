@@ -5,7 +5,7 @@ audience: "developer"
 page_type: "explanation"
 status: "active"
 owner: "Rust storage maintainers"
-last_verified: "2026-10-18"
+last_verified: "2026-11-07"
 review_triggers:
   - "database setup, migration history/window, transaction, integrity, backup, restore, export, or schema verification changes"
 keywords:
@@ -23,6 +23,8 @@ keywords:
 ## Ownership and startup
 
 The engine acquires authority for the runtime directory before `AuthorityStore::open` creates or opens `eitmad.sqlite3`. Every connection enables foreign keys, WAL mode, and a five-second busy timeout. The runtime directory and database receive owner-only OS permissions; failure is fatal before readiness.
+
+Clones of one `AuthorityStore` share an idle connection cache. An operation exclusively leases a connection and returns it after its statements and transaction finish. Up to four idle connections retain SQLite schema/page caches and prevent last-connection WAL cleanup after each small operation. Concurrent operations can open additional connections instead of waiting on an application mutex held by a transaction. SQLite still owns write contention and the busy timeout; the four-connection limit bounds retained idle caches, not active operations. A connection with an unfinished transaction is closed, not reused. The last store/lease drop releases the cache and permits normal WAL checkpoint/cleanup. No read transaction stays open while idle.
 
 Configuration, direct authorization, identity, local installation authority, synchronization state, and audit persistence remain focused modules inside the storage crate. Each module declares its migrations beside its repository. Shared migration history, connection policy, idempotency, the publication outbox, and recovery mechanics remain storage infrastructure. No raw `Connection` or `Transaction` crosses the crate boundary.
 
@@ -57,6 +59,8 @@ Storage errors are sanitized as unavailable authority state; raw SQL, paths, cus
 Storage preserves UTF-8 Arabic and mixed-direction values without localization branches. Permission and scope behavior is identical for Arabic and non-Arabic sessions. User-visible recovery UI does not exist; future shells must localize stable Rust errors and must not infer database state or bypass authorization.
 
 ## Tests and safe extension
+
+Connection-lifetime tests verify WAL retention across store clones and outstanding leases, normal final-close cleanup, rollback of unfinished transactions, and concurrent leases. The relationship page test retains a read snapshot while another thread commits a write. These checks protect cache reuse without serializing readers behind writers or weakening atomicity. When investigating repeated disk activity, distinguish process I/O from physical disk traffic; a retained WAL file is normal and must not be manually removed. Authenticated background polling and real sync/audit writes can still produce I/O.
 
 Focused tests cover fresh creation through storage version 31, stable installation identity bootstrap, durable owner authorization, supported legacy upgrade with preserved Arabic locale data, trusted account imports and session revocation, retired reference-marker feature publication preservation, customer restart persistence, material, Part, and Furniture restart persistence, immutable cost snapshots, and stable references, normalized search, scope isolation, retry safety, audit rollback and revision conflict, sync scope/mode/version isolation, mandatory audit revision attribution, invalid-mode constraints, audit-envelope persistence/completeness, out-of-window rejection before mutation, history gaps, migration rollback, schema drift, quick/full integrity, no-clobber scoped export, identity mapping conflicts, device timestamp monotonicity, session attribution, tenant isolation, transaction rollback, and prohibited shell database access.
 

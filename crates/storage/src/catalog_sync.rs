@@ -370,7 +370,7 @@ impl AuthorityStore {
         scope: &ScopeRef,
         target: &eitmad_contracts::pricing::PriceTarget,
     ) -> Result<Vec<CatalogEntry>, StorageError> {
-        catalog_sales_item_on(&self.open_connection()?, scope, target)
+        catalog_sales_item_on(&*self.open_connection()?, scope, target)
     }
 
     /// Returns bounded category filters from active public records.

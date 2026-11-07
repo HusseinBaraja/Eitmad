@@ -4,6 +4,7 @@ mod catalog_image;
 mod catalog_sync;
 pub use catalog_sync::CatalogSyncProjection;
 mod configuration;
+mod connections;
 mod customer;
 mod desktop_auth;
 mod draft_resolution;
@@ -66,6 +67,7 @@ pub const MAX_PUBLICATION_RECOVERY_PAGE: u32 = 64;
 #[derive(Clone, Debug)]
 pub struct AuthorityStore {
     path: PathBuf,
+    connections: connections::Connections,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -128,7 +130,10 @@ impl AuthorityStore {
         if migrations::read_version(&connection)? != CURRENT_STORAGE_VERSION {
             return Err(StorageError);
         }
-        Ok(Self { path })
+        Ok(Self {
+            path,
+            connections: connections::Connections::default(),
+        })
     }
 
     /// Opens and migrates the Rust-owned authority database.
@@ -144,7 +149,10 @@ impl AuthorityStore {
         let path = directory.join(DATABASE_FILE_NAME);
         ensure_database_file(&path)?;
         make_file_private(&path)?;
-        let store = Self { path };
+        let store = Self {
+            path,
+            connections: connections::Connections::default(),
+        };
         let mut connection = store.open_connection()?;
         migrations::apply(&mut connection)?;
         make_file_private(&store.path)?;
@@ -208,10 +216,8 @@ impl AuthorityStore {
         Ok(result)
     }
 
-    fn open_connection(&self) -> Result<Connection, StorageError> {
-        let connection = Connection::open(&self.path).map_err(|_| StorageError)?;
-        configure_connection(&connection)?;
-        Ok(connection)
+    fn open_connection(&self) -> Result<connections::Lease, StorageError> {
+        self.connections.acquire(&self.path)
     }
 }
 
@@ -729,6 +735,22 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    #[test]
+    fn retains_wal_until_the_final_store_is_dropped() {
+        let directory = TempDir::new().unwrap();
+        let store = AuthorityStore::open(directory.path()).unwrap();
+        let wal = directory.path().join("eitmad.sqlite3-wal");
+        assert!(wal.exists(), "idle operations must retain a connection");
+        let clone = store.clone();
+        drop(store);
+        assert!(wal.exists(), "a clone must retain the connection owner");
+        let lease = clone.open_connection().unwrap();
+        drop(clone);
+        assert!(wal.exists(), "a live operation must retain its owner");
+        drop(lease);
+        assert!(!wal.exists(), "the final close must checkpoint normally");
+    }
 
     #[test]
     fn retired_reference_marker_outbox_does_not_block_product_recovery_or_delete_data() {
