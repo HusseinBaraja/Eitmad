@@ -31,7 +31,7 @@ Both Windows ZIPs include the canonical `docs/` tree with its repository paths u
 
 ### Build both installers with one command
 
-From a clean committed checkout, run `build-windows.cmd 0.1.19` at the repository root.
+From a clean committed checkout, run `.\build-windows.cmd 0.1.19` at the repository root.
 Double-click `build-windows.cmd` to enter the new version in a console instead. Both entry points
 use `scripts/release/build_windows.py` to build and sign Server, Desktop, and Setup, authenticate
 the combined input inventory, and assemble both offline setup EXEs. The command preserves the
@@ -42,7 +42,7 @@ Configure this build PC once in the Git-ignored `artifacts/windows-build/setting
 ```json
 {
   "previousRelease": "dist/0.1.18.0",
-  "previousReviewSha256": "<authenticated SHA-256 of that release's reviewed-inputs.json>",
+  "previousReviewSha256": "<authenticated lowercase SHA-256 of that release's reviewed-inputs.json>",
   "certificateThumbprint": "<retained code-signing certificate thumbprint>",
   "publisher": "CN=Eitmad",
   "compiler": "C:/BuildTools/Inno Setup 7/ISCC.exe"
@@ -51,7 +51,8 @@ Configure this build PC once in the Git-ignored `artifacts/windows-build/setting
 
 Paths can be absolute or relative to the repository root. Use a retained **complete** release
 whose `inputs/` distribution trees and authenticated review are available. Obtain the review digest
-from the trusted build handover; do not replace it with a newly calculated digest to accept changed
+from the trusted build handover, and convert its hexadecimal letters to lowercase without
+recalculating the digest. Do not replace it with a newly calculated digest to accept changed
 inputs. The settings contain public references only. The private signing key stays in the Windows
 certificate store. Keep the Inno compiler outside temporary cleanup directories.
 
@@ -74,8 +75,9 @@ Success produces `EitmadServerSetup.exe`, `EitmadClientSetup.exe`, the three sig
 `artifacts/windows-build/<windows-version>/`. The final check verifies the exact artifact set,
 source and version identities, desktop package contents, publisher signatures, and digests.
 
-On failure, the command stops with a nonzero exit code and a diagnostic or log path. A partial
-output directory has no successful final verification record and must not be distributed. Preserve
+On failure, the command stops with a nonzero exit code and a diagnostic or log path. Treat a release
+as complete only after a successful command exit and the complete output set listed above;
+`verification.json` alone does not prove completion. Incomplete output must not be distributed. Preserve
 it for diagnosis; inspect it before choosing a new version or removing that specific incomplete
 output. The command does not install applications, download tools, change trust stores, run CI,
 or grant production acceptance. Run the separate [release acceptance](validate-release-candidate.md)
