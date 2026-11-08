@@ -5,7 +5,7 @@ audience: "operations"
 page_type: "task"
 status: "active"
 owner: "release infrastructure maintainers"
-last_verified: "2026-11-05"
+last_verified: "2026-11-08"
 review_triggers:
   - "Windows packaging, publisher, signing, prerequisites, service setup, migrations, enrollment, or lifecycle evidence changes"
 keywords:
@@ -28,6 +28,63 @@ Both Windows ZIPs include the canonical `docs/` tree with its repository paths u
 **Signing requirement:** use a locally created self-signed code-signing certificate for every Eitmad release, including controlled LAN tests. [ADR-0032](../decisions/0032-self-signed-windows-publisher.md) defines this policy. Unsigned artifacts remain engineering probes; the client refuses unsigned MSIX. A cloud account, paid certificate, hardware signing service, and timestamp service are not required. Signed builds retain `productionEligible: false` until [release acceptance](validate-release-candidate.md) passes.
 
 ## Build and sign
+
+### Build both installers with one command
+
+From a clean committed checkout, run `.\build-windows.cmd 0.1.19` at the repository root.
+Double-click `build-windows.cmd` to enter the new version in a console instead. Both entry points
+use `scripts/release/build_windows.py` to build and sign Server, Desktop, and Setup, authenticate
+the combined input inventory, and assemble both offline setup EXEs. The command preserves the
+component builder and installer checks described below.
+
+Configure this build PC once in the Git-ignored `artifacts/windows-build/settings.json`:
+
+```json
+{
+  "previousRelease": "dist/0.1.18.0",
+  "previousReviewSha256": "<authenticated lowercase SHA-256 of that release's reviewed-inputs.json>",
+  "certificateThumbprint": "<retained code-signing certificate thumbprint>",
+  "publisher": "CN=Eitmad",
+  "compiler": "C:/BuildTools/Inno Setup 7/ISCC.exe"
+}
+```
+
+Paths can be absolute or relative to the repository root. Use a retained **complete** release
+whose `inputs/` distribution trees and authenticated review are available. Obtain the review digest
+from the trusted build handover, and convert its hexadecimal letters to lowercase without
+recalculating the digest. Do not replace it with a newly calculated digest to accept changed
+inputs. The settings contain public references only. The private signing key stays in the Windows
+certificate store. Keep the Inno compiler outside temporary cleanup directories.
+
+The build PC needs the tools listed below, Inno Setup 7.1.1+ within major version 7, and at least
+10 GiB of free space; a fresh compiler cache can require more. Check prerequisites without
+compiling or writing release output:
+
+```powershell
+.\build-windows.cmd -Version 0.1.19 -Check
+```
+
+Preflight checks the committed source state, signing identity, tool signatures and versions,
+authenticated prerequisite hashes, executable architectures, and vendor signatures. The selected
+Windows version must be higher than the retained release, and `dist/<windows-version>/` must not
+already exist. Existing output is never replaced. The build reuses the normal compiler cache.
+
+Success produces `EitmadServerSetup.exe`, `EitmadClientSetup.exe`, the three signed component ZIPs,
+`inputs/`, their manifests, `reviewed-inputs.json`, `input-review-provenance.json`, `verification.json`,
+`SHA256SUMS.txt`, and `BUILD-RECORD.md` under `dist/<windows-version>/`. Logs are under
+`artifacts/windows-build/<windows-version>/`. The final check verifies the exact artifact set,
+source and version identities, desktop package contents, publisher signatures, and digests.
+
+On failure, the command stops with a nonzero exit code and a diagnostic or log path. Treat a release
+as complete only after a successful command exit and the complete output set listed above;
+`verification.json` alone does not prove completion. Incomplete output must not be distributed. Preserve
+it for diagnosis; inspect it before choosing a new version or removing that specific incomplete
+output. The command does not install applications, download tools, change trust stores, run CI,
+or grant production acceptance. Run the separate [release acceptance](validate-release-candidate.md)
+gates before distribution. To select a different retained prerequisite set later, update its path
+and independently authenticated digest together in the local settings.
+
+### Build individual components
 
 Use x64 Windows, PowerShell 7.4+ with `pwsh.exe` on PATH, Python 3.11+, rustup with Rust **1.85.1**, .NET 8 SDK, and Windows SDK x64 `makeappx.exe` and `signtool.exe`. Build-time signature checks, catalog creation, signing, and asset generation use PowerShell 7. Restore locked dependencies through approved Cargo/NuGet sources. The builder selects the Rust compiler explicitly and reuses `target/toolchain-1.85.1`. It publishes into a new temporary directory, independent of existing runtime data.
 
