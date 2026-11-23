@@ -18,7 +18,7 @@ public static class ControlOptions
     public static readonly DependencyProperty ShowFocusRingProperty = DependencyProperty.RegisterAttached(
         "ShowFocusRing", typeof(bool), typeof(ControlOptions), new PropertyMetadata(true));
     public static readonly DependencyProperty CornerRadiusProperty = DependencyProperty.RegisterAttached(
-        "CornerRadius", typeof(CornerRadius), typeof(ControlOptions), new PropertyMetadata(new CornerRadius(8)));
+        "CornerRadius", typeof(CornerRadius), typeof(ControlOptions), new PropertyMetadata(new CornerRadius(6)));
     public static readonly DependencyProperty FooterTemplateProperty = DependencyProperty.RegisterAttached(
         "FooterTemplate", typeof(DataTemplate), typeof(ControlOptions), new PropertyMetadata(null));
     public static readonly DependencyProperty HoverBackgroundProperty = DependencyProperty.RegisterAttached(
@@ -27,6 +27,9 @@ public static class ControlOptions
         "HoverBorderBrush", typeof(Brush), typeof(ControlOptions), new PropertyMetadata(null));
     public static readonly DependencyProperty HoverOpacityProperty = DependencyProperty.RegisterAttached(
         "HoverOpacity", typeof(double), typeof(ControlOptions), new PropertyMetadata(1d));
+    // Marks the current destination in a navigation list; templates draw the location marker.
+    public static readonly DependencyProperty IsCurrentProperty = DependencyProperty.RegisterAttached(
+        "IsCurrent", typeof(bool), typeof(ControlOptions), new PropertyMetadata(false));
     public static readonly DependencyProperty PressedOpacityProperty = DependencyProperty.RegisterAttached(
         "PressedOpacity", typeof(double), typeof(ControlOptions), new PropertyMetadata(1d));
 
@@ -50,6 +53,8 @@ public static class ControlOptions
     public static void SetHoverBorderBrush(DependencyObject element, Brush? value) => element.SetValue(HoverBorderBrushProperty, value);
     public static double GetHoverOpacity(DependencyObject element) => (double)element.GetValue(HoverOpacityProperty);
     public static void SetHoverOpacity(DependencyObject element, double value) => element.SetValue(HoverOpacityProperty, value);
+    public static bool GetIsCurrent(DependencyObject element) => (bool)element.GetValue(IsCurrentProperty);
+    public static void SetIsCurrent(DependencyObject element, bool value) => element.SetValue(IsCurrentProperty, value);
     public static double GetPressedOpacity(DependencyObject element) => (double)element.GetValue(PressedOpacityProperty);
     public static void SetPressedOpacity(DependencyObject element, double value) => element.SetValue(PressedOpacityProperty, value);
 }

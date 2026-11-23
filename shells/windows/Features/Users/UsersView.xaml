@@ -88,7 +88,7 @@
       </controls:FormField>
       <controls:FormField Label="كلمة المرور المؤقتة (12 حرفًا على الأقل)" Margin="0,20,0,0" ErrorText="{Binding EditorPasswordError}">
        <controls:FormField.Style><Style TargetType="controls:FormField" BasedOn="{StaticResource {x:Type controls:FormField}}"><Style.Triggers><DataTrigger Binding="{Binding IsEditing}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></controls:FormField.Style>
-       <Border Height="44" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" PasswordChanged="PasswordChanged" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
+       <Border Height="44" Background="White" BorderBrush="{StaticResource LineStrongBrush}" BorderThickness="1" CornerRadius="8"><PasswordBox x:Name="UserPasswordInput" PasswordChanged="PasswordChanged" Background="Transparent" BorderThickness="0" Padding="12,7" FontSize="15" FlowDirection="LeftToRight" HorizontalContentAlignment="Left" AutomationProperties.Name="كلمة المرور المؤقتة"/></Border>
       </controls:FormField>
       <layout:AdaptiveFieldsPanel MinItemWidth="260" Spacing="20" Margin="0,20,0,0">
        <controls:FormField Label="الدور" ErrorText="{Binding EditorRoleError}"><ComboBox x:Name="UserRoleInput" ItemsSource="{Binding Roles}" SelectedItem="{Binding EditorRole}" Style="{StaticResource SelectInput}" AutomationProperties.Name="دور المستخدم"/></controls:FormField>

@@ -85,10 +85,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -108,10 +108,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -130,10 +130,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -151,10 +151,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -173,12 +173,12 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
-                                                                <Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" />
-                                                                <Setter TargetName="StatusPill" Property="Foreground" Value="#716B66" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
+                                                                <Setter TargetName="StatusPill" Property="Background" Value="{StaticResource LineBrush}" />
+                                                                <Setter TargetName="StatusPill" Property="Foreground" Value="{StaticResource MutedBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -205,10 +205,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -221,7 +221,7 @@
                                     </controls:OperationsTable>
                                 </Grid>
                             </Grid>
-                            <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
+                            <Border Grid.Row="2" Background="{StaticResource SunkenBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
                                 <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </Border>
                         </Grid>
@@ -276,7 +276,7 @@
                             <controls:FormField Label="الفئة">
                                 <ComboBox ItemsSource="{Binding EditorCategoryOptions}" DisplayMemberPath="Name" SelectedItem="{Binding EditorCategory, Mode=TwoWay}" Style="{StaticResource SelectInput}" automation:AutomationProperties.Name="فئة الجزء" Margin="0,0,0,12" />
                             </controls:FormField>
-                            <Expander x:Name="CategoryCreation" Header="فئة جديدة" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="14" Margin="0,0,0,12" automation:AutomationProperties.Name="إظهار فئة جزء جديدة">
+                            <Expander x:Name="CategoryCreation" Header="فئة جديدة" FontFamily="{StaticResource UiFont}" FontSize="14" Margin="0,0,0,12" automation:AutomationProperties.Name="إظهار فئة جزء جديدة">
                                 <controls:FormField Label="اسم الفئة" Margin="0,10,0,0" Focusable="False" IsTabStop="False">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -424,11 +424,11 @@
                                     </Grid>
                                 </Grid>
                             </Border>
-                            <Border Background="#FCF5EC" BorderBrush="#D8B38D" BorderThickness="1" CornerRadius="10" Padding="22,16" HorizontalAlignment="Left" MinWidth="280" Margin="0,18,0,0">
+                            <Border Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource LineStrongBrush}" BorderThickness="1" CornerRadius="10" Padding="22,16" HorizontalAlignment="Left" MinWidth="280" Margin="0,18,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="تكلفة الجزء" Foreground="#714216" FontSize="14" FontWeight="SemiBold" />
+                                    <TextBlock Text="تكلفة الجزء" Foreground="{StaticResource AccentBrush}" FontSize="14" FontWeight="SemiBold" />
                                     <TextBlock Style="{StaticResource PendingCostText}" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
-                                    <controls:AmountDisplay Margin="0,4,0,0" FontSize="27" FontWeight="Bold" Foreground="#6D390A" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After" Visibility="{Binding HasCalculatedCost, Converter={StaticResource BooleanToVisibility}}" />
+                                    <controls:AmountDisplay Margin="0,4,0,0" FontSize="27" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After" Visibility="{Binding HasCalculatedCost, Converter={StaticResource BooleanToVisibility}}" />
                                 </StackPanel>
                             </Border>
                             <TextBlock Text="{Binding EditorError}" Foreground="{StaticResource DangerBrush}" FontSize="14" Margin="0,10,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />
@@ -453,13 +453,13 @@
                                     <ColumnDefinition Width="18" />
                                     <ColumnDefinition />
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Background="#FAF7F4" CornerRadius="8" Padding="14,10">
+                                <Border Grid.Column="0" Background="{StaticResource SunkenBrush}" CornerRadius="8" Padding="14,10">
                                     <StackPanel>
                                         <TextBlock Text="اسم الجزء" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                                         <TextBlock Text="{Binding EditorName}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
-                                <Border Grid.Column="2" Background="#FAF7F4" CornerRadius="8" Padding="14,10">
+                                <Border Grid.Column="2" Background="{StaticResource SunkenBrush}" CornerRadius="8" Padding="14,10">
                                     <StackPanel>
                                         <TextBlock Text="الفئة" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                                         <TextBlock Text="{Binding EditorCategoryLabel}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
@@ -525,11 +525,11 @@
                                     </controls:OperationsTable>
                                 </Grid>
                             </Border>
-                            <Border Background="#F5E8D9" BorderBrush="#C99563" BorderThickness="1.2" CornerRadius="11" Padding="20,13" HorizontalAlignment="Left" MinWidth="315" Margin="0,16,0,0">
+                            <Border Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource LineStrongBrush}" BorderThickness="1.2" CornerRadius="11" Padding="20,13" HorizontalAlignment="Left" MinWidth="315" Margin="0,16,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="إجمالي تكلفة الجزء" Foreground="#6D390A" FontSize="14" FontWeight="SemiBold" />
+                                    <TextBlock Text="إجمالي تكلفة الجزء" Foreground="{StaticResource AccentBrush}" FontSize="14" FontWeight="SemiBold" />
                                     <TextBlock Style="{StaticResource PendingCostText}" Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" />
-                                    <controls:AmountDisplay Margin="0,3,0,0" FontSize="29" FontWeight="Bold" Foreground="#5C2D05" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After" Visibility="{Binding HasCalculatedCost, Converter={StaticResource BooleanToVisibility}}" />
+                                    <controls:AmountDisplay Margin="0,3,0,0" FontSize="29" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" AmountText="{Binding TotalPartCostLabel}" UnitText="ر.ي" UnitPlacement="After" Visibility="{Binding HasCalculatedCost, Converter={StaticResource BooleanToVisibility}}" />
                                 </StackPanel>
                             </Border>
                             <TextBlock Text="{Binding EditorError}" TextWrapping="Wrap" Foreground="{StaticResource DangerBrush}" Margin="0,10,0,0" Visibility="{Binding HasEditorError, Converter={StaticResource BooleanToVisibility}}" />

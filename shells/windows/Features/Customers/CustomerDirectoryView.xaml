@@ -5,24 +5,45 @@
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Grid><Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding HasDetail}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
-   <controls:PageHeader Title="العملاء"><Button Content="العودة للرئيسية" Style="{StaticResource InlineActionButton}" Click="HomeClick" AutomationProperties.Name="العودة من العملاء للرئيسية"/></controls:PageHeader>
+   <controls:PageHeader Title="العملاء" Subtitle="عملاء الفروع المصرح لك بها"/>
   </Grid>
-  <controls:FeedbackNotice Grid.Row="1" Message="{Binding Notice}" Margin="20,8"/>
-  <Grid Grid.Row="2" Margin="20,8">
+  <controls:FeedbackNotice Grid.Row="1" Message="{Binding Notice}" Margin="24,16,24,0"/>
+  <Grid Grid.Row="2" Margin="24,16,24,20">
    <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding HasDetail}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Grid.Style>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <TextBox x:Name="SearchInput" Text="{Binding Term, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchKeyDown" AutomationProperties.Name="بحث العملاء بالاسم أو الهاتف" MinWidth="100"/>
+    <TextBox x:Name="SearchInput" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث بالاسم أو رقم الهاتف" Text="{Binding Term, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchKeyDown" AutomationProperties.Name="بحث العملاء بالاسم أو الهاتف" MinWidth="100"/>
     <Button Grid.Column="1" Content="بحث" Style="{StaticResource PrimaryButton}" Click="SearchClick" Margin="8,0,0,0" AutomationProperties.Name="بحث العملاء في فروع المؤسسة"/>
    </Grid>
-   <ListBox x:Name="Results" Grid.Row="1" ItemsSource="{Binding Rows}" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="نتائج العملاء في الفروع المصرح بها">
-    <ListBox.ItemTemplate><DataTemplate><Button Click="OpenClick" Style="{StaticResource InlineActionButton}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="{Binding Name}"><StackPanel Margin="6">
-     <TextBlock Text="{Binding Name}" FontSize="17" TextWrapping="Wrap"/>
-     <TextBlock Text="{Binding Phone}" FlowDirection="LeftToRight" TextAlignment="Right" Margin="0,6"/>
-     <TextBlock Text="الفرع" Foreground="{DynamicResource MutedBrush}"/><TextBlock Text="{Binding Scope.Id}" FlowDirection="LeftToRight" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
-    </StackPanel></Button></DataTemplate></ListBox.ItemTemplate>
-   </ListBox>
-   <WrapPanel Grid.Row="2" Margin="0,12,0,0"><Button Content="الصفحة التالية" IsEnabled="{Binding HasNext}" Click="NextClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="الصفحة التالية من العملاء"/><Button Content="العودة للبداية" Click="SearchClick" Style="{StaticResource InlineActionButton}" Margin="12,0,0,0" AutomationProperties.Name="العودة لأول صفحة من العملاء"/></WrapPanel>
+   <Border Grid.Row="1" Style="{StaticResource Card}">
+    <ListBox x:Name="Results" ItemsSource="{Binding Rows}" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue" AutomationProperties.Name="نتائج العملاء في الفروع المصرح بها">
+     <ListBox.ItemContainerStyle>
+      <Style TargetType="ListBoxItem">
+       <Setter Property="Focusable" Value="False"/>
+       <Setter Property="Template">
+        <Setter.Value>
+         <ControlTemplate TargetType="ListBoxItem">
+          <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1"><ContentPresenter/></Border>
+         </ControlTemplate>
+        </Setter.Value>
+       </Setter>
+      </Style>
+     </ListBox.ItemContainerStyle>
+     <ListBox.ItemTemplate><DataTemplate><Button Click="OpenClick" Style="{StaticResource ActionButton}" Background="Transparent" BorderThickness="0" Padding="20,12" HorizontalContentAlignment="Stretch" controls:ControlOptions.CornerRadius="0" controls:ControlOptions.HoverBackground="{StaticResource AccentSoftBrush}" AutomationProperties.Name="{Binding Name}">
+      <StackPanel>
+       <TextBlock Text="{Binding Name}" Style="{StaticResource ButtonText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding Phone}" Style="{StaticResource ButtonText}" FlowDirection="LeftToRight" HorizontalAlignment="Left" TextWrapping="Wrap" Margin="0,2,0,0"/>
+       <TextBlock Text="{Binding Address}" Style="{StaticResource ButtonMutedText}" Margin="0,2,0,0"/>
+       <Grid Margin="0,2,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <TextBlock Text="الفرع" Style="{StaticResource ButtonMutedText}" Margin="0,0,6,0"/>
+        <TextBlock Grid.Column="1" Text="{Binding Scope.Id}" Style="{StaticResource ButtonMutedText}" FlowDirection="LeftToRight" HorizontalAlignment="Left" TextWrapping="Wrap"/>
+       </Grid>
+      </StackPanel>
+     </Button></DataTemplate></ListBox.ItemTemplate>
+    </ListBox>
+   </Border>
+   <WrapPanel Grid.Row="2" Margin="0,12,0,0"><Button Content="الصفحة التالية" IsEnabled="{Binding HasNext}" Click="NextClick" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="الصفحة التالية من العملاء"/><Button Content="العودة للبداية" Click="SearchClick" Style="{StaticResource DropdownActionButton}" Margin="8,0,0,0" AutomationProperties.Name="العودة لأول صفحة من العملاء"/></WrapPanel>
   </Grid>
   <customers:CustomerDetailView x:Name="Detail" Grid.Row="2" DataContext="{Binding Selected}" Visibility="{Binding DataContext.HasDetail, ElementName=DirectoryRoot, Converter={StaticResource BooleanToVisibility}}" BackRequested="DetailBack" HistoryNextRequested="DetailHistoryNext"/>
  </Grid>

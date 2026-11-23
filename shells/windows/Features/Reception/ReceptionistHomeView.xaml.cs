@@ -74,6 +74,9 @@ public partial class ReceptionistHomeView : UserControl
     {
         InitializeComponent();
         ReceptionHome.SearchCleared += () => { ReceptionistTitleBar.SearchBox.Clear(); ReceptionistTitleBar.SearchBox.Focus(); };
+        ReceptionHome.ApprovalsRequested += () => { Navigate("عروض الأسعار"); ReceptionQuotations.ViewModel.OpenApprovals(); };
+        ReceptionHome.QuotationsRequested += () => { Navigate("عروض الأسعار"); ReceptionQuotations.ViewModel.OpenQuotationList(); };
+        ReceptionHome.OrdersRequested += status => { PreviewOrders.ViewModel.OpenOrderList(status); Navigate("الطلبات"); };
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
         ReceptionQuotations.CustomerRequested += id => _ = OpenQuotationCustomerAsync(id);
     }
@@ -181,6 +184,7 @@ public partial class ReceptionistHomeView : UserControl
             ShowNotice("هذه الميزة غير متاحة ضمن سير العمل الحالي.");
             return;
         }
+        if (destination == "عروض الأسعار") ReceptionQuotations.ViewModel.ApprovalsOnly = false;
         var catalog = destination == "المنتجات";
         CustomerDetail.Visibility = Visibility.Collapsed;
         if (catalog) ((SalesCatalogViewModel)CatalogContent.DataContext).Reload();

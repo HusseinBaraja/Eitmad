@@ -115,9 +115,14 @@ public sealed partial class QuotationsViewModel : ObservableObject
     public bool ApprovalsOnly { get => approvalsOnly; set { if (Set(ref approvalsOnly, value)) { Raise(nameof(ListTitle)); Raise(nameof(EmptyTitle)); RefreshVisibleQuotations(); } } }
     public string EmptyTitle => ApprovalsOnly ? "لا توجد طلبات خصم معلقة" : "لا توجد عروض أسعار مطابقة";
     public string ListTitle => ApprovalsOnly ? "موافقات الخصم" : "عروض الأسعار";
+    public void OpenQuotationList()
+    {
+        CloseQuotation(); SearchText = ""; SelectedDate = AllDates; SelectedStatus = AllStatuses; ApprovalsOnly = false;
+    }
+
     public void OpenApprovals()
     {
-        CloseQuotation(); SearchText = ""; SelectedDate = AllDates; SelectedStatus = AllStatuses; ApprovalsOnly = true;
+        OpenQuotationList(); ApprovalsOnly = true;
     }
 
     public string ListSubtitle => draftClient is not null || !isPreview ? ListState : "معاينة فقط";

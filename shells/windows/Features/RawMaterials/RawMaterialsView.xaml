@@ -2,9 +2,9 @@
     <UserControl.Resources>
         <DataTemplate x:Key="ReferenceActionsTemplate">
             <StackPanel Margin="5,3,5,2">
-                <Border Height="1" Background="#ECE4DC" Margin="3,2,3,5" />
+                <Border Height="1" Background="{StaticResource LineBrush}" Margin="3,2,3,5" />
                 <Button Tag="{Binding Tag}" Click="AddReferenceFromDropdownClick" Style="{StaticResource DropdownActionButton}">
-                    <TextBlock Foreground="#8B4D17" FontSize="14" FontWeight="SemiBold">
+                    <TextBlock Foreground="{StaticResource AccentBrush}" FontSize="14" FontWeight="SemiBold">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="+ إضافة تصنيف جديد" />
@@ -100,10 +100,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -122,10 +122,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -144,10 +144,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="ContrastCell0" Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" />
@@ -166,10 +166,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -187,12 +187,12 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
-                                                                <Setter TargetName="StatusPill" Property="Background" Value="#E5E2DF" />
-                                                                <Setter TargetName="StatusPill" Property="Foreground" Value="#716B66" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
+                                                                <Setter TargetName="StatusPill" Property="Background" Value="{StaticResource LineBrush}" />
+                                                                <Setter TargetName="StatusPill" Property="Foreground" Value="{StaticResource MutedBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -219,10 +219,10 @@
                                                         <DataTemplate.Triggers>
                                                             <DataTrigger Binding="{Binding IsArchived}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Opacity" Value="0.52" />
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#F3F1EF" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource SunkenBrush}" />
                                                             </DataTrigger>
                                                             <Trigger SourceName="RowSurface" Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="RowSurface" Property="Background" Value="#FBF4EC" />
+                                                                <Setter TargetName="RowSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding Path=(controls:ControlOptions.HighContrast), RelativeSource={RelativeSource AncestorType=controls:OperationsTable}}" Value="True">
                                                                 <Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" />
@@ -235,7 +235,7 @@
                                     </controls:OperationsTable>
                                 </Grid>
                             </Grid>
-                            <Border Grid.Row="2" Background="#FCFAF8" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
+                            <Border Grid.Row="2" Background="{StaticResource SunkenBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,9">
                                 <TextBlock Text="{Binding VisibleCountLabel}" Foreground="{StaticResource MutedBrush}" FontSize="13" />
                             </Border>
                         </Grid>
@@ -329,12 +329,12 @@
                     <RowDefinition />
                 </Grid.RowDefinitions>
                 <Button Content="إضافة" Style="{StaticResource CompactButton}" HorizontalAlignment="Left" Margin="0,0,0,15" Click="AddManagedReferenceClick" />
-                <Border Grid.Row="1" BorderBrush="#E6DED6" BorderThickness="1" CornerRadius="8">
+                <Border Grid.Row="1" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8">
                     <Border>
                         <ItemsControl ItemsSource="{Binding ManagedReferences}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="#EEE7E0" BorderThickness="0,0,0,1" Padding="10,9">
+                                    <Border BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1" Padding="10,9">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -369,7 +369,7 @@
                                                 </StackPanel>
                                             </StackPanel>
                                             <Button Grid.Column="1" Content="تعديل" Style="{StaticResource CompactButton}" Margin="8,0,0,0" Click="EditReferenceClick" />
-                                            <Button Grid.Column="2" Content="أرشفة" Style="{StaticResource CompactButton}" Foreground="#8B2E1B" BorderBrush="#D5A89E" IsEnabled="{Binding CanArchive}" Click="ArchiveReferenceClick" />
+                                            <Button Grid.Column="2" Content="أرشفة" Style="{StaticResource CompactButton}" Foreground="{StaticResource DangerBrush}" BorderBrush="{StaticResource DangerLineBrush}" IsEnabled="{Binding CanArchive}" Click="ArchiveReferenceClick" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

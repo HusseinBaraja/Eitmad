@@ -1,5 +1,5 @@
 <Window x:Class="Eitmad.WindowsShell.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:Eitmad.WindowsShell" xmlns:customers="clr-namespace:Eitmad.WindowsShell.Features.Customers"
-        xmlns:home="clr-namespace:Eitmad.WindowsShell.Features.Home" xmlns:authentication="clr-namespace:Eitmad.WindowsShell.Features.Authentication" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture" xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders" xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts" xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing" xmlns:products="clr-namespace:Eitmad.WindowsShell.Features.Products" xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations" xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials" xmlns:users="clr-namespace:Eitmad.WindowsShell.Features.Users" xmlns:workOrders="clr-namespace:Eitmad.WindowsShell.Features.WorkOrders" Title="الاعتماد · تسجيل الدخول" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen" WindowStyle="SingleBorderWindow" ResizeMode="CanResize" Background="{StaticResource CanvasBrush}" FlowDirection="RightToLeft" Language="ar-YE" UseLayoutRounding="True" SnapsToDevicePixels="True">
+        xmlns:home="clr-namespace:Eitmad.WindowsShell.Features.Home" xmlns:authentication="clr-namespace:Eitmad.WindowsShell.Features.Authentication" xmlns:reception="clr-namespace:Eitmad.WindowsShell.Features.Reception" xmlns:controls="clr-namespace:Eitmad.WindowsShell.Controls" xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore" xmlns:layout="clr-namespace:Eitmad.WindowsShell.Layout" xmlns:furniture="clr-namespace:Eitmad.WindowsShell.Features.Furniture" xmlns:orders="clr-namespace:Eitmad.WindowsShell.Features.Orders" xmlns:parts="clr-namespace:Eitmad.WindowsShell.Features.Parts" xmlns:pricing="clr-namespace:Eitmad.WindowsShell.Features.Pricing" xmlns:products="clr-namespace:Eitmad.WindowsShell.Features.Products" xmlns:quotations="clr-namespace:Eitmad.WindowsShell.Features.Quotations" xmlns:rawMaterials="clr-namespace:Eitmad.WindowsShell.Features.RawMaterials" xmlns:users="clr-namespace:Eitmad.WindowsShell.Features.Users" xmlns:workOrders="clr-namespace:Eitmad.WindowsShell.Features.WorkOrders" Title="الاعتماد · تسجيل الدخول" Width="1338" Height="753" MinWidth="720" MinHeight="560" WindowStartupLocation="CenterScreen" WindowStyle="SingleBorderWindow" ResizeMode="CanResize" Background="{StaticResource CanvasBrush}" FontFamily="{StaticResource UiFont}" FlowDirection="RightToLeft" Language="ar-YE" UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.InputBindings>
         <KeyBinding Key="K" Modifiers="Alt" Command="{x:Static local:MainWindow.SwitchAccountCommand}" />
     </Window.InputBindings>
@@ -13,31 +13,17 @@
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="TextWrapping" Value="NoWrap" />
         </Style>
-        <Style x:Key="ResponsivePageMargin" TargetType="ScrollViewer">
-            <Setter Property="Padding" Value="32,17,32,24" />
+        <Style x:Key="ResponsivePageMargin" TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
+            <Setter Property="Padding" Value="32,24,32,32" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}">
-                    <Setter Property="Padding" Value="24,16,24,24" />
+                    <Setter Property="Padding" Value="24,20,24,28" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Padding" Value="16,14,16,20" />
+                    <Setter Property="Padding" Value="16,16,16,20" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="HomeQuickRoute" TargetType="Button" BasedOn="{StaticResource QuickActionButton}">
-            <Setter Property="Width" Value="156" />
-            <Setter Property="Margin" Value="4" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-        </Style>
-        <WrapPanel x:Key="ManagerQuickRoutes" x:Name="QuickRoutesPanel" Margin="-4,0">
-            <Button Content="العملاء" Style="{StaticResource HomeQuickRoute}" Tag="العملاء" Click="HomeActionClick"/>
-            <Button Content="الطلبات" Style="{StaticResource HomeQuickRoute}" Tag="الطلبات" Click="HomeActionClick"/>
-            <Button Content="قائمة الأسعار" Style="{StaticResource HomeQuickRoute}" Tag="التسعير" Click="HomeActionClick"/>
-            <Button Content="الأثاث" Style="{StaticResource HomeQuickRoute}" Tag="الأثاث" Click="HomeActionClick"/>
-            <Button Content="إدارة القطع" Style="{StaticResource HomeQuickRoute}" Tag="القطع" Click="HomeActionClick"/>
-            <Button Content="إدارة الخامات" Style="{StaticResource HomeQuickRoute}" Tag="الخامات" Click="HomeActionClick"/>
-        </WrapPanel>
     </Window.Resources>
     <Grid x:Name="ShellHost">
     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -54,7 +40,7 @@
                 AccountSwitchRequested="ManagerTitleBarAccountSwitchRequested"
                 ActionRequested="ManagerTitleBarActionRequested" SearchSubmitted="ManagerTitleBarSearchSubmitted"/>
             <ScrollViewer Grid.Row="1" Style="{StaticResource ResponsivePageMargin}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <home:HomeView x:Name="ManagerHome" IsManagerDashboard="True" QuickRoutes="{StaticResource ManagerQuickRoutes}"/>
+                <home:HomeView x:Name="ManagerHome"/>
             </ScrollViewer>
             <controls:FeedbackNotice x:Name="InteractionToast" Grid.Row="1" Margin="30" Padding="18,11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="40" Tone="Information" IsFloating="True" DisplayDuration="00:00:02.5" Dismissed="DismissToast"/>
         </Grid>

@@ -87,7 +87,7 @@
                                         <DataGridTemplateColumn Header="رقم عرض السعر" Width="1.18*" MinWidth="120" SortMemberPath="Number">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Number}" Style="{StaticResource TableBody}" FontWeight="SemiBold" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -102,7 +102,7 @@
                                         <DataGridTemplateColumn Header="العميل" controls:OperationsTable.IsCompactDetail="True" Width="1.45*" MinWidth="160" SortMemberPath="Customer">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Customer}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -117,7 +117,7 @@
                                         <DataGridTemplateColumn Header="التاريخ" controls:OperationsTable.IsCompactDetail="True" Width="0.95*" MinWidth="120" SortMemberPath="Date">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding DateLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -132,7 +132,7 @@
                                         <DataGridTemplateColumn Header="الإجمالي" Width="1.15*" MinWidth="120" SortMemberPath="FinalTotal">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding FinalTotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -147,7 +147,7 @@
                                         <DataGridTemplateColumn Header="الخصم" controls:OperationsTable.IsCompactDetail="True" Width="1.08*" MinWidth="120" SortMemberPath="Discount">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding DiscountLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -162,7 +162,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="0.95*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}" Style="{StaticResource StatusBadge}"></controls:StatusBadge>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -176,7 +176,7 @@
                                         <DataGridTemplateColumn Header="فتح" Width="0.68*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="White" MinHeight="78">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="White" MinHeight="78">
                                                         <Button Content="فتح" Style="{StaticResource InlineActionButton}" Click="OpenQuotationClick" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="فتح عرض السعر" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -246,7 +246,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <Border Padding="20,15" BorderBrush="#EEE9E4" BorderThickness="0,0,0,1">
+                                    <Border Padding="20,15" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
                                         <TextBlock Text="بنود الأثاث" FontSize="17" FontWeight="SemiBold" />
                                     </Border>
                                     <Grid Grid.Row="1" FlowDirection="LeftToRight">
@@ -256,7 +256,7 @@
                                                     <DataGridTemplateColumn Header="الأثاث" Width="1.4*" MinWidth="160" SortMemberPath="FurnitureName">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding FurnitureName}" Style="{StaticResource TableBody}" FontWeight="SemiBold" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -270,7 +270,7 @@
                                                     <DataGridTemplateColumn Header="المقاس" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -284,7 +284,7 @@
                                                     <DataGridTemplateColumn Header="اللون" controls:OperationsTable.IsCompactDetail="True" Width="0.85*" MinWidth="160" SortMemberPath="Color">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding Color}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -298,7 +298,7 @@
                                                     <DataGridTemplateColumn Header="المقبض" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Handle">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding Handle}" Style="{StaticResource TableBody}" TextWrapping="Wrap" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -312,7 +312,7 @@
                                                     <DataGridTemplateColumn Header="الكمية" Width="0.62*" MinWidth="80" SortMemberPath="Quantity">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding QuantityLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -326,7 +326,7 @@
                                                     <DataGridTemplateColumn Header="سعر الوحدة" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="UnitPrice">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding UnitPriceLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -340,7 +340,7 @@
                                                     <DataGridTemplateColumn Header="الإجمالي" Width="1.12*" MinWidth="120" SortMemberPath="Total">
                                                         <DataGridTemplateColumn.CellTemplate>
                                                             <DataTemplate>
-                                                                <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" MinHeight="58">
+                                                                <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" MinHeight="58">
                                                                     <TextBlock x:Name="ContrastCell0" Text="{Binding TotalLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" FontWeight="SemiBold" />
                                                                 </Border>
                                                                 <DataTemplate.Triggers>
@@ -374,16 +374,16 @@
                                             <ColumnDefinition Width="190" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="الخصم" Style="{StaticResource SummaryLabel}" />
-                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.DiscountLabel}" Style="{StaticResource SummaryValue}" Foreground="#9A382B" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.DiscountLabel}" Style="{StaticResource SummaryValue}" Foreground="{StaticResource DangerBrush}" />
                                     </Grid>
-                                    <Separator Background="#DED8D2" Margin="0,1,0,14" />
+                                    <Separator Background="{StaticResource LineBrush}" Margin="0,1,0,14" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition />
                                             <ColumnDefinition Width="210" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="الإجمالي النهائي" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="#6E3A0D" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedQuotation.FinalTotalLabel}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -423,7 +423,7 @@
                                     <StackPanel>
                                         <StackPanel IsEnabled="{Binding CanDecideApproval}" Visibility="{Binding SelectedQuotation.HasPendingDiscountApproval, Converter={StaticResource BooleanToVisibility}}">
                                             <Button Content="موافقة على الخصم" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Click="ApproveDiscountClick" automation:AutomationProperties.Name="الموافقة على خصم عرض السعر"/>
-                                            <Expander x:Name="DiscountRejection" Header="رفض الخصم" FontFamily="Noto Kufi Arabic, Segoe UI" FontSize="14" Margin="0,16,0,0" automation:AutomationProperties.Name="إظهار سبب رفض الخصم">
+                                            <Expander x:Name="DiscountRejection" Header="رفض الخصم" FontFamily="{StaticResource UiFont}" FontSize="14" Margin="0,16,0,0" automation:AutomationProperties.Name="إظهار سبب رفض الخصم">
                                                 <StackPanel Margin="0,12,0,0">
                                                     <controls:FormField Label="سبب الرفض" IsRequired="True">
                                                         <TextBox Text="{Binding ApprovalReason, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" MinHeight="72" MaxHeight="120" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" MaxLength="240" automation:AutomationProperties.Name="سبب رفض الخصم"/>

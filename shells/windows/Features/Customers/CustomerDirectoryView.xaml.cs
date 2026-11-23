@@ -12,7 +12,6 @@ public partial class CustomerDirectoryView : UserControl
 {
     public CustomerDirectoryView() => InitializeComponent();
     public CustomerDirectoryViewModel? ViewModel => DataContext as CustomerDirectoryViewModel;
-    public event EventHandler? HomeRequested;
     public void Attach(CustomerClient client, IEngineShellBridge engine) {
         DataContext = new CustomerDirectoryViewModel(client, engine);
         Detail.Attach(client); Detail.EnableResolution();
@@ -20,7 +19,6 @@ public partial class CustomerDirectoryView : UserControl
     private void SearchClick(object sender, RoutedEventArgs e) => ViewModel?.Search();
     private void NextClick(object sender, RoutedEventArgs e) => ViewModel?.Next();
     private void DetailHistoryNext(object? sender, EventArgs e) => ViewModel?.NextHistory();
-    private void HomeClick(object sender, RoutedEventArgs e) => HomeRequested?.Invoke(this, EventArgs.Empty);
     private async void DetailBack(object? sender, EventArgs e) { ViewModel?.Back(); await Dispatcher.BeginInvoke(SearchInput.Focus, System.Windows.Threading.DispatcherPriority.Input); }
     private void SearchKeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) { ViewModel?.Search(); e.Handled = true; } }
     private async void OpenClick(object sender, RoutedEventArgs e)

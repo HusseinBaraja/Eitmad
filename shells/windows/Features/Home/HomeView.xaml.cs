@@ -6,16 +6,12 @@ namespace Eitmad.WindowsShell.Features.Home;
 
 public partial class HomeView : UserControl
 {
-    public static readonly DependencyProperty IsManagerDashboardProperty = DependencyProperty.Register(
-        nameof(IsManagerDashboard), typeof(bool), typeof(HomeView), new PropertyMetadata(false));
-    public static readonly DependencyProperty QuickRoutesProperty = DependencyProperty.Register(
-        nameof(QuickRoutes), typeof(UIElement), typeof(HomeView), new PropertyMetadata(null));
-    public bool IsManagerDashboard { get => (bool)GetValue(IsManagerDashboardProperty); set => SetValue(IsManagerDashboardProperty, value); }
-    public UIElement? QuickRoutes { get => (UIElement?)GetValue(QuickRoutesProperty); set => SetValue(QuickRoutesProperty, value); }
     public HomeView() => InitializeComponent();
     public event Action<HomeRow>? OpenRequested;
     public event Action? ApprovalsRequested;
+    public event Action<string>? OrdersRequested;
     public event Action? SearchCleared;
+    public event Action? QuotationsRequested;
     private void ClearSearchClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel home) return;
@@ -23,6 +19,9 @@ public partial class HomeView : UserControl
         SearchCleared?.Invoke();
     }
     private void ApprovalsClick(object sender, RoutedEventArgs e) => ApprovalsRequested?.Invoke();
+    private void OrdersClick(object sender, RoutedEventArgs e) => OrdersRequested?.Invoke(Orders.OrdersViewModel.AllStatuses);
+    private void ReadyOrdersClick(object sender, RoutedEventArgs e) => OrdersRequested?.Invoke(Orders.OrdersViewModel.ReadyStatus);
+    private void QuotationsClick(object sender, RoutedEventArgs e) => QuotationsRequested?.Invoke();
     private void RefreshClick(object sender, RoutedEventArgs e) { if (DataContext is HomeViewModel home) home.Refresh(); }
     private void OpenClick(object sender, RoutedEventArgs e) { if (sender is Button { DataContext: HomeRow row }) OpenRequested?.Invoke(row); }
 }

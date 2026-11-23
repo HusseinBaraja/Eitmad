@@ -213,6 +213,11 @@ public sealed partial class OrdersViewModel : ObservableObject
 
     public void CloseOrder() => SelectedOrder = null;
 
+    public void OpenOrderList(string status)
+    {
+        CloseOrder(); SearchText = ""; SelectedDate = AllDates; SelectedStatus = status;
+    }
+
     private void RefreshVisibleOrders()
     {
         var normalizedSearch = PreviewText.NormalizeSearch(SearchText.Trim());

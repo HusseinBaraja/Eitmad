@@ -1,8 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -17,7 +14,7 @@ public partial class ShellSidebar : UserControl
     {
         InitializeComponent();
         selectedButton = HomeNavButton;
-        SetNavigationTone(selectedButton, true);
+        ControlOptions.SetIsCurrent(selectedButton, true);
     }
 
     public bool IsReceptionist { get => (bool)GetValue(IsReceptionistProperty); set => SetValue(IsReceptionistProperty, value); }
@@ -40,39 +37,9 @@ public partial class ShellSidebar : UserControl
 
     private void Select(Button button)
     {
-        SetNavigationTone(selectedButton, false);
+        ControlOptions.SetIsCurrent(selectedButton, false);
         selectedButton = button;
-        SetNavigationTone(button, true);
-    }
-
-    private static void SetNavigationTone(Button button, bool selected)
-    {
-        var content = button.Content as DependencyObject ?? button;
-        if (selected)
-        {
-            button.SetResourceReference(BackgroundProperty, "NavSelectedBrush");
-            SetContentTone(content, Brushes.White);
-            return;
-        }
-        button.ClearValue(BackgroundProperty);
-        foreach (var text in Descendants<TextBlock>(content)) text.ClearValue(TextBlock.ForegroundProperty);
-        foreach (var icon in Descendants<System.Windows.Shapes.Path>(content)) icon.ClearValue(System.Windows.Shapes.Shape.FillProperty);
-    }
-
-    private static void SetContentTone(DependencyObject content, Brush tone)
-    {
-        foreach (var text in Descendants<TextBlock>(content)) text.Foreground = tone;
-        foreach (var icon in Descendants<System.Windows.Shapes.Path>(content)) icon.Fill = tone;
-    }
-
-    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T match) yield return match;
-            foreach (var descendant in Descendants<T>(child)) yield return descendant;
-        }
+        ControlOptions.SetIsCurrent(button, true);
     }
 }
 
