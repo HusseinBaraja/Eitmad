@@ -75,7 +75,7 @@
                                         <DataGridTemplateColumn Header="المنتج" Width="1.55*" MinWidth="160" SortMemberPath="Product">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Product}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FontWeight="SemiBold" FlowDirection="RightToLeft" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -90,7 +90,7 @@
                                         <DataGridTemplateColumn Header="المقاس" controls:OperationsTable.IsCompactDetail="True" Width="1.05*" MinWidth="120" SortMemberPath="Variant">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding Variant}" Style="{StaticResource TableBody}" TextWrapping="Wrap" FlowDirection="RightToLeft" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -105,7 +105,7 @@
                                         <DataGridTemplateColumn Header="التكلفة" controls:OperationsTable.IsCompactDetail="True" Width="1.12*" MinWidth="120" SortMemberPath="Cost">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding CostLabel}" Style="{StaticResource TableBody}" FlowDirection="LeftToRight" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -120,9 +120,9 @@
                                         <DataGridTemplateColumn Header="سعر البيع" Width="1.42*" MinWidth="120" SortMemberPath="SellingPrice">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
-                                                        <Border x:Name="ContrastCell2" Background="#FFF8F0" CornerRadius="9" Margin="10,9" BorderBrush="#EAD3BC" BorderThickness="1">
-                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding SellingPriceLabel}" Style="{StaticResource TableBody}" FontSize="15" FontWeight="Bold" Foreground="#713B08" FlowDirection="LeftToRight" />
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                        <Border x:Name="ContrastCell2" Background="{StaticResource AccentSoftBrush}" CornerRadius="9" Margin="10,9" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+                                                            <TextBlock x:Name="ContrastCell0" Text="{Binding SellingPriceLabel}" Style="{StaticResource TableBody}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" FlowDirection="LeftToRight" />
                                                         </Border>
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -138,11 +138,11 @@
                                         <DataGridTemplateColumn Header="الهامش" controls:OperationsTable.IsCompactDetail="True" Width="1.12*" MinWidth="120" SortMemberPath="Margin">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell1" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <TextBlock x:Name="ContrastCell0" Text="{Binding MarginLabel}" FlowDirection="LeftToRight">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock" BasedOn="{StaticResource TableBody}">
-                                                                    <Setter Property="Foreground" Value="#20723D" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding HasNegativeMargin}" Value="True">
                                                                             <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
@@ -164,7 +164,7 @@
                                         <DataGridTemplateColumn Header="الحالة" Width="0.9*" MinWidth="100" SortMemberPath="StatusLabel">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <controls:StatusBadge Padding="11,3" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding StatusLabel}">
                                                             <controls:StatusBadge.Style>
                                                                 <Style TargetType="controls:StatusBadge" BasedOn="{StaticResource {x:Type controls:StatusBadge}}">
@@ -189,7 +189,7 @@
                                         <DataGridTemplateColumn Header="تعديل" Width="0.78*" MinWidth="70" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Border x:Name="ContrastCell0" BorderBrush="#EEE9E4" BorderThickness="0" Background="Transparent" MinHeight="78">
+                                                    <Border x:Name="ContrastCell0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0" Background="Transparent" MinHeight="78">
                                                         <Button Content="تعديل" Style="{StaticResource InlineActionButton}" Click="EditPriceClick" IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=UserControl}}" HorizontalAlignment="Center" VerticalAlignment="Center" automation:AutomationProperties.Name="تعديل سعر البيع" />
                                                     </Border>
                                                     <DataTemplate.Triggers>
@@ -251,14 +251,14 @@
                             <ColumnDefinition Width="56" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Background="#F2ECE6" CornerRadius="9,0,0,9" BorderBrush="#D8CFC6" BorderThickness="1,1,0,1">
-                            <TextBlock Text="ر.ي" FontSize="14" FontWeight="SemiBold" Foreground="#704A2A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Grid.Column="0" Background="{StaticResource AccentSoftBrush}" CornerRadius="9,0,0,9" BorderBrush="{StaticResource LineStrongBrush}" BorderThickness="1,1,0,1">
+                            <TextBlock Text="ر.ي" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBox x:Name="PriceInput" Grid.Column="1" controls:ControlOptions.CornerRadius="0,9,9,0" IsEnabled="{Binding CanEdit}" Text="{Binding EditorSellingPrice, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource TextInput}" FlowDirection="LeftToRight" TextAlignment="Right" FontSize="17" FontWeight="SemiBold" automation:AutomationProperties.Name="سعر البيع الجديد" />
                     </Grid>
                 </controls:FormField>
                 <CheckBox Style="{StaticResource FormCheckBox}" Content="أؤكد نشر سعر أقل من التكلفة" IsChecked="{Binding ConfirmBelowCost}" IsEnabled="{Binding CanEdit}" Visibility="{Binding HasNegativeEditorMargin, Converter={StaticResource BooleanToVisibility}}" automation:AutomationProperties.Name="تأكيد نشر سعر أقل من التكلفة" Margin="0,16,0,0" />
-                <Border Background="#F7F4F1" CornerRadius="9" Padding="14,11" Margin="0,16,0,22">
+                <Border Background="{StaticResource SunkenBrush}" CornerRadius="9" Padding="14,11" Margin="0,16,0,22">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition />
@@ -267,7 +267,7 @@
                         <TextBlock Text="{Binding EditorMargin}" Grid.Column="0" FontSize="16" FontWeight="Bold" FlowDirection="LeftToRight" TextAlignment="Right">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="#20723D" />
+                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding HasNegativeEditorMargin}" Value="True">
                                             <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />

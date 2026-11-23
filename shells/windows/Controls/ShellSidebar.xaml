@@ -6,15 +6,55 @@
              FlowDirection="RightToLeft"
              Language="ar-YE">
     <UserControl.Resources>
-        <Style x:Key="SidebarNavText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="17" />
+        <Style x:Key="SidebarNavText" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+            <Setter Property="Foreground" Value="{StaticResource RailTextBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="12,0,0,0" />
             <Setter Property="FlowDirection" Value="RightToLeft" />
-            <Setter Property="TextAlignment" Value="Right" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- Group names follow the work: selling, making, what is sold, and who can use the system. -->
+        <Style x:Key="SidebarGroup" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+            <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{StaticResource RailMutedBrush}" />
+            <Setter Property="Margin" Value="24,14,24,4" />
             <Setter Property="TextWrapping" Value="NoWrap" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ManagerOnlyGroup" TargetType="TextBlock" BasedOn="{StaticResource SidebarGroup}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReceptionist, RelativeSource={RelativeSource AncestorType=controls:ShellSidebar}}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- In compact mode a hairline replaces the group name so the icon column stays grouped. -->
+        <Style x:Key="CompactGroupRule" TargetType="Border">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="18,8" />
+            <Setter Property="Background" Value="#3DFFFFFF" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ManagerOnlyRule" TargetType="Border" BasedOn="{StaticResource CompactGroupRule}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsReceptionist, RelativeSource={RelativeSource AncestorType=controls:ShellSidebar}}" Value="True">
                     <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
             </Style.Triggers>
@@ -27,55 +67,90 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <Border x:Name="Sidebar" Background="#FEFDFC" BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0">
+    <Border x:Name="Sidebar" Background="{StaticResource RailBrush}">
+        <Border.Resources>
+            <!-- Scroll thumbs on the walnut rail use a walnut tone instead of the light-surface grey. -->
+            <SolidColorBrush x:Key="ScrollThumbBrush" Color="#5C493D" />
+            <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#7A6556" />
+            <SolidColorBrush x:Key="ScrollGutterHoverBrush" Color="#14FFFFFF" />
+        </Border.Resources>
         <Border.Style>
             <Style TargetType="Border">
-                <Setter Property="Width" Value="258" />
+                <Setter Property="Width" Value="236" />
+                <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
                 <Style.Triggers>
-                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}"><Setter Property="Width" Value="224" /></DataTrigger>
-                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Width" Value="78" /></DataTrigger>
+                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}"><Setter Property="Width" Value="212" /></DataTrigger>
+                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Width" Value="64" /></DataTrigger>
+                    <Trigger Property="controls:ControlOptions.HighContrast" Value="True"><Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" /></Trigger>
                 </Style.Triggers>
             </Style>
         </Border.Style>
         <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="77" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Grid Grid.Row="0" FlowDirection="LeftToRight">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <!-- Brand plate: the logo in brass on walnut. -->
+            <Grid Grid.Row="0" FlowDirection="RightToLeft" Height="68">
                 <Grid.Style>
                     <Style TargetType="Grid">
-                        <Setter Property="Margin" Value="31,0,23,7" />
+                        <Setter Property="Margin" Value="22,0,18,0" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}"><Setter Property="Margin" Value="16,0,12,7" /></DataTrigger>
-                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Margin" Value="3,0,3,7" /></DataTrigger>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Margin" Value="0" /></DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                <Viewbox Grid.Column="0" Width="64" Height="51" VerticalAlignment="Center" Stretch="Uniform">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Viewbox x:Name="BrandMark" Grid.Column="0" Width="40" Height="34" VerticalAlignment="Center" Stretch="Uniform">
+                    <Viewbox.Style>
+                        <Style TargetType="Viewbox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
+                                    <Setter Property="Grid.ColumnSpan" Value="2" />
+                                    <Setter Property="HorizontalAlignment" Value="Center" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Viewbox.Style>
                     <Canvas Width="76" Height="62">
-                        <Path Fill="#4B260B" Data="M 4,50 L 21,8 L 34,50 L 23,42 L 17,60 Z" /><Path Fill="#8A572A" Data="M 23,50 L 39,1 L 51,50 L 40,42 L 33,61 Z" /><Path Fill="#B08051" Data="M 44,50 L 59,12 L 73,50 L 61,43 L 55,61 Z" />
-                        <Path Fill="#D2AA7E" Data="M 21,8 L 23,42 L 34,50 Z" /><Path Fill="#6B3A16" Data="M 39,1 L 40,42 L 51,50 Z" /><Path Fill="#70421D" Data="M 59,12 L 61,43 L 73,50 Z" />
+                        <Path Fill="#9C7438" Data="M 4,50 L 21,8 L 34,50 L 23,42 L 17,60 Z" /><Path Fill="#C9A15C" Data="M 23,50 L 39,1 L 51,50 L 40,42 L 33,61 Z" /><Path Fill="#E2C58E" Data="M 44,50 L 59,12 L 73,50 L 61,43 L 55,61 Z" />
+                        <Path Fill="#EBD7AE" Data="M 21,8 L 23,42 L 34,50 Z" /><Path Fill="#8C6630" Data="M 39,1 L 40,42 L 51,50 Z" /><Path Fill="#A9813F" Data="M 59,12 L 61,43 L 73,50 Z" />
                     </Canvas>
                 </Viewbox>
-                <Grid Grid.Column="1" FlowDirection="RightToLeft" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                    <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                    <TextBlock Text="الاعتماد" FontSize="28" FontWeight="Bold" Foreground="#704019" HorizontalAlignment="Left" TextAlignment="Right" />
-                    <TextBlock Grid.Row="1" Text="لصناعة الأثاث" FontSize="12" Foreground="#704019" HorizontalAlignment="Left" TextAlignment="Right" Margin="0,-2,2,0" />
-                </Grid>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="الاعتماد" FontSize="20" FontWeight="Bold" Foreground="{StaticResource RailTextBrush}" TextWrapping="NoWrap" />
+                    <TextBlock Text="لصناعة الأثاث" FontSize="{StaticResource FontSizeCaption}" Foreground="{StaticResource RailMutedBrush}" Margin="0,-3,0,0" TextWrapping="NoWrap" />
+                </StackPanel>
             </Grid>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
-                <StackPanel x:Name="SidebarNavigation" Margin="0,16,0,8">
-                    <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الرئيسية" FontWeight="SemiBold" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconHome}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="QuotationsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="عروض الأسعار" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="عروض الأسعار" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconQuote}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="CustomersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="العملاء" Click="NavigationClick" AutomationProperties.Name="العملاء في فروع المؤسسة"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions><TextBlock Text="العملاء" Style="{StaticResource SidebarNavText}"/><Path Grid.Column="2" Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}"/></Grid></Button>
-                    <Button x:Name="OrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الطلبات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الطلبات" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconOrder}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="MaterialsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الخامات" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="PartsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="القطع" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="FurnitureNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الأثاث" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="الأثاث" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="PricingNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="التسعير" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="التسعير" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconPricing}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="ProductsNavButton" Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المنتجات" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconProducts}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="WorkOrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="أوامر العمل" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="أوامر العمل" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconWorkOrder}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
-                    <Button x:Name="UsersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="المستخدمون" Click="NavigationClick"><Grid FlowDirection="LeftToRight"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions><TextBlock Text="المستخدمون" Style="{StaticResource SidebarNavText}" /><Path Grid.Column="2" Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /></Grid></Button>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" Focusable="False">
+                <StackPanel x:Name="SidebarNavigation" Margin="0,4,0,12">
+                    <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconHome}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الرئيسية" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+
+                    <TextBlock Text="المبيعات" Style="{StaticResource SidebarGroup}" />
+                    <Border Style="{StaticResource CompactGroupRule}" />
+                    <Button x:Name="QuotationsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="عروض الأسعار" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconQuote}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="عروض الأسعار" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="OrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الطلبات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconOrder}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الطلبات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="CustomersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="العملاء" Click="NavigationClick" AutomationProperties.Name="العملاء في فروع المؤسسة"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="العملاء" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+
+                    <TextBlock Text="الإنتاج" Style="{StaticResource ManagerOnlyGroup}" />
+                    <Border Style="{StaticResource ManagerOnlyRule}" />
+                    <Button x:Name="WorkOrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="أوامر العمل" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconWorkOrder}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="أوامر العمل" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="MaterialsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الخامات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="PartsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="القطع" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+
+                    <TextBlock Text="الكتالوج" Style="{StaticResource SidebarGroup}" />
+                    <Border Style="{StaticResource CompactGroupRule}" />
+                    <Button x:Name="FurnitureNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الأثاث" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الأثاث" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="PricingNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="التسعير" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconPricing}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="التسعير" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="ProductsNavButton" Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconProducts}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="المنتجات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+
+                    <TextBlock Text="الإدارة" Style="{StaticResource ManagerOnlyGroup}" />
+                    <Border Style="{StaticResource ManagerOnlyRule}" />
+                    <Button x:Name="UsersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="المستخدمون" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="المستخدمون" Style="{StaticResource SidebarNavText}" /></Grid></Button>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

@@ -11,7 +11,7 @@
    <Setter Property="AutomationProperties.ItemStatus" Value="{Binding ErrorText, RelativeSource={RelativeSource AncestorType=controls:FormField}}"/>
    <Style.Triggers>
     <DataTrigger Binding="{Binding ErrorText, RelativeSource={RelativeSource AncestorType=controls:FormField}}" Value="">
-     <Setter Property="BorderBrush" Value="#DED6CE"/><Setter Property="BorderThickness" Value="1"/>
+     <Setter Property="BorderBrush" Value="{StaticResource LineStrongBrush}"/><Setter Property="BorderThickness" Value="1"/>
     </DataTrigger>
    </Style.Triggers>
   </Style>

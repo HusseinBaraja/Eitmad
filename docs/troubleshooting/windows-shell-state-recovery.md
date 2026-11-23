@@ -60,7 +60,7 @@ The Windows shell can become temporarily unavailable without losing Rust-owned d
 - minimize, maximize, or close icons are missing, use custom colors, or appear on the wrong RTL/LTR side.
 - dashboard, toolbar, or sidebar icons appear as blank squares; a selected sidebar icon stays dark on the walnut background; a selected row turns pale while its text stays white under the pointer; selected and selected-hover rows look identical; Arabic labels drift away from their icons; **آخر عروض الأسعار** overlaps **عرض الكل**; or the toolbar and footer controls touch adjacent edges.
 - the dashboard scales as one frozen canvas, leaves large empty bands, clips cards, or does not reflow when the window width, height, or ratio changes.
-- the **المواد الخام** category, status, or unit dropdown, or the row-action popup, uses square gray platform chrome, loses copper focus states, or places Arabic actions outside the expected popup surface.
+- the **المواد الخام** category, status, or unit dropdown, or the row-action popup, uses square gray platform chrome, loses walnut focus states, or places Arabic actions outside the expected popup surface.
 - the **الأجزاء** page is missing, its category or status filter uses platform-default chrome, or the three-dot action popup is clipped at the left edge.
 - **+ إضافة تصنيف جديد**, **+ إضافة وحدة جديدة**, **إدارة التصنيفات**, or **إدارة الوحدات** is missing from an editor selector; saving a new reference does not select it; or an archived reference remains selectable.
 - the **المواد الخام** search returns no result for an unmarked spelling such as **اخشاب** when a matching category such as **أخشاب طبيعية** is visible without a search.

@@ -125,32 +125,25 @@ public sealed class MainWindowRenderedTests
 
             AssertSelectedNavigationContrast(furnitureButton);
             Assert.AreEqual(Colors.Transparent, ((SolidColorBrush)homeButton.Background).Color);
+            Assert.IsFalse(ControlOptions.GetIsCurrent(homeButton));
+            AssertUnselectedNavigationContrast(homeButton);
         });
     }
 
     private static void AssertSelectedNavigationContrast(Button button)
     {
-        var surface = (Border)button.Template.FindName("Surface", button);
-        var background = (LinearGradientBrush)surface.Background;
-        Assert.IsTrue(background.GradientStops.All(stop => ContrastAgainstWhite(stop.Color) >= 4.5));
+        Assert.IsTrue(ControlOptions.GetIsCurrent(button));
+        var surface = ((SolidColorBrush)((Border)button.Template.FindName("Surface", button)).Background).Color;
+        Assert.IsTrue(ContrastAgainstWhite(surface) >= 4.5);
+        var hoverColor = HoverColor(button);
+        var hovered = Composite(surface, hoverColor);
+        Assert.AreNotEqual(surface, hovered);
+        Assert.IsTrue(ContrastAgainstWhite(hovered) >= 4.5);
 
-        Assert.IsTrue(VisualStateManager.GoToState(button, "MouseOver", false));
-        var hoverShade = (Border)button.Template.FindName("HoverShade", button);
-        var deadline = System.Diagnostics.Stopwatch.StartNew();
-        while (hoverShade.Opacity != 1d && deadline.Elapsed < TimeSpan.FromSeconds(1))
-            WpfTestHost.PumpDispatcher();
-        var hoverColor = ((SolidColorBrush)hoverShade.Background).Color;
-        Assert.AreEqual(1d, hoverShade.Opacity);
-        Assert.AreNotEqual(0, hoverColor.A);
-        foreach (var stop in background.GradientStops)
-        {
-            var hoveredStop = Composite(stop.Color, hoverColor);
-            Assert.AreNotEqual(stop.Color, hoveredStop);
-            Assert.IsTrue(ContrastAgainstWhite(hoveredStop) >= 4.5);
-        }
-
-        var inkColor = ((SolidColorBrush)button.FindResource("InkBrush")).Color;
-        Assert.IsTrue(Contrast(Composite(Colors.White, hoverColor), inkColor) >= 4.5);
+        // The location marker is a non-text indicator: it needs 3:1 against the selected surface.
+        var marker = (Border)button.Template.FindName("Marker", button);
+        Assert.AreEqual(Visibility.Visible, marker.Visibility);
+        Assert.IsTrue(Contrast(((SolidColorBrush)marker.Background).Color, surface) >= 3);
 
         foreach (var text in WpfTestHost.Descendants<TextBlock>(button))
         {
@@ -159,8 +152,34 @@ public sealed class MainWindowRenderedTests
 
         foreach (var icon in WpfTestHost.Descendants<System.Windows.Shapes.Path>(button))
         {
-            Assert.AreEqual(Colors.White, ((SolidColorBrush)icon.Fill).Color);
+            Assert.IsTrue(Contrast(((SolidColorBrush)icon.Fill).Color, surface) >= 3);
         }
+    }
+
+    private static void AssertUnselectedNavigationContrast(Button button)
+    {
+        var rail = ((SolidColorBrush)button.FindResource("RailBrush")).Color;
+        Assert.AreEqual(Visibility.Collapsed, ((Border)button.Template.FindName("Marker", button)).Visibility);
+        var hovered = Composite(rail, HoverColor(button));
+        Assert.AreNotEqual(rail, hovered);
+        foreach (var text in WpfTestHost.Descendants<TextBlock>(button))
+        {
+            Assert.IsTrue(Contrast(((SolidColorBrush)text.Foreground).Color, hovered) >= 4.5);
+        }
+    }
+
+    private static Color HoverColor(Button button)
+    {
+        Assert.IsTrue(VisualStateManager.GoToState(button, "MouseOver", false));
+        var hoverShade = (Border)button.Template.FindName("HoverShade", button);
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (hoverShade.Opacity != 1d && deadline.Elapsed < TimeSpan.FromSeconds(1))
+            WpfTestHost.PumpDispatcher();
+        Assert.AreEqual(1d, hoverShade.Opacity);
+        var hoverColor = ((SolidColorBrush)hoverShade.Background).Color;
+        Assert.AreNotEqual(0, hoverColor.A);
+        Assert.IsTrue(VisualStateManager.GoToState(button, "Normal", false));
+        return hoverColor;
     }
 
     private static double ContrastAgainstWhite(Color color)
@@ -202,7 +221,7 @@ public sealed class MainWindowRenderedTests
         {
             var root = WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot");
             Assert.AreEqual(ResponsiveLayoutMode.Standard, ResponsiveLayout.GetMode(root));
-            Assert.AreEqual(2, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
+            Assert.AreEqual(4, WpfTestHost.FindByName<UniformGrid>(window, "MetricsGrid").Columns);
 
         });
 

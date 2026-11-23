@@ -55,8 +55,8 @@ public partial class MainWindow : Window
             };
             if (destination is not null) OpenManagerDestination(destination);
         };
-        CustomersSurface.HomeRequested += (_, _) => OpenManagerDestination("الرئيسية");
         ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
+        ManagerHome.StageRequested += OpenManagerDestination;
         ManagerHome.SearchCleared += () => { ManagerTitleBar.SearchBox.Clear(); ManagerTitleBar.SearchBox.Focus(); };
         if (preview && engine is null) {
             QuotationsSurface.UsePreviewFixtures(); OrdersSurface.UsePreviewFixtures(); WorkOrdersSurface.UsePreviewFixtures();
@@ -427,12 +427,6 @@ public partial class MainWindow : Window
             ManagerTitleBar.Title = destination == "الرئيسية" ? "لوحة التحكم" : destination;
             home?.Search("");
         }
-    }
-
-    private void HomeActionClick(object sender, RoutedEventArgs eventArgs)
-    {
-        if (sender is not Button { Tag: string action }) return;
-        OpenManagerDestination(action);
     }
 
     private void OpenManagerDestination(string destination)

@@ -180,7 +180,7 @@ public class OperationsTable : DataGrid
     {
         if (ActualWidth <= 0 || !Columns.Any(GetIsCompactDetail)) return;
         var requiredWidth = Columns.Where(column => !unavailableColumns.Contains(column)).Sum(column => Math.Max(column.MinWidth,
-            column.Width.IsAbsolute ? column.Width.Value : 0)) + SystemParameters.VerticalScrollBarWidth + 2;
+            column.Width.IsAbsolute ? column.Width.Value : 0)) + 2; // Borders only: the vertical scroll bar overlays the rows.
         var compact = ActualWidth < requiredWidth;
         if (compact == compactDetails && !force) return;
         // Collapsing columns or row details can detach an editor before LostFocus

@@ -19,6 +19,6 @@
     <Geometry x:Key="IconAlert">M12,2 23,21 1,21ZM12,7 10.9,15 13.1,15ZM11,17 13,17 13,19 11,19Z</Geometry>
     <Geometry x:Key="IconPlus">M11,4 13,4 13,11 20,11 20,13 13,13 13,20 11,20 11,13 4,13 4,11 11,11Z</Geometry>
 
-    <Style x:Key="NavVectorIcon" TargetType="Path"><Setter Property="Width" Value="22" /><Setter Property="Height" Value="22" /><Setter Property="Stretch" Value="Uniform" /><Setter Property="Fill" Value="{StaticResource InkBrush}" /><Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
-    <Style x:Key="ToolbarVectorIcon" TargetType="Path"><Setter Property="Width" Value="19" /><Setter Property="Height" Value="19" /><Setter Property="Stretch" Value="Uniform" /><Setter Property="Fill" Value="{StaticResource InkBrush}" /><Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+    <Style x:Key="NavVectorIcon" TargetType="Path"><Setter Property="Width" Value="18" /><Setter Property="Height" Value="18" /><Setter Property="Stretch" Value="Uniform" /><Setter Property="Fill" Value="{StaticResource RailMutedBrush}" /><Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
+    <Style x:Key="ToolbarVectorIcon" TargetType="Path"><Setter Property="Width" Value="18" /><Setter Property="Height" Value="18" /><Setter Property="Stretch" Value="Uniform" /><Setter Property="Fill" Value="{StaticResource InkSecondaryBrush}" /><Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" /></Style>
 </ResourceDictionary>

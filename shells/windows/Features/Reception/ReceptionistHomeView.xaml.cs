@@ -74,6 +74,9 @@ public partial class ReceptionistHomeView : UserControl
     {
         InitializeComponent();
         ReceptionHome.SearchCleared += () => { ReceptionistTitleBar.SearchBox.Clear(); ReceptionistTitleBar.SearchBox.Focus(); };
+        // Reception has no approval inbox; its quotations list shows the waiting quotations.
+        ReceptionHome.ApprovalsRequested += () => Navigate("عروض الأسعار");
+        ReceptionHome.StageRequested += Navigate;
         ((Button)ReceptionistSidebar.FindName("OrdersNavButton")).Visibility = Visibility.Visible;
         ReceptionQuotations.CustomerRequested += id => _ = OpenQuotationCustomerAsync(id);
     }

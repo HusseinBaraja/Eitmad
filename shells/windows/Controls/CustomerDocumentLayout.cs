@@ -14,9 +14,9 @@ namespace Eitmad.WindowsShell.Controls;
 internal static class CustomerDocumentLayout
 {
     internal const string ItemsTag = "CustomerDocumentItems";
-    internal static Brush Accent => Application.Current?.TryFindResource("CopperBrush") as Brush ?? Brushes.Black;
+    internal static Brush Accent => Application.Current?.TryFindResource("AccentBrush") as Brush ?? Brushes.Black;
     internal static Brush Line => Application.Current?.TryFindResource("LineBrush") as Brush ?? Brushes.LightGray;
-    internal static Brush Tint => Application.Current?.TryFindResource("CopperTintBrush") as Brush ?? Brushes.Gainsboro;
+    internal static Brush Tint => Application.Current?.TryFindResource("AccentSoftBrush") as Brush ?? Brushes.Gainsboro;
 
     internal static FlowDocument Create(string title, string? number) => new() {
         FlowDirection = FlowDirection.RightToLeft, Language = System.Windows.Markup.XmlLanguage.GetLanguage("ar-YE"),

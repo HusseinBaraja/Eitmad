@@ -17,6 +17,9 @@ public partial class App : System.Windows.Application
             Eitmad.Platform.Windows.Diagnostics.LocalDiagnostics.Stop();
         };
         base.OnStartup(e);
+        // Every window, including ad-hoc review and print windows, inherits the bundled UI font.
+        System.Windows.Documents.TextElement.FontFamilyProperty.OverrideMetadata(typeof(Window),
+            new FrameworkPropertyMetadata((System.Windows.Media.FontFamily)FindResource("UiFont")));
         var bridge = WindowsEngineBridge.Create(e.Args);
         var sessions = new Features.Authentication.DesktopSessionController(bridge);
         var window = CreateWindow(sessions);

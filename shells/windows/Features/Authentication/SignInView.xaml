@@ -47,18 +47,21 @@
             <Rectangle>
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#1A201713" />
-                        <GradientStop Color="#D92B170A" Offset="1" />
+                        <GradientStop Color="#002E211A" Offset="0.35" />
+                        <GradientStop Color="#E62E211A" Offset="1" />
                     </LinearGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
             <StackPanel Margin="44" VerticalAlignment="Bottom" FlowDirection="RightToLeft">
-                <Border Width="54" Height="4" CornerRadius="2" Background="#E5B277" HorizontalAlignment="Right" Margin="0,0,0,18" />
-                <TextBlock Text="عملٌ منظّم يبدأ من هنا"
+                <Border Width="54" Height="4" CornerRadius="2" Background="{StaticResource BrassBrush}" HorizontalAlignment="Right" Margin="0,0,0,18" />
+                <TextBlock Text="من عرض السعر إلى الورشة"
                            Foreground="White"
                            FontSize="28"
-                           FontWeight="Bold"
-                           TextAlignment="Right" />
+                           FontWeight="SemiBold" />
+                <TextBlock Text="المبيعات والطلبات وأوامر العمل في مكان واحد."
+                           Foreground="{StaticResource RailTextBrush}"
+                           FontSize="{StaticResource FontSizeSubtitle}"
+                           Margin="0,6,0,0" />
             </StackPanel>
         </Grid>
 
@@ -67,7 +70,7 @@
                       HorizontalScrollBarVisibility="Disabled"
                       PanningMode="VerticalOnly"
                       VerticalContentAlignment="Stretch"
-                      Background="#FFFDFC">
+                      Background="{StaticResource PanelBrush}">
             <Grid FlowDirection="RightToLeft">
                 <StackPanel MaxWidth="420" HorizontalAlignment="Stretch" VerticalAlignment="Center">
                     <StackPanel.Style>
@@ -90,12 +93,12 @@
                             </Canvas>
                         </Viewbox>
                         <StackPanel Margin="12,-3,0,0">
-                            <TextBlock Text="الاعتماد" FontSize="25" FontWeight="Bold" Foreground="#704019" />
-                            <TextBlock Text="لصناعة الأثاث" FontSize="11" Foreground="#704019" Margin="1,-3,0,0" />
+                            <TextBlock Text="الاعتماد" FontSize="25" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                            <TextBlock Text="لصناعة الأثاث" FontSize="11" Foreground="{StaticResource AccentBrush}" Margin="1,-3,0,0" />
                         </StackPanel>
                     </StackPanel>
 
-                    <TextBlock Text="تسجيل الدخول" FontSize="30" FontWeight="Bold" Margin="0,24,0,24" />
+                    <TextBlock Text="تسجيل الدخول" FontSize="26" FontWeight="SemiBold" Margin="0,32,0,24" />
                     <authentication:ServerSelectionView x:Name="ServerSelection" Visibility="Collapsed" Margin="0,0,0,20"/>
                     <Button x:Name="ReconnectButton" Content="فحص إعداد الاتصال" Style="{StaticResource SecondaryButton}" Click="ReconnectClick" Margin="0,0,0,16" AutomationProperties.Name="فحص إعداد الاتصال المحفوظ أو ربط جهاز"/>
                     <TextBlock x:Name="ConnectionStatus" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,12" automation:AutomationProperties.LiveSetting="Polite"/>
@@ -103,7 +106,7 @@
                     <controls:FormField Label="اسم المستخدم" IsRequired="True">
                         <TextBox x:Name="UsernameBox"
                                  Style="{StaticResource TextInput}"
-                                 Height="48"
+                                 Height="44"
                                  Padding="14,0"
                                  FontSize="14"
                                  FlowDirection="RightToLeft"
@@ -117,7 +120,7 @@
                                 <ControlTemplate TargetType="TextBox">
                                     <Border x:Name="UsernameChrome" Background="{TemplateBinding Background}"
                                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
-                                            CornerRadius="8">
+                                            CornerRadius="6">
                                         <!-- WPF applies TextBox.Padding to this host; the border must not repeat it. -->
                                         <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"
                                                       Focusable="False" HorizontalScrollBarVisibility="Hidden"
@@ -125,11 +128,11 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="#A35E1E" />
+                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                                             <Setter TargetName="UsernameChrome" Property="BorderThickness" Value="1.5" />
                                         </Trigger>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="UsernameChrome" Property="Background" Value="#FFFEFC" />
+                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="#A39B93" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -138,7 +141,21 @@
                     </controls:FormField>
 
                     <controls:FormField Label="كلمة المرور" IsRequired="True" Margin="0,17,0,0">
-                        <Border Height="48" Background="White" BorderBrush="#D8D1CA" BorderThickness="1" CornerRadius="8">
+                        <Border Height="44" Background="{StaticResource PanelBrush}" BorderThickness="1" CornerRadius="6">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="{StaticResource LineStrongBrush}" />
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="BorderBrush" Value="#A39B93" />
+                                        </Trigger>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="BorderThickness" Value="1.5" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <PasswordBox x:Name="PasswordInput"
                                          Background="Transparent"
                                          BorderThickness="0"
@@ -153,7 +170,7 @@
                     </controls:FormField>
 
                     <TextBlock Text="يتطلب الدخول والعمل اتصالًا بالخادم. تبقى بياناتك محفوظة عند انقطاع الاتصال."
-                               TextWrapping="Wrap" Margin="0,12,0,0" />
+                               TextWrapping="Wrap" Margin="0,12,0,0" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource MutedBrush}" />
                     <Expander x:Name="ConnectionSetup" Header="إعداد اتصال يدوي للتشخيص" Margin="0,12,0,0"
                               automation:AutomationProperties.Name="إعداد اتصال المنشأة">
                         <StackPanel Margin="0,12,0,0">
@@ -186,22 +203,22 @@
                                TextWrapping="Wrap"
                                Text="بيانات الدخول غير صحيحة."
                                Foreground="{StaticResource DangerBrush}"
-                               FontSize="11"
+                               FontSize="{StaticResource FontSizeSmall}"
                                Margin="0,10,0,0"
                                Visibility="Collapsed"
                                automation:AutomationProperties.LiveSetting="Assertive" />
 
                     <Button x:Name="SignInButton"
                             Content="دخول"
-                            Height="48"
-                            Margin="0,18,0,0"
+                            Height="44"
+                            Margin="0,20,0,0"
                             Style="{StaticResource PrimaryButton}"
                             FontSize="14"
                             Click="SignInClick"
                             automation:AutomationProperties.Name="تسجيل الدخول" />
                     <TextBlock x:Name="SignInProgress" Text="يتم التحقق من الحساب وإنشاء جلسة آمنة…"
                                TextWrapping="Wrap"
-                               Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" FontSize="11"
+                               Visibility="Collapsed" Foreground="{StaticResource MutedBrush}" FontSize="{StaticResource FontSizeSmall}"
                                Margin="0,12,0,0" TextAlignment="Center"
                                automation:AutomationProperties.LiveSetting="Polite" />
                 </StackPanel>
