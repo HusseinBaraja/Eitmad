@@ -56,7 +56,8 @@ public partial class MainWindow : Window
             if (destination is not null) OpenManagerDestination(destination);
         };
         ManagerHome.ApprovalsRequested += () => OpenManagerDestination("الموافقات");
-        ManagerHome.StageRequested += OpenManagerDestination;
+        ManagerHome.QuotationsRequested += () => { QuotationsSurface.ViewModel.OpenQuotationList(); OpenManagerDestination("عروض الأسعار"); };
+        ManagerHome.OrdersRequested += status => { OrdersSurface.ViewModel.OpenOrderList(status); OpenManagerDestination("الطلبات"); };
         ManagerHome.SearchCleared += () => { ManagerTitleBar.SearchBox.Clear(); ManagerTitleBar.SearchBox.Focus(); };
         if (preview && engine is null) {
             QuotationsSurface.UsePreviewFixtures(); OrdersSurface.UsePreviewFixtures(); WorkOrdersSurface.UsePreviewFixtures();

@@ -59,7 +59,7 @@
         <ScrollViewer x:Name="HomeContent" Grid.Row="1" Grid.Column="0" FlowDirection="RightToLeft" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
             <StackPanel Margin="24,20,24,28">
                 <!-- The receptionist's main job starts here: a new quotation for the customer at the desk. -->
-                <Border x:Name="StartPanel" Style="{StaticResource Card}" Padding="24,20" Margin="0,0,0,16">
+                <Border Style="{StaticResource Card}" Padding="24,20" Margin="0,0,0,16">
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">

@@ -22,5 +22,6 @@
     <Resource Include="Resources\ShowroomHero.png" />
     <!-- IBM Plex Sans Arabic (SIL OFL 1.1, Resources\Fonts\OFL.txt): bundled so Arabic shaping and weights match on every workstation. -->
     <Resource Include="Resources\Fonts\*.ttf" />
+    <None Update="Resources\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -12,29 +12,28 @@
     <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Columns" Value="2"/></DataTrigger>
    </Style.Triggers>
   </Style>
-  <Style x:Key="PipelineStage" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+  <!-- A flat row inside a card: the card owns the frame, the row only tints on hover. -->
+  <Style x:Key="HomeSurfaceButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
    <Setter Property="Background" Value="Transparent"/>
    <Setter Property="BorderThickness" Value="0"/>
-   <Setter Property="Padding" Value="20,16"/>
    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-   <Setter Property="VerticalContentAlignment" Value="Stretch"/>
    <Setter Property="controls:ControlOptions.CornerRadius" Value="0"/>
    <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSoftBrush}"/>
   </Style>
-  <Style x:Key="StageLabel" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-   <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}"/>
-   <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
-   <Setter Property="TextWrapping" Value="NoWrap"/>
-   <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+  <Style x:Key="PipelineStage" TargetType="Button" BasedOn="{StaticResource HomeSurfaceButton}">
+   <Setter Property="Padding" Value="20,16"/>
+   <Setter Property="VerticalContentAlignment" Value="Stretch"/>
   </Style>
   <!-- Counts are LTR numerals placed at the reading start under their label. -->
-  <Style x:Key="StageCount" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+  <Style x:Key="StageCount" TargetType="TextBlock" BasedOn="{StaticResource ButtonText}">
    <Setter Property="FontSize" Value="{StaticResource FontSizeDisplay}"/>
    <Setter Property="FontWeight" Value="SemiBold"/>
    <Setter Property="FlowDirection" Value="LeftToRight"/>
    <Setter Property="HorizontalAlignment" Value="Left"/>
    <Setter Property="Margin" Value="0,2,0,0"/>
-   <Setter Property="TextWrapping" Value="NoWrap"/>
+  </Style>
+  <Style x:Key="ReadyCount" TargetType="TextBlock" BasedOn="{StaticResource StageCount}">
+   <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
   </Style>
   <!-- The chevron between stages points along the reading direction to the next stage. -->
   <Style x:Key="StageConnector" TargetType="Path">
@@ -54,19 +53,15 @@
    </Style.Triggers>
   </Style>
   <Style x:Key="HomeSectionMessage" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-   <Setter Property="Margin" Value="20,4,20,18"/><Setter Property="TextWrapping" Value="Wrap"/>
+   <Setter Property="Margin" Value="20,4,20,18"/>
    <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
    <Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger></Style.Triggers>
   </Style>
   <Style x:Key="PanelHeading" TargetType="TextBlock" BasedOn="{StaticResource SectionTitle}">
    <Setter Property="Margin" Value="20,16,20,12"/>
   </Style>
-  <Style x:Key="HomeRecordButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
-   <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+  <Style x:Key="HomeRecordButton" TargetType="Button" BasedOn="{StaticResource HomeSurfaceButton}">
    <Setter Property="Padding" Value="20,10"/>
-   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-   <Setter Property="controls:ControlOptions.CornerRadius" Value="0"/>
-   <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSoftBrush}"/>
   </Style>
   <DataTemplate x:Key="HomeRecordContent">
    <Grid>
@@ -90,7 +85,6 @@
   </DataTemplate>
   <!-- Two working lists side by side; one column when the window is narrow. -->
   <Style x:Key="ReadyPanelPlacement" TargetType="Border" BasedOn="{StaticResource Card}">
-   <Setter Property="Grid.Column" Value="0"/>
    <Style.Triggers>
     <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}"><Setter Property="Grid.ColumnSpan" Value="3"/></DataTrigger>
    </Style.Triggers>
@@ -106,28 +100,28 @@
  </UserControl.Resources>
  <StackPanel>
   <!-- Pipeline band -->
-  <Border x:Name="PipelinePanel" Style="{StaticResource Card}">
+  <Border Style="{StaticResource Card}">
    <UniformGrid x:Name="MetricsGrid" Style="{StaticResource PipelineBand}" Margin="1">
     <Grid>
-     <Button x:Name="QuotationsAction" Style="{StaticResource PipelineStage}" Tag="عروض الأسعار" Click="StageClick" AutomationProperties.Name="{Binding OpenCount, StringFormat='عروض أسعار مفتوحة: {0}', FallbackValue='عروض أسعار مفتوحة'}">
-      <StackPanel><TextBlock Text="عروض أسعار مفتوحة" Style="{StaticResource StageLabel}"/><TextBlock Text="{Binding OpenCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
+     <Button x:Name="QuotationsAction" Style="{StaticResource PipelineStage}" Click="QuotationsClick" AutomationProperties.Name="{Binding OpenCount, StringFormat='عروض أسعار مفتوحة: {0}', FallbackValue='عروض أسعار مفتوحة'}">
+      <StackPanel><TextBlock Text="عروض أسعار مفتوحة" Style="{StaticResource ButtonMutedText}"/><TextBlock Text="{Binding OpenCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
      </Button>
      <Path Style="{StaticResource StageConnector}"/>
     </Grid>
     <Grid>
-     <Button Style="{StaticResource PipelineStage}" Tag="الموافقات" Click="ApprovalsClick" AutomationProperties.Name="{Binding ApprovalCount, StringFormat='بانتظار الموافقة: {0}', FallbackValue='بانتظار الموافقة'}">
-      <StackPanel><TextBlock Text="بانتظار الموافقة" Style="{StaticResource StageLabel}"/><TextBlock Text="{Binding ApprovalCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
+     <Button x:Name="ApprovalsAction" Style="{StaticResource PipelineStage}" Click="ApprovalsClick" AutomationProperties.Name="{Binding ApprovalCount, StringFormat='بانتظار الموافقة: {0}', FallbackValue='بانتظار الموافقة'}">
+      <StackPanel><TextBlock Text="بانتظار الموافقة" Style="{StaticResource ButtonMutedText}"/><TextBlock Text="{Binding ApprovalCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
      </Button>
      <Path Style="{StaticResource StageConnector}"/>
     </Grid>
     <Grid>
-     <Button x:Name="OrdersAction" Style="{StaticResource PipelineStage}" Tag="الطلبات" Click="StageClick" AutomationProperties.Name="{Binding OrderCount, StringFormat='طلبات قيد التنفيذ: {0}', FallbackValue='طلبات قيد التنفيذ'}">
-      <StackPanel><TextBlock Text="طلبات قيد التنفيذ" Style="{StaticResource StageLabel}"/><TextBlock Text="{Binding OrderCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
+     <Button x:Name="OrdersAction" Style="{StaticResource PipelineStage}" Click="OrdersClick" AutomationProperties.Name="{Binding OrderCount, StringFormat='طلبات قيد التنفيذ: {0}', FallbackValue='طلبات قيد التنفيذ'}">
+      <StackPanel><TextBlock Text="طلبات قيد التنفيذ" Style="{StaticResource ButtonMutedText}"/><TextBlock Text="{Binding OrderCount, FallbackValue=—}" Style="{StaticResource StageCount}"/></StackPanel>
      </Button>
      <Path Style="{StaticResource StageConnector}"/>
     </Grid>
-    <Button Style="{StaticResource PipelineStage}" Tag="الطلبات" Click="StageClick" AutomationProperties.Name="{Binding ReadyCount, StringFormat='طلبات جاهزة للعميل: {0}', FallbackValue='طلبات جاهزة للعميل'}">
-     <StackPanel><TextBlock Text="جاهزة للعميل" Style="{StaticResource StageLabel}"/><TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource StageCount}" Foreground="{StaticResource SuccessBrush}"/></StackPanel>
+    <Button x:Name="ReadyAction" Style="{StaticResource PipelineStage}" Click="ReadyOrdersClick" AutomationProperties.Name="{Binding ReadyCount, StringFormat='طلبات جاهزة للعميل: {0}', FallbackValue='طلبات جاهزة للعميل'}">
+     <StackPanel><TextBlock Text="جاهزة للعميل" Style="{StaticResource ButtonMutedText}"/><TextBlock Text="{Binding ReadyCount, FallbackValue=—}" Style="{StaticResource ReadyCount}"/></StackPanel>
     </Button>
    </UniformGrid>
   </Border>
@@ -143,7 +137,7 @@
      <ItemsControl ItemsSource="{Binding ReadyOrders}" ItemTemplate="{StaticResource HomeRecord}" Focusable="False"/>
     </StackPanel>
    </Border>
-   <Border x:Name="ActivityPanel" Style="{StaticResource ActivityPanelPlacement}" VerticalAlignment="Top">
+   <Border Style="{StaticResource ActivityPanelPlacement}" VerticalAlignment="Top">
     <StackPanel>
      <Grid>
       <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

@@ -9,9 +9,9 @@ public partial class HomeView : UserControl
     public HomeView() => InitializeComponent();
     public event Action<HomeRow>? OpenRequested;
     public event Action? ApprovalsRequested;
+    public event Action<string>? OrdersRequested;
     public event Action? SearchCleared;
-    // A pipeline stage asks the host to open its destination; the host owns navigation.
-    public event Action<string>? StageRequested;
+    public event Action? QuotationsRequested;
     private void ClearSearchClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is not HomeViewModel home) return;
@@ -19,7 +19,9 @@ public partial class HomeView : UserControl
         SearchCleared?.Invoke();
     }
     private void ApprovalsClick(object sender, RoutedEventArgs e) => ApprovalsRequested?.Invoke();
-    private void StageClick(object sender, RoutedEventArgs e) { if (sender is Button { Tag: string destination }) StageRequested?.Invoke(destination); }
+    private void OrdersClick(object sender, RoutedEventArgs e) => OrdersRequested?.Invoke(Orders.OrdersViewModel.AllStatuses);
+    private void ReadyOrdersClick(object sender, RoutedEventArgs e) => OrdersRequested?.Invoke(Orders.OrdersViewModel.ReadyStatus);
+    private void QuotationsClick(object sender, RoutedEventArgs e) => QuotationsRequested?.Invoke();
     private void RefreshClick(object sender, RoutedEventArgs e) { if (DataContext is HomeViewModel home) home.Refresh(); }
     private void OpenClick(object sender, RoutedEventArgs e) { if (sender is Button { DataContext: HomeRow row }) OpenRequested?.Invoke(row); }
 }

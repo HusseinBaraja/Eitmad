@@ -13,7 +13,7 @@
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="TextWrapping" Value="NoWrap" />
         </Style>
-        <Style x:Key="ResponsivePageMargin" TargetType="ScrollViewer">
+        <Style x:Key="ResponsivePageMargin" TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
             <Setter Property="Padding" Value="32,24,32,32" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}">

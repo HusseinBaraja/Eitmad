@@ -34,7 +34,7 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-            <Border x:Name="SearchField" Height="38" MaxWidth="560" HorizontalAlignment="Stretch" CornerRadius="6" BorderThickness="1">
+            <Border Height="38" MaxWidth="560" HorizontalAlignment="Stretch" CornerRadius="6" BorderThickness="1">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Grid.Column" Value="2" />

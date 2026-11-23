@@ -124,7 +124,7 @@ public sealed class MainWindowRenderedTests
             WpfTestHost.CompleteLayout(window);
 
             AssertSelectedNavigationContrast(furnitureButton);
-            Assert.AreEqual(Colors.Transparent, ((SolidColorBrush)homeButton.Background).Color);
+            Assert.AreEqual(Colors.Transparent, ((SolidColorBrush)((Border)homeButton.Template.FindName("Surface", homeButton)).Background).Color);
             Assert.IsFalse(ControlOptions.GetIsCurrent(homeButton));
             AssertUnselectedNavigationContrast(homeButton);
         });

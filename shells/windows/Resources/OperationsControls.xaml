@@ -10,14 +10,11 @@
         <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
     <Style x:Key="FormCheckBox" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Padding" Value="6,4,0,4" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="ContentTemplate">
             <Setter.Value>
                 <DataTemplate>
@@ -31,8 +28,6 @@
         <Setter Property="MinHeight" Value="40" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-        <Setter Property="CaretBrush" Value="{DynamicResource InkBrush}" />
-        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
         <Setter Property="FontSize" Value="14" />
@@ -53,7 +48,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Path x:Name="InputIcon" Data="{Binding Path=(controls:ControlOptions.Icon), RelativeSource={RelativeSource TemplatedParent}}" Width="17" Height="17" Stretch="Uniform" Fill="{TemplateBinding Foreground}" Margin="0,0,12,0" VerticalAlignment="Center" IsHitTestVisible="False" />
-                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Focusable="False" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" />
+                            <ScrollViewer x:Name="PART_ContentHost" Style="{x:Null}" Grid.Column="1" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Focusable="False" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" />
                             <TextBlock x:Name="Placeholder" Grid.Column="1" Text="{Binding Path=(controls:ControlOptions.Placeholder), RelativeSource={RelativeSource TemplatedParent}}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" IsHitTestVisible="False" Visibility="Collapsed" />
                         </Grid>
                     </Border>
@@ -260,13 +255,10 @@
         <Setter Property="Height" Value="34" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="MinHeight" Value="0" />
-        <Setter Property="controls:ControlOptions.CornerRadius" Value="6" />
         <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSoftBrush}" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Padding" Value="0" />
     </Style>
     <Style x:Key="ActionMenu" TargetType="ContextMenu">
@@ -347,14 +339,9 @@
     </Style>
     <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
         <Setter Property="Padding" Value="16,6" />
-        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource LineStrongBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="controls:ControlOptions.CornerRadius" Value="6" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="UseLayoutRounding" Value="True" />
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSoftBrush}" />
         <Setter Property="controls:ControlOptions.HoverBorderBrush" Value="#A39B93" />
@@ -366,9 +353,6 @@
         <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
         <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="controls:ControlOptions.CornerRadius" Value="6" />
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSelectedBrush}" />
@@ -384,9 +368,7 @@
         <Setter Property="controls:ControlOptions.HoverBackground" Value="{StaticResource AccentSoftBrush}" />
         <Setter Property="HorizontalContentAlignment" Value="Right" />
         <Setter Property="Padding" Value="11,6" />
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style x:Key="SearchInput" TargetType="TextBox" BasedOn="{StaticResource TextInput}">
         <Setter Property="FlowDirection" Value="RightToLeft" />
@@ -420,11 +402,7 @@
         <Setter Property="TextAlignment" Value="Right" />
     </Style>
     <Style x:Key="ChoiceRadio" TargetType="RadioButton" BasedOn="{StaticResource {x:Type RadioButton}}">
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize" Value="14" />
         <Setter Property="Margin" Value="0,0,16,0" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style TargetType="controls:PageHeader">
         <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />

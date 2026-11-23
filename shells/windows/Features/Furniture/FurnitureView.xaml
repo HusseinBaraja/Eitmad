@@ -410,7 +410,7 @@
             </Border>
             <ScrollViewer x:Name="EditorBody" IsEnabled="{Binding CanEditFields}" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <ScrollViewer.Style>
-                    <Style TargetType="ScrollViewer">
+                    <Style TargetType="ScrollViewer" BasedOn="{StaticResource {x:Type ScrollViewer}}">
                         <Setter Property="Padding" Value="28,22" />
                         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
                         <Style.Triggers>

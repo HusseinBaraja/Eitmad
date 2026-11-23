@@ -15,7 +15,6 @@
     <TextBox x:Name="SearchInput" Style="{StaticResource SearchInput}" controls:ControlOptions.Placeholder="ابحث بالاسم أو رقم الهاتف" Text="{Binding Term, UpdateSourceTrigger=PropertyChanged}" KeyDown="SearchKeyDown" AutomationProperties.Name="بحث العملاء بالاسم أو الهاتف" MinWidth="100"/>
     <Button Grid.Column="1" Content="بحث" Style="{StaticResource PrimaryButton}" Click="SearchClick" Margin="8,0,0,0" AutomationProperties.Name="بحث العملاء في فروع المؤسسة"/>
    </Grid>
-   <!-- One white list surface with hairline rows: name first, then the phone and address a receptionist would confirm. -->
    <Border Grid.Row="1" Style="{StaticResource Card}">
     <ListBox x:Name="Results" ItemsSource="{Binding Rows}" Background="Transparent" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Continue" AutomationProperties.Name="نتائج العملاء في الفروع المصرح بها">
      <ListBox.ItemContainerStyle>
@@ -31,14 +30,16 @@
       </Style>
      </ListBox.ItemContainerStyle>
      <ListBox.ItemTemplate><DataTemplate><Button Click="OpenClick" Style="{StaticResource ActionButton}" Background="Transparent" BorderThickness="0" Padding="20,12" HorizontalContentAlignment="Stretch" controls:ControlOptions.CornerRadius="0" controls:ControlOptions.HoverBackground="{StaticResource AccentSoftBrush}" AutomationProperties.Name="{Binding Name}">
-      <Grid>
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <StackPanel>
-        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-        <TextBlock Text="{Binding Address}" FontSize="{StaticResource FontSizeSmall}" Foreground="{DynamicResource MutedBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-       </StackPanel>
-       <TextBlock Grid.Column="1" Text="{Binding Phone}" FlowDirection="LeftToRight" Foreground="{DynamicResource InkSecondaryBrush}" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="NoWrap"/>
-      </Grid>
+      <StackPanel>
+       <TextBlock Text="{Binding Name}" Style="{StaticResource ButtonText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding Phone}" Style="{StaticResource ButtonText}" FlowDirection="LeftToRight" HorizontalAlignment="Left" TextWrapping="Wrap" Margin="0,2,0,0"/>
+       <TextBlock Text="{Binding Address}" Style="{StaticResource ButtonMutedText}" Margin="0,2,0,0"/>
+       <Grid Margin="0,2,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <TextBlock Text="الفرع" Style="{StaticResource ButtonMutedText}" Margin="0,0,6,0"/>
+        <TextBlock Grid.Column="1" Text="{Binding Scope.Id}" Style="{StaticResource ButtonMutedText}" FlowDirection="LeftToRight" HorizontalAlignment="Left" TextWrapping="Wrap"/>
+       </Grid>
+      </StackPanel>
      </Button></DataTemplate></ListBox.ItemTemplate>
     </ListBox>
    </Border>

@@ -6,27 +6,22 @@
              FlowDirection="RightToLeft"
              Language="ar-YE">
     <UserControl.Resources>
-        <Style x:Key="SidebarNavText" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-            <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Style x:Key="RailText" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
             <Setter Property="Foreground" Value="{StaticResource RailTextBrush}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="12,0,0,0" />
-            <Setter Property="FlowDirection" Value="RightToLeft" />
             <Setter Property="TextWrapping" Value="NoWrap" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
+                <Trigger Property="controls:ControlOptions.HighContrast" Value="True"><Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" /></Trigger>
             </Style.Triggers>
         </Style>
-        <!-- Group names follow the work: selling, making, what is sold, and who can use the system. -->
-        <Style x:Key="SidebarGroup" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Style x:Key="RailMutedText" TargetType="TextBlock" BasedOn="{StaticResource RailText}">
             <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
-            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{StaticResource RailMutedBrush}" />
+        </Style>
+        <!-- Group names follow the work: selling, making, what is sold, and who can use the system. -->
+        <Style x:Key="SidebarGroup" TargetType="TextBlock" BasedOn="{StaticResource RailMutedText}">
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Margin" Value="24,14,24,4" />
-            <Setter Property="TextWrapping" Value="NoWrap" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -46,7 +41,9 @@
             <Setter Property="Margin" Value="18,8" />
             <Setter Property="Background" Value="#3DFFFFFF" />
             <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
             <Style.Triggers>
+                <Trigger Property="controls:ControlOptions.HighContrast" Value="True"><Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}" /></Trigger>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Compact}">
                     <Setter Property="Visibility" Value="Visible" />
                 </DataTrigger>
@@ -67,7 +64,7 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <Border x:Name="Sidebar" Background="{StaticResource RailBrush}">
+    <Border x:Name="Sidebar">
         <Border.Resources>
             <!-- Scroll thumbs on the walnut rail use a walnut tone instead of the light-surface grey. -->
             <SolidColorBrush x:Key="ScrollThumbBrush" Color="#5C493D" />
@@ -77,6 +74,7 @@
         <Border.Style>
             <Style TargetType="Border">
                 <Setter Property="Width" Value="236" />
+                <Setter Property="Background" Value="{StaticResource RailBrush}" />
                 <Setter Property="controls:ControlOptions.HighContrast" Value="{DynamicResource {x:Static SystemParameters.HighContrastKey}}" />
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=(layout:ResponsiveLayout.Mode)}" Value="{x:Static layout:ResponsiveLayoutMode.Standard}"><Setter Property="Width" Value="212" /></DataTrigger>
@@ -98,7 +96,7 @@
                     </Style>
                 </Grid.Style>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                <Viewbox x:Name="BrandMark" Grid.Column="0" Width="40" Height="34" VerticalAlignment="Center" Stretch="Uniform">
+                <Viewbox Grid.Column="0" Width="40" Height="34" VerticalAlignment="Center" Stretch="Uniform">
                     <Viewbox.Style>
                         <Style TargetType="Viewbox">
                             <Style.Triggers>
@@ -122,35 +120,35 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <TextBlock Text="الاعتماد" FontSize="20" FontWeight="Bold" Foreground="{StaticResource RailTextBrush}" TextWrapping="NoWrap" />
-                    <TextBlock Text="لصناعة الأثاث" FontSize="{StaticResource FontSizeCaption}" Foreground="{StaticResource RailMutedBrush}" Margin="0,-3,0,0" TextWrapping="NoWrap" />
+                    <TextBlock Text="الاعتماد" FontSize="20" FontWeight="Bold" Style="{StaticResource RailText}" />
+                    <TextBlock Text="لصناعة الأثاث" Style="{StaticResource RailMutedText}" Margin="0,-3,0,0" />
                 </StackPanel>
             </Grid>
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" Focusable="False">
                 <StackPanel x:Name="SidebarNavigation" Margin="0,4,0,12">
-                    <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconHome}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الرئيسية" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="الرئيسية" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconHome}" />
 
                     <TextBlock Text="المبيعات" Style="{StaticResource SidebarGroup}" />
                     <Border Style="{StaticResource CompactGroupRule}" />
-                    <Button x:Name="QuotationsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="عروض الأسعار" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconQuote}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="عروض الأسعار" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="OrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الطلبات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconOrder}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الطلبات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="CustomersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="العملاء" Click="NavigationClick" AutomationProperties.Name="العملاء في فروع المؤسسة"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="العملاء" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="QuotationsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="عروض الأسعار" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconQuote}" />
+                    <Button x:Name="OrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الطلبات" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconOrder}" />
+                    <Button x:Name="CustomersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="العملاء" Click="NavigationClick" AutomationProperties.Name="العملاء في فروع المؤسسة" controls:ControlOptions.Icon="{StaticResource IconUsers}" />
 
                     <TextBlock Text="الإنتاج" Style="{StaticResource ManagerOnlyGroup}" />
                     <Border Style="{StaticResource ManagerOnlyRule}" />
-                    <Button x:Name="WorkOrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="أوامر العمل" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconWorkOrder}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="أوامر العمل" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="MaterialsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الخامات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconMaterials}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الخامات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="PartsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="القطع" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconCut}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="القطع" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="WorkOrdersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="أوامر العمل" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconWorkOrder}" />
+                    <Button x:Name="MaterialsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الخامات" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconMaterials}" />
+                    <Button x:Name="PartsNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="القطع" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconCut}" />
 
                     <TextBlock Text="الكتالوج" Style="{StaticResource SidebarGroup}" />
                     <Border Style="{StaticResource CompactGroupRule}" />
-                    <Button x:Name="FurnitureNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الأثاث" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconFurniture}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="الأثاث" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="PricingNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="التسعير" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconPricing}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="التسعير" Style="{StaticResource SidebarNavText}" /></Grid></Button>
-                    <Button x:Name="ProductsNavButton" Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconProducts}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="المنتجات" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="FurnitureNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="الأثاث" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconFurniture}" />
+                    <Button x:Name="PricingNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="التسعير" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconPricing}" />
+                    <Button x:Name="ProductsNavButton" Style="{StaticResource NavButton}" Tag="المنتجات" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconProducts}" />
 
                     <TextBlock Text="الإدارة" Style="{StaticResource ManagerOnlyGroup}" />
                     <Border Style="{StaticResource ManagerOnlyRule}" />
-                    <Button x:Name="UsersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="المستخدمون" Click="NavigationClick"><Grid FlowDirection="RightToLeft"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition /></Grid.ColumnDefinitions><Path Data="{StaticResource IconUsers}" Style="{StaticResource NavVectorIcon}" /><TextBlock Grid.Column="1" Text="المستخدمون" Style="{StaticResource SidebarNavText}" /></Grid></Button>
+                    <Button x:Name="UsersNavButton" Style="{StaticResource ManagerOnlyNavButton}" Tag="المستخدمون" Click="NavigationClick" controls:ControlOptions.Icon="{StaticResource IconUsers}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

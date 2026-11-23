@@ -12,6 +12,49 @@ namespace Eitmad.WindowsShell.Tests.Rendered;
 public sealed class ReceptionOrdersRenderedTests
 {
     [TestMethod]
+    public void ReceptionPipelineStagesOpenCleanFilteredLists()
+    {
+        WpfTestHost.Run(1338, 900, window =>
+        {
+            var reception = WpfTestHost.FindByName<ReceptionistHomeView>(window, "ReceptionistSurface");
+            reception.Visibility = Visibility.Visible;
+            WpfTestHost.FindByName<Grid>(window, "ResponsiveRoot").Visibility = Visibility.Collapsed;
+            WpfTestHost.CompleteLayout(window);
+            var orders = reception.PreviewOrders.ViewModel;
+            orders.SearchText = "٠٠٠٠٠٠٠٨٥";
+            orders.SelectedDate = OrdersViewModel.LastSevenDays;
+            orders.OpenOrder(orders.VisibleOrders.First());
+
+            Click("ReadyAction");
+            Assert.IsTrue(reception.PreviewOrders.IsVisible);
+            Assert.IsFalse(orders.IsDetailVisible);
+            Assert.AreEqual("", orders.SearchText);
+            Assert.AreEqual(OrdersViewModel.AllDates, orders.SelectedDate);
+            Assert.AreEqual(OrdersViewModel.ReadyStatus, orders.SelectedStatus);
+            Assert.IsTrue(orders.VisibleOrders.Count > 0 && orders.VisibleOrders.All(order => order.IsReady));
+            Click("HomeNavButton");
+            Click("OrdersAction");
+            Assert.AreEqual(OrdersViewModel.AllStatuses, orders.SelectedStatus);
+
+            Click("HomeNavButton");
+            Click("ApprovalsAction");
+            Assert.IsTrue(reception.ReceptionQuotations.IsVisible);
+            Assert.IsTrue(reception.ReceptionQuotations.ViewModel.ApprovalsOnly);
+            reception.ReceptionQuotations.ViewModel.SearchText = "٠٠٠";
+            Click("HomeNavButton");
+            Click("QuotationsAction");
+            Assert.IsFalse(reception.ReceptionQuotations.ViewModel.ApprovalsOnly);
+            Assert.AreEqual("", reception.ReceptionQuotations.ViewModel.SearchText);
+
+            void Click(string name)
+            {
+                WpfTestHost.FindByName<Button>(reception, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                WpfTestHost.CompleteLayout(window);
+            }
+        });
+    }
+
+    [TestMethod]
     public void ReceptionNavigationFiltersReadyAndCustomerDocuments()
     {
         WpfTestHost.Run(1338, 900, window =>

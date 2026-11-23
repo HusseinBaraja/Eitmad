@@ -127,12 +127,12 @@
                                                       VerticalScrollBarVisibility="Hidden" />
                                     </Border>
                                     <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="#A39B93" />
+                                        </Trigger>
                                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
                                             <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                                             <Setter TargetName="UsernameChrome" Property="BorderThickness" Value="1.5" />
-                                        </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="UsernameChrome" Property="BorderBrush" Value="#A39B93" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -141,10 +141,11 @@
                     </controls:FormField>
 
                     <controls:FormField Label="كلمة المرور" IsRequired="True" Margin="0,17,0,0">
-                        <Border Height="44" Background="{StaticResource PanelBrush}" BorderThickness="1" CornerRadius="6">
+                        <Border Height="44" Background="{StaticResource PanelBrush}" CornerRadius="6">
                             <Border.Style>
                                 <Style TargetType="Border">
                                     <Setter Property="BorderBrush" Value="{StaticResource LineStrongBrush}" />
+                                    <Setter Property="BorderThickness" Value="1" />
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter Property="BorderBrush" Value="#A39B93" />

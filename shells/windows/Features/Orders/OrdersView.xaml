@@ -78,9 +78,7 @@
                     <Setter Property="Tone" Value="Success" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsDelivered}" Value="True">
-                    <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource SuccessLineBrush}" />
-                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                    <Setter Property="Tone" Value="Success" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCancelled}" Value="True">
                     <Setter Property="Tone" Value="Danger" />
